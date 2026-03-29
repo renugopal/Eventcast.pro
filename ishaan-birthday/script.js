@@ -192,6 +192,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const img = document.createElement('img');
             img.src = filename;
             img.alt = `Ishaan Moment ${index + 1}`;
+            img.setAttribute('loading', 'lazy');
+            img.style.opacity = '0';
+            img.onload = () => { 
+                img.style.transition = 'opacity 0.8s ease'; 
+                img.style.opacity = '1'; 
+            };
             
             // Lightbox Event
             itemDiv.addEventListener('click', () => {

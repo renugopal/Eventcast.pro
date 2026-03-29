@@ -285,8 +285,7 @@ body {
 .countdown-timer {
   display: flex;
   justify-content: center;
-  gap: 15px;
-  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .time-box {
@@ -294,8 +293,8 @@ body {
   color: var(--gold-light);
   border-radius: 8px;
   border: 1px solid var(--gold);
-  padding: 15px 10px;
-  min-width: 75px;
+  padding: 12px 6px;
+  min-width: 60px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -658,6 +657,23 @@ body {
   
   .gallery-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .countdown-timer {
+    gap: 5px;
+  }
+  
+  .time-box {
+    min-width: 55px;
+    padding: 10px 4px;
+  }
+  
+  .time-value {
+    font-size: 1.5rem;
+  }
+  
+  .time-label {
+    font-size: 0.65rem;
   }
 }
 
