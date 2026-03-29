@@ -1,0 +1,718 @@
+/* Premium Enchanted Jungle & Gold Theme (Section-Wise) */
+:root {
+  /* Colors */
+  --bg-gradient-start: #06140b; /* Midnight jungle green */
+  --bg-gradient-end: #10331f; /* Deep emerald */
+  --gold: #d4af37; /* Metallic gold */
+  --gold-light: #f5dfac;
+  --gold-dark: #b58d24;
+  --card-bg: rgba(253, 251, 247, 0.95); /* Ivory paper/parchment */
+  
+  --text-dark: #1b2e23; /* Very dark rich green for text on cards */
+  --text-light: #fefefe;
+  --dark-green: #0b1c11;
+  
+  --wood-bg: transparent; 
+  --wood-text: var(--gold);
+
+  /* Typography */
+  --font-primary: 'Great Vibes', cursive;
+  --font-secondary: 'Playfair Display', serif;
+  --font-body: 'Nunito', sans-serif;
+
+  /* Shadows & Borders */
+  --border-radius: 12px;
+  --box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* Reset and Base Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--text-dark);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+  background-color: var(--bg-gradient-start); /* Fallback */
+}
+
+/* SECTION-WISE FULL WIDTH BACKGROUNDS */
+.full-section {
+  width: 100%;
+  /* Dynamic Background Styling */
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  display: flex;
+  justify-content: center;
+  padding: 60px 0;
+  position: relative;
+}
+
+.bg-hero {
+  background-image: url('bg_hero.png');
+  background-color: var(--dark-green); 
+  padding-top: 8vh;
+  padding-bottom: 8vh;
+  min-height: 100vh;
+}
+
+.bg-live {
+  background-image: url('bg_live.png');
+  background-color: #11281a; 
+  padding-top: 60px;
+  padding-bottom: 60px;
+}
+
+.bg-wishes {
+  background-image: url('bg_wishes.png');
+  background-color: #fdfbf7; 
+  padding-top: 60px;
+  padding-bottom: 60px;
+}
+
+.bg-gallery {
+  background-image: url('bg_gallery.png');
+  background-color: var(--dark-green);
+  padding-top: 60px;
+  padding-bottom: 80px;
+}
+
+/* Main Layout Wrapper per Section */
+.page-container {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.section {
+  width: 100%;
+}
+
+.white-text {
+  color: var(--text-light);
+}
+
+.title-shadow {
+  text-shadow: 0px 4px 15px rgba(0,0,0,0.6);
+}
+
+.section-title {
+  font-family: var(--font-secondary);
+  font-size: 2.2rem;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 25px;
+  color: var(--gold);
+}
+
+/* Arch Cards for Premium Look */
+.content-card, .hero-card {
+  background: var(--card-bg);
+  border-radius: var(--border-radius);
+  padding: 40px 25px;
+  box-shadow: var(--box-shadow);
+  text-align: center;
+  position: relative;
+  /* The double gold border trick */
+  border: 1px solid var(--gold);
+  outline: 1px solid var(--gold);
+  outline-offset: -8px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 2;
+}
+
+.arch-card {
+  /* Classic invitation dome shape */
+  border-radius: 150px 150px 12px 12px;
+  padding-top: 60px;
+}
+
+.arch-card-bottom {
+  border-radius: 12px 12px 150px 150px;
+  padding-bottom: 60px;
+}
+
+/* Hero Section */
+.hero-section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  padding-top: 20px;
+}
+
+.invitation-intro {
+  font-family: var(--font-secondary);
+  font-style: italic;
+  font-size: 1.2rem;
+  color: var(--gold-dark);
+  margin-bottom: 10px;
+  letter-spacing: 1px;
+}
+
+.child-name {
+  font-family: var(--font-primary);
+  font-size: 4rem;
+  color: var(--text-dark);
+  line-height: 1.1;
+  margin-bottom: 15px;
+  text-shadow: 1px 1px 0 rgba(255,255,255,0.5);
+}
+
+.birthday-title {
+  font-family: var(--font-secondary);
+  font-size: 1.8rem;
+  color: var(--gold-dark);
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  margin-bottom: 25px;
+}
+
+.decorative-divider {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  width: 70%;
+  margin: 25px auto;
+  border: none;
+}
+
+.event-details {
+  font-family: var(--font-body);
+  font-size: 1.1rem;
+  line-height: 1.8;
+  color: var(--text-dark);
+}
+
+.event-date {
+  font-family: var(--font-secondary);
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: var(--dark-green);
+  text-transform: uppercase;
+}
+
+.event-venue {
+  font-size: 1rem;
+  color: #555;
+  margin-top: 10px;
+}
+
+.inviters {
+  font-family: var(--font-secondary);
+  font-size: 1.1rem;
+  color: #333;
+  margin-bottom: 30px;
+  line-height: 1.6;
+}
+
+.invited-by-label {
+  font-style: italic;
+  color: var(--gold-dark);
+  display: block;
+  margin-bottom: 15px;
+}
+
+.elegant-signboard {
+  font-family: var(--font-secondary);
+  font-style: italic;
+  color: var(--text-dark);
+  font-size: 1.1rem;
+  margin-top: 20px;
+}
+
+/* Premium Balloons (Gold, Sage, Ivory) */
+.balloons-container {
+  position: absolute;
+  top: 0;
+  left: -10px;
+  height: 100%;
+  width: 80px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.balloon {
+  width: 40px;
+  height: 50px;
+  border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+  position: absolute;
+  bottom: -60px;
+  opacity: 0.85;
+  animation: floatUp 15s ease-in-out infinite;
+  box-shadow: inset -5px -5px 15px rgba(0,0,0,0.2);
+}
+
+.balloon::after {
+  content: '';
+  position: absolute;
+  bottom: -25px;
+  left: 50%;
+  width: 1px;
+  height: 25px;
+  background: rgba(212, 175, 55, 0.6); /* Gold string */
+  transform: translateX(-50%);
+}
+
+.balloon-light-gold { background: linear-gradient(#f5dfac, #d4af37); left: 10px; animation-duration: 12s; animation-delay: 2s; }
+.balloon-sage { background: linear-gradient(#b2d3c2, #78a18b); left: 40px; animation-duration: 16s; animation-delay: 0s; }
+.balloon-deep-gold { background: linear-gradient(#d4af37, #b58d24); left: 20px; animation-duration: 14s; animation-delay: 5s; }
+.balloon-ivory { background: linear-gradient(#fefefe, #e8dfcc); left: 50px; animation-duration: 18s; animation-delay: 7s; }
+
+@keyframes floatUp {
+  0% { transform: translateY(0) rotate(-5deg); opacity: 0.85; }
+  50% { transform: translateY(-30vh) rotate(5deg); }
+  100% { transform: translateY(-70vh) rotate(-5deg); opacity: 0; }
+}
+
+/* Countdown Card */
+.countdown-card .section-title {
+  color: var(--text-dark);
+  margin-top: -10px;
+}
+
+.countdown-timer {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.time-box {
+  background-color: var(--dark-green);
+  color: var(--gold-light);
+  border-radius: 8px;
+  border: 1px solid var(--gold);
+  padding: 15px 10px;
+  min-width: 75px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+.time-value {
+  font-family: var(--font-secondary);
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.time-label {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 5px;
+  color: var(--gold);
+}
+
+.live-title {
+  font-family: var(--font-secondary);
+  font-size: 2.2rem;
+  color: var(--gold-dark);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Responsive Video Container */
+.video-container {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+  height: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.video-container iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* Livestream Hero */
+.livestream-hero {
+  background: var(--card-bg);
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  text-align: center;
+  position: relative;
+  border: 1px solid var(--gold);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 2;
+  padding-bottom: 30px;
+  overflow: hidden;
+}
+
+/* Form Styles */
+.wishes-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.form-group label {
+  font-family: var(--font-secondary);
+  display: block;
+  margin-bottom: 5px;
+  color: var(--dark-green);
+  text-align: left;
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid rgba(212, 175, 55, 0.5);
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  background: rgba(255,255,255,0.8);
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--gold-dark);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+}
+
+.primary-btn {
+  background-color: var(--dark-green);
+  color: var(--gold-light);
+  border: 1px solid var(--gold);
+  padding: 14px 20px;
+  font-family: var(--font-secondary);
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.primary-btn:hover {
+  background-color: var(--gold-dark);
+  color: white;
+}
+
+/* Wishes List */
+.wishes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 5px;
+  text-align: left;
+}
+
+.wishes-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.wishes-list::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.05);
+}
+
+.wishes-list::-webkit-scrollbar-thumb {
+  background: var(--gold);
+}
+
+.wish-card {
+  background: white;
+  padding: 15px;
+  border-radius: 4px;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-left: 3px solid var(--gold);
+}
+
+.wish-header {
+  font-family: var(--font-secondary);
+  font-weight: 600;
+  color: var(--dark-green);
+  margin-bottom: 5px;
+}
+
+.wish-body {
+  font-size: 0.95rem;
+  color: #555;
+  line-height: 1.5;
+}
+
+/* Gallery Grid (Arch shape for images) */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.gallery-item {
+  background: var(--dark-green);
+  aspect-ratio: 2/3; /* Taller arch ratio */
+  border-radius: 100px 100px 8px 8px; /* Elegant arch shape */
+  border: 2px solid var(--gold);
+  box-shadow: var(--box-shadow);
+  transition: transform 0.4s ease, box-shadow 0.4s;
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+}
+
+.gallery-item::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 94px 94px 4px 4px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.gallery-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+}
+
+.gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Map Section */
+.map-card h2 {
+    color: var(--text-dark);
+}
+
+.map-container {
+  width: 100%;
+  height: 300px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid var(--gold);
+}
+
+.map-container iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* Footer Section */
+.footer-section {
+  text-align: center;
+  color: var(--gold-light);
+}
+
+.studio-logo {
+  width: 50px;
+  height: 50px;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 15px;
+  font-family: var(--font-secondary);
+  font-size: 1.2rem;
+}
+
+.studio-name {
+  font-family: var(--font-body);
+  letter-spacing: 2px;
+  margin-bottom: 2px;
+}
+
+.studio-phone {
+  font-size: 0.95rem;
+  margin-bottom: 20px;
+  color: var(--gold);
+}
+
+.powered-by {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  letter-spacing: 1px;
+}
+
+/* Fade In Animation */
+.fade-in {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 1s ease-out, transform 1s ease-out;
+}
+
+.fade-in.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Confetti (Changed to elegant gold dust) */
+.particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background-color: var(--gold-light);
+  border-radius: 50%;
+  opacity: 0;
+  animation: floatDust linear infinite;
+  box-shadow: 0 0 4px var(--gold);
+}
+
+@keyframes floatDust {
+  0% { transform: translateY(-5vh); opacity: 0; }
+  20% { opacity: 0.8; }
+  80% { opacity: 0.8; }
+  100% { transform: translateY(105vh); opacity: 0; }
+}
+
+/* Status Badge */
+.status-badge {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  margin-top: 15px;
+  border: 1px solid var(--gold);
+}
+
+.live-starting-soon {
+  background-color: var(--card-bg);
+  color: var(--dark-green);
+}
+
+.live-now {
+  background-color: var(--gold);
+  color: var(--dark-green);
+  font-weight: bold;
+  animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 768px) {
+  .full-section {
+    padding: 30px 0;
+  }
+  .bg-hero { padding-top: 60px; }
+  
+  .arch-card {
+    border-radius: 100px 100px 12px 12px;
+  }
+  .arch-card-bottom {
+    border-radius: 12px 12px 100px 100px;
+  }
+  
+  .livestream-hero {
+    margin-left: -20px;
+    margin-right: -20px;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+  
+  .child-name { font-size: 3rem; }
+  .birthday-title { font-size: 1.4rem; }
+  .section-title { font-size: 1.8rem; }
+  
+  .content-card, .hero-card {
+    padding: 40px 15px 30px;
+  }
+  
+  .gallery-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Lightbox Modal */
+.lightbox {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(6, 20, 11, 0.95); /* Deep jungle tint */
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.lightbox.active {
+  display: flex !important;
+}
+
+.lightbox-content {
+  margin: auto;
+  display: block;
+  max-width: 95%;
+  max-height: 90vh;
+  border-radius: 4px;
+  border: 1px solid var(--gold);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+  animation: zoomIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes zoomIn {
+  from {transform: scale(0.9); opacity: 0;}
+  to {transform: scale(1); opacity: 1;}
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 15px;
+  right: 25px;
+  color: var(--gold);
+  font-size: 45px;
+  font-weight: normal;
+  cursor: pointer;
+  transition: 0.3s;
+  z-index: 10000;
+}
+
+.lightbox-close:hover,
+.lightbox-close:focus {
+  color: var(--gold-light);
+  transform: scale(1.1);
+  text-decoration: none;
+}
