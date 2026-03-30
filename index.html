@@ -8,10 +8,8 @@
     <meta name="description"
         content="Premium livestreaming services for weddings, corporate events, sangeeth, and private functions. Capture your family's best moments with multicam setups and professional quality.">
     <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;600;700;800&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" href="favicon.ico" type="image/x-icon">
@@ -44,16 +42,17 @@
     <!-- Hero Section -->
     <header class="hero" id="home">
         <div class="hero-overlay"></div>
-        <div class="hero-content fade-in">
-            <h1>Capture Every Emotion.<br>Share It With The World.</h1>
-            <p class="hero-subtitle">Premium, seamless livestreaming for your family’s most festive and emotional
-                moments.</p>
-            <div class="hero-tags">
-                <span>For Photographers</span> &bull; <span>Event Organizers</span> &bull; <span>Families</span>
-            </div>
+        <!-- Note: Replace this with a cinematic video or high-end image -->
+        <img src="assets/portfolio_wedding_1774734956625.png" alt="Cinematic Wedding" class="hero-bg">
+
+        <div class="hero-content reveal">
+            <div class="hero-tags">Premium &bull; Seamless &bull; Cinematic</div>
+            <h1>Your Event, Broadcast <br><span>Globally</span> in Cinema Quality.</h1>
+            <p class="hero-subtitle">Elevate your celebrations with India's most reliable multicam livestreaming
+                service. We capture the soul of every emotion.</p>
             <div class="hero-actions">
-                <a href="#book" class="btn-primary">Book Your Livestream</a>
-                <a href="#portfolio" class="btn-secondary">View Our Work</a>
+                <a href="#book" class="btn-primary">Book Your Stream</a>
+                <a href="#portfolio" class="btn-secondary">Explore Our Work</a>
             </div>
         </div>
     </header>
@@ -271,7 +270,7 @@
     <footer class="footer">
         <div class="container footer-grid">
             <div class="footer-brand">
-                <img src="assets/eventcast_final_logo.png" alt="Eventcast.pro" width="300">
+                <img src="assets/eventcast_final_logo.png" alt="Eventcast.pro">
                 <p>Premium, seamless, and emotional livestreaming services for life's biggest celebrations.</p>
             </div>
             <div class="footer-links">
@@ -295,6 +294,29 @@
         </div>
     </footer>
 
+    <script>
+        // Smooth Entrance Animations using Intersection Observer
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.service-card, .portfolio-item, .review-card, .reveal, .tech-layout, .form-container').forEach(el => {
+            el.classList.add('slide-up-reveal');
+            observer.observe(el);
+        });
+
+
+    </script>
     <script src="script.js"></script>
 </body>
 

@@ -8,10 +8,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     window.addEventListener('scroll', () => {
         if (window.scrollY > 50) {
-            navbar.style.background = 'rgba(253, 250, 246, 0.95)';
-            navbar.style.boxShadow = '0 5px 20px rgba(0,0,0,0.1)';
+            navbar.style.background = 'rgba(15, 23, 42, 0.95)'; /* Dark blue-black */
+            navbar.style.boxShadow = '0 5px 20px rgba(0,0,0,0.3)';
         } else {
-            navbar.style.background = 'rgba(253, 250, 246, 0.85)';
+            navbar.style.background = 'var(--bg-glass)'; /* Initial dark transparent state */
             navbar.style.boxShadow = '0 4px 30px rgba(0, 0, 0, 0.05)';
         }
     });
@@ -54,10 +54,10 @@ document.addEventListener('DOMContentLoaded', () => {
             navLinks.style.top = '70px';
             navLinks.style.left = '0';
             navLinks.style.width = '100%';
-            navLinks.style.background = '#fdfaf6';
+            navLinks.style.background = 'var(--bg-dark)';
             navLinks.style.padding = '20px 0';
             navLinks.style.textAlign = 'center';
-            navLinks.style.boxShadow = '0 10px 20px rgba(0,0,0,0.1)';
+            navLinks.style.boxShadow = '0 10px 20px rgba(0,0,0,0.3)';
         }
     });
 
