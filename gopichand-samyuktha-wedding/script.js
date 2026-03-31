@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initNavigation();
   initScrollReveal();
   initLivestream();
+  initPetals(); // New falling petals effect
 });
 
 
@@ -386,4 +387,90 @@ function initLivestream() {
     placeholder.querySelector('h3').textContent = 'Stream will appear here';
     placeholder.querySelector('p').textContent = 'Replace YOUR_YOUTUBE_VIDEO_ID in the HTML to activate';
   });
+}
+
+
+/* ══════════════════════════════════════════════════
+   FALLING FLOWER PETALS (CANVAS EFFECT)
+   ══════════════════════════════════════════════════ */
+function initPetals() {
+  const canvas = document.getElementById('petal-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  
+  let petals = [];
+  const petalCount = 45; // Smooth but not overwhelming
+  const colors = ['#FADADD', '#F8C8DC', '#F0D5C8', '#FFFFFF', '#FFD1DC'];
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  class Petal {
+    constructor() {
+      this.reset();
+    }
+    reset() {
+      this.x = Math.random() * canvas.width;
+      this.y = Math.random() * canvas.height - canvas.height;
+      this.size = Math.random() * 10 + 6;
+      this.speedY = Math.random() * 0.8 + 0.4; // Slower vertical speed
+      this.speedX = Math.random() * 1 - 0.5; // Gentler horizontal drift
+      this.swing = Math.random() * 2 + 1;
+      this.swingSpeed = Math.random() * 0.03 + 0.01; // Gentler sway
+      this.angle = Math.random() * Math.PI * 2;
+      this.rotateSpeed = Math.random() * 0.015 - 0.0075; // Slower rotation
+      this.color = colors[Math.floor(Math.random() * colors.length)];
+      this.opacity = Math.random() * 0.5 + 0.3;
+      this.flip = Math.random();
+    }
+    update() {
+      this.y += this.speedY;
+      this.x += this.speedX + Math.sin(this.y * 0.01) * this.swing;
+      this.angle += this.rotateSpeed;
+      if (this.y > canvas.height + this.size) {
+        this.reset();
+        this.y = -this.size;
+      }
+    }
+    draw() {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.rotate(this.angle);
+      ctx.globalAlpha = this.opacity;
+      ctx.fillStyle = this.color;
+      
+      // Draw an organic petal shape (ellipse-like)
+      ctx.beginPath();
+      ctx.ellipse(0, 0, this.size, this.size / (1.5 + this.flip), 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Subtle highlight line on the petal
+      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-this.size/2, 0);
+      ctx.lineTo(this.size/2, 0);
+      ctx.stroke();
+      
+      ctx.restore();
+    }
+  }
+
+  for (let i = 0; i < petalCount; i++) {
+    petals.push(new Petal());
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    petals.forEach(p => {
+      p.update();
+      p.draw();
+    });
+    requestAnimationFrame(animate);
+  }
+  animate();
 }

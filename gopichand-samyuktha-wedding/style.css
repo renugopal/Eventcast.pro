@@ -60,6 +60,17 @@ body {
 img { max-width: 100%; display: block; }
 a { text-decoration: none; color: inherit; }
 
+/* ── Falling Petals Canvas ── */
+#petal-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 9999; /* Over everything but doesn't block clicks */
+  pointer-events: none; /* Crucial: allows clicks to pass through */
+}
+
 /* ── Section Shared ── */
 .section {
   position: relative;
