@@ -16,13 +16,12 @@
   --color-accent-light: #E8C5B5;
   --color-gold: #B8965A;
   --color-gold-light: #D4B87A;
-  --color-gold-gradient: linear-gradient(135deg, #B8965A 0%, #D4B87A 50%, #B8965A 100%);
   --color-blush: #F0D5C8;
   --color-sage: #8FA68A;
   --color-sage-light: #C5D4C2;
   --color-lavender: #C5B3CC;
   --color-white: #FFFFFF;
-  --color-overlay: rgba(253, 248, 244, 0.75);
+  --color-overlay: rgba(253, 248, 244, 0.82);
 
   --font-display: 'Great Vibes', cursive;
   --font-serif: 'Cormorant Garamond', serif;
@@ -31,13 +30,10 @@
   --shadow-soft: 0 4px 30px rgba(74, 55, 40, 0.08);
   --shadow-medium: 0 8px 40px rgba(74, 55, 40, 0.12);
   --shadow-card: 0 2px 20px rgba(74, 55, 40, 0.06);
-  --shadow-glass: 0 8px 32px 0 rgba(168, 115, 97, 0.15);
 
-  --glass-bg: rgba(255, 255, 255, 0.45);
-  --glass-border: rgba(255, 255, 255, 0.4);
-  --radius: 24px;
-  --radius-sm: 12px;
-  --transition: 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  --radius: 16px;
+  --radius-sm: 8px;
+  --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ── Reset & Base ── */
@@ -59,8 +55,6 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
-  width: 100%;
-  -webkit-text-size-adjust: 100%;
 }
 
 img { max-width: 100%; display: block; }
@@ -69,9 +63,8 @@ a { text-decoration: none; color: inherit; }
 /* ── Section Shared ── */
 .section {
   position: relative;
-  padding: 80px 20px;
+  padding: 30px 20px;
   overflow: hidden;
-  width: 100%;
 }
 
 .section-inner {
@@ -129,14 +122,12 @@ a { text-decoration: none; color: inherit; }
    ══════════════════════════════════════════════════ */
 #hero {
   min-height: 100vh;
-  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
   padding: 60px 20px;
   background: var(--color-overlay);
-  overflow: hidden;
 }
 
 .hero-content {
@@ -223,25 +214,11 @@ a { text-decoration: none; color: inherit; }
   margin-left: auto;
   margin-right: auto;
   padding: 35px;
-<<<<<<< HEAD
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-radius: var(--radius);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-glass);
-  opacity: 0;
-  animation: fadeInUp 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) 2s forwards;
-=======
   background: rgba(255, 255, 255, 0.4);
   backdrop-filter: blur(8px);
   border-radius: 50px;
   border: 1px solid rgba(200, 180, 168, 0.2);
   mix-blend-mode: normal;
-<<<<<<< HEAD
->>>>>>> parent of eba560e (wedding mod)
-=======
->>>>>>> parent of eba560e (wedding mod)
 }
 
 .hero-info-item {
@@ -361,15 +338,14 @@ a { text-decoration: none; color: inherit; }
 }
 
 .countdown-item {
-  background: var(--glass-bg);
+  background: rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
+  border: 1px solid rgba(200, 180, 168, 0.2);
   border-radius: var(--radius);
-  padding: 30px 20px;
-  min-width: 120px;
+  padding: 24px 16px;
+  min-width: 100px;
   text-align: center;
-  box-shadow: var(--shadow-glass);
+  box-shadow: var(--shadow-card);
   transition: var(--transition);
 }
 
@@ -380,12 +356,9 @@ a { text-decoration: none; color: inherit; }
 
 .countdown-number {
   font-family: var(--font-serif);
-  font-size: 3.2rem;
+  font-size: 3rem;
   font-weight: 600;
-  background: var(--color-gold-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--color-accent-dark);
   line-height: 1;
   display: block;
 }
@@ -807,7 +780,7 @@ a { text-decoration: none; color: inherit; }
    ══════════════════════════════════════════════════ */
 #footer {
   background: linear-gradient(135deg, #2d1f1a 0%, #3d2a20 100%);
-  padding: 50px 20px 120px; /* Extra bottom padding for floating nav */
+  padding: 50px 20px;
   text-align: center;
   color: var(--color-blush);
 }
@@ -887,43 +860,35 @@ a { text-decoration: none; color: inherit; }
    ══════════════════════════════════════════════════ */
 .floating-nav {
   position: fixed;
-  bottom: 30px;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
-  border: 1px solid var(--glass-border);
-  border-radius: 50px;
-  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(200, 180, 168, 0.3);
+  border-radius: 40px;
+  padding: 10px 20px;
   display: flex;
-  gap: 12px;
-  z-index: 2000;
-  box-shadow: 0 12px 40px rgba(74, 55, 40, 0.15);
+  gap: 6px;
+  z-index: 100;
+  box-shadow: var(--shadow-medium);
   transition: var(--transition);
 }
 
 .nav-dot {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: none;
   background: transparent;
   color: var(--color-text-light);
-  font-size: 1.1rem;
+  font-size: 1rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: var(--transition);
   position: relative;
-}
-@media (max-width: 480px) {
-  .nav-dot {
-    width: 38px;
-    height: 38px;
-    font-size: 0.9rem;
-  }
 }
 
 .nav-dot:hover,
@@ -997,171 +962,6 @@ a { text-decoration: none; color: inherit; }
   
   .corner-decor { width: 180px; height: 180px; }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-  .hero-wreath {
-    width: 320px;
-    height: 320px;
-  }
-
-  .hero-text-overlay {
-    width: 65%;
-  }
-
-  .hero-names {
-    font-size: 2.2rem;
-  }
-
-  .hero-ampersand {
-    font-size: 1.4rem;
-  }
-
-  .hero-tagline {
-    font-size: 0.9rem;
-    letter-spacing: 2px;
-  }
-
-  .hero-date-bar {
-    font-size: 1.1rem;
-    flex-direction: row;
-    gap: 15px;
-    margin-top: 10px;
-  }
-
-  .hero-date-bar .line {
-    display: block;
-    width: 30px;
-  }
-
-  .hero-info-grid {
-    grid-template-columns: 1fr;
-    border-radius: 20px;
-    gap: 15px;
-    margin-top: 25px;
-    padding: 25px;
-    background: rgba(255, 255, 255, 0.8);
-  }
-
-  .hero-info-item {
-    flex-direction: row;
-    justify-content: flex-start;
-    gap: 15px;
-    width: 100%;
-    border-bottom: 1px solid rgba(200, 180, 168, 0.1);
-    padding-bottom: 12px;
-  }
-
-  .hero-info-item:last-child {
-    grid-column: span 1;
-    border-bottom: none;
-    padding-bottom: 0;
-  }
-
-  .hero-info-icon {
-    font-size: 1.4rem;
-    margin-bottom: 0;
-    min-width: 30px;
-  }
-
-  .hero-info-label {
-    display: none; /* Hide labels to save space on mobile */
-  }
-
-  .hero-info-text {
-    font-size: 1.2rem;
-    text-align: left;
-  }
-
-  .details-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .countdown-item {
-    min-width: 75px;
-    padding: 16px 10px;
-  }
-
-  .countdown-number {
-    font-size: 2.2rem;
-  }
-
-  .venue-content {
-    grid-template-columns: 1fr;
-  }
-
-  .decor-wrapper {
-    width: 90px !important;
-    height: 90px !important;
-    top: -5px !important;
-    right: -5px !important;
-  }
-
-  .decor-wrapper.top-left {
-    left: -5px !important;
-    right: auto !important;
-  }
-
-  .decor-wrapper.bottom-left {
-    bottom: -5px !important;
-    left: -5px !important;
-    top: auto !important;
-  }
-
-  .decor-wrapper.bottom-right {
-    bottom: -5px !important;
-    right: -5px !important;
-    top: auto !important;
-  }
-}
-
-@media (max-width: 480px) {
-  .hero-wreath {
-    width: 280px;
-    height: 280px;
-  }
-
-  .hero-names {
-    font-size: 1.8rem;
-  }
-
-  .hero-text-overlay {
-    width: 85%;
-  }
-
-  .hero-info-grid {
-    padding: 15px;
-    margin-top: 15px;
-  }
-
-  .hero-info-text {
-    font-size: 1.1rem;
-  }
-
-  .section-title {
-    font-size: 1.8rem;
-  }
-
-  .countdown-grid {
-    gap: 10px;
-  }
-
-  .countdown-item {
-    min-width: 65px;
-    padding: 12px 8px;
-  }
-
-  .countdown-number {
-    font-size: 1.8rem;
-  }
-
-  .countdown-label {
-    font-size: 0.65rem;
-  }
-
-  .gallery-slideshow {
-    aspect-ratio: 3/4;
-  }
-=======
   .floating-nav { padding: 8px 14px; gap: 4px; bottom: 16px; }
   .nav-dot { width: 36px; height: 36px; font-size: 0.9rem; }
 }
@@ -1179,26 +979,6 @@ a { text-decoration: none; color: inherit; }
   .countdown-label { font-size: 0.65rem; }
 
   .gallery-slideshow { aspect-ratio: 3/4; }
->>>>>>> parent of eba560e (wedding mod)
-=======
-  .floating-nav { padding: 8px 14px; gap: 4px; bottom: 16px; }
-  .nav-dot { width: 36px; height: 36px; font-size: 0.9rem; }
-}
-
-@media (max-width: 480px) {
-  .hero-wreath { width: 320px; height: 320px; }
-  .hero-names { font-size: 2.2rem; }
-  .hero-ampersand { font-size: 1.6rem; }
-  
-  .section-title { font-size: 1.8rem; }
-  
-  .countdown-grid { gap: 10px; }
-  .countdown-item { min-width: 65px; padding: 12px 8px; }
-  .countdown-number { font-size: 1.8rem; }
-  .countdown-label { font-size: 0.65rem; }
-
-  .gallery-slideshow { aspect-ratio: 3/4; }
->>>>>>> parent of eba560e (wedding mod)
 }
 
 /* ── Print Styles ── */
@@ -1206,202 +986,3 @@ a { text-decoration: none; color: inherit; }
   .floating-nav, #chat, #livestream { display: none; }
   body { background: white; }
 }
-<<<<<<< HEAD
-<<<<<<< HEAD
-
-/* ══════════════════════════════════════════════════
-   FALLING PETALS ANIMATION
-   ══════════════════════════════════════════════════ */
-.petal-container {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 10;
-  overflow: hidden;
-}
-
-.petal {
-  position: absolute;
-  top: -50px;
-  width: 15px;
-  height: 15px;
-  background: var(--color-blush);
-  border-radius: 100% 0 100% 0;
-  opacity: 0.8;
-  filter: blur(0.5px);
-  animation: fall linear forwards;
-}
-
-.petal.color-1 {
-  background: #F4C7B8;
-}
-
-.petal.color-2 {
-  background: #FDF8F4;
-  border: 1px solid rgba(200, 180, 168, 0.2);
-}
-
-.petal.color-3 {
-  background: #D4B87A;
-}
-
-.petal.color-4 {
-  background: #E8C5B5;
-}
-
-@keyframes fall {
-  0% {
-    transform: translateY(0vh) translateX(0px) rotate(0deg) scale(1);
-    opacity: 0;
-  }
-
-  10% {
-    opacity: 0.8;
-  }
-
-  100% {
-    transform: translateY(110vh) translateX(var(--sway)) rotate(var(--rotation)) scale(var(--scale));
-    opacity: 0;
-  }
-}
-
-/* ══════════════════════════════════════════════════
-   FLOATING LUXURY UI
-   ══════════════════════════════════════════════════ */
-.music-toggle {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  width: 50px;
-  height: 50px;
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(212, 184, 122, 0.3);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 2000;
-  font-size: 1.4rem;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.music-toggle:hover {
-  transform: scale(1.1);
-  background: white;
-}
-
-.music-toggle.playing::after {
-  content: '';
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  border: 2px solid var(--color-gold);
-  animation: musicPulse 2s infinite;
-}
-
-@keyframes musicPulse {
-  0% {
-    transform: scale(1);
-    opacity: 0.8;
-  }
-
-  100% {
-    transform: scale(1.6);
-    opacity: 0;
-  }
-}
-
-.wish-shortcut {
-  position: fixed;
-  bottom: 25px;
-  right: 25px;
-  width: 60px;
-  height: 60px;
-  background: linear-gradient(135deg, #F4C7B8, #E8C5B5);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 2000;
-  font-size: 1.8rem;
-  box-shadow: 0 10px 25px rgba(244, 199, 184, 0.4);
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  color: white;
-}
-
-.wish-shortcut:hover {
-  transform: scale(1.1) translateY(-5px);
-  box-shadow: 0 15px 35px rgba(244, 199, 184, 0.6);
-}
-
-/* ── Deluxe Scroll Reveal (Bloom) ── */
-/* Visible by default for safety, hiding only if JS is ready */
-.js-loaded .reveal-bloom {
-  opacity: 0;
-  transform: scale(0.96) translateY(20px);
-  filter: blur(5px);
-}
-
-.reveal-bloom {
-  transition: all 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
-  opacity: 1; /* Fallback */
-}
-
-.reveal-bloom.active {
-  opacity: 1;
-  transform: scale(1) translateY(0);
-  filter: blur(0);
-}
-
-/* ── Mobile Music Starter Hint ── */
-#music-starter-hint {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 9999;
-  background: rgba(255, 255, 255, 0.95);
-  padding: 20px 30px;
-  border-radius: 50px;
-  box-shadow: 0 15px 40px rgba(0,0,0,0.2);
-  text-align: center;
-  font-family: var(--font-serif);
-  border: 2px solid var(--color-gold);
-  cursor: pointer;
-  animation: pulse 2s infinite;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
-#music-starter-hint span {
-    font-size: 1.5rem;
-}
-
-#music-starter-hint p {
-    font-size: 1rem;
-    color: var(--color-text);
-    letter-spacing: 1px;
-}
-
-@media (max-width: 768px) {
-    .decor-wrapper {
-        width: 80px !important;
-        height: 80px !important;
-        top: -5px !important;
-        right: -5px !important;
-    }
-}
-=======
->>>>>>> parent of eba560e (wedding mod)
-=======
->>>>>>> parent of eba560e (wedding mod)
