@@ -280,7 +280,7 @@ function escapeHtml(str) {
 function initNavigation() {
   const nav = document.getElementById('floating-nav');
   const dots = nav.querySelectorAll('.nav-dot');
-  const sections = ['hero', 'details', 'countdown', 'livestream', 'gallery', 'chat', 'venue'];
+  const sections = ['hero', 'countdown', 'livestream', 'gallery', 'chat', 'venue'];
 
   // Click to scroll
   dots.forEach(dot => {
@@ -346,11 +346,15 @@ function initScrollReveal() {
       }
     });
   }, { 
-    threshold: 0.1,
-    rootMargin: '0px 0px -50px 0px'
+    threshold: 0.05, // Lower threshold for better mobile triggering
+    rootMargin: '0px 0px -10px 0px' 
   });
 
-  reveals.forEach(el => observer.observe(el));
+  reveals.forEach(el => {
+    observer.observe(el);
+    // Safety fallback: Reveal everything if for some reason observer fails after 3 seconds
+    setTimeout(() => el.classList.add('visible'), 3000);
+  });
 }
 
 

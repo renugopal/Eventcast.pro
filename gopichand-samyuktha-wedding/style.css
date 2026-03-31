@@ -138,8 +138,10 @@ a { text-decoration: none; color: inherit; }
 
 .hero-wreath {
   position: relative;
-  width: 760px;
-  height: 760px;
+  width: 90vw;
+  max-width: 760px;
+  height: 90vw;
+  max-height: 760px;
   margin: 0 auto;
 }
 
@@ -161,7 +163,7 @@ a { text-decoration: none; color: inherit; }
 
 .hero-names {
   font-family: var(--font-display);
-  font-size: 4.8rem;
+  font-size: clamp(2rem, 10vw, 4.8rem);
   color: var(--color-accent-dark);
   line-height: 1;
   margin-bottom: 5px;
@@ -169,7 +171,7 @@ a { text-decoration: none; color: inherit; }
 
 .hero-ampersand {
   font-family: var(--font-display);
-  font-size: 2.4rem;
+  font-size: clamp(1.2rem, 6vw, 2.4rem);
   color: var(--color-gold);
   display: block;
   margin: 4px 0;
@@ -926,8 +928,9 @@ a { text-decoration: none; color: inherit; }
    ══════════════════════════════════════════════════ */
 .reveal {
   opacity: 0;
-  transform: translateY(30px);
-  transition: opacity 0.8s ease, transform 0.8s ease;
+  transform: translateY(20px);
+  transition: opacity 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: opacity, transform;
 }
 
 .reveal.visible {
@@ -943,12 +946,12 @@ a { text-decoration: none; color: inherit; }
   .section-title { font-size: 2.2rem; }
   .section-subtitle { margin-bottom: 20px; }
   
-  .hero-wreath { width: 420px; height: 420px; }
+  .hero-wreath { width: 90vw; height: 90vw; }
   .hero-names { font-size: 2.8rem; }
   .hero-ampersand { font-size: 1.8rem; }
   .hero-tagline { font-size: 1rem; }
   .hero-date-bar { font-size: 1rem; flex-direction: column; gap: 8px; }
-  .hero-date-bar .line { display: none; }
+  /*.hero-date-bar .line { display: none; }*/
 
   .hero-info-grid { grid-template-columns: 1fr; border-radius: 20px; gap: 15px; margin-top: 25px; padding: 25px; }
   .hero-info-text { font-size: 1.2rem; }
@@ -967,7 +970,7 @@ a { text-decoration: none; color: inherit; }
 }
 
 @media (max-width: 480px) {
-  .hero-wreath { width: 320px; height: 320px; }
+  .hero-wreath { width: 90vw; height: 90vw; }
   .hero-names { font-size: 2.2rem; }
   .hero-ampersand { font-size: 1.6rem; }
   
