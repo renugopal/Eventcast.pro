@@ -9,6 +9,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initNavigation();
   initScrollReveal();
   initLivestream();
+  initPetals();
+  initMusic();
+  initCalendar();
+  initWishShortcut();
 });
 
 
@@ -30,7 +34,10 @@ function initCountdown() {
     const diff = weddingDate - now;
 
     if (diff <= 0) {
-      timerContainer.innerHTML = '<p class="countdown-ended">🎊 The celebration has begun! 🎊</p>';
+      if (timerContainer.innerHTML !== '<p class="countdown-ended">🎊 The celebration has begun! 🎊</p>') {
+        timerContainer.innerHTML = '<p class="countdown-ended">🎊 The celebration has begun! 🎊</p>';
+        triggerConfetti();
+      }
       return;
     }
 
@@ -280,7 +287,7 @@ function escapeHtml(str) {
 function initNavigation() {
   const nav = document.getElementById('floating-nav');
   const dots = nav.querySelectorAll('.nav-dot');
-  const sections = ['hero', 'details', 'countdown', 'livestream', 'gallery', 'chat', 'venue'];
+  const sections = ['hero', 'countdown', 'livestream', 'gallery', 'chat', 'venue'];
 
   // Click to scroll
   dots.forEach(dot => {
@@ -337,15 +344,17 @@ function initNavigation() {
    SCROLL REVEAL ANIMATION
    ══════════════════════════════════════════════════ */
 function initScrollReveal() {
-  const reveals = document.querySelectorAll('.reveal');
+  const reveals = document.querySelectorAll('.reveal-bloom');
 
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
-        entry.target.classList.add('visible');
+        entry.target.classList.add('active');
+        // Once revealed, no need to observe again
+        observer.unobserve(entry.target);
       }
     });
-  }, { 
+  }, {
     threshold: 0.1,
     rootMargin: '0px 0px -50px 0px'
   });
@@ -383,3 +392,250 @@ function initLivestream() {
     placeholder.querySelector('p').textContent = 'Replace YOUR_YOUTUBE_VIDEO_ID in the HTML to activate';
   });
 }
+
+
+/* ══════════════════════════════════════════════════
+   FALLING PETALS ANIMATION
+   ══════════════════════════════════════════════════ */
+function initPetals() {
+  const container = document.createElement('div');
+  container.className = 'petal-container';
+  document.body.appendChild(container);
+
+  const petalCount = 20; // Maximum number of petals at once for performance
+  const petalInterval = 600; // Milliseconds between new petals
+
+  function createPetal() {
+    if (document.hidden) return; // Don't create if tab is inactive
+    
+    const petal = document.createElement('div');
+    const size = Math.random() * 10 + 10; // 10-20px
+    const left = Math.random() * 100; // 0-100%
+    const duration = Math.random() * 10 + 8; // 8-18s
+    const color = Math.floor(Math.random() * 4) + 1; // 1-4
+    
+    // Randomize sway and rotation
+    const sway = (Math.random() * 200 - 100) + 'px';
+    const rotation = (Math.random() * 720 - 360) + 'deg';
+    const scale = (Math.random() * 0.5 + 0.8); // 0.8 to 1.3
+    
+    petal.className = `petal color-${color}`;
+    petal.style.left = left + '%';
+    petal.style.width = size + 'px';
+    petal.style.height = size + 'px';
+    petal.style.animationDuration = duration + 's';
+    
+    // Set custom variables for keyframes
+    petal.style.setProperty('--sway', sway);
+    petal.style.setProperty('--rotation', rotation);
+    petal.style.setProperty('--scale', scale);
+    
+    container.appendChild(petal);
+
+    // Remove petal after animation
+    setTimeout(() => {
+      petal.remove();
+    }, duration * 1000);
+  }
+
+  // Initial batch
+  for(let i=0; i<5; i++) {
+    setTimeout(createPetal, Math.random() * 5000);
+  }
+  
+  // Continuous generation
+  setInterval(createPetal, petalInterval);
+}
+
+
+/* ══════════════════════════════════════════════════
+   BACKGROUND MUSIC & SMART MUTE
+   ══════════════════════════════════════════════════ */
+let bgMusic = null;
+let ytPlayer = null;
+
+function initMusic() {
+  bgMusic = document.getElementById('bg-music');
+  const toggle = document.getElementById('music-toggle');
+  let isPlaying = false;
+
+  // Start music on first interaction (browser requirement)
+  const startMusic = (e) => {
+    if (!isPlaying) {
+      bgMusic.volume = 1.0; 
+      bgMusic.play().then(() => {
+        isPlaying = true;
+        toggle.classList.add('playing');
+        toggle.innerHTML = '<span>🔊</span>';
+      }).catch(err => console.log("Autoplay blocked:", err));
+    }
+    // Remove all interaction triggers
+    ['click', 'touchstart', 'scroll', 'mousedown'].forEach(evt => {
+      document.removeEventListener(evt, startMusic);
+    });
+  };
+
+  // Pre-load the audio properly
+  bgMusic.load();
+
+  // Listen for any form of guest interaction
+  ['click', 'touchstart', 'scroll', 'mousedown'].forEach(evt => {
+    document.addEventListener(evt, startMusic, { once: true });
+  });
+
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (isPlaying) {
+      bgMusic.pause();
+      toggle.classList.remove('playing');
+      toggle.innerHTML = '<span>🔇</span>';
+    } else {
+      bgMusic.play();
+      toggle.classList.add('playing');
+      toggle.innerHTML = '<span>🔊</span>';
+    }
+    isPlaying = !isPlaying;
+  });
+
+  // Load YouTube IFrame API for smart muting
+  const tag = document.createElement('script');
+  tag.src = "https://www.youtube.com/iframe_api";
+  const firstScriptTag = document.getElementsByTagName('script')[0];
+  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+}
+
+// Called automatically by YouTube API
+window.onYouTubeIframeAPIReady = function() {
+  const placeholder = document.getElementById('livestream-placeholder');
+  const videoId = placeholder.getAttribute('data-video-id');
+
+  ytPlayer = new YT.Player('livestream-embed', {
+    height: '100%',
+    width: '100%',
+    videoId: videoId,
+    playerVars: {
+      'autoplay': 0,
+      'modestbranding': 1,
+      'rel': 0
+    },
+    events: {
+      'onStateChange': onPlayerStateChange
+    }
+  });
+};
+
+function onPlayerStateChange(event) {
+  // If video is playing (1) or buffering (3), mute background music
+  if (event.data == YT.PlayerState.PLAYING || event.data == YT.PlayerState.BUFFERING) {
+    if (bgMusic && !bgMusic.paused) {
+      bgMusic.volume = 0.2; // Fade down
+      setTimeout(() => { if (bgMusic.volume > 0) bgMusic.pause(); }, 500);
+    }
+  } else if (event.data == YT.PlayerState.PAUSED || event.data == YT.PlayerState.ENDED) {
+    // Optional: Resume background music softly
+    // if (bgMusic) { bgMusic.play(); bgMusic.volume = 1; }
+  }
+}
+
+
+/* ══════════════════════════════════════════════════
+   SAVE THE DATE — CALENDAR
+   ══════════════════════════════════════════════════ */
+function initCalendar() {
+  const calBtn = document.getElementById('add-to-calendar');
+  if (!calBtn) return;
+
+  calBtn.addEventListener('click', () => {
+    const title = "Gopi Chand & Samyuktha Wedding";
+    const desc = "Join us for our wedding celebration! Livestream available at: https://eventcast.pro/gopichand-samyuktha/";
+    const loc = "Kunkalamarru, Bapatla District, Andhra Pradesh";
+    const start = "20260401T063000"; // YYYYMMDDTHHMMSS
+    const end = "20260401T120000";
+
+    // Google Calendar Link
+    const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(desc)}&location=${encodeURIComponent(loc)}&dates=${start}/${end}`;
+
+    // Simple choice: open Google Calendar or download .ics
+    if (confirm("Open in Google Calendar? (Cancel to download for Apple/Outlook)")) {
+      window.open(googleUrl, '_blank');
+    } else {
+      const icsData = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nSUMMARY:${title}\nDESCRIPTION:${desc}\nLOCATION:${loc}\nDTSTART:${start}\nDTEND:${end}\nEND:VEVENT\nEND:VCALENDAR`;
+      const blob = new Blob([icsData], { type: 'text/calendar;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.setAttribute('download', 'wedding_invite.ics');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  });
+}
+
+
+/* ══════════════════════════════════════════════════
+   FLOATING WISH SHORTCUT
+   ══════════════════════════════════════════════════ */
+function initWishShortcut() {
+  const shortcut = document.getElementById('wish-shortcut');
+  if (!shortcut) return;
+
+  shortcut.addEventListener('click', () => {
+    const chatSection = document.getElementById('chat');
+    chatSection.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  // Hide shortcut when already in chat section
+  window.addEventListener('scroll', () => {
+    const chatPos = document.getElementById('chat').getBoundingClientRect().top;
+    if (chatPos < window.innerHeight / 2) {
+      shortcut.style.opacity = '0';
+      shortcut.style.pointerEvents = 'none';
+    } else {
+      shortcut.style.opacity = '1';
+      shortcut.style.pointerEvents = 'auto';
+    }
+  });
+}
+
+
+/* ══════════════════════════════════════════════════
+   COUNTDOWN CELEBRATION (CONFETTI)
+   ══════════════════════════════════════════════════ */
+function triggerConfetti() {
+    const colors = ['#F4C7B8', '#FDF8F4', '#D4B87A', '#E8C5B5'];
+  const confettiCount = 50;
+
+  for (let i = 0; i < confettiCount; i++) {
+    const particle = document.createElement('div');
+    particle.style.cssText = `
+      position: fixed;
+      top: -10px;
+      left: ${Math.random() * 100}%;
+      width: ${Math.random() * 8 + 4}px;
+      height: ${Math.random() * 8 + 4}px;
+      background: ${colors[Math.floor(Math.random() * colors.length)]};
+      border-radius: 50%;
+      z-index: 3000;
+      opacity: 0.8;
+      pointer-events: none;
+      transform: rotate(${Math.random() * 360}deg);
+    `;
+
+    document.body.appendChild(particle);
+
+    const destX = (Math.random() * 200 - 100) + 'px';
+    const destY = (window.innerHeight + 10) + 'px';
+    const duration = (Math.random() * 3 + 2) + 's';
+
+    const animation = particle.animate([
+      { transform: 'translateY(0) translateX(0) rotate(0)', opacity: 0.8 },
+      { transform: `translateY(${destY}) translateX(${destX}) rotate(720deg)`, opacity: 0 }
+    ], {
+      duration: parseFloat(duration) * 1000,
+      easing: 'cubic-bezier(0.1, 0.5, 0.4, 1)'
+    });
+
+    animation.onfinish = () => particle.remove();
+  }
+}
+
