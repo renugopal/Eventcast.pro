@@ -96,7 +96,7 @@ a { text-decoration: none; color: inherit; }
 .section-divider {
   display: block;
   max-width: 350px;
-  margin: 0 auto 30px;
+  margin: 0 auto 20px; /* Reduced from 30px */
   mix-blend-mode: multiply;
   opacity: 0.8;
 }
@@ -942,9 +942,10 @@ a { text-decoration: none; color: inherit; }
    RESPONSIVE DESIGN
    ══════════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  .section { padding: 40px 16px; }
+  .section { padding: 25px 16px; } /* Reduced from 40px */
   .section-title { font-size: 2.2rem; }
-  .section-subtitle { margin-bottom: 20px; }
+  .section-subtitle { margin-bottom: 12px; } /* Reduced from 20px */
+  .section-divider { margin-bottom: 10px; } /* Even tighter on mobile */
   
   .hero-wreath { width: 90vw; height: 90vw; }
   .hero-names { font-size: 2.8rem; }
