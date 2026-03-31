@@ -44,6 +44,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initNavigation();
   initScrollReveal();
   initLivestream();
+<<<<<<< HEAD
+>>>>>>> parent of eba560e (wedding mod)
+=======
 >>>>>>> parent of eba560e (wedding mod)
 });
 
@@ -391,6 +394,7 @@ function initScrollReveal() {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
 <<<<<<< HEAD
+<<<<<<< HEAD
         entry.target.classList.add('active');
         observer.unobserve(entry.target);
       }
@@ -402,6 +406,11 @@ function initScrollReveal() {
         entry.target.classList.add('visible');
       }
     });
+=======
+        entry.target.classList.add('visible');
+      }
+    });
+>>>>>>> parent of eba560e (wedding mod)
   }, { 
     threshold: 0.1,
     rootMargin: '0px 0px -50px 0px'
@@ -441,6 +450,7 @@ function initLivestream() {
     placeholder.querySelector('p').textContent = 'Replace YOUR_YOUTUBE_VIDEO_ID in the HTML to activate';
   });
 }
+<<<<<<< HEAD
 <<<<<<< HEAD
 
 
@@ -748,5 +758,7 @@ document.querySelectorAll('button, .nav-dot, .gallery-btn, .chat-send-btn, .venu
   }, { passive: true });
 });
 
+=======
+>>>>>>> parent of eba560e (wedding mod)
 =======
 >>>>>>> parent of eba560e (wedding mod)

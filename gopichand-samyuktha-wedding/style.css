@@ -238,6 +238,9 @@ a { text-decoration: none; color: inherit; }
   border-radius: 50px;
   border: 1px solid rgba(200, 180, 168, 0.2);
   mix-blend-mode: normal;
+<<<<<<< HEAD
+>>>>>>> parent of eba560e (wedding mod)
+=======
 >>>>>>> parent of eba560e (wedding mod)
 }
 
@@ -995,6 +998,7 @@ a { text-decoration: none; color: inherit; }
   .corner-decor { width: 180px; height: 180px; }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   .hero-wreath {
     width: 320px;
     height: 320px;
@@ -1176,6 +1180,25 @@ a { text-decoration: none; color: inherit; }
 
   .gallery-slideshow { aspect-ratio: 3/4; }
 >>>>>>> parent of eba560e (wedding mod)
+=======
+  .floating-nav { padding: 8px 14px; gap: 4px; bottom: 16px; }
+  .nav-dot { width: 36px; height: 36px; font-size: 0.9rem; }
+}
+
+@media (max-width: 480px) {
+  .hero-wreath { width: 320px; height: 320px; }
+  .hero-names { font-size: 2.2rem; }
+  .hero-ampersand { font-size: 1.6rem; }
+  
+  .section-title { font-size: 1.8rem; }
+  
+  .countdown-grid { gap: 10px; }
+  .countdown-item { min-width: 65px; padding: 12px 8px; }
+  .countdown-number { font-size: 1.8rem; }
+  .countdown-label { font-size: 0.65rem; }
+
+  .gallery-slideshow { aspect-ratio: 3/4; }
+>>>>>>> parent of eba560e (wedding mod)
 }
 
 /* ── Print Styles ── */
@@ -1183,6 +1206,7 @@ a { text-decoration: none; color: inherit; }
   .floating-nav, #chat, #livestream { display: none; }
   body { background: white; }
 }
+<<<<<<< HEAD
 <<<<<<< HEAD
 
 /* ══════════════════════════════════════════════════
@@ -1377,5 +1401,7 @@ a { text-decoration: none; color: inherit; }
         right: -5px !important;
     }
 }
+=======
+>>>>>>> parent of eba560e (wedding mod)
 =======
 >>>>>>> parent of eba560e (wedding mod)
