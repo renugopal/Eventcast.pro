@@ -942,10 +942,10 @@ a { text-decoration: none; color: inherit; }
    RESPONSIVE DESIGN
    ══════════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  .section { padding: 25px 16px; } /* Reduced from 40px */
-  .section-title { font-size: 2.2rem; }
-  .section-subtitle { margin-bottom: 12px; } /* Reduced from 20px */
-  .section-divider { margin-bottom: 10px; } /* Even tighter on mobile */
+  .section { padding: 60px 16px 25px; } /* Increased top padding to avoid flower overlap */
+  .section-title { font-size: 2.2rem; margin-top: 10px; }
+  .section-subtitle { margin-bottom: 12px; }
+  .section-divider { margin-bottom: 15px; } 
   
   .hero-wreath { width: 90vw; height: 90vw; }
   .hero-names { font-size: 2.8rem; }
@@ -964,7 +964,11 @@ a { text-decoration: none; color: inherit; }
   
   .venue-content { grid-template-columns: 1fr; }
   
-  .corner-decor { width: 180px; height: 180px; }
+  .corner-decor { width: 160px; height: 160px; opacity: 0.5; }
+  .corner-decor.top-left { top: -40px; left: -40px; }
+  .corner-decor.top-right { top: -40px; right: -40px; }
+  .corner-decor.bottom-left { bottom: -40px; left: -40px; }
+  .corner-decor.bottom-right { bottom: -40px; right: -40px; }
 
   .floating-nav { padding: 8px 14px; gap: 4px; bottom: 16px; }
   .nav-dot { width: 36px; height: 36px; font-size: 0.9rem; }
