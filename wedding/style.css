@@ -1,0 +1,360 @@
+/* --- Premium Watercolor Floral Design System (REFINED) --- */
+
+:root {
+    --lavender: #8e44ad;
+    --lavender-soft: #f4ecf7;
+    --sage: #7d9e72;
+    --sage-light: #e9f0e8;
+    --text-main: #34495e;
+    --text-muted: #7f8c8d;
+    --accent: #d2b4de;
+    --paper: #fefcf9;
+    --transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+    --shadow-soft: 0 10px 40px rgba(142, 68, 173, 0.08);
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@300;400;600&family=Great+Vibes&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: 'Montserrat', sans-serif;
+    color: var(--text-main);
+    background-color: var(--paper);
+    overflow-x: hidden;
+    line-height: 1.8;
+}
+
+/* Global Background Texture */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url('bg_watercolor.png') repeat;
+    background-size: cover;
+    opacity: 0.4;
+    z-index: -2; /* Lower than corner accents */
+}
+
+/* Transparency Fix for Hand-painted elements */
+.watercolor-asset {
+    mix-blend-mode: multiply;
+    filter: contrast(1.1) brightness(1.05); /* Ensure background is pure white #FFFFFF for multiply to work */
+}
+
+/* Typography */
+h1, h2, h3 {
+    font-family: 'Playfair Display', serif;
+}
+
+.script-font {
+    font-family: 'Great Vibes', cursive;
+}
+
+.section-title {
+    font-size: 2.5rem;
+    color: var(--lavender);
+    text-align: center;
+    margin-bottom: 40px;
+    position: relative;
+}
+
+/* Layout */
+.full-section {
+    min-height: 100vh;
+    padding: 80px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.page-container {
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* Animations */
+.fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: var(--transition);
+}
+
+.fade-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* --- HERO SECTION --- */
+.hero-section {
+    padding-top: 40px;
+    text-align: center;
+    overflow: hidden;
+}
+
+.wreath-container {
+    width: 100%;
+    max-width: 650px; /* INCREASED SIZE */
+    margin: 0 auto;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.floral-wreath {
+    width: 100%;
+    height: auto;
+    animation: float 8s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-10px) rotate(1deg); }
+}
+
+.hero-content {
+    position: absolute;
+    width: 100%; /* Full width for centering */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 0 40px;
+}
+
+.couple-names {
+    font-size: 4.5rem; /* INCREASED SIZE */
+    color: var(--text-main);
+    line-height: 1;
+    margin-bottom: 10px;
+    font-family: 'Playfair Display', serif;
+}
+
+.ampersand {
+    display: inline-block;
+    color: var(--lavender);
+    font-size: 3rem;
+    margin: 15px 0;
+    font-family: 'Great Vibes', cursive;
+}
+
+.invite-intro {
+    font-size: 1rem;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 15px;
+}
+
+.event-details-hero {
+    margin-top: 20px;
+    font-size: 1.3rem;
+    color: var(--text-muted);
+}
+
+.highlight-lavender {
+    color: var(--lavender);
+    font-weight: 600;
+}
+
+/* --- COUNTDOWN SECTION --- */
+.countdown-section {
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(5px);
+    border-top: 1px dashed var(--accent);
+    border-bottom: 1px dashed var(--accent);
+}
+
+.countdown-timer {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    flex-wrap: wrap;
+}
+
+.time-box {
+    text-align: center;
+    min-width: 100px;
+}
+
+.time-value {
+    display: block;
+    font-size: 3.5rem;
+    color: var(--lavender);
+    font-family: 'Playfair Display', serif;
+    font-weight: bold;
+}
+
+.time-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+}
+
+/* --- LIVESTREAM SECTION --- */
+.video-container {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    position: relative;
+    padding-bottom: 56.25%;
+    background: #fff;
+    border: 1px solid var(--accent);
+    box-shadow: var(--shadow-soft);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.video-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.status-badge {
+    margin-top: 30px;
+    padding: 10px 30px;
+    background: var(--lavender-soft);
+    color: var(--lavender);
+    border: 1px solid var(--lavender);
+    border-radius: 50px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+/* --- GALLERY SECTION --- */
+.gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    width: 100%;
+}
+
+.gallery-item {
+    aspect-ratio: 1/1;
+    overflow: hidden;
+    position: relative;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: var(--shadow-soft);
+    background: #fff;
+}
+
+.gallery-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: var(--transition);
+}
+
+.gallery-item:hover img {
+    transform: scale(1.1);
+}
+
+/* Lightbox Modal */
+.lightbox {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.98);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.lightbox.active {
+    display: flex;
+}
+
+.lightbox-content {
+    max-width: 90%;
+    max-height: 90%;
+    object-fit: contain;
+    box-shadow: var(--shadow-soft);
+}
+
+.lightbox-close {
+    position: absolute;
+    top: 30px;
+    right: 40px;
+    font-size: 3rem;
+    cursor: pointer;
+    color: var(--lavender);
+}
+
+/* --- VENUE SECTION --- */
+.map-container {
+    width: 100%;
+    height: 400px;
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 30px;
+    box-shadow: var(--shadow-soft);
+}
+
+.primary-btn {
+    display: inline-block;
+    padding: 15px 40px;
+    background: var(--lavender);
+    color: #fff;
+    text-decoration: none;
+    border-radius: 50px;
+    margin-top: 20px;
+    font-weight: 600;
+    transition: var(--transition);
+    box-shadow: 0 4px 20px rgba(142, 68, 173, 0.2);
+}
+
+.primary-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(142, 68, 173, 0.3);
+}
+
+/* Corner Flowers Accents */
+.corner-accent {
+    position: absolute;
+    width: 300px; /* INCREASED SIZE */
+    opacity: 0.8;
+    pointer-events: none;
+    z-index: -1;
+}
+
+.corner-tr { top: 0; right: 0; transform: rotate(0deg); }
+.corner-bl { bottom: 0; left: 0; transform: rotate(180deg); }
+
+/* Footer */
+footer {
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--paper);
+    border-top: 1px dashed var(--accent);
+}
+
+/* Mobile Adjustments */
+@media (max-width: 600px) {
+    .couple-names { font-size: 2.8rem; }
+    .wreath-container { width: 100%; }
+    .time-value { font-size: 2rem; }
+    .countdown-timer { gap: 15px; }
+    .hero-content { padding: 0 20px; }
+    .corner-accent { width: 180px; }
+}

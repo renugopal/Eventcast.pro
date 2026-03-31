@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wedding Livestream — Gopi Chand & Samyuktha</title>
+
+    <!-- SEO & Social Previews -->
+    <meta name="description" content="Watch the wedding of Gopi Chand & Samyuktha live. Join us virtually on 1st April 2026 from Kunkulamarri.">
+    <meta property="og:title" content="Join Us Live: Gopi Chand & Samyuktha's Wedding 🎉">
+    <meta property="og:description" content="Wedding Celebration | 1st April 2026 | Watch Live Stream from Kunkulamarri.">
+    <meta property="og:image" content="https://eventcast-pro.vercel.app/wedding/whatsapp_thumbnail.jpg">
+    <meta property="og:type" content="website">
+    <meta name="theme-color" content="#8e44ad">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- ========================
+         SIDE NAVIGATION DOTS
+         ======================== -->
+    <nav class="section-nav" id="section-nav" aria-label="Section navigation">
+        <div class="nav-dot active" data-target="hero" data-label="Invitation"></div>
+        <div class="nav-dot" data-target="countdown" data-label="Countdown"></div>
+        <div class="nav-dot" data-target="livestream" data-label="Livestream"></div>
+        <div class="nav-dot" data-target="wishes" data-label="Wishes"></div>
+        <div class="nav-dot" data-target="gallery" data-label="Gallery"></div>
+        <div class="nav-dot" data-target="venue" data-label="Venue"></div>
+    </nav>
+
+    <!-- ========================
+         SECTION 1 — HERO
+         ======================== -->
+    <section id="hero" class="full-section hero-section fade-in">
+        <!-- Corner Floral Accent (Top-Right) -->
+        <img src="../wedding/corner_v3.png" class="corner-accent corner-tr watercolor-asset" alt="" aria-hidden="true">
+
+        <div class="page-container">
+            <div class="wreath-container">
+                <img src="../wedding/wreath_v3.png" class="floral-wreath watercolor-asset" alt="Wedding Wreath">
+
+                <div class="hero-content">
+                    <p class="invite-intro">Join us to celebrate</p>
+                    <h1 class="couple-names">Gopi Chand</h1>
+                    <span class="ampersand">and</span>
+                    <h1 class="couple-names">Samyuktha</h1>
+                </div>
+            </div>
+
+            <div class="event-details-hero">
+                <p class="detail-line highlight-lavender">WEDNESDAY, 1ST APRIL 2026</p>
+                <div style="margin-top: 14px; font-weight: 300; letter-spacing: 2px;">
+                    Sumuhurtham: 9:22 AM
+                </div>
+                <div style="margin-top: 10px; font-weight: 400; color: var(--text-main);">
+                    Arya Vysya Kalyana Mandapam, Kunkulamarri
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========================
+         SECTION 2 — COUNTDOWN
+         ======================== -->
+    <section id="countdown" class="full-section countdown-section fade-in">
+        <div class="page-container">
+            <h2 class="section-title">Live Stream Starts In...</h2>
+            <div class="countdown-timer" id="countdown-timer">
+                <div class="time-box">
+                    <span class="time-value" id="cd-days">--</span>
+                    <span class="time-label">Days</span>
+                </div>
+                <div class="time-box">
+                    <span class="time-value" id="cd-hours">--</span>
+                    <span class="time-label">Hours</span>
+                </div>
+                <div class="time-box">
+                    <span class="time-value" id="cd-minutes">--</span>
+                    <span class="time-label">Minutes</span>
+                </div>
+                <div class="time-box">
+                    <span class="time-value" id="cd-seconds">--</span>
+                    <span class="time-label">Seconds</span>
+                </div>
+            </div>
+            <div class="countdown-live hidden" id="countdown-live">
+                <h2 class="section-title script-font" style="font-size: 3.5rem;">The Wedding is LIVE! 🎉</h2>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========================
+         SECTION 3 — LIVESTREAM
+         ======================== -->
+    <section id="livestream" class="full-section livestream-section fade-in">
+        <div class="page-container" style="text-align: center;">
+            <h2 class="section-title">Watch the Live Stream</h2>
+            <div class="video-container">
+                <iframe 
+                    src="https://www.youtube.com/embed/ra5O81PU8wo" 
+                    title="Wedding Livestream" 
+                    allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" 
+                    allowfullscreen>
+                </iframe>
+            </div>
+            <div class="status-badge" id="livestream-status">Live Starts at 6:30 AM</div>
+        </div>
+    </section>
+
+    <!-- ========================
+         SECTION 4 — GUEST WISHES
+         ======================== -->
+    <section id="wishes" class="full-section wishes-section fade-in">
+        <div class="wishes-wrapper">
+            <h2 class="section-title">Send Your Wishes 💐</h2>
+
+            <!-- Wishes Form -->
+            <form class="wishes-form" id="wishes-form" autocomplete="off">
+                <input type="text" id="wish-name" placeholder="Your Name" required maxlength="50">
+                <textarea id="wish-message" placeholder="Write your wishes for the couple..." required maxlength="300"></textarea>
+                <button type="submit" class="submit-btn">Send Wishes ✨</button>
+            </form>
+
+            <!-- Wishes Count -->
+            <p class="wishes-count" id="wishes-count"></p>
+
+            <!-- Wishes Message List -->
+            <div class="wishes-list" id="wishes-list">
+                <p class="wishes-empty" id="wishes-empty">Be the first to wish the happy couple! 💕</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========================
+         SECTION 5 — PHOTO GALLERY
+         ======================== -->
+    <section id="gallery" class="full-section gallery-section fade-in">
+        <div class="page-container">
+            <h2 class="section-title">Happy Moments</h2>
+            <div class="gallery-grid" id="photo-gallery">
+                <!-- Loaded by script.js -->
+            </div>
+        </div>
+    </section>
+
+    <!-- ========================
+         SECTION 6 — VENUE MAP
+         ======================== -->
+    <section id="venue" class="full-section venue-section fade-in">
+        <!-- Corner Floral Accent (Bottom-Left) -->
+        <img src="../wedding/corner_v3.png" class="corner-accent corner-bl watercolor-asset" alt="" aria-hidden="true">
+
+        <div class="page-container" style="text-align: center;">
+            <h2 class="section-title">Venue Details</h2>
+            <div class="venue-info">
+                <p class="venue-name">Arya Vysya Kalyana Mandapam</p>
+                <p class="venue-address">Pedda Bazar Road, Kunkalamarru (Kunkulamarri)</p>
+            </div>
+
+            <a href="https://maps.app.goo.gl/da554dd510fd8341" target="_blank" rel="noopener noreferrer" class="primary-btn">
+                Open in Google Maps
+            </a>
+
+            <div class="map-container">
+                <iframe 
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3836.8583530420046!2d80.35036579999999!3d15.91649!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a4a4391b3bd7137%3A0xda554dd510fd8341!2sKunkalamarru%20Kalyana%20Mandapam!5e0!3m2!1sen!2sin!4v1774939215861!5m2!1sen!2sin" 
+                    allowfullscreen="" 
+                    loading="lazy">
+                </iframe>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========================
+         FOOTER
+         ======================== -->
+    <footer>
+        <div class="studio-logo">Uma</div>
+        <p class="studio-name">UMA STUDIO</p>
+        <p class="studio-contact">94400 93952</p>
+        <p class="footer-powered">Powered by <a href="https://eventcast.pro" target="_blank">Eventcast.pro</a></p>
+    </footer>
+
+    <!-- ========================
+         LIGHTBOX MODAL
+         ======================== -->
+    <div id="lightbox-modal" class="lightbox">
+        <span class="lightbox-close" id="lightbox-close">&times;</span>
+        <span class="lightbox-nav lightbox-prev" id="lightbox-prev">&#8249;</span>
+        <img class="lightbox-content" id="lightbox-img" alt="Gallery photo">
+        <span class="lightbox-nav lightbox-next" id="lightbox-next">&#8250;</span>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
