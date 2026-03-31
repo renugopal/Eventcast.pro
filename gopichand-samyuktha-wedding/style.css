@@ -41,13 +41,7 @@
 }
 
 /* ── Reset & Base ── */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html {
   scroll-behavior: smooth;
@@ -69,15 +63,8 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-img {
-  max-width: 100%;
-  display: block;
-}
-
-a {
-  text-decoration: none;
-  color: inherit;
-}
+img { max-width: 100%; display: block; }
+a { text-decoration: none; color: inherit; }
 
 /* ── Section Shared ── */
 .section {
@@ -122,59 +109,19 @@ a {
 }
 
 /* ── Corner Floral Decorations ── */
-.decor-wrapper {
+.corner-decor {
   position: absolute;
   width: 380px;
   height: 380px;
+  mix-blend-mode: multiply;
+  opacity: 0.65;
   pointer-events: none;
   z-index: 1;
 }
-
-.corner-decor {
-  width: 100%;
-  height: 100%;
-  mix-blend-mode: multiply;
-  opacity: 0.65;
-  display: block;
-  animation: drift 20s ease-in-out infinite alternate;
-}
-
-.decor-wrapper.top-right {
-  top: -60px;
-  right: -60px;
-}
-
-.decor-wrapper.bottom-left {
-  bottom: -60px;
-  left: -60px;
-  transform: rotate(180deg);
-}
-
-.decor-wrapper.top-left {
-  top: -60px;
-  left: -60px;
-  transform: scaleX(-1);
-}
-
-.decor-wrapper.bottom-right {
-  bottom: -60px;
-  right: -60px;
-  transform: scaleY(-1);
-}
-
-@keyframes drift {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-
-  50% {
-    transform: translate(15px, 10px) scale(1.02);
-  }
-
-  100% {
-    transform: translate(-10px, 15px) scale(0.98);
-  }
-}
+.corner-decor.top-right { top: -60px; right: -60px; }
+.corner-decor.bottom-left { bottom: -60px; left: -60px; transform: rotate(180deg); }
+.corner-decor.top-left { top: -60px; left: -60px; transform: scaleX(-1); }
+.corner-decor.bottom-right { bottom: -60px; right: -60px; transform: scaleY(-1); }
 
 
 /* ══════════════════════════════════════════════════
@@ -201,59 +148,8 @@ a {
 .hero-wreath {
   position: relative;
   width: 760px;
-  max-width: 90vw;
   height: 760px;
-  max-height: 90vw;
   margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: bloomIn 2.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-  opacity: 0;
-}
-
-.hero-wreath::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.4) 45%, rgba(255, 255, 255, 0.4) 50%, transparent 65%);
-  background-size: 200% 200%;
-  border-radius: 50%;
-  mix-blend-mode: overlay;
-  pointer-events: none;
-  animation: shimmer 6s ease-in-out infinite;
-  opacity: 0.6;
-}
-
-@keyframes bloomIn {
-  0% {
-    transform: scale(0.92);
-    opacity: 0;
-    filter: blur(4px);
-  }
-
-  100% {
-    transform: scale(1);
-    opacity: 1;
-    filter: blur(0);
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: -200% -200%;
-  }
-
-  40% {
-    background-position: 200% 200%;
-  }
-
-  100% {
-    background-position: 200% 200%;
-  }
 }
 
 .hero-wreath img {
@@ -261,22 +157,11 @@ a {
   height: 100%;
   object-fit: contain;
   mix-blend-mode: multiply;
-  animation: slowRotate 120s linear infinite;
-}
-
-@keyframes slowRotate {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .hero-text-overlay {
   position: absolute;
-  top: 52.5%;
+  top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   width: 70%;
@@ -289,8 +174,6 @@ a {
   color: var(--color-accent-dark);
   line-height: 1;
   margin-bottom: 5px;
-  opacity: 0;
-  animation: fadeInUp 0.8s ease-out 0.8s forwards;
 }
 
 .hero-ampersand {
@@ -299,20 +182,6 @@ a {
   color: var(--color-gold);
   display: block;
   margin: 4px 0;
-  opacity: 0;
-  animation: fadeInUp 0.8s ease-out 1.2s forwards;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .hero-tagline {
@@ -336,52 +205,12 @@ a {
   color: var(--color-accent-dark);
   font-weight: 700;
   letter-spacing: 3px;
-  opacity: 0;
-  animation: fadeInUp 0.8s ease-out 1.6s forwards;
 }
 
 .hero-date-bar .line {
   width: 60px;
   height: 2px;
   background: var(--color-accent-light);
-}
-
-.hero-actions {
-  margin-top: 30px;
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  opacity: 0;
-  animation: fadeInUp 0.8s ease-out 1.8s forwards;
-}
-
-.calendar-btn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 28px;
-  background: white;
-  border: 1px solid var(--color-gold);
-  border-radius: 50px;
-  color: var(--color-gold);
-  font-family: var(--font-serif);
-  font-size: 1rem;
-  letter-spacing: 2px;
-  font-weight: 700;
-  transition: all 0.4s ease;
-  cursor: pointer;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-}
-
-.calendar-btn:hover {
-  background: var(--color-gold);
-  color: white;
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(212, 184, 122, 0.3);
-}
-
-.calendar-btn span {
-  font-size: 1.2rem;
 }
 
 /* ── Hero Info Grid ── */
@@ -394,6 +223,7 @@ a {
   margin-left: auto;
   margin-right: auto;
   padding: 35px;
+<<<<<<< HEAD
   background: var(--glass-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -402,6 +232,13 @@ a {
   box-shadow: var(--shadow-glass);
   opacity: 0;
   animation: fadeInUp 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) 2s forwards;
+=======
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(8px);
+  border-radius: 50px;
+  border: 1px solid rgba(200, 180, 168, 0.2);
+  mix-blend-mode: normal;
+>>>>>>> parent of eba560e (wedding mod)
 }
 
 .hero-info-item {
@@ -411,12 +248,7 @@ a {
   gap: 5px;
 }
 
-.hero-info-icon {
-  opacity: 0.8;
-  font-size: 1.6rem;
-  margin-bottom: 8px;
-}
-
+.hero-info-icon { opacity: 0.8; font-size: 1.6rem; margin-bottom: 8px; }
 .hero-info-label {
   font-family: var(--font-serif);
   font-size: 0.9rem;
@@ -424,7 +256,6 @@ a {
   letter-spacing: 3px;
   color: var(--color-text-light);
 }
-
 .hero-info-text {
   font-family: var(--font-serif);
   font-size: 1.4rem;
@@ -445,17 +276,8 @@ a {
 }
 
 @keyframes floatDown {
-
-  0%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.6;
-  }
-
-  50% {
-    transform: translateY(10px);
-    opacity: 1;
-  }
+  0%, 100% { transform: translateY(0); opacity: 0.6; }
+  50% { transform: translateY(10px); opacity: 1; }
 }
 
 /* ══════════════════════════════════════════════════
@@ -584,15 +406,8 @@ a {
 }
 
 @keyframes pulse {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.6;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
 /* ══════════════════════════════════════════════════
@@ -605,8 +420,7 @@ a {
 .livestream-container {
   position: relative;
   width: 100%;
-  padding-bottom: 56.25%;
-  /* 16:9 */
+  padding-bottom: 56.25%; /* 16:9 */
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow-medium);
@@ -900,15 +714,8 @@ a {
 }
 
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* ══════════════════════════════════════════════════
@@ -1164,18 +971,30 @@ a {
    RESPONSIVE DESIGN
    ══════════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  .section {
-    padding: 40px 16px;
-  }
+  .section { padding: 40px 16px; }
+  .section-title { font-size: 2.2rem; }
+  .section-subtitle { margin-bottom: 20px; }
+  
+  .hero-wreath { width: 420px; height: 420px; }
+  .hero-names { font-size: 2.8rem; }
+  .hero-ampersand { font-size: 1.8rem; }
+  .hero-tagline { font-size: 1rem; }
+  .hero-date-bar { font-size: 1rem; flex-direction: column; gap: 8px; }
+  .hero-date-bar .line { display: none; }
 
-  .section-title {
-    font-size: 2.2rem;
-  }
+  .hero-info-grid { grid-template-columns: 1fr; border-radius: 20px; gap: 15px; margin-top: 25px; padding: 25px; }
+  .hero-info-text { font-size: 1.2rem; }
 
-  .section-subtitle {
-    margin-bottom: 20px;
-  }
+  .details-grid { grid-template-columns: 1fr; }
+  
+  .countdown-item { min-width: 75px; padding: 16px 10px; }
+  .countdown-number { font-size: 2.2rem; }
+  
+  .venue-content { grid-template-columns: 1fr; }
+  
+  .corner-decor { width: 180px; height: 180px; }
 
+<<<<<<< HEAD
   .hero-wreath {
     width: 320px;
     height: 320px;
@@ -1338,21 +1157,33 @@ a {
   .gallery-slideshow {
     aspect-ratio: 3/4;
   }
+=======
+  .floating-nav { padding: 8px 14px; gap: 4px; bottom: 16px; }
+  .nav-dot { width: 36px; height: 36px; font-size: 0.9rem; }
+}
+
+@media (max-width: 480px) {
+  .hero-wreath { width: 320px; height: 320px; }
+  .hero-names { font-size: 2.2rem; }
+  .hero-ampersand { font-size: 1.6rem; }
+  
+  .section-title { font-size: 1.8rem; }
+  
+  .countdown-grid { gap: 10px; }
+  .countdown-item { min-width: 65px; padding: 12px 8px; }
+  .countdown-number { font-size: 1.8rem; }
+  .countdown-label { font-size: 0.65rem; }
+
+  .gallery-slideshow { aspect-ratio: 3/4; }
+>>>>>>> parent of eba560e (wedding mod)
 }
 
 /* ── Print Styles ── */
 @media print {
-
-  .floating-nav,
-  #chat,
-  #livestream {
-    display: none;
-  }
-
-  body {
-    background: white;
-  }
+  .floating-nav, #chat, #livestream { display: none; }
+  body { background: white; }
 }
+<<<<<<< HEAD
 
 /* ══════════════════════════════════════════════════
    FALLING PETALS ANIMATION
@@ -1546,3 +1377,5 @@ a {
         right: -5px !important;
     }
 }
+=======
+>>>>>>> parent of eba560e (wedding mod)

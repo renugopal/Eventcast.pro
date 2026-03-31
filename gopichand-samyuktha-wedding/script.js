@@ -5,6 +5,7 @@
 document.documentElement.classList.add('js-loaded');
 
 document.addEventListener('DOMContentLoaded', () => {
+<<<<<<< HEAD
   const init = (name, fn) => {
     try {
       fn();
@@ -36,6 +37,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 3000);
 
   window.addEventListener('scroll', forceRevealCheck, { passive: true });
+=======
+  initCountdown();
+  initGallery();
+  initChat();
+  initNavigation();
+  initScrollReveal();
+  initLivestream();
+>>>>>>> parent of eba560e (wedding mod)
 });
 
 function forceRevealCheck() {
@@ -69,10 +78,7 @@ function initCountdown() {
     const diff = weddingDate - now;
 
     if (diff <= 0) {
-      if (timerContainer.innerHTML !== '<p class="countdown-ended">🎊 The celebration has begun! 🎊</p>') {
-        timerContainer.innerHTML = '<p class="countdown-ended">🎊 The celebration has begun! 🎊</p>';
-        triggerConfetti();
-      }
+      timerContainer.innerHTML = '<p class="countdown-ended">🎊 The celebration has begun! 🎊</p>';
       return;
     }
 
@@ -322,7 +328,7 @@ function escapeHtml(str) {
 function initNavigation() {
   const nav = document.getElementById('floating-nav');
   const dots = nav.querySelectorAll('.nav-dot');
-  const sections = ['hero', 'countdown', 'livestream', 'gallery', 'chat', 'venue'];
+  const sections = ['hero', 'details', 'countdown', 'livestream', 'gallery', 'chat', 'venue'];
 
   // Click to scroll
   dots.forEach(dot => {
@@ -379,11 +385,12 @@ function initNavigation() {
    SCROLL REVEAL ANIMATION
    ══════════════════════════════════════════════════ */
 function initScrollReveal() {
-  const reveals = document.querySelectorAll('.reveal-bloom');
+  const reveals = document.querySelectorAll('.reveal');
 
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
+<<<<<<< HEAD
         entry.target.classList.add('active');
         observer.unobserve(entry.target);
       }
@@ -391,6 +398,14 @@ function initScrollReveal() {
   }, {
     threshold: 0.05,
     rootMargin: '0px 0px -10% 0px'
+=======
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { 
+    threshold: 0.1,
+    rootMargin: '0px 0px -50px 0px'
+>>>>>>> parent of eba560e (wedding mod)
   });
 
   reveals.forEach(el => observer.observe(el));
@@ -426,6 +441,7 @@ function initLivestream() {
     placeholder.querySelector('p').textContent = 'Replace YOUR_YOUTUBE_VIDEO_ID in the HTML to activate';
   });
 }
+<<<<<<< HEAD
 
 
 /* ══════════════════════════════════════════════════
@@ -732,3 +748,5 @@ document.querySelectorAll('button, .nav-dot, .gallery-btn, .chat-send-btn, .venu
   }, { passive: true });
 });
 
+=======
+>>>>>>> parent of eba560e (wedding mod)
