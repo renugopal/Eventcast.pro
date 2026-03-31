@@ -30,15 +30,25 @@ document.addEventListener('DOMContentLoaded', () => {
   init('WishShortcut', initWishShortcut);
 
   // Safety Fallback for Reveals (e.g. Chrome Observer glitches)
+  // Increased to 3s and added manual scroll check
   setTimeout(() => {
-    document.querySelectorAll('.reveal-bloom').forEach(el => {
-      if (!el.classList.contains('active')) {
-        el.classList.add('active');
-        console.log('[Safe-Mode] Forced reveal for:', el.id || 'unknown');
-      }
-    });
-  }, 1500);
+    forceRevealCheck();
+  }, 3000);
+
+  window.addEventListener('scroll', forceRevealCheck, { passive: true });
 });
+
+function forceRevealCheck() {
+  document.querySelectorAll('.reveal-bloom').forEach(el => {
+    if (!el.classList.contains('active')) {
+      const rect = el.getBoundingClientRect();
+      if (rect.top < window.innerHeight * 0.9) {
+        el.classList.add('active');
+        console.log('[Safe-Mode] Manual trigger for:', el.id || 'section');
+      }
+    }
+  });
+}
 
 
 /* ══════════════════════════════════════════════════
@@ -375,13 +385,12 @@ function initScrollReveal() {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         entry.target.classList.add('active');
-        // Once revealed, no need to observe again
         observer.unobserve(entry.target);
       }
     });
   }, {
-    threshold: 0.1,
-    rootMargin: '0px 0px -50px 0px'
+    threshold: 0.05,
+    rootMargin: '0px 0px -10% 0px'
   });
 
   reveals.forEach(el => observer.observe(el));
@@ -494,14 +503,46 @@ function initMusic() {
         toggle.innerHTML = '<span>🔊</span>';
       }).catch(err => console.log("Autoplay blocked:", err));
     }
-    // Remove all interaction triggers
-    ['click', 'touchstart', 'scroll', 'mousedown'].forEach(evt => {
+    // Remove all triggers once music starts
+    ['click', 'touchstart', 'scroll', 'mousedown', 'mousemove'].forEach(evt => {
       document.removeEventListener(evt, startMusic);
     });
+    
+    // Hide the hint if it exists
+    const hint = document.getElementById('music-starter-hint');
+    if (hint) {
+      hint.style.opacity = '0';
+      setTimeout(() => hint.remove(), 500);
+    }
   };
 
   // Pre-load the audio properly
   bgMusic.load();
+
+  // Create a "Tap to Experience" hint for Chrome Mobile
+  const createMusicHint = () => {
+    if (document.getElementById('music-starter-hint')) return;
+    const hint = document.createElement('div');
+    hint.id = 'music-starter-hint';
+    hint.innerHTML = '<span>🎵</span><p>Tap to enter with music</p>';
+    document.body.appendChild(hint);
+    hint.addEventListener('click', () => {
+        bgMusic.volume = 1.0; 
+        bgMusic.play();
+        isPlaying = true;
+        toggle.classList.add('playing');
+        toggle.innerHTML = '<span>🔊</span>';
+        hint.style.opacity = '0';
+        setTimeout(() => hint.remove(), 500);
+    });
+  };
+
+  // Only show hint on mobile if music hasn't started in 2 seconds
+  if (window.innerWidth < 768) {
+      setTimeout(() => {
+          if (!isPlaying) createMusicHint();
+      }, 2000);
+  }
 
   // Listen for any form of guest interaction
   const triggers = ['click', 'touchstart', 'scroll', 'mousedown', 'mousemove'];
@@ -518,6 +559,9 @@ function initMusic() {
       isPlaying = true;
       toggle.classList.add('playing');
       toggle.innerHTML = '<span>🔊</span>';
+      // Remove hint if user used the toggle instead
+      const hint = document.getElementById('music-starter-hint');
+      if (hint) hint.remove();
     } else {
       bgMusic.pause();
       toggle.classList.remove('playing');
@@ -675,4 +719,16 @@ function triggerConfetti() {
     animation.onfinish = () => particle.remove();
   }
 }
+
+/* ══════════════════════════════════════════════════
+   TOUCH INTERACTIONS (SCALE EFFECTS)
+   ══════════════════════════════════════════════════ */
+document.querySelectorAll('button, .nav-dot, .gallery-btn, .chat-send-btn, .venue-map-btn, .calendar-btn').forEach(btn => {
+  btn.addEventListener('touchstart', () => {
+    btn.style.transform = (btn.style.transform || '') + ' scale(0.95)';
+  }, { passive: true });
+  btn.addEventListener('touchend', () => {
+    btn.style.transform = btn.style.transform.replace(' scale(0.95)', '');
+  }, { passive: true });
+});
 
