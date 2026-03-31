@@ -2,17 +2,42 @@
    WEDDING LIVESTREAM — JAVASCRIPT
    ═══════════════════════════════════════════════════ */
 
+document.documentElement.classList.add('js-loaded');
+
 document.addEventListener('DOMContentLoaded', () => {
-  initCountdown();
-  initGallery();
-  initChat();
-  initNavigation();
-  initScrollReveal();
-  initLivestream();
-  initPetals();
-  initMusic();
-  initCalendar();
-  initWishShortcut();
+  const init = (name, fn) => {
+    try {
+      fn();
+      console.log(`[Success] ${name} initialized`);
+    } catch (e) {
+      console.error(`[Error] ${name} initialization failed:`, e);
+      // Fallback for reveals if script fails
+      if (name === 'ScrollReveal') {
+        document.querySelectorAll('.reveal-bloom').forEach(el => el.classList.add('active'));
+      }
+    }
+  };
+
+  init('Countdown', initCountdown);
+  init('Gallery', initGallery);
+  init('Chat', initChat);
+  init('Navigation', initNavigation);
+  init('ScrollReveal', initScrollReveal);
+  init('Livestream', initLivestream);
+  init('Petals', initPetals);
+  init('Music', initMusic);
+  init('Calendar', initCalendar);
+  init('WishShortcut', initWishShortcut);
+
+  // Safety Fallback for Reveals (e.g. Chrome Observer glitches)
+  setTimeout(() => {
+    document.querySelectorAll('.reveal-bloom').forEach(el => {
+      if (!el.classList.contains('active')) {
+        el.classList.add('active');
+        console.log('[Safe-Mode] Forced reveal for:', el.id || 'unknown');
+      }
+    });
+  }, 1500);
 });
 
 
@@ -479,22 +504,26 @@ function initMusic() {
   bgMusic.load();
 
   // Listen for any form of guest interaction
-  ['click', 'touchstart', 'scroll', 'mousedown'].forEach(evt => {
-    document.addEventListener(evt, startMusic, { once: true });
+  const triggers = ['click', 'touchstart', 'scroll', 'mousedown', 'mousemove'];
+  triggers.forEach(evt => {
+    document.addEventListener(evt, startMusic, { once: true, passive: true });
   });
 
+  // Explicitly try play on first toggle click too
   toggle.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (isPlaying) {
+    if (!isPlaying) {
+      bgMusic.volume = 1.0; 
+      bgMusic.play();
+      isPlaying = true;
+      toggle.classList.add('playing');
+      toggle.innerHTML = '<span>🔊</span>';
+    } else {
       bgMusic.pause();
       toggle.classList.remove('playing');
       toggle.innerHTML = '<span>🔇</span>';
-    } else {
-      bgMusic.play();
-      toggle.classList.add('playing');
-      toggle.innerHTML = '<span>🔊</span>';
+      isPlaying = false;
     }
-    isPlaying = !isPlaying;
   });
 
   // Load YouTube IFrame API for smart muting
@@ -579,9 +608,17 @@ function initWishShortcut() {
   const shortcut = document.getElementById('wish-shortcut');
   if (!shortcut) return;
 
-  shortcut.addEventListener('click', () => {
+  shortcut.addEventListener('click', (e) => {
+    e.preventDefault();
     const chatSection = document.getElementById('chat');
-    chatSection.scrollIntoView({ behavior: 'smooth' });
+    if (chatSection) {
+      // Chrome Mobile Fallback
+      const offsetTop = chatSection.offsetTop;
+      window.scrollTo({
+        top: offsetTop,
+        behavior: 'smooth'
+      });
+    }
   });
 
   // Hide shortcut when already in chat section

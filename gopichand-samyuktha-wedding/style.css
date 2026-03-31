@@ -61,6 +61,8 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  width: 100%;
+  -webkit-text-size-adjust: 100%;
 }
 
 img {
@@ -78,6 +80,7 @@ a {
   position: relative;
   padding: 30px 20px;
   overflow: hidden;
+  width: 100%;
 }
 
 .section-inner {
@@ -1452,11 +1455,16 @@ a {
 }
 
 /* ── Deluxe Scroll Reveal (Bloom) ── */
-.reveal-bloom {
+/* Visible by default for safety, hiding only if JS is ready */
+.js-loaded .reveal-bloom {
   opacity: 0;
   transform: scale(0.96) translateY(20px);
   filter: blur(5px);
+}
+
+.reveal-bloom {
   transition: all 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  opacity: 1; /* Fallback */
 }
 
 .reveal-bloom.active {
