@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sravani &amp; Rama Krishna Wedding Live | 3rd April | 7:00 PM</title>
+    <!-- SEO Meta Tags -->
+    <meta name="description"
+        content="Join us live and bless the couple on their special day. Your wishes and blessings mean a lot.">
+    <meta property="og:title" content="Sravani &amp; Rama Krishna Wedding Live | 3rd April | 7:00 PM">
+    <meta property="og:description"
+        content="Join us live and bless the couple on their special day. Your wishes and blessings mean a lot.">
+    <meta property="og:image" content="https://eventcast.pro/sravani-ramakrishna-wedding/seo_thumbnail.jpeg">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://eventcast.pro/sravani-ramakrishna-wedding/seo_thumbnail.jpeg">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+
+    <div id="loader">
+        <div class="loader-content">
+            <h1 class="logo-text">S & R</h1>
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <!-- Animated Overlays -->
+    <canvas id="petal-canvas"></canvas>
+    <div class="confetti-overlay" id="confetti-container"></div>
+
+    <main>
+        <!-- HERO SECTION -->
+        <section id="hero" class="fade-in">
+            <div class="floral-frame tl"></div>
+            <div class="floral-frame tr"></div>
+            <div class="floral-frame bl"></div>
+            <div class="floral-frame br"></div>
+
+            <div class="hero-content">
+                <p class="invite-header">
+                    <span>Welcome to the</span>
+                    <span>Wedding of</span>
+                </p>
+
+                <div class="hero-wreath">
+                    <img src="wreath.webp" alt="Floral Wreath" class="wreath-img">
+                    <div class="names-overlay">
+                        <div class="initials">S & R</div>
+                    </div>
+                </div>
+
+                <div class="full-names-container">
+                    <h1 class="couple-full-names">
+                        <span class="first-name">Sravani</span>
+                        <span class="weds">&</span>
+                        <span class="second-name">Ramakrishna</span>
+                    </h1>
+                </div>
+
+                <div class="hero-info-grid">
+                    <div class="hero-info-item">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span class="info-label">Date</span>
+                        <span class="info-text">Friday, April 03</span>
+                    </div>
+                    <div class="hero-info-item">
+                        <i class="fas fa-clock"></i>
+                        <span class="info-label">Sumuhurtham</span>
+                        <span class="info-text">09:37 PM</span>
+                        <span class="info-subtext">Vruchika Lagnam</span>
+                    </div>
+                    <div class="hero-info-item">
+                        <i class="fas fa-house-chimney"></i>
+                        <span class="info-label">Venue</span>
+                        <span class="info-text">At our Residence</span>
+                        <span class="info-subtext">Bhavanarushi Nagar, Chilakaluripet</span>
+                    </div>
+                </div>
+
+                <div class="countdown-wrapper">
+                    <div id="countdown">
+                        <div class="time-box">
+                            <span id="days">--</span>
+                            <span class="label">Days</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="hours">--</span>
+                            <span class="label">Hours</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="minutes">--</span>
+                            <span class="label">Min</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="seconds">--</span>
+                            <span class="label">Sec</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- LIVESTREAM SECTION -->
+        <section id="livestream" class="reveal">
+            <div class="section-header">
+                <h2 class="section-title">Live Stream</h2>
+                <div class="status-badge"><span class="pulse"></span> LIVE SOON</div>
+            </div>
+
+            <div class="video-container">
+                <iframe src="https://www.youtube.com/embed/WsVMJMJV-Rw" title="Wedding Livestream" frameborder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowfullscreen></iframe>
+            </div>
+
+        </section>
+
+        <!-- CHAT / WISHES SECTION -->
+        <section id="chat-section" class="reveal">
+            <div class="content-card">
+                <h2 class="section-title">Wishes Wall</h2>
+                <p class="section-subtitle">Send your blessings to the happy couple</p>
+
+                <form id="wishes-form">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <input type="text" id="wish-name" placeholder="Your Name" required>
+                        </div>
+                        <div class="input-group">
+                            <textarea id="wish-message" rows="3" placeholder="Write your message here..."
+                                required></textarea>
+                        </div>
+                        <button type="submit" class="btn primary-btn">Send Message <i
+                                class="fas fa-paper-plane"></i></button>
+                    </div>
+                </form>
+
+                <div id="wishes-list" class="wishes-scroll-area">
+                    <!-- Wishes will appear here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- MAP SECTION -->
+        <section id="map-section" class="reveal">
+            <h2 class="section-title">Locate the Venue</h2>
+            <div class="map-container">
+                <iframe
+                    src="https://www.google.com/maps/embed?pb=!1m17!1m12!1m3!1d3800.0!2d80.155306!3d16.094639!2m3!1f0!2f0!3f0!3m2!1i1024!2i718!4f13.1!3m2!1m1!2zMTbCsDA1JzQwLjciTiA4MMKwMDknMTkuMSJF!5e0!3m2!1sen!2sin!4v1775141218224!5m2!1sen!2sin"
+                    width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+            <div class="action-buttons">
+                <a href="https://maps.app.goo.gl/hCTjvWz3BTnSrQUV8" target="_blank" class="btn map-btn">
+                    <i class="fas fa-location-dot"></i> Open in Google Maps
+                </a>
+            </div>
+        </section>
+
+        <!-- FOOTER & PHOTOGRAPHER -->
+        <footer>
+            <div class="photographer-section">
+                <div class="logo-box">SR</div>
+                <h3 class="studio-name">SR PHOTOGRAPHY</h3>
+                <p class="photographer-name">YASWANTH BITRA</p>
+                <div class="contact-info">
+                    <a href="tel:8074344923"><i class="fas fa-phone"></i> 8074 344 923</a>
+                    <a href="https://www.instagram.com/srphotographyforyou?igsh=ZjlzdGh4Z2pnNjI1&utm_source=qr"
+                        target="_blank"><i class="fab fa-instagram"></i> Instagram</a>
+                </div>
+            </div>
+
+            <div class="legal">
+                <p>&copy; 2026 Powered by Eventcast.pro</p>
+            </div>
+        </footer>
+    </main>
+
+    <script src="https://unpkg.com/scrollreveal"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
