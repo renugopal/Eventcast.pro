@@ -14,6 +14,8 @@
     <meta property="og:type" content="website">
 
     <link rel="stylesheet" href="style.css">
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
 <body>
@@ -86,6 +88,36 @@
                     allowfullscreen></iframe>
             </div>
             <div class="status-badge" id="livestream-status">Live Start at 6:30 AM</div>
+        </div>
+    </section>
+
+    <!-- WISHES SECTION -->
+    <section class="full-section wishes-section fade-in" id="wishes-section">
+        <div class="page-container">
+            <h2 class="section-title">Send Your Blessings</h2>
+            <div class="wishes-container">
+                <!-- Form to send wishes -->
+                <div class="wish-form-card watercolor-glass">
+                    <h3>Leave a Message</h3>
+                    <form id="wish-form">
+                        <div class="input-group">
+                            <input type="text" id="guest-name" placeholder="Your Name" required>
+                        </div>
+                        <div class="input-group">
+                            <textarea id="guest-message" placeholder="Write your message here..." required rows="3"></textarea>
+                        </div>
+                        <button type="submit" class="primary-btn" id="send-wish-btn" style="width: 100%;">Send Blessing</button>
+                    </form>
+                </div>
+
+                <!-- Display area for wishes -->
+                <div class="wishes-display watercolor-glass">
+                    <h3>Recent Messages</h3>
+                    <div id="wishes-list" class="wishes-list">
+                        <div class="loading-wishes">Loading messages...</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 

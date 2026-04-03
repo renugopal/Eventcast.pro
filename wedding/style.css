@@ -358,3 +358,107 @@ footer {
     .hero-content { padding: 0 20px; }
     .corner-accent { width: 180px; }
 }
+
+/* --- WISHES SECTION --- */
+.wishes-container {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 30px;
+    margin-top: 40px;
+}
+
+@media (max-width: 768px) {
+    .wishes-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.watercolor-glass {
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 10px 10px 30px rgba(0, 0, 0, 0.05);
+}
+
+.wish-form-card h3, .wishes-display h3 {
+    font-family: 'Playfair Display', serif;
+    color: var(--text-main);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.wishes-list {
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 15px;
+}
+
+.wishes-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.wishes-list::-webkit-scrollbar-thumb {
+    background: var(--lavender);
+    border-radius: 10px;
+}
+
+.wish-item {
+    background: rgba(255, 255, 255, 0.6);
+    padding: 15px;
+    border-radius: 15px;
+    margin-bottom: 15px;
+    border-left: 4px solid var(--lavender);
+    animation: slideUp 0.5s ease-out;
+}
+
+.wish-guest-name {
+    font-weight: 700;
+    color: var(--text-main);
+    display: block;
+    margin-bottom: 5px;
+}
+
+.wish-text {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+}
+
+.wish-time {
+    font-size: 0.7rem;
+    color: var(--lavender);
+    display: block;
+    text-align: right;
+    margin-top: 5px;
+}
+
+.input-group {
+    margin-bottom: 15px;
+}
+
+.input-group input, .input-group textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid rgba(138, 116, 150, 0.2);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.8);
+    font-family: inherit;
+}
+
+.input-group input:focus, .input-group textarea:focus {
+    border-color: var(--lavender);
+    outline: none;
+}
+
+/* Animations */
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.8; }
+    100% { opacity: 1; }
+}

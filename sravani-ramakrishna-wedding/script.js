@@ -121,40 +121,89 @@ function startPetals() {
     animate();
 }
 
-// --- WISHES WALL LOGIC ---
+// --- SUPABASE WISHES LOGIC ---
+const SUPABASE_URL = 'https://ntjqjmuripwexwlhfrny.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_vi_vz9qfKMJnEymw3WaPpg_2A6SeSWR';
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 const wishesForm = document.getElementById('wishes-form');
 const wishesList = document.getElementById('wishes-list');
+const nameInput = document.getElementById('wish-name');
+const messageInput = document.getElementById('wish-message');
 
-wishesForm.addEventListener('submit', (e) => {
-    e.preventDefault();
+async function fetchWishes() {
+    const { data, error } = await _supabase
+        .from('wishes')
+        .select('*')
+        .eq('event_id', 'sravani-ramakrishna')
+        .order('created_at', { ascending: false });
 
-    const name = document.getElementById('wish-name').value;
-    const message = document.getElementById('wish-message').value;
+    if (error) {
+        console.error('Error fetching wishes:', error);
+        return;
+    }
+    renderWishes(data);
+}
 
-    if (name && message) {
-        addWish(name, message);
-        wishesForm.reset();
+function renderWishes(wishes) {
+    wishesList.innerHTML = '';
+    wishes.forEach(wish => {
+        const wishItem = document.createElement('div');
+        wishItem.className = 'wish-item';
+        wishItem.innerHTML = `
+            <h4>${escapeHTML(wish.name)}</h4>
+            <p>${escapeHTML(wish.message)}</p>
+            <small style="opacity: 0.5; font-size: 0.7rem; display: block; text-align: right;">
+                ${new Date(wish.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+            </small>
+        `;
+        wishesList.appendChild(wishItem);
+    });
+}
 
-        // Show local success feedback
+if (wishesForm) {
+    wishesForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = nameInput.value.trim();
+        const message = messageInput.value.trim();
+
+        if (!name || !message) return;
+
         const btn = wishesForm.querySelector('button');
         const originalText = btn.innerHTML;
-        btn.innerHTML = 'Thank You! ❤️';
-        setTimeout(() => {
-            btn.innerHTML = originalText;
-        }, 2000);
-    }
-});
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
 
-function addWish(name, message) {
-    const wishItem = document.createElement('div');
-    wishItem.className = 'wish-item';
-    wishItem.innerHTML = `
-        <h4>${name}</h4>
-        <p>${message}</p>
-    `;
-    // Prepend to show latest first
-    wishesList.insertBefore(wishItem, wishesList.firstChild);
+        const { error } = await _supabase
+            .from('wishes')
+            .insert([{ name, message, event_id: 'sravani-ramakrishna' }]);
+
+        if (error) {
+            alert('Error: ' + error.message);
+        } else {
+            wishesForm.reset();
+            btn.innerHTML = 'Thank You! ❤️';
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+            }, 2000);
+        }
+        btn.disabled = false;
+    });
 }
+
+// Real-time
+_supabase.channel('public:wishes_sravani')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wishes' }, payload => {
+        fetchWishes();
+    }).subscribe();
+
+function escapeHTML(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+fetchWishes();
 
 // --- INITIAL CONGRATS CONFETTI ---
 // Simple implementation avoiding external library for now

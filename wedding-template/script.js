@@ -102,9 +102,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     /* ===================================================
-       4. GUEST WISHES / CHAT (localStorage)
+       4. GUEST WISHES / CHAT (Supabase)
        =================================================== */
-    const WISHES_STORAGE_KEY = 'wedding_wishes_gc_samyuktha';
+    const SUPABASE_URL = 'https://ntjqjmuripwexwlhfrny.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_vi_vz9qfKMJnEymw3WaPpg_2A6SeSWR';
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // IMPORTANT: Change this ID for every new project you create from this template
+    const EVENT_ID = 'TEMPLATE_EVENT_ID'; 
+
     const wishForm = document.getElementById('wishes-form');
     const wishNameInput = document.getElementById('wish-name');
     const wishMessageInput = document.getElementById('wish-message');
@@ -112,64 +118,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const wishesEmpty = document.getElementById('wishes-empty');
     const wishesCount = document.getElementById('wishes-count');
 
-    // Load wishes from localStorage
-    function loadWishes() {
-        try {
-            const stored = localStorage.getItem(WISHES_STORAGE_KEY);
-            return stored ? JSON.parse(stored) : [];
-        } catch {
-            return [];
+    // Fetch Existing Wishes
+    async function fetchWishes() {
+        const { data, error } = await _supabase
+            .from('wishes')
+            .select('*')
+            .eq('event_id', EVENT_ID)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching wishes:', error);
+            return;
         }
+        renderWishes(data);
     }
 
-    // Save wishes to localStorage
-    function saveWishes(wishes) {
-        try {
-            localStorage.setItem(WISHES_STORAGE_KEY, JSON.stringify(wishes));
-        } catch {
-            // Storage full or unavailable — fail silently
-        }
-    }
-
-    // Format timestamp
-    function formatTime(timestamp) {
-        const date = new Date(timestamp);
-        const options = {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-        };
-        return date.toLocaleString('en-IN', options);
-    }
-
-    // Render a single wish card
-    function createWishCard(wish) {
-        const card = document.createElement('div');
-        card.className = 'wish-card';
-
-        card.innerHTML = `
-            <div class="wish-name">${escapeHtml(wish.name)}</div>
-            <div class="wish-message">${escapeHtml(wish.message)}</div>
-            <div class="wish-time">${formatTime(wish.timestamp)}</div>
-        `;
-
-        return card;
-    }
-
-    // Escape HTML to prevent XSS
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    // Render all wishes
-    function renderWishes() {
-        const wishes = loadWishes();
-
+    // Render Wishes
+    function renderWishes(wishes) {
         // Update count
         if (wishes.length > 0) {
             wishesCount.textContent = `${wishes.length} wish${wishes.length !== 1 ? 'es' : ''} sent`;
@@ -179,50 +144,66 @@ document.addEventListener('DOMContentLoaded', () => {
             wishesEmpty.classList.remove('hidden');
         }
 
-        // Clear existing cards (keep empty message element)
+        // Clear existing cards
         const existingCards = wishesList.querySelectorAll('.wish-card');
         existingCards.forEach(card => card.remove());
 
         // Render newest first
-        wishes.reverse().forEach(wish => {
-            wishesList.appendChild(createWishCard(wish));
+        wishes.forEach(wish => {
+            const card = document.createElement('div');
+            card.className = 'wish-card';
+            card.innerHTML = `
+                <div class="wish-name">${escapeHtml(wish.name)}</div>
+                <div class="wish-message">${escapeHtml(wish.message)}</div>
+                <div class="wish-time">${new Date(wish.created_at).toLocaleString('en-IN', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'})}</div>
+            `;
+            wishesList.appendChild(card);
         });
     }
 
-    // Handle form submission
+    // Handle Form Submission
     if (wishForm) {
-        wishForm.addEventListener('submit', (e) => {
+        wishForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-
             const name = wishNameInput.value.trim();
             const message = wishMessageInput.value.trim();
-
             if (!name || !message) return;
 
-            const wish = {
-                name,
-                message,
-                timestamp: Date.now()
-            };
+            const btn = wishForm.querySelector('button');
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
 
-            const wishes = loadWishes();
-            wishes.push(wish);
-            saveWishes(wishes);
+            const { error } = await _supabase
+                .from('wishes')
+                .insert([{ name, message, event_id: EVENT_ID }]);
 
-            // Clear form
-            wishNameInput.value = '';
-            wishMessageInput.value = '';
-
-            // Re-render
-            renderWishes();
-
-            // Scroll to top of wishes list to show new message
-            wishesList.scrollTop = 0;
+            if (error) {
+                alert('Error: ' + error.message);
+            } else {
+                wishNameInput.value = '';
+                wishMessageInput.value = '';
+                fetchWishes(); // Refresh
+            }
+            btn.disabled = false;
+            btn.textContent = 'Send Wishes ✨';
         });
     }
 
-    // Initial render
-    renderWishes();
+    // Real-time Subscription
+    _supabase.channel('public:wishes_template')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wishes' }, payload => {
+            if (payload.new.event_id === EVENT_ID) fetchWishes();
+        }).subscribe();
+
+    // Escape HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Initial load
+    fetchWishes();
 
 
     /* ===================================================

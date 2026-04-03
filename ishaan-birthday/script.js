@@ -49,56 +49,98 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update every 1 second
     setInterval(updateCountdown, 1000);
 
-    /* --- Wishes Form Logic --- */
+    /* --- SUPABASE WISHES LOGIC --- */
+    const SUPABASE_URL = 'https://ntjqjmuripwexwlhfrny.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_vi_vz9qfKMJnEymw3WaPpg_2A6SeSWR';
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
     const wishesForm = document.getElementById('wishes-form');
     const wishesList = document.getElementById('wishes-list');
-    
-    // Initial Dummy Wishes Let's create an array of initial wishes
-    const initialWishes = [];
-    
-    function createWishElement(name, text) {
-        const wishCard = document.createElement('div');
-        wishCard.className = 'wish-card';
-        
-        const wishHeader = document.createElement('div');
-        wishHeader.className = 'wish-header';
-        // Prefix with balloon emoji
-        wishHeader.textContent = `🎈 ${name}`;
-        
-        const wishBody = document.createElement('div');
-        wishBody.className = 'wish-body';
-        wishBody.textContent = text;
-        
-        wishCard.appendChild(wishHeader);
-        wishCard.appendChild(wishBody);
-        
-        return wishCard;
-    }
-    
-    // Pre-fill the list
-    initialWishes.forEach(wish => {
-        wishesList.appendChild(createWishElement(wish.name, wish.text));
-    });
-    
-    wishesForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        
-        const nameInput = document.getElementById('wish-name');
-        const messageInput = document.getElementById('wish-message');
-        
-        const nameVal = nameInput.value.trim();
-        const textVal = messageInput.value.trim();
-        
-        if (nameVal && textVal) {
-            const newWish = createWishElement(nameVal, textVal);
-            // Append to the top of the list
-            wishesList.prepend(newWish);
-            
-            // Clear input fields
-            nameInput.value = '';
-            messageInput.value = '';
+    const nameInput = document.getElementById('wish-name');
+    const messageInput = document.getElementById('wish-message');
+    const sendBtn = wishesForm ? wishesForm.querySelector('button') : null;
+
+    async function fetchWishes() {
+        const { data, error } = await _supabase
+            .from('wishes')
+            .select('*')
+            .eq('event_id', 'ishaan-birthday')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching wishes:', error);
+            return;
         }
-    });
+        renderWishes(data);
+    }
+
+    function renderWishes(wishes) {
+        wishesList.innerHTML = '';
+        wishes.forEach(wish => {
+            const wishCard = document.createElement('div');
+            wishCard.className = 'wish-card';
+            
+            const wishHeader = document.createElement('div');
+            wishHeader.className = 'wish-header';
+            wishHeader.textContent = `🎈 ${escapeHTML(wish.name)}`;
+            
+            const wishBody = document.createElement('div');
+            wishBody.className = 'wish-body';
+            wishBody.textContent = wish.message;
+            
+            const wishTime = document.createElement('div');
+            wishTime.className = 'wish-time';
+            wishTime.style.fontSize = '0.7rem';
+            wishTime.style.opacity = '0.6';
+            wishTime.style.textAlign = 'right';
+            wishTime.textContent = new Date(wish.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+            wishCard.appendChild(wishHeader);
+            wishCard.appendChild(wishBody);
+            wishCard.appendChild(wishTime);
+            wishesList.appendChild(wishCard);
+        });
+    }
+
+    if (wishesForm) {
+        wishesForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = nameInput.value.trim();
+            const message = messageInput.value.trim();
+
+            if (!name || !message) return;
+
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+
+            const { error } = await _supabase
+                .from('wishes')
+                .insert([{ name, message, event_id: 'ishaan-birthday' }]);
+
+            if (error) {
+                alert('Error: ' + error.message);
+            } else {
+                nameInput.value = '';
+                messageInput.value = '';
+            }
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Send Wishes 🎈';
+        });
+    }
+
+    // Real-time
+    _supabase.channel('public:wishes_birthday')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wishes' }, payload => {
+            fetchWishes();
+        }).subscribe();
+
+    function escapeHTML(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    fetchWishes();
 
     /* --- Scroll Fade-in Animation (Intersection Observer) --- */
     const faders = document.querySelectorAll('.fade-in');

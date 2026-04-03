@@ -120,4 +120,95 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    /* --- SUPABASE WISHES LOGIC --- */
+    const SUPABASE_URL = 'https://ntjqjmuripwexwlhfrny.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_vi_vz9qfKMJnEymw3WaPpg_2A6SeSWR';
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const wishForm = document.getElementById('wish-form');
+    const wishesList = document.getElementById('wishes-list');
+    const guestNameInput = document.getElementById('guest-name');
+    const guestMessageInput = document.getElementById('guest-message');
+    const sendBtn = document.getElementById('send-wish-btn');
+
+    // 1. Fetch Existing Wishes
+    async function fetchWishes() {
+        const { data, error } = await _supabase
+            .from('wishes')
+            .select('*')
+            .eq('event_id', 'gopichand-samyuktha')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching wishes:', error);
+            wishesList.innerHTML = '<div class="error">Could not load messages.</div>';
+            return;
+        }
+
+        renderWishes(data);
+    }
+
+    // 2. Render Wishes to UI
+    function renderWishes(wishes) {
+        if (wishes.length === 0) {
+            wishesList.innerHTML = '<div class="no-wishes">Be the first to send a blessing!</div>';
+            return;
+        }
+
+        wishesList.innerHTML = wishes.map(wish => `
+            <div class="wish-item">
+                <span class="wish-guest-name">${escapeHTML(wish.name)}</span>
+                <p class="wish-text">${escapeHTML(wish.message)}</p>
+                <span class="wish-time">${new Date(wish.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+            </div>
+        `).join('');
+    }
+
+    // 3. Send New Wish
+    if (wishForm) {
+        wishForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = guestNameInput.value.trim();
+            const message = guestMessageInput.value.trim();
+
+            if (!name || !message) return;
+
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+
+            const { error } = await _supabase
+                .from('wishes')
+                .insert([{ name, message, event_id: 'gopichand-samyuktha' }]);
+
+            if (error) {
+                alert('Error sending wish: ' + error.message);
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send Blessing';
+            } else {
+                wishForm.reset();
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send Blessing';
+            }
+        });
+    }
+
+    // 4. Real-time Subscription
+    const wishesSubscription = _supabase
+        .channel('public:wishes')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wishes' }, payload => {
+            fetchWishes(); // Refresh list on new insert
+        })
+        .subscribe();
+
+    // Helper: Escape HTML to prevent XSS
+    function escapeHTML(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // Initial load
+    fetchWishes();
 });
