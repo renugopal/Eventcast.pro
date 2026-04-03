@@ -187,18 +187,34 @@ function initGallery() {
 
 
 /* ══════════════════════════════════════════════════
-   CHAT / BLESSINGS
+   CHAT / BLESSINGS (Supabase)
    ══════════════════════════════════════════════════ */
+const SUPABASE_URL = 'https://ntjqjmuripwexwlhfrny.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_vi_vz9qfKMJnEymw3WaPpg_2A6SeSWR';
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const EVENT_ID = 'gopichand-samyuktha';
+
 function initChat() {
   const messagesContainer = document.getElementById('chat-messages');
   const nameInput = document.getElementById('chat-name');
   const messageInput = document.getElementById('chat-input');
   const sendBtn = document.getElementById('chat-send');
 
-  // Load saved messages from localStorage
-  let messages = JSON.parse(localStorage.getItem('wedding-blessings') || '[]');
+  async function fetchMessages() {
+    const { data, error } = await _supabase
+      .from('wishes')
+      .select('*')
+      .eq('event_id', EVENT_ID)
+      .order('created_at', { ascending: true });
 
-  function renderMessages() {
+    if (error) {
+      console.error('Error fetching messages:', error);
+      return;
+    }
+    renderMessages(data);
+  }
+
+  function renderMessages(messages) {
     if (messages.length === 0) {
       messagesContainer.innerHTML = '<div class="chat-empty">💐 Be the first to send your blessings!</div>';
       return;
@@ -207,58 +223,53 @@ function initChat() {
     messagesContainer.innerHTML = messages.map(msg => `
       <div class="chat-message">
         <div class="sender">${escapeHtml(msg.name)}</div>
-        <div class="text">${escapeHtml(msg.text)}</div>
-        <div class="time">${msg.time}</div>
+        <div class="text">${escapeHtml(msg.message)}</div>
+        <div class="time">${new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
       </div>
     `).join('');
 
-    // Scroll to bottom
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 
-  function sendMessage() {
+  async function sendMessage() {
     const name = nameInput.value.trim();
-    const text = messageInput.value.trim();
+    const message = messageInput.value.trim();
 
     if (!name) {
       nameInput.focus();
-      nameInput.style.borderBottomColor = '#C4917B';
-      setTimeout(() => nameInput.style.borderBottomColor = '', 2000);
       return;
     }
 
-    if (!text) {
+    if (!message) {
       messageInput.focus();
       return;
     }
 
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString('en-IN', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: true 
-    }) + ' · ' + now.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short'
-    });
+    sendBtn.disabled = true;
+    const { error } = await _supabase
+      .from('wishes')
+      .insert([{ name, message, event_id: EVENT_ID }]);
 
-    messages.push({ name, text, time: timeStr });
-    localStorage.setItem('wedding-blessings', JSON.stringify(messages));
-
-    messageInput.value = '';
-    renderMessages();
+    if (error) {
+      alert('Error: ' + error.message);
+    } else {
+      messageInput.value = '';
+    }
+    sendBtn.disabled = false;
   }
 
-  // Event listeners
   sendBtn.addEventListener('click', sendMessage);
   messageInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendMessage();
   });
 
-  // Initial render
-  renderMessages();
+  _supabase.channel('public:wishes_gs')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wishes' }, payload => {
+      fetchMessages();
+    }).subscribe();
 
-  // Save name for convenience
+  fetchMessages();
+
   const savedName = localStorage.getItem('wedding-guest-name');
   if (savedName) nameInput.value = savedName;
   nameInput.addEventListener('blur', () => {
