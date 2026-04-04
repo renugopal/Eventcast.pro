@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium AI Workspace</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="dark-theme">
+    <div class="glass-bg"></div>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <span class="logo-icon">✨</span>
+                <h1>AI Workspace</h1>
+            </div>
+            <nav class="nav-links">
+                <button class="nav-item active" id="chat-tab">💬 Chat & Logic</button>
+                <button class="nav-item" id="design-tab">🎨 Web Design</button>
+                <button class="nav-item" id="files-tab">📁 Project Files</button>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-status">Online</div>
+                <button class="settings-btn">⚙️ Settings</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="chat-viewport">
+                <div id="chat-history" class="chat-history">
+                    <div class="message system">
+                        Welcome to your Premium AI Workspace. Choose an input method below or record your voice.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Central Voice Control -->
+            <div class="voice-control-area">
+                <div class="waveform-container">
+                    <canvas id="waveform"></canvas>
+                </div>
+                <button id="record-btn" class="record-btn ripple">
+                    <span class="mic-icon">🎙️</span>
+                    <span class="btn-text">Record Voice</span>
+                </button>
+                <p class="voice-hint">Press to record. Speak in Telugu or English.</p>
+            </div>
+
+            <!-- Input Bar -->
+            <div class="input-bar">
+                <textarea id="text-input" placeholder="Enter text or logical request..."></textarea>
+                <button id="send-btn" class="send-btn">🚀</button>
+            </div>
+        </main>
+
+        <!-- Right Preview Panel (Conditional) -->
+        <section class="preview-panel" id="preview-panel">
+            <header class="panel-header">
+                <h2>Code Preview</h2>
+                <div class="preview-actions">
+                    <button class="action-btn" id="copy-code">Copy</button>
+                    <button class="action-btn" id="run-code">Run</button>
+                </div>
+            </header>
+            <div class="code-container">
+                <pre><code id="code-display">// Your generated code will appear here...</code></pre>
+            </div>
+            <div class="visual-preview" id="visual-preview">
+                <!-- Claude's UI designs will be rendered here -->
+            </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
