@@ -1,17 +1,19 @@
-// Web App Logic for Premium AI Workspace
-
 const recordBtn = document.getElementById('record-btn');
 const chatHistory = document.getElementById('chat-history');
 const textInput = document.getElementById('text-input');
 const sendBtn = document.getElementById('send-btn');
 const waveformCanvas = document.getElementById('waveform');
 const ctx = waveformCanvas.getContext('2d');
+const fileInput = document.getElementById('file-input');
+const attachBtn = document.getElementById('attach-btn');
+const filePreview = document.getElementById('file-preview');
 
 let isRecording = false;
 let mediaRecorder;
 let audioChunks = [];
 let animationId;
 let webhookUrl = localStorage.getItem('ai_workspace_webhook') || '';
+let selectedFiles = [];
 
 // Settings UI
 document.querySelector('.settings-btn').addEventListener('click', () => {
@@ -22,6 +24,49 @@ document.querySelector('.settings-btn').addEventListener('click', () => {
         addMessage('system', 'Webhook URL updated.');
     }
 });
+
+// File Attachment Logic
+attachBtn.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    selectedFiles = [...selectedFiles, ...files];
+    renderPreviews();
+});
+
+function renderPreviews() {
+    filePreview.innerHTML = '';
+    selectedFiles.forEach((file, index) => {
+        const reader = new FileReader();
+        const item = document.createElement('div');
+        item.className = 'preview-item';
+        
+        if (file.type.startsWith('image/')) {
+            reader.onload = (e) => {
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                item.appendChild(img);
+            };
+            reader.readAsDataURL(file);
+        } else {
+            const icon = document.createElement('div');
+            icon.innerText = '📄';
+            icon.style.textAlign = 'center';
+            icon.style.lineHeight = '60px';
+            item.appendChild(icon);
+        }
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-btn';
+        removeBtn.innerText = '×';
+        removeBtn.onclick = () => {
+            selectedFiles.splice(index, 1);
+            renderPreviews();
+        };
+        item.appendChild(removeBtn);
+        filePreview.appendChild(item);
+    });
+}
 
 // Waveform Animation (Mock)
 function drawWaveform() {
@@ -76,13 +121,15 @@ recordBtn.addEventListener('click', async () => {
     }
 });
 
-// Text Input Logic
+// Text/File Input Logic
 sendBtn.addEventListener('click', () => {
     const text = textInput.value.trim();
-    if (text) {
-        addMessage('user', text);
+    if (text || selectedFiles.length > 0) {
+        addMessage('user', text || 'Sent files and media...');
+        processWithAI(text, selectedFiles);
         textInput.value = '';
-        processWithAI(text);
+        selectedFiles = [];
+        renderPreviews();
     }
 });
 
@@ -96,7 +143,7 @@ function addMessage(sender, text) {
 }
 
 // AI Processing with real Webhook connection
-async function processWithAI(data) {
+async function processWithAI(textData, files = []) {
     if (!webhookUrl) {
         addMessage('system', '⚠️ Please set your Webhook URL in Settings first.');
         return;
@@ -105,38 +152,35 @@ async function processWithAI(data) {
     addMessage('ai', 'Processing your request...');
 
     try {
-        let body;
-        let headers = {};
-
-        if (typeof data === 'string') {
-            // Sending Text
-            body = JSON.stringify({ message: data, type: 'text' });
-            headers['Content-Type'] = 'application/json';
-        } else {
-            // Sending Audio Blob
-            const formData = new FormData();
-            formData.append('audio', data, 'recording.wav');
+        const formData = new FormData();
+        
+        if (typeof textData === 'object' && textData instanceof Blob) {
+            // Audio from MediaRecorder
+            formData.append('audio', textData, 'recording.wav');
             formData.append('type', 'audio');
-            body = formData;
-            // Fetch will automatically set content-type for FormData
+        } else {
+            // Text and Files
+            formData.append('message', textData || '');
+            formData.append('type', 'hybrid');
+            files.forEach((file, index) => {
+                formData.append(`file_${index}`, file);
+            });
         }
 
         const response = await fetch(webhookUrl, {
             method: 'POST',
-            headers: headers,
-            body: body
+            body: formData
         });
 
         if (response.ok) {
-            const result = await response.text(); // Assuming Webhook Response returns text
-            addMessage('ai', result || "Request sent successfully! Make.com processed it.");
-            // If response contains code, update preview (optional)
+            const result = await response.text();
+            addMessage('ai', result || "Request processed successfully!");
         } else {
             addMessage('system', '❌ Error: Could not reach the Webhook.');
         }
     } catch (err) {
         console.error('Fetch error:', err);
-        addMessage('system', '❌ Error: Connection failed. Check your Webhook URL.');
+        addMessage('system', '❌ Error: Connection failed.');
     }
 }
 
