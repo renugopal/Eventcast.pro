@@ -463,11 +463,23 @@ section:not(#hero) {
     margin: 40px auto;
 }
 
-.video-container.invitation-video {
+.invitation-video-wrapper {
     max-width: 600px;
-    padding-bottom: 0;
+    margin: 40px auto;
+    border: 8px solid white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+    background: transparent;
+    overflow: hidden;
+    position: relative;
+    z-index: 10;
+}
+
+.invitation-video-wrapper video {
+    width: 100%;
     height: auto;
-    /* Allow video to define its own height */
+    display: block;
+    object-fit: contain;
 }
 
 .video-container iframe {
@@ -476,14 +488,6 @@ section:not(#hero) {
     left: 0;
     width: 100%;
     height: 100%;
-}
-
-.video-container.invitation-video video {
-    position: relative;
-    width: 100%;
-    height: auto;
-    display: block;
-    object-fit: contain;
 }
 
 /* Chat Section */
