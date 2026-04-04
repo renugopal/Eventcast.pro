@@ -465,18 +465,25 @@ section:not(#hero) {
 
 .video-container.invitation-video {
     max-width: 600px;
-    padding-bottom: 33.75%;
-    /* Smaller 16:9 box */
+    padding-bottom: 0;
+    height: auto;
+    /* Allow video to define its own height */
 }
 
-.video-container iframe,
-.video-container video {
+.video-container iframe {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+}
+
+.video-container.invitation-video video {
+    position: relative;
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: contain;
 }
 
 /* Chat Section */
