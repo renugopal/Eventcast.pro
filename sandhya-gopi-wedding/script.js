@@ -1,5 +1,10 @@
 // --- CONFIG ---
-const WEDDING_DATE = new Date('April 10, 2026 10:00:00').getTime();
+const WEDDING_DATE = new Date('January 1, 2030 00:00:00').getTime();
+
+const STREAMS = {
+    day1: "https://www.youtube.com/embed/hnkKBOl9EB4",
+    day2: "https://www.youtube.com/embed/dbYxRmqOJ24"
+};
 
 // --- LOADER ---
 window.addEventListener('load', () => {
@@ -13,31 +18,43 @@ window.addEventListener('load', () => {
 
     startPetals();
     initScrollReveal();
+    autoSetStream();
 });
 
-// --- COUNTDOWN TIMER ---
-function updateCountdown() {
-    const now = new Date().getTime();
-    const distance = WEDDING_DATE - now;
+// --- STREAM SWITCH LOGIC ---
+function switchStream(day) {
+    const iframe = document.getElementById('stream-iframe');
+    const btn1 = document.getElementById('btn-day1');
+    const btn2 = document.getElementById('btn-day2');
 
-    if (distance < 0) {
-        document.querySelector('.countdown-wrapper').innerHTML = `<h3 style="color: var(--gold); font-family: 'Cinzel', serif;">The Wedding is LIVE! 🎉</h3>`;
-        return;
+    if (!iframe || !btn1 || !btn2) return;
+
+    iframe.src = STREAMS[day];
+
+    if (day === 'day1') {
+        btn1.style.background = "var(--gold)";
+        btn1.style.color = "white";
+        btn2.style.background = "transparent";
+        btn2.style.color = "var(--gold)";
+    } else {
+        btn2.style.background = "var(--gold)";
+        btn2.style.color = "white";
+        btn1.style.background = "transparent";
+        btn1.style.color = "var(--gold)";
     }
-
-    const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-    document.getElementById('days').innerText = days.toString().padStart(2, '0');
-    document.getElementById('hours').innerText = hours.toString().padStart(2, '0');
-    document.getElementById('minutes').innerText = minutes.toString().padStart(2, '0');
-    document.getElementById('seconds').innerText = seconds.toString().padStart(2, '0');
 }
 
-setInterval(updateCountdown, 1000);
-updateCountdown();
+function autoSetStream() {
+    // Determine the date to switch (April 11, 2026)
+    const switchDate = new Date('April 11, 2026 00:00:00').getTime();
+    const now = new Date().getTime();
+
+    if (now >= switchDate) {
+        switchStream('day2');
+    } else {
+        switchStream('day1');
+    }
+}
 
 // --- SCROLL REVEAL ---
 function initScrollReveal() {
@@ -50,14 +67,12 @@ function initScrollReveal() {
     });
 
     sr.reveal('.reveal', { interval: 200 });
-    sr.reveal('.couple-names', { origin: 'top', delay: 500 });
-    sr.reveal('.date-venue', { delay: 700 });
-    sr.reveal('.countdown-wrapper', { scale: 0.8, delay: 900 });
 }
 
 // --- FALLING PETALS ANIMATION ---
 function startPetals() {
     const canvas = document.getElementById('petal-canvas');
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
     const petalImg = new Image();
@@ -136,10 +151,11 @@ const nameInput = document.getElementById('wish-name');
 const messageInput = document.getElementById('wish-message');
 
 async function fetchWishes() {
+    if (!wishesList) return;
     const { data, error } = await _supabase
         .from('wishes')
         .select('*')
-        .eq('event_id', 'suharika-vishnu')
+        .eq('event_id', 'sandhya-gopi')
         .order('created_at', { ascending: false });
 
     if (error) {
@@ -180,7 +196,7 @@ if (wishesForm) {
 
         const { error } = await _supabase
             .from('wishes')
-            .insert([{ name, message, event_id: 'suharika-vishnu' }]);
+            .insert([{ name, message, event_id: 'sandhya-gopi' }]);
 
         if (error) {
             alert('Error: ' + error.message);
@@ -196,7 +212,7 @@ if (wishesForm) {
 }
 
 // Real-time
-_supabase.channel('public:wishes_suharika_vishnu')
+_supabase.channel('public:wishes_sandhya_gopi')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wishes' }, payload => {
         fetchWishes();
     }).subscribe();
@@ -208,9 +224,3 @@ function escapeHTML(str) {
 }
 
 fetchWishes();
-
-// --- INITIAL CONGRATS CONFETTI ---
-// Simple implementation avoiding external library for now
-function triggerCelebration() {
-    // Add logic here if needed or use a small library
-}
