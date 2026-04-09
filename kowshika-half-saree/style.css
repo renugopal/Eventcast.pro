@@ -26,11 +26,18 @@
     z-index: 5;
 }
 
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
 body {
     background-color: var(--cream);
     color: var(--text-dark);
     line-height: 1.6;
     overflow-x: hidden;
+    width: 100%;
 }
 
 h1, h2, h3, .name {
@@ -58,13 +65,22 @@ h1, h2, h3, .name {
 }
 
 .loader-peacock {
-    width: 100px;
-    animation: rotate 2s infinite linear;
+    width: 150px;
+    animation: pulse-soft 2s infinite ease-in-out;
 }
 
-@keyframes rotate {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+@keyframes pulse-soft {
+    0% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 0.8; }
+}
+
+.loader h2 {
+    margin-top: 20px;
+    font-size: 1.2rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-weight: 400;
 }
 
 /* Hero Section */
@@ -79,7 +95,8 @@ h1, h2, h3, .name {
     align-items: center;
     text-align: center;
     color: var(--text-light);
-    padding: 60px 20px;
+    padding: 0; /* Removed padding to avoid white space */
+    margin: 0;
 }
 
 .hero-overlay {
@@ -495,12 +512,26 @@ h1, h2, h3, .name {
     .hero .subtitle { font-size: 1.2rem; }
     .time-block span { font-size: 2.2rem; }
     .countdown-wrapper h2 { font-size: 1.5rem; }
-    .tab-btn { padding: 10px 15px; font-size: 0.9rem; }
+    .tab-btn { padding: 10px 15px; font-size: 0.9rem; min-width: auto; width: 100%; max-width: 300px; }
     .peacock-decor { width: 150px; height: 150px; }
+    
+    .scroll-indicator {
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    .hero-content {
+        width: 100%;
+        padding: 0 20px;
+    }
 }
 
 @media (max-width: 480px) {
     .hero .name { font-size: 2.2rem; }
-    .hero-content h4 { font-size: 0.9rem; }
-    .time-block span { font-size: 1.8rem; }
+    .hero-content h4 { font-size: 0.8rem; }
+    .time-block span { font-size: 1.6rem; }
+    .hero-content {
+        margin-top: -100px; /* Offset to center vertically properly with scroll indicator */
+    }
 }
