@@ -30,6 +30,9 @@
         </div>
     </div>
 
+    <!-- Falling Petals Canvas -->
+    <canvas id="petal-canvas"></canvas>
+
     <!-- Hero Section -->
     <header class="hero">
         <div class="hero-overlay"></div>
@@ -38,7 +41,10 @@
             <h1 class="reveal name">Chi. Kowshika</h1>
             <p class="reveal subtitle">Half Saree Ceremony</p>
         </div>
-        <div class="scroll-indicator"></div>
+        <div class="scroll-indicator">
+            <i class="fas fa-chevron-down"></i>
+            <span>Scroll Down</span>
+        </div>
     </header>
 
     <!-- Main Content -->
@@ -63,8 +69,14 @@
             <div class="peacock-decor right"></div>
             
             <div class="event-toggle">
-                <button id="btn-event1" class="tab-btn active">Mangala Snanam (Apr 11)</button>
-                <button id="btn-event2" class="tab-btn">Half Saree Function (Apr 12)</button>
+                <button id="btn-event1" class="tab-btn active">
+                    <span class="event-name">Mangala Snanam</span>
+                    <span class="event-date">April 11, 2026</span>
+                </button>
+                <button id="btn-event2" class="tab-btn">
+                    <span class="event-name">Half Saree Function</span>
+                    <span class="event-date">April 12, 2026</span>
+                </button>
             </div>
 
             <div class="video-container">
