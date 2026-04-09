@@ -40,7 +40,7 @@ function renderPreviews() {
         const reader = new FileReader();
         const item = document.createElement('div');
         item.className = 'preview-item';
-        
+
         if (file.type.startsWith('image/')) {
             reader.onload = (e) => {
                 const img = document.createElement('img');
@@ -74,7 +74,7 @@ function drawWaveform() {
     ctx.beginPath();
     ctx.strokeStyle = '#38bdf8';
     ctx.lineWidth = 2;
-    
+
     const centerY = waveformCanvas.height / 2;
     for (let i = 0; i < waveformCanvas.width; i++) {
         const amplitude = isRecording ? Math.random() * 20 : 2;
@@ -102,7 +102,7 @@ recordBtn.addEventListener('click', async () => {
                 const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                 addMessage('user', '🎤 Voice message sent...');
                 // Here we would send the audioBlob to the Make.com Webhook
-                processWithAI(audioBlob); 
+                processWithAI(audioBlob);
             };
 
             mediaRecorder.start();
@@ -153,7 +153,7 @@ async function processWithAI(textData, files = []) {
 
     try {
         const formData = new FormData();
-        
+
         if (typeof textData === 'object' && textData instanceof Blob) {
             // Audio from MediaRecorder
             formData.append('audio', textData, 'recording.wav');

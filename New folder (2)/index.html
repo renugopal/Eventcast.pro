@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Join us virtually for our special day - Live Wedding Ceremony Stream">
+    <title>Sarah & Michael | Wedding Livestream</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="[fonts.googleapis.com](https://fonts.googleapis.com)">
+    <link rel="preconnect" href="[fonts.gstatic.com](https://fonts.gstatic.com)" crossorigin>
+    <link href="[fonts.googleapis.com](https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Montserrat:wght@300;400;500;600&display=swap)" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- ═══════════════════════════════════════════════════════════════
+         PRELOADER
+    ════════════════════════════════════════════════════════════════ -->
+    <div id="preloader" class="preloader">
+        <div class="preloader-content">
+            <div class="monogram">
+                <span class="monogram-letter">S</span>
+                <span class="monogram-ampersand">&</span>
+                <span class="monogram-letter">M</span>
+            </div>
+            <div class="loader-bar">
+                <div class="loader-progress" id="loaderProgress"></div>
+            </div>
+            <p class="loader-text">Preparing your invitation...</p>
+        </div>
+        <div class="preloader-particles" id="preloaderParticles"></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         MAIN CONTENT
+    ════════════════════════════════════════════════════════════════ -->
+    <main id="mainContent" class="main-content hidden">
+        
+        <!-- Floating Decorative Elements -->
+        <div class="floating-decor">
+            <div class="bokeh bokeh-1"></div>
+            <div class="bokeh bokeh-2"></div>
+            <div class="bokeh bokeh-3"></div>
+            <div class="bokeh bokeh-4"></div>
+            <div class="bokeh bokeh-5"></div>
+            <div class="floral floral-1"></div>
+            <div class="floral floral-2"></div>
+            <div class="floral floral-3"></div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             HERO INVITATION SECTION
+        ════════════════════════════════════════════════════════════ -->
+        <section class="hero" id="hero">
+            <div class="hero-overlay"></div>
+            <div class="hero-content">
+                <p class="hero-pretext reveal-fade">Together with their families</p>
+                <div class="hero-names reveal-scale">
+                    <h1 class="bride-name">Sarah</h1>
+                    <span class="names-ampersand">&</span>
+                    <h1 class="groom-name">Michael</h1>
+                </div>
+                <p class="hero-invitation reveal-fade">Invite you to join them virtually as they celebrate their union</p>
+                <div class="hero-details reveal-fade">
+                    <div class="detail-item">
+                        <span class="detail-label">Date</span>
+                        <span class="detail-value" id="eventDateDisplay">December 15, 2024</span>
+                    </div>
+                    <div class="detail-divider"></div>
+                    <div class="detail-item">
+                        <span class="detail-label">Time</span>
+                        <span class="detail-value" id="eventTimeDisplay">4:00 PM EST</span>
+                    </div>
+                </div>
+                <div class="scroll-indicator reveal-fade">
+                    <span>Scroll to explore</span>
+                    <div class="scroll-arrow"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             COUNTDOWN SECTION
+        ════════════════════════════════════════════════════════════ -->
+        <section class="countdown-section" id="countdown">
+            <div class="container">
+                <div class="glass-card countdown-card">
+                    <h2 class="section-title reveal-fade">The Ceremony Begins In</h2>
+                    
+                    <div class="countdown-timer reveal-scale" id="countdownTimer">
+                        <div class="countdown-unit">
+                            <span class="countdown-value" id="countDays">00</span>
+                            <span class="countdown-label">Days</span>
+                        </div>
+                        <div class="countdown-separator">:</div>
+                        <div class="countdown-unit">
+                            <span class="countdown-value" id="countHours">00</span>
+                            <span class="countdown-label">Hours</span>
+                        </div>
+                        <div class="countdown-separator">:</div>
+                        <div class="countdown-unit">
+                            <span class="countdown-value" id="countMinutes">00</span>
+                            <span class="countdown-label">Minutes</span>
+                        </div>
+                        <div class="countdown-separator">:</div>
+                        <div class="countdown-unit">
+                            <span class="countdown-value" id="countSeconds">00</span>
+                            <span class="countdown-label">Seconds</span>
+                        </div>
+                    </div>
+
+                    <!-- CTA that appears when countdown ends -->
+                    <div class="livestream-cta hidden" id="livestreamCTA">
+                        <div class="live-indicator">
+                            <span class="live-dot"></span>
+                            <span class="live-text">We're Live!</span>
+                        </div>
+                        <a href="#livestream" class="btn btn-primary btn-glow">
+                            <span>Join Livestream Now</span>
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             LIVESTREAM HUB SECTION
+        ════════════════════════════════════════════════════════════ -->
+        <section class="livestream-section" id="livestream">
+            <div class="container">
+                <div class="section-header reveal-fade">
+                    <h2 class="section-title">Livestream Hub</h2>
+                    <p class="section-subtitle">Watch the ceremony from anywhere in the world</p>
+                </div>
+
+                <div class="glass-card stream-card reveal-scale">
+                    <div class="live-badge" id="liveBadge">
+                        <span class="live-badge-dot"></span>
+                        <span class="live-badge-text">LIVE</span>
+                    </div>
+                    
+                    <div class="video-container">
+                        <div class="video-wrapper" id="videoWrapper">
+                            <!-- Placeholder before stream starts -->
+                            <div class="video-placeholder" id="videoPlaceholder">
+                                <div class="placeholder-content">
+                                    <div class="placeholder-icon">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                            <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                                            <path d="M10 9l5 3-5 3V9z"></path>
+                                        </svg>
+                                    </div>
+                                    <p class="placeholder-text">The livestream will appear here</p>
+                                    <p class="placeholder-subtext" id="streamStatus">Waiting for broadcast to begin...</p>
+                                </div>
+                            </div>
+                            <!-- Actual iframe loads here -->
+                            <iframe 
+                                id="streamIframe"
+                                class="stream-iframe hidden"
+                                src=""
+                                title="Wedding Livestream"
+                                frameborder="0" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                                allowfullscreen>
+                            </iframe>
+                        </div>
+                    </div>
+
+                    <div class="stream-info">
+                        <div class="stream-meta">
+                            <span class="viewer-count" id="viewerCount">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="9" cy="7" r="4"></circle>
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                </svg>
+                                <span id="viewerNumber">0</span> watching
+                            </span>
+                        </div>
+                        <div class="stream-actions">
+                            <button class="btn btn-secondary btn-sm" id="refreshStream">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="23 4 23 10 17 10"></polyline>
+                                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                                </svg>
+                                Refresh Stream
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             GUEST WISHES SECTION
+        ════════════════════════════════════════════════════════════ -->
+        <section class="wishes-section" id="wishes">
+            <div class="container">
+                <div class="section-header reveal-fade">
+                    <h2 class="section-title">Guest Wall</h2>
+                    <p class="section-subtitle">Share your love and blessings with the couple</p>
+                </div>
+
+                <div class="wishes-grid">
+                    <!-- Wish Form -->
+                    <div class="glass-card wish-form-card reveal-slide-left">
+                        <h3 class="card-title">Send Your Wishes</h3>
+                        <form id="wishForm" class="wish-form">
+                            <div class="form-group">
+                                <label for="guestName" class="form-label">Your Name</label>
+                                <input 
+                                    type="text" 
+                                    id="guestName" 
+                                    name="guestName" 
+                                    class="form-input"
+                                    placeholder="Enter your name"
+                                    required
+                                    maxlength="50"
+                                >
+                            </div>
+                            <div class="form-group">
+                                <label for="guestMessage" class="form-label">Your Message</label>
+                                <textarea 
+                                    id="guestMessage" 
+                                    name="guestMessage" 
+                                    class="form-textarea"
+                                    placeholder="Write your heartfelt message..."
+                                    required
+                                    maxlength="300"
+                                    rows="4"
+                                ></textarea>
+                                <span class="char-counter"><span id="charCount">0</span>/300</span>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-full" id="submitWish">
+                                <span>Send Wishes</span>
+                                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 2L11 13"></path>
+                                    <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
+                                </svg>
+                            </button>
+                        </form>
+                        <div class="form-success hidden" id="formSuccess">
+                            <div class="success-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                </svg>
+                            </div>
+                            <p>Thank you for your beautiful wishes!</p>
+                        </div>
+                    </div>
+
+                    <!-- Wish Wall -->
+                    <div class="glass-card wish-wall-card reveal-slide-right">
+                        <div class="wall-header">
+                            <h3 class="card-title">Wish Wall</h3>
+                            <span class="wish-count" id="wishCount">0 wishes</span>
+                        </div>
+                        <div class="wish-wall" id="wishWall">
+                            <div class="wish-wall-empty" id="wishWallEmpty">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                                </svg>
+                                <p>Be the first to send your wishes!</p>
+                            </div>
+                            <!-- Wishes will be dynamically inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             VENUE MAP SECTION
+        ════════════════════════════════════════════════════════════ -->
+        <section class="venue-section" id="venue">
+            <div class="container">
+                <div class="section-header reveal-fade">
+                    <h2 class="section-title">Venue Location</h2>
+                    <p class="section-subtitle">For those joining us in person</p>
+                </div>
+
+                <div class="glass-card venue-card reveal-scale">
+                    <div class="venue-info">
+                        <div class="venue-details">
+                            <h3 class="venue-name" id="venueName">The Grand Ballroom</h3>
+                            <p class="venue-address" id="venueAddress">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                    <circle cx="12" cy="10" r="3"></circle>
+                                </svg>
+                                <span>123 Elegant Avenue, New York, NY 10001</span>
+                            </p>
+                        </div>
+                        <a 
+                            href="#" 
+                            id="directionsBtn"
+                            class="btn btn-primary"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+                            </svg>
+                            Get Directions
+                        </a>
+                    </div>
+                    <div class="map-container">
+                        <iframe 
+                            id="venueMap"
+                            class="venue-map"
+                            src=""
+                            style="border:0;" 
+                            allowfullscreen="" 
+                            loading="lazy" 
+                            referrerpolicy="no-referrer-when-downgrade">
+                        </iframe>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             FOOTER
+        ════════════════════════════════════════════════════════════ -->
+        <footer class="footer">
+            <div class="container">
+                <div class="footer-content">
+                    <div class="footer-brand">
+                        <div class="footer-monogram">
+                            <span>S</span><span>&</span><span>M</span>
+                        </div>
+                        <p class="footer-date" id="footerDate">December 15, 2024</p>
+                    </div>
+                    <div class="footer-credits">
+                        <p>Made with <span class="heart">♥</span> for Sarah & Michael</p>
+                        <p class="powered-by">
+                            Powered by 
+                            <a href="[eventcast.pro](https://eventcast.pro)" target="_blank" rel="noopener">
+                                <span class="eventcast-logo">Eventcast</span>.pro
+                            </a>
+                        </p>
+                    </div>
+                    <div class="footer-social">
+                        <a href="#" class="social-link" aria-label="Instagram">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                            </svg>
+                        </a>
+                        <a href="#" class="social-link" aria-label="Hashtag">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="4" y1="9" x2="20" y2="9"></line>
+                                <line x1="4" y1="15" x2="20" y2="15"></line>
+                                <line x1="10" y1="3" x2="8" y2="21"></line>
+                                <line x1="16" y1="3" x2="14" y2="21"></line>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+                <div class="footer-bottom">
+                    <p>&copy; 2024 All rights reserved</p>
+                </div>
+            </div>
+        </footer>
+
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

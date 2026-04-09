@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sarah & Michael | Royal Luxury Wedding</title>
+    
+    <!-- Premium Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Montserrat:wght@200;300;400;500;600&family=Great+Vibes&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Supabase for Wishes (Reuse config as needed) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="dark-theme">
+
+    <div id="luxury-loader">
+        <div class="loader-monogram">S&M</div>
+        <div class="loader-line"></div>
+    </div>
+
+    <!-- Gold Dust Particles -->
+    <canvas id="dust-canvas"></canvas>
+
+    <main class="luxury-main">
+        
+        <!-- ═══ LUXURY HERO ═══ -->
+        <section class="hero-noir">
+            <div class="gold-accent-top"></div>
+            
+            <div class="hero-signature-wrap">
+                <div class="signature-line-anim"></div>
+                <h1 class="couple-signature">Sarah & Michael</h1>
+                <div class="signature-date">Est. 15 | 12 | 2026</div>
+            </div>
+
+            <div class="hero-editorial-layout">
+                <div class="editorial-box left-reveal">
+                    <span class="label">THE CELEBRATION</span>
+                    <h2 class="hero-heading">A Union of Hearts</h2>
+                    <p class="hero-text">We cordially invite you to witness a royal beginning, broadcast globally for our cherished loved ones.</p>
+                </div>
+                
+                <div class="editorial-box right-reveal">
+                    <div class="countdown-pill">
+                        <div id="timer">
+                            <div class="time-part"><span id="days">00</span><small>D</small></div>
+                            <div class="time-part"><span id="hours">00</span><small>H</small></div>
+                            <div class="time-part"><span id="minutes">00</span><small>M</small></div>
+                            <div class="time-part"><span id="seconds">00</span><small>S</small></div>
+                        </div>
+                        <div class="live-status"><div class="dot red-pulse"></div> LIVE SOON</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="parallax-gold-leaf leaf-1"></div>
+            <div class="parallax-gold-leaf leaf-2"></div>
+        </section>
+
+        <!-- ═══ VIDEO BROADCAST ═══ -->
+        <section class="broadcast-noir reveal">
+            <div class="gold-section-header">
+                <span class="step-num">01</span>
+                <h3>The Livestream</h3>
+            </div>
+            
+            <div class="video-frame-luxury">
+                <div class="frame-corner c-tl"></div>
+                <div class="frame-corner c-br"></div>
+                
+                <div class="iframe-container shadow-2xl">
+                    <!-- Replace with ACTUAL YouTube ID -->
+                    <iframe src="https://www.youtube.com/embed/live_stream?channel=UCkszU2WH9gy1mb0dV-11UJg&autoplay=0" title="Wedding Livestream" frameborder="0" allowfullscreen></iframe>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ WISHES WALL ═══ -->
+        <section class="wishes-noir reveal">
+            <div class="gold-section-header">
+                <span class="step-num">02</span>
+                <h3>Blessings Wall</h3>
+            </div>
+
+            <div class="wishes-magazine-layout">
+                <div class="wish-form-glass">
+                    <form id="wishes-form-noir">
+                        <div class="luxury-input-group">
+                            <input type="text" id="wish-name" placeholder="YOUR NAME" required>
+                            <label>Name</label>
+                        </div>
+                        <div class="luxury-input-group">
+                            <textarea id="wish-message" placeholder="YOUR WELL WISHES..." required></textarea>
+                            <label>Message</label>
+                        </div>
+                        <button type="submit" class="gold-btn">
+                            SEND BLESSING <i class="fa-solid fa-arrow-right-long"></i>
+                        </button>
+                    </form>
+                </div>
+
+                <div class="wishes-display-feed">
+                    <div id="wishes-wall-container" class="noir-scroll">
+                        <!-- Wishes dynamic -->
+                        <div class="wish-placeholder">Loading blessings...</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ VENUE DETAILS ═══ -->
+        <section class="venue-noir reveal">
+            <div class="gold-section-header">
+                <span class="step-num">03</span>
+                <h3>The Venue</h3>
+            </div>
+
+            <div class="venue-split-card">
+                <div class="venue-visual">
+                    <div class="map-gold-overlay">
+                        <iframe 
+                            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d193595.15830869428!2d-74.119763973046!3d40.69766374874431!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c24fa5d33f083b%3A0xc80b8f06e177fe62!2sNew%20York%2C%20NY!5e0!3m2!1sen!2sus!4v1700000000000" 
+                            style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+                    </div>
+                </div>
+                <div class="venue-text-luxury">
+                    <h4>The Grand Ballroom</h4>
+                    <p class="address">123 ELEGANT AVENUE,<br>NEW YORK, NY 10001</p>
+                    <a href="https://maps.app.goo.gl/uh4yzjbqrZVg3Ah77" target="_blank" class="luxury-link">NAVIGATE VENUE <i class="fa-solid fa-location-arrow"></i></a>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ FOOTER ═══ -->
+        <footer class="noir-footer">
+            <div class="footer-center">
+                <div class="footer-logo">S&M</div>
+                <p class="footer-blurb">A digital celebration of love.</p>
+                <div class="powered-credit">
+                    POWERED BY <a href="https://eventcast.pro" target="_blank">EVENTCAST.PRO</a>
+                </div>
+                <div class="photographer-promo">
+                    CAPTURED BY <span class="gold-text">ASHOK STUDIOS</span>
+                </div>
+            </div>
+        </footer>
+
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Amara & Julian — Live Celebration</title>
+  <meta name="description" content="Join us live as Amara and Julian celebrate their union. Watch the ceremony from anywhere in the world." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=DM+Sans:wght@300;400;500;600&family=Cinzel:wght@400;500&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ============================================
+       1. PRELOADER
+  ============================================= -->
+  <div id="preloader" class="preloader">
+    <div class="preloader__inner">
+      <div class="preloader__monogram">
+        <svg class="monogram-svg" viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <text x="0" y="65" class="mono-letter" font-family="Cormorant Garamond, serif" font-size="72" font-weight="300" fill="#c9a96e" opacity="0.15">A</text>
+          <text x="38" y="65" class="mono-letter mono-letter--center" font-family="Cormorant Garamond, serif" font-size="28" font-weight="300" fill="#c9a96e">&#38;</text>
+          <text x="56" y="65" class="mono-letter" font-family="Cormorant Garamond, serif" font-size="72" font-weight="300" fill="#c9a96e" opacity="0.15">J</text>
+        </svg>
+        <div class="preloader__tagline">A Celebration of Love</div>
+      </div>
+      <div class="preloader__bar-track">
+        <div class="preloader__bar-fill" id="loaderBar"></div>
+      </div>
+      <div class="preloader__percent" id="loaderPercent">0%</div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       MAIN CONTENT
+  ============================================= -->
+  <main id="mainContent" class="main-content" aria-hidden="true">
+
+    <!-- Bokeh Canvas -->
+    <canvas id="bokehCanvas" class="bokeh-canvas" aria-hidden="true"></canvas>
+
+    <!-- ==========================================
+         2. HERO SECTION
+    =========================================== -->
+    <section class="hero" id="hero">
+      <div class="hero__deco hero__deco--tl" aria-hidden="true"></div>
+      <div class="hero__deco hero__deco--br" aria-hidden="true"></div>
+      <div class="hero__deco-line hero__deco-line--left" aria-hidden="true"></div>
+      <div class="hero__deco-line hero__deco-line--right" aria-hidden="true"></div>
+
+      <div class="hero__content">
+        <div class="hero__label reveal-up" data-delay="0">
+          <span class="label-line"></span>
+          <span>Live Ceremony Broadcast</span>
+          <span class="label-line"></span>
+        </div>
+
+        <div class="hero__names reveal-up" data-delay="1">
+          <span class="hero__name hero__name--first">Amara</span>
+          <span class="hero__ampersand">&amp;</span>
+          <span class="hero__name hero__name--last">Julian</span>
+        </div>
+
+        <p class="hero__subtitle reveal-up" data-delay="2">
+          Together with their families, joyfully invite you<br />
+          to witness their union — wherever you are.
+        </p>
+
+        <div class="hero__meta reveal-up" data-delay="3">
+          <div class="hero__meta-item">
+            <span class="meta-label">Date</span>
+            <span class="meta-value">Saturday, August 16, 2026</span>
+          </div>
+          <div class="hero__meta-divider" aria-hidden="true"></div>
+          <div class="hero__meta-item">
+            <span class="meta-label">Time</span>
+            <span class="meta-value">4:00 PM Eastern Time</span>
+          </div>
+          <div class="hero__meta-divider" aria-hidden="true"></div>
+          <div class="hero__meta-item">
+            <span class="meta-label">Venue</span>
+            <span class="meta-value">The Grand Rosewood Estate</span>
+          </div>
+        </div>
+
+        <a href="#countdown" class="hero__cta reveal-up" data-delay="4">
+          <span>View Countdown</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M8 3v10M3 8l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+      </div>
+
+      <!-- Floating petal-like decorative shapes -->
+      <div class="petals" aria-hidden="true">
+        <div class="petal petal--1"></div>
+        <div class="petal petal--2"></div>
+        <div class="petal petal--3"></div>
+        <div class="petal petal--4"></div>
+        <div class="petal petal--5"></div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         3. SMART COUNTDOWN
+    =========================================== -->
+    <section class="section countdown-section" id="countdown">
+      <div class="container">
+        <div class="section-header reveal-up">
+          <div class="section-badge">The Moment Approaches</div>
+          <h2 class="section-title">Ceremony Begins In</h2>
+        </div>
+
+        <!-- Countdown Display -->
+        <div class="countdown-display reveal-up" id="countdownDisplay">
+          <div class="countdown-unit glass-card">
+            <span class="countdown-value" id="cdDays">00</span>
+            <span class="countdown-label">Days</span>
+          </div>
+          <div class="countdown-sep" aria-hidden="true">:</div>
+          <div class="countdown-unit glass-card">
+            <span class="countdown-value" id="cdHours">00</span>
+            <span class="countdown-label">Hours</span>
+          </div>
+          <div class="countdown-sep" aria-hidden="true">:</div>
+          <div class="countdown-unit glass-card">
+            <span class="countdown-value" id="cdMinutes">00</span>
+            <span class="countdown-label">Minutes</span>
+          </div>
+          <div class="countdown-sep" aria-hidden="true">:</div>
+          <div class="countdown-unit glass-card">
+            <span class="countdown-value" id="cdSeconds">00</span>
+            <span class="countdown-label">Seconds</span>
+          </div>
+        </div>
+
+        <!-- Live CTA (hidden until countdown = 0) -->
+        <div class="live-cta reveal-up" id="liveCta" style="display:none;">
+          <div class="live-cta__pulse-ring" aria-hidden="true"></div>
+          <div class="live-cta__badge">LIVE NOW</div>
+          <h3 class="live-cta__title">The Ceremony Has Begun</h3>
+          <p class="live-cta__sub">Click below to join thousands of loved ones watching right now.</p>
+          <a href="#livestream" class="live-cta__btn">Join the Livestream</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         4. LIVESTREAM HUB
+    =========================================== -->
+    <section class="section livestream-section" id="livestream">
+      <div class="container">
+        <div class="section-header reveal-up">
+          <div class="section-badge">Tune In</div>
+          <h2 class="section-title">Live Ceremony Stream</h2>
+          <p class="section-sub">The stream will go live when the ceremony begins. Make sure to refresh the page.</p>
+        </div>
+
+        <div class="stream-wrapper reveal-up">
+          <div class="stream-status-bar glass-card">
+            <div class="live-badge" id="liveBadge">
+              <span class="live-dot" aria-hidden="true"></span>
+              <span class="live-text" id="liveText">Awaiting Broadcast</span>
+            </div>
+            <div class="stream-info">
+              <span id="viewerCount">--</span> watching
+            </div>
+          </div>
+
+          <div class="video-container glass-card">
+            <div class="video-wrapper">
+              <!-- Replace 'YOUR_VIDEO_ID' with actual YouTube/Vimeo ID -->
+              <iframe
+                id="streamEmbed"
+                src="https://www.youtube.com/embed/live_stream?channel=UCkszU2WH9gy1mb0dV-11UJg&autoplay=0"
+                title="Wedding Ceremony Livestream"
+                frameborder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen
+                loading="lazy"
+              ></iframe>
+              <!-- Offline Overlay -->
+              <div class="video-offline-overlay" id="videoOfflineOverlay">
+                <div class="offline-content">
+                  <div class="offline-icon" aria-hidden="true">
+                    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                      <circle cx="24" cy="24" r="22" stroke="#c9a96e" stroke-width="1.5" opacity="0.4"/>
+                      <path d="M18 16l12 8-12 8V16z" fill="#c9a96e" opacity="0.7"/>
+                    </svg>
+                  </div>
+                  <h4 class="offline-title">Stream Not Yet Live</h4>
+                  <p class="offline-sub">Please return on <strong>August 16, 2026 at 4:00 PM ET</strong></p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="stream-actions reveal-up">
+            <button class="btn btn--ghost" onclick="toggleFullscreen()">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M1 1h4M1 1v4M15 1h-4M15 1v4M1 15h4M1 15v-4M15 15h-4M15 15v-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              Fullscreen
+            </button>
+            <button class="btn btn--ghost" onclick="copyStreamLink()">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M2 11V2h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              Share Stream
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         5. WISH WALL
+    =========================================== -->
+    <section class="section wishes-section" id="wishes">
+      <div class="container">
+        <div class="section-header reveal-up">
+          <div class="section-badge">Guest Wall</div>
+          <h2 class="section-title">Send Your Wishes</h2>
+          <p class="section-sub">Leave a message for the couple. Your words will be cherished forever.</p>
+        </div>
+
+        <div class="wishes-layout">
+          <!-- Send Form -->
+          <div class="wish-form-wrapper glass-card reveal-up">
+            <h3 class="form-title">Write a Message</h3>
+            <form class="wish-form" id="wishForm" novalidate>
+              <div class="form-group">
+                <label for="guestName" class="form-label">Your Name</label>
+                <input
+                  type="text"
+                  id="guestName"
+                  name="name"
+                  class="form-input"
+                  placeholder="e.g. Sarah & Thomas"
+                  required
+                  maxlength="60"
+                  autocomplete="name"
+                />
+                <span class="form-error" id="nameError"></span>
+              </div>
+              <div class="form-group">
+                <label for="guestMessage" class="form-label">Your Message</label>
+                <textarea
+                  id="guestMessage"
+                  name="message"
+                  class="form-textarea"
+                  placeholder="Share your joy, love, and well-wishes..."
+                  required
+                  maxlength="280"
+                  rows="4"
+                ></textarea>
+                <div class="char-counter"><span id="charCount">0</span> / 280</div>
+                <span class="form-error" id="msgError"></span>
+              </div>
+              <button type="submit" class="btn btn--primary btn--full" id="submitWishBtn">
+                <span class="btn-text">Send Wishes</span>
+                <span class="btn-loader" style="display:none;">Sending...</span>
+              </button>
+              <div class="form-success" id="formSuccess" style="display:none;">
+                Your message has been sent! Amara and Julian will treasure it.
+              </div>
+            </form>
+          </div>
+
+          <!-- Wish Wall -->
+          <div class="wish-wall-wrapper reveal-up">
+            <h3 class="form-title">Messages from Loved Ones <span class="wish-count" id="wishCount">0</span></h3>
+            <div class="wish-wall" id="wishWall">
+              <!-- Messages rendered dynamically -->
+              <div class="wish-empty" id="wishEmpty">
+                <p>Be the first to send your wishes to the couple.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         6. VENUE MAP
+    =========================================== -->
+    <section class="section venue-section" id="venue">
+      <div class="container">
+        <div class="section-header reveal-up">
+          <div class="section-badge">The Venue</div>
+          <h2 class="section-title">The Grand Rosewood Estate</h2>
+          <p class="section-sub">123 Rosewood Lane, Charleston, South Carolina 29401</p>
+        </div>
+
+        <div class="venue-layout reveal-up">
+          <div class="map-wrapper glass-card">
+            <iframe
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3348.1!2d-79.9311!3d32.7765!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x88fe7a1ae9e0e42f%3A0x3a1e2a7e5e4a5e4a!2sCharleston%2C%20SC!5e0!3m2!1sen!2sus!4v1700000000000!5m2!1sen!2sus"
+              width="100%"
+              height="100%"
+              style="border:0;"
+              allowfullscreen=""
+              loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade"
+              title="Venue Location Map"
+            ></iframe>
+          </div>
+
+          <div class="venue-info glass-card">
+            <div class="venue-detail">
+              <span class="venue-detail__label">Venue</span>
+              <span class="venue-detail__value">The Grand Rosewood Estate</span>
+            </div>
+            <div class="venue-detail">
+              <span class="venue-detail__label">Address</span>
+              <span class="venue-detail__value">123 Rosewood Lane<br />Charleston, SC 29401</span>
+            </div>
+            <div class="venue-detail">
+              <span class="venue-detail__label">Ceremony</span>
+              <span class="venue-detail__value">4:00 PM — Garden Pavilion</span>
+            </div>
+            <div class="venue-detail">
+              <span class="venue-detail__label">Reception</span>
+              <span class="venue-detail__value">6:30 PM — Grand Ballroom</span>
+            </div>
+            <a
+              href="https://maps.google.com/?q=123+Rosewood+Lane+Charleston+SC+29401"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn btn--primary btn--full"
+            >
+              Get Directions
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         7. FOOTER
+    =========================================== -->
+    <footer class="footer">
+      <div class="footer__inner container">
+        <div class="footer__monogram">A &amp; J</div>
+        <p class="footer__tagline">August 16, 2026 — A Celebration of Love</p>
+        <div class="footer__divider" aria-hidden="true"></div>
+        <p class="footer__credit">
+          Beautifully broadcast by
+          <a href="https://eventcast.pro" target="_blank" rel="noopener noreferrer" class="footer__link">Eventcast.pro</a>
+        </p>
+        <p class="footer__copy">&copy; 2026 Amara &amp; Julian. With Love.</p>
+      </div>
+    </footer>
+
+  </main>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast" role="alert" aria-live="polite"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
