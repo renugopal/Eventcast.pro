@@ -74,18 +74,25 @@ function initMusic() {
     
     if (!music || !toggle) return;
 
-    const startMusic = () => {
+    // Direct play attempt
+    const attemptPlay = () => {
         music.play().then(() => {
             toggle.classList.add('playing');
-            document.removeEventListener('click', startMusic);
-            document.removeEventListener('touchstart', startMusic);
+            removeListeners();
         }).catch(err => {
-            console.log("Autoplay blocked:", err);
+            console.log("Autoplay check:", err);
         });
     };
 
-    document.addEventListener('click', startMusic);
-    document.addEventListener('touchstart', startMusic);
+    const removeListeners = () => {
+        document.removeEventListener('click', attemptPlay);
+        document.removeEventListener('touchstart', attemptPlay);
+        document.removeEventListener('scroll', attemptPlay);
+    };
+
+    document.addEventListener('click', attemptPlay);
+    document.addEventListener('touchstart', attemptPlay);
+    document.addEventListener('scroll', attemptPlay, { once: true });
 
     toggle.addEventListener('click', (e) => {
         e.preventDefault();
@@ -99,9 +106,10 @@ function initMusic() {
         }
     });
 
-    // Handle audio ending or errors
     music.addEventListener('error', () => {
-        console.error("Audio failed to load. Please check the source URL.");
+        console.error("Audio error. Trying fallback source...");
+        music.src = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3";
+        music.load();
     });
 }
 
