@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suharika &amp; Vishnu | Botanical Wedding</title>
+    
+    <!-- Premium Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Alex+Brush&family=Montserrat:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <div id="loader">
+        <div class="watercolor-splash"></div>
+        <div class="loader-content">
+            <h1 class="script-font">V & S</h1>
+        </div>
+    </div>
+
+    <!-- Watercolor Background Layers -->
+    <div class="bg-wash teal-wash"></div>
+    <div class="bg-wash light-wash"></div>
+
+    <main>
+        <!-- ═══ HEADER / NAV ═══ -->
+        <header class="botanical-nav">
+            <div class="nav-links">
+                <a href="#hero">INVITATION</a>
+                <a href="#livestream">LIVESTREAM</a>
+                <a href="#wishes">WISHES</a>
+                <a href="#venue">DETAILS</a>
+            </div>
+        </header>
+
+        <!-- ═══ HERO SECTION ═══ -->
+        <section id="hero" class="botanical-hero">
+            <div class="invitation-card fade-in">
+                <div class="card-border">
+                    <div class="wreath-container">
+                        <img src="wreath_botanical.png" alt="Floral Wreath" class="wreath-img">
+                        <div class="names-overlay">
+                            <h1 class="script-font couple-names">Vishnu <span class="and">&</span> Suharika</h1>
+                        </div>
+                    </div>
+                    
+                    <div class="event-details">
+                        <p class="request-text">We are pleased to request your presence to join us and celebrate the wedding of</p>
+                        <div class="date-time">
+                            <span class="day">FRIDAY, APRIL 10TH, 2026</span>
+                            <span class="time">AT 11:00 AM IN THE MORNING</span>
+                        </div>
+                        <div class="location-summary">
+                            <p>I.T.A KALYANA MANDAPAM, GUNTUR</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ LIVESTREAM SECTION ═══ -->
+        <section id="livestream" class="reveal">
+            <div class="content-wrapper">
+                <div class="watercolor-card">
+                    <h2 class="section-title script-font">Live Broadcast</h2>
+                    <div class="stream-container">
+                        <iframe src="https://www.youtube.com/embed/K9JGbowLGqI" title="Wedding Livestream" frameborder="0" allowfullscreen></iframe>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ WISHES SECTION ═══ -->
+        <section id="wishes" class="reveal">
+            <div class="content-wrapper">
+                <div class="watercolor-card dual-grid">
+                    <div class="form-side">
+                        <h2 class="section-title script-font">Send Wishes</h2>
+                        <form id="wishes-form">
+                            <input type="text" id="wish-name" placeholder="Your Name" required>
+                            <textarea id="wish-message" placeholder="Your Message" rows="4" required></textarea>
+                            <button type="submit" class="botanical-btn">Send Blessing</button>
+                        </form>
+                    </div>
+                    <div class="list-side">
+                         <div id="wishes-feed" class="custom-scroll">
+                            <p class="loading">Fetching blessings...</p>
+                         </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ FOOTER ═══ -->
+        <footer>
+            <div class="footer-content">
+                <h3 class="script-font">Vishnu &amp; Suharika</h3>
+                <p>A digital celebration of love.</p>
+                <div class="credit">Powered by Eventcast.pro</div>
+            </div>
+        </footer>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

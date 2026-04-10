@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vishnu Vardhan &amp; Suharika Reception Live</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Join us live and bless the couple on their special day. Your wishes and blessings mean a lot.">
+    <meta property="og:title" content="Vishnu Vardhan &amp; Suharika Reception Live">
+    <meta property="og:description" content="Join us live and bless the couple on their special day. Your wishes and blessings mean a lot.">
+    <meta property="og:image" content="https://eventcast.pro/vishnu-suharika-reception/seo_thumbnail.jpg">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://eventcast.pro/vishnu-suharika-reception/seo_thumbnail.jpg">
+
+    <!-- Premium Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Alex+Brush&family=Montserrat:wght@200;300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Supabase for Wishes -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <div id="loader">
+        <div class="watercolor-splash"></div>
+        <div class="loader-content">
+            <h1 class="script-font">V & S</h1>
+        </div>
+    </div>
+
+    <!-- Watercolor Background Layers -->
+    <div class="bg-wash teal-wash"></div>
+    <div class="bg-wash light-wash"></div>
+
+    <main>
+        <!-- ═══ HEADER / NAV ═══ -->
+        <header class="botanical-nav">
+            <div class="nav-links">
+                <a href="#hero">INVITATION</a>
+                <a href="#livestream">LIVESTREAM</a>
+                <a href="#wishes">WISHES</a>
+                <a href="#venue">LOCATION</a>
+            </div>
+        </header>
+
+        <!-- ═══ HERO SECTION ═══ -->
+        <section id="hero" class="botanical-hero">
+            <div class="invitation-card fade-in">
+                <div class="card-border">
+                    <div class="wreath-container">
+                        <img src="wreath_botanical.webp" alt="Floral Wreath" class="wreath-img">
+                        <div class="initials-overlay">
+                            <h1 class="script-font initials">V &amp; S</h1>
+                        </div>
+                    </div>
+                    
+                    <div class="full-names-wrap">
+                        <h2 class="script-font couple-full-names">
+                            <span class="name-line">Vishnu Vardhan</span>
+                            <span class="amp-line">&amp;</span>
+                            <span class="name-line">Suharika</span>
+                        </h2>
+                    </div>
+                    
+                    <div class="event-details">
+                        <p class="request-text">We are pleased to request your presence to join us and celebrate the reception of</p>
+                        
+                        <div class="date-time">
+                            <span class="day-label">FRIDAY, APRIL 10TH, 2026</span>
+                            <span class="time-label">FROM 11:00 AM ONWARDS</span>
+                        </div>
+
+                        <!-- Countdown -->
+                        <div class="countdown-container">
+                            <div id="countdown">
+                                <div class="time-box">
+                                    <span id="days">--</span>
+                                    <small>DAYS</small>
+                                </div>
+                                <div class="time-box">
+                                    <span id="hours">--</span>
+                                    <small>HRS</small>
+                                </div>
+                                <div class="time-box">
+                                    <span id="minutes">--</span>
+                                    <small>MIN</small>
+                                </div>
+                                <div class="time-box">
+                                    <span id="seconds">--</span>
+                                    <small>SEC</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="location-summary">
+                            <p>INDIAN TOBACCO ASSOCIATION KALYANA MANDAPAM,<br>GUNTUR</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ LIVESTREAM SECTION ═══ -->
+        <section id="livestream" class="reveal">
+            <div class="content-wrapper">
+                <div class="watercolor-card">
+                    <h2 class="section-title script-font">Reception Live Broadcast</h2>
+                    <div class="stream-container">
+                        <iframe src="https://www.youtube.com/embed/K9JGbowLGqI" title="Reception Livestream" frameborder="0" allowfullscreen></iframe>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ WISHES SECTION ═══ -->
+        <section id="wishes" class="reveal">
+            <div class="content-wrapper">
+                <div class="watercolor-card dual-grid">
+                    <div class="form-side">
+                        <h2 class="section-title script-font">Send Wishes</h2>
+                        <form id="wishes-form">
+                            <input type="text" id="wish-name" placeholder="Your Name" required>
+                            <textarea id="wish-message" placeholder="Write your message here..." rows="4" required></textarea>
+                            <button type="submit" class="botanical-btn">Send Blessing <i class="fas fa-paper-plane"></i></button>
+                        </form>
+                    </div>
+                    <div class="list-side">
+                         <div id="wishes-feed" class="custom-scroll">
+                            <p class="loading">Fetching blessings...</p>
+                         </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ MAP SECTION ═══ -->
+        <section id="venue" class="reveal">
+            <div class="content-wrapper">
+                <div class="watercolor-card">
+                    <h2 class="section-title script-font">The Venue</h2>
+                    <div class="map-container">
+                        <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3829.6059852788044!2d80.4339033!3d16.2919524!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a4a757ebf3023e9%3A0xb87c84fa0a68392d!2sIndian%20Tobacco%20Association%20Kalyana%20Mandapam!5e0!3m2!1sen!2sin!4v1775785373586!5m2!1sen!2sin" width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+                    </div>
+                    <div class="action-buttons" style="margin-top: 30px; text-align: center;">
+                        <a href="https://maps.app.goo.gl/WwZ1Ewjx3tX3rajR8" target="_blank" class="botanical-btn" style="text-decoration: none; display: inline-block;">
+                            <i class="fas fa-location-dot"></i> Open in Google Maps
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ FOOTER & PHOTOGRAPHY ═══ -->
+        <footer>
+            <div class="photographer-section reveal">
+                <img src="ashok_logo.png" alt="ASHOK Logo" class="photographer-logo">
+                <h3 class="studio-name script-font">ASHOK</h3>
+                <div class="contact-info">
+                    <a href="tel:9010111092"><i class="fas fa-phone"></i> 9010 111 092</a>
+                    <a href="https://www.instagram.com/wedding_studios1?igsh=dmJlMmEzaTlvcnNl&utm_source=qr"
+                        target="_blank"><i class="fab fa-instagram"></i> Instagram</a>
+                </div>
+            </div>
+
+            <div class="footer-legal">
+                <p>&copy; 2026 Powered by <span class="gold-text">Eventcast.pro</span></p>
+            </div>
+        </footer>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

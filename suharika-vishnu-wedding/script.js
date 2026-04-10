@@ -1,5 +1,5 @@
 // --- CONFIG ---
-const WEDDING_DATE = new Date('April 10, 2026 10:00:00').getTime();
+const WEDDING_DATE = new Date('April 08, 2026 21:18:00').getTime();
 
 // --- LOADER ---
 window.addEventListener('load', () => {
