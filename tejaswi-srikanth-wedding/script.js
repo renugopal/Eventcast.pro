@@ -21,13 +21,20 @@ function initMusic() {
     const music = document.getElementById('bg-music');
     const toggle = document.getElementById('music-toggle');
     
-    // Attempt auto-play on first click anywhere (heuristic for modern browser restrictions)
-    document.addEventListener('click', () => {
-        if (music.paused && !toggle.classList.contains('manually-paused')) {
-            music.play();
+    if (!music || !toggle) return;
+
+    const startMusic = () => {
+        music.play().then(() => {
             toggle.classList.add('playing');
-        }
-    }, { once: true });
+            document.removeEventListener('click', startMusic);
+            document.removeEventListener('touchstart', startMusic);
+        }).catch(err => {
+            console.log("Autoplay blocked:", err);
+        });
+    };
+
+    document.addEventListener('click', startMusic);
+    document.addEventListener('touchstart', startMusic);
 
     toggle.addEventListener('click', (e) => {
         e.preventDefault();
@@ -35,12 +42,15 @@ function initMusic() {
         if (music.paused) {
             music.play();
             toggle.classList.add('playing');
-            toggle.classList.remove('manually-paused');
         } else {
             music.pause();
             toggle.classList.remove('playing');
-            toggle.classList.add('manually-paused');
         }
+    });
+
+    // Handle audio ending or errors
+    music.addEventListener('error', () => {
+        console.error("Audio failed to load. Please check the source URL.");
     });
 }
 
