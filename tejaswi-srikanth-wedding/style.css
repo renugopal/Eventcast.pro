@@ -584,26 +584,27 @@ section:not(#hero) {
     bottom: 30px;
     right: 30px;
     z-index: 999;
-    background: var(--heart);
+    background: linear-gradient(135deg, #e91e63 0%, #df88b0 100%);
     color: white;
-    padding: 12px 25px;
+    padding: 14px 28px;
     border-radius: 50px;
     text-decoration: none;
     display: flex;
     align-items: center;
     gap: 10px;
     font-weight: 700;
-    font-size: 0.9rem;
-    letter-spacing: 1px;
+    font-family: 'Cinzel', serif;
+    font-size: 0.8rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
     box-shadow: 0 10px 25px rgba(233, 30, 99, 0.3);
-    transition: all 0.3s;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     animation: floatBtn 3s infinite ease-in-out;
 }
 
 .floating-wish-btn:hover {
-    transform: scale(1.05) translateY(-5px);
+    transform: scale(1.05) translateY(-5px) rotate(-2deg);
     box-shadow: 0 15px 30px rgba(233, 30, 99, 0.4);
-    background: #ff4081;
 }
 
 @keyframes floatBtn {
@@ -620,30 +621,91 @@ section:not(#hero) {
 
 /* Chat Section */
 
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px 40px;
+    border-radius: 50px;
+    text-decoration: none;
+    font-weight: 700;
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: 0.5s;
+}
+
+.btn:hover::before {
+    left: 100%;
+}
+
+.primary-btn {
+    background: linear-gradient(135deg, #df88b0 0%, #d4af37 100%);
+    color: white;
+}
+
 .primary-btn:hover {
-    background: var(--gold);
-    transform: translateY(-3px);
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px rgba(212, 175, 55, 0.3);
 }
 
 .secondary-btn {
     background: white;
     color: var(--primary);
-    border: 2px solid var(--gold);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    backdrop-filter: blur(5px);
 }
 
 .secondary-btn:hover {
-    background: var(--gold);
-    color: white;
-    transform: translateY(-3px);
+    border-color: var(--gold);
+    color: var(--gold);
+    background: var(--background-light);
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.05);
 }
 
-.youtube-btn {
-    background: #FF0000;
+.save-date-btn {
+    border: 1.5px solid var(--gold);
+    background: transparent;
+    color: var(--gold);
+}
+
+.save-date-btn:hover {
+    background: var(--gold);
     color: white;
 }
 
 .map-btn {
-    background: var(--gold);
+    background: linear-gradient(135deg, #8fa68a 0%, #5D6D7E 100%);
+    color: white;
+}
+
+.map-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 15px 30px rgba(143, 166, 138, 0.3);
+}
+
+.youtube-btn {
+    background: #FF0000;
     color: white;
 }
 
