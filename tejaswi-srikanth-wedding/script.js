@@ -17,6 +17,7 @@ window.addEventListener('load', () => {
 });
 
 // --- BACKGROUND MUSIC ---
+let player;
 function initMusic() {
     const music = document.getElementById('bg-music');
     const toggle = document.getElementById('music-toggle');
@@ -60,6 +61,36 @@ function initMusic() {
         music.src = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3";
         music.load();
     });
+}
+
+// --- YOUTUBE PLAYER API ---
+function onYouTubeIframeAPIReady() {
+    player = new YT.Player('youtube-player', {
+        height: '100%',
+        width: '100%',
+        videoId: 'XPBItRKBshQ',
+        playerVars: {
+            'playsinline': 1,
+            'rel': 0,
+            'modestbranding': 1
+        },
+        events: {
+            'onStateChange': onPlayerStateChange
+        }
+    });
+}
+
+function onPlayerStateChange(event) {
+    const music = document.getElementById('bg-music');
+    const toggle = document.getElementById('music-toggle');
+    
+    // 1 = Playing
+    if (event.data == YT.PlayerState.PLAYING) {
+        if (music && !music.paused) {
+            music.pause();
+            if (toggle) toggle.classList.remove('playing');
+        }
+    }
 }
 
 // --- COUNTDOWN TIMER ---
