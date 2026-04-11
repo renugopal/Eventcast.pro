@@ -71,7 +71,7 @@ function initSlideshow() {
 function initMusic() {
     const music = document.getElementById('bg-music');
     const toggle = document.getElementById('music-toggle');
-    
+
     if (!music || !toggle) return;
 
     // Direct play attempt
@@ -155,10 +155,10 @@ function initScrollReveal() {
     sr.reveal('.hero-info-grid', { delay: 1000, distance: '50px', scale: 0.9 });
     sr.reveal('.countdown-wrapper', { scale: 0.8, delay: 1200 });
     sr.reveal('.hero-actions', { delay: 1400, opacity: 0, distance: '20px' });
-    
+
     // Gallery Items
     sr.reveal('.gallery-item', { interval: 150, scale: 0.85 });
-    
+
     sr.reveal('.section-title', { origin: 'left', distance: '100px' });
 }
 
@@ -261,7 +261,7 @@ function renderWishes(wishes) {
             <h4>${escapeHTML(wish.name)}</h4>
             <p>${escapeHTML(wish.message)}</p>
             <small style="opacity: 0.5; font-size: 0.7rem; display: block; text-align: right;">
-                ${new Date(wish.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                ${new Date(wish.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </small>
         `;
         wishesList.appendChild(wishItem);
