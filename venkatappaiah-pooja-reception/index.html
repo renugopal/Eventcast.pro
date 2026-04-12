@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Venkatappaiah ❤️ Pooja Sri Reception Live | 13 April</title>
+    <!-- SEO Meta Tags -->
+    <meta name="description"
+        content="Join us live and be part of this beautiful reception celebration & Bless the couple as they begin their new journey together.">
+    <meta property="og:title" content="Venkatappaiah ❤️ Pooja Sri Reception Live | 13 April">
+    <meta property="og:description"
+        content="Join us live and be part of this beautiful reception celebration & Bless the couple as they begin their new journey together.">
+    <meta property="og:image" content="https://eventcast.pro/venkatappaiah-pooja-reception/thumb.jpeg">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://eventcast.pro/venkatappaiah-pooja-reception/thumb.jpeg">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+
+    <div id="loader">
+        <div class="loader-content">
+            <h1 class="logo-text">V & P</h1>
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <!-- Animated Overlays -->
+    <canvas id="petal-canvas"></canvas>
+    <div class="confetti-overlay" id="confetti-container"></div>
+
+    <!-- Background Music -->
+    <audio id="bg-music" loop preload="auto">
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+    </audio>
+
+    <div class="controls-container">
+        <button id="music-toggle" class="control-btn" title="Toggle Music">
+            <i class="fas fa-music"></i>
+        </button>
+    </div>
+
+    <a href="#chat-section" id="floating-wish-btn" class="floating-wish-btn">
+        <i class="fas fa-heart"></i> <span>Bless Couple</span>
+    </a>
+
+    <main>
+        <!-- HERO SECTION -->
+        <section id="hero" class="fade-in">
+            <div class="floral-frame tl"></div>
+            <div class="floral-frame tr"></div>
+            <div class="floral-frame bl"></div>
+            <div class="floral-frame br"></div>
+
+            <div class="hero-content">
+                <p class="invite-header">
+                    <span>Welcome to the</span>
+                    <span>Reception of</span>
+                </p>
+
+                <div class="hero-wreath">
+                    <img src="wreath.webp" alt="Floral Wreath" class="wreath-img">
+                    <div class="names-overlay">
+                        <div class="initials">V & P</div>
+                    </div>
+                </div>
+
+                <div class="full-names-container">
+                    <h1 class="couple-full-names">
+                        <span class="first-name">Venkatappaiah</span>
+                        <span class="weds">&</span>
+                        <span class="second-name">Pooja Sri</span>
+                    </h1>
+                </div>
+
+                <div class="hero-info-grid">
+                    <div class="hero-info-item">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span class="info-label">Date</span>
+                        <span class="info-text">Monday, April 13</span>
+                    </div>
+                    <div class="hero-info-item">
+                        <i class="fas fa-clock"></i>
+                        <span class="info-label">Time</span>
+                        <span class="info-text">11:00 AM</span>
+                    </div>
+                    <div class="hero-info-item">
+                        <i class="fas fa-house-chimney"></i>
+                        <span class="info-label">Venue</span>
+                        <span class="info-text">Daggubati Ramanayudu Kalyana Mandapam</span>
+                        <span class="info-subtext">Karamchedu</span>
+                    </div>
+                </div>
+
+                <div class="countdown-wrapper">
+                    <div id="countdown">
+                        <div class="time-box">
+                            <span id="days">--</span>
+                            <span class="label">Days</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="hours">--</span>
+                            <span class="label">Hours</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="minutes">--</span>
+                            <span class="label">Min</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="seconds">--</span>
+                            <span class="label">Sec</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hero-actions">
+                    <a href="https://calendar.google.com/calendar/render?action=TEMPLATE&text=Venkatappaiah+%E2%9D%A4+Pooja+Sri+Reception&dates=20260413T053000Z/20260413T083000Z&details=Join+us+live+and+bless+the+couple:+https://eventcast.pro/venkatappaiah-pooja-reception&location=Daggubati+Ramanayudu+Kalyana+Mandapam,+Karamchedu"
+                        target="_blank" class="btn secondary-btn save-date-btn">
+                        <i class="fas fa-calendar-check"></i> Save to Calendar
+                    </a>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- LIVESTREAM SECTION -->
+        <section id="livestream" class="reveal">
+            <div class="section-header">
+                <h2 class="section-title">Live Stream</h2>
+                <div class="status-badge"><span class="pulse"></span> LIVE SOON</div>
+            </div>
+
+            <div class="video-container">
+                <div id="youtube-player"></div>
+            </div>
+        </section>
+
+        <!-- PHOTO GALLERY (SLIDESHOW) SECTION -->
+        <section id="gallery" class="reveal">
+            <h2 class="section-title">Captured Moments</h2>
+            <div class="slideshow-container">
+                <div class="slideshow-wrapper">
+                    <div class="slide active">
+                        <div class="slide-bg" style="background-image: url('photos/1.webp');"></div>
+                        <img src="photos/1.webp" alt="Reception Photo 1" class="gallery-img">
+                    </div>
+                    <div class="slide">
+                        <div class="slide-bg" style="background-image: url('photos/2.webp');"></div>
+                        <img src="photos/2.webp" alt="Reception Photo 2" class="gallery-img">
+                    </div>
+                    <div class="slide">
+                        <div class="slide-bg" style="background-image: url('photos/3.webp');"></div>
+                        <img src="photos/3.webp" alt="Reception Photo 3" class="gallery-img">
+                    </div>
+                    <div class="slide">
+                        <div class="slide-bg" style="background-image: url('photos/4.webp');"></div>
+                        <img src="photos/4.webp" alt="Reception Photo 4" class="gallery-img">
+                    </div>
+                    <div class="slide">
+                        <div class="slide-bg" style="background-image: url('photos/5.webp');"></div>
+                        <img src="photos/5.webp" alt="Reception Photo 5" class="gallery-img">
+                    </div>
+                    <div class="slide">
+                        <div class="slide-bg" style="background-image: url('photos/6.webp');"></div>
+                        <img src="photos/6.webp" alt="Reception Photo 6" class="gallery-img">
+                    </div>
+                </div>
+
+                <button class="ss-nav ss-prev"><i class="fas fa-chevron-left"></i></button>
+                <button class="ss-nav ss-next"><i class="fas fa-chevron-right"></i></button>
+
+                <div class="ss-dots">
+                    <span class="dot active"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- LIGHTBOX MODAL -->
+        <div id="lightbox" class="lightbox">
+            <span class="close-lightbox">&times;</span>
+            <button class="lightbox-nav prev" id="prev-img"><i class="fas fa-chevron-left"></i></button>
+            <img class="lightbox-content" id="lightbox-img">
+            <button class="lightbox-nav next" id="next-img"><i class="fas fa-chevron-right"></i></button>
+        </div>
+
+        <!-- CHAT / WISHES SECTION -->
+        <section id="chat-section" class="reveal">
+            <div class="content-card">
+                <h2 class="section-title">Wishes Wall</h2>
+                <p class="section-subtitle">Send your blessings to the happy couple</p>
+
+                <form id="wishes-form">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <input type="text" id="wish-name" placeholder="Your Name" required>
+                        </div>
+                        <div class="input-group">
+                            <textarea id="wish-message" rows="3" placeholder="Write your message here..."
+                                required></textarea>
+                        </div>
+                        <button type="submit" class="btn primary-btn">Send Message <i
+                                class="fas fa-paper-plane"></i></button>
+                    </div>
+                </form>
+
+                <div id="wishes-list" class="wishes-scroll-area">
+                    <!-- Wishes will appear here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- MAP SECTION -->
+        <section id="map-section" class="reveal">
+            <h2 class="section-title">Locate the Venue</h2>
+            <div class="map-container">
+                <iframe
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1432.0161098725334!2d80.32107944370563!3d15.882747966279904!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a4a43a81017cd41%3A0x9d12e519b9bd131a!2sSri%20Venkateswara%20Kalyana%20Mantapam!5e0!3m2!1sen!2sin!4v1776008290141!5m2!1sen!2sin"
+                    width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+            <div class="action-buttons">
+                <a href="https://maps.app.goo.gl/FdHSpHwQUX5yc96w9" target="_blank" class="btn map-btn">
+                    <i class="fas fa-location-dot"></i> Open in Google Maps
+                </a>
+            </div>
+        </section>
+
+        <!-- FOOTER & PHOTOGRAPHER -->
+        <footer>
+            <div class="photographer-section">
+                <div class="logo-box">US</div>
+                <h3 class="studio-name">UMA STUDIO</h3>
+                <p class="photographer-contact">Professional Photography & Videography</p>
+                <div class="contact-info">
+                    <a href="tel:9440093952"><i class="fas fa-phone"></i> 94400 93952</a>
+                </div>
+            </div>
+
+            <div class="legal">
+                <p>&copy; 2026 Powered by Eventcast.pro</p>
+            </div>
+        </footer>
+    </main>
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="https://unpkg.com/scrollreveal"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
