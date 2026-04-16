@@ -1,3 +1,4 @@
+// Testing Git setup with Antigravity
 // --- CONFIG ---
 const WEDDING_DATE = new Date('April 13, 2026 11:00:00').getTime();
 
