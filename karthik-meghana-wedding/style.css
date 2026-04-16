@@ -156,26 +156,30 @@ h1, h2, h3, .logo-text { font-family: 'Cinzel', serif; }
     padding: 80px 20px 60px;
     position: relative;
     overflow: hidden;
+    background-image: url('hero_bg.png');
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
 }
 
-/* Floral Corner Decorations (Emoji based, elegant) */
+/* Floral Corner Decorations (Real Images) */
 .floral-corner {
     position: absolute;
-    font-size: clamp(2.5rem, 6vw, 5rem);
-    opacity: 0.3;
-    filter: saturate(1.5);
+    width: clamp(160px, 25vw, 300px);
+    height: clamp(160px, 25vw, 300px);
     pointer-events: none;
-    animation: floatCorner 6s ease-in-out infinite;
+    z-index: 2;
+    opacity: 0.9;
 }
-.floral-corner.tl { top: 20px; left: 20px; transform: rotate(-30deg); }
-.floral-corner.tr { top: 20px; right: 20px; transform: rotate(30deg); animation-delay: 1s; }
-.floral-corner.bl { bottom: 30px; left: 20px; transform: rotate(-60deg); animation-delay: 2s; }
-.floral-corner.br { bottom: 30px; right: 20px; transform: rotate(60deg); animation-delay: 3s; }
-
-@keyframes floatCorner {
-    0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); }
-    50% { transform: translateY(-12px) rotate(var(--r, 0deg)); }
+.floral-corner img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    filter: saturate(1.2) brightness(1.05);
 }
+.floral-corner.tl { top: -10px; left: -10px; transform: scaleX(-1); }
+.floral-corner.tr { top: -10px; right: -10px; }
+.floral-corner.bl { bottom: -10px; left: -10px; transform: scale(-1, -1); }
+.floral-corner.br { bottom: -10px; right: -10px; transform: scaleY(-1); }
 
 .hero-floral-top, .hero-floral-bottom {
     font-size: 1.1rem;
@@ -203,32 +207,26 @@ h1, h2, h3, .logo-text { font-family: 'Cinzel', serif; }
     opacity: 0.85;
 }
 
-/* Names Circle */
+/* Names Wreath Circle */
 .names-circle {
     position: relative;
-    width: 200px; height: 200px;
+    width: clamp(220px, 40vw, 340px);
+    height: clamp(220px, 40vw, 340px);
     margin: 0 auto 30px;
     display: flex; justify-content: center; align-items: center;
 }
 
-.circle-ring {
-    position: absolute;
-    border-radius: 50%;
-    border: 1.5px solid;
-    animation: ringPulse 4s ease-in-out infinite;
+.wreath-img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: contain;
+    animation: rotateWreath 80s linear infinite;
+    filter: saturate(1.15) brightness(1.05);
 }
-.circle-ring.ring1 {
-    width: 180px; height: 180px;
-    border-color: rgba(242, 167, 195, 0.5);
-}
-.circle-ring.ring2 {
-    width: 145px; height: 145px;
-    border-color: rgba(122, 158, 126, 0.4);
-    animation-delay: 1s;
-}
-@keyframes ringPulse {
-    0%, 100% { transform: scale(1); opacity: 0.7; }
-    50% { transform: scale(1.05); opacity: 1; }
+
+@keyframes rotateWreath {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .initials-text {
