@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dr. Gayathri & Dr. Vamsi Krishna Wedding Live | 25th April</title>
+    <!-- SEO Meta Tags -->
+    <meta name="description"
+        content="Join us live and be part of this beautiful wedding celebration filled with love and joy.">
+    <meta property="og:title" content="Dr. Gayathri & Dr. Vamsi Krishna Wedding Live | 25th April">
+    <meta property="og:description"
+        content="Join us live and be part of this beautiful wedding celebration filled with love and joy.">
+    <meta property="og:image" content="https://eventcast.pro/gayathri-vamsi-wedding/assets/thumb.jpeg">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://eventcast.pro/gayathri-vamsi-wedding/assets/thumb.jpeg">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+
+    <div id="loader">
+        <div class="loader-content">
+            <h1 class="logo-text">G & V</h1>
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <!-- Animated Overlays -->
+    <canvas id="petal-canvas"></canvas>
+    <div class="confetti-overlay" id="confetti-container"></div>
+
+    <!-- Background Music -->
+    <audio id="bg-music" loop preload="auto">
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+    </audio>
+
+    <div class="controls-container">
+        <button id="music-toggle" class="control-btn" title="Toggle Music">
+            <i class="fas fa-music"></i>
+        </button>
+    </div>
+
+    <a href="#chat-section" id="floating-wish-btn" class="floating-wish-btn">
+        <i class="fas fa-heart"></i> <span>Bless Couple</span>
+    </a>
+
+    <main>
+        <!-- HERO SECTION -->
+        <section id="hero" class="fade-in">
+            <div class="floral-frame tl"></div>
+            <div class="floral-frame tr"></div>
+            <div class="floral-frame bl"></div>
+            <div class="floral-frame br"></div>
+
+            <div class="hero-content">
+                <p class="invite-header">
+                    <span>Welcome to the</span>
+                    <span>Wedding of</span>
+                </p>
+
+                <div class="hero-wreath">
+                    <img src="wreath.webp" alt="Floral Wreath" class="wreath-img">
+                    <div class="names-overlay">
+                        <div class="initials">G & V</div>
+                    </div>
+                </div>
+
+                <div class="full-names-container">
+                    <h1 class="couple-full-names">
+                        <span class="first-name">Dr. Gayathri</span>
+                        <span class="weds">&</span>
+                        <span class="second-name">Dr. Vamsi Krishna</span>
+                    </h1>
+                </div>
+
+                <div class="hero-info-grid">
+                    <div class="hero-info-item">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span class="info-label">Date</span>
+                        <span class="info-text">Saturday, April 25</span>
+                    </div>
+                    <div class="hero-info-item">
+                        <i class="fas fa-clock"></i>
+                        <span class="info-label">Sumuhurtham</span>
+                        <span class="info-text">03:06 AM</span>
+                        <span class="info-subtext">(Early Hours of Sunday)</span>
+                    </div>
+                    <div class="hero-info-item">
+                        <i class="fas fa-house-chimney"></i>
+                        <span class="info-label">Venue</span>
+                        <span class="info-text">Sri Prasannanjaneya Swamy Vari Kalyanamandapam</span>
+                        <span class="info-subtext">Boppudi Village</span>
+                    </div>
+                </div>
+
+                <div class="countdown-wrapper">
+                    <div id="countdown">
+                        <div class="time-box">
+                            <span id="days">--</span>
+                            <span class="label">Days</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="hours">--</span>
+                            <span class="label">Hours</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="minutes">--</span>
+                            <span class="label">Min</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="seconds">--</span>
+                            <span class="label">Sec</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hero-actions">
+                    <a href="https://calendar.google.com/calendar/render?action=TEMPLATE&text=Dr.+Gayathri+%26+Dr.+Vamsi+Krishna+Wedding&dates=20260425T213600Z/20260425T230000Z&details=Join+us+live+and+bless+the+couple:+https://eventcast.pro/gayathri-vamsi-wedding&location=Sri+Prasannanjaneya+Swamy+Vari+Kalyanamandapam,+Boppudi+Village"
+                        target="_blank" class="btn secondary-btn save-date-btn">
+                        <i class="fas fa-calendar-check"></i> Save to Calendar
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- INVITATION VIDEO SECTION -->
+        <section id="invitation-video" class="reveal">
+            <h2 class="section-title">Wedding Invitation</h2>
+            <div class="invitation-container">
+                <video class="invitation-video" autoplay muted playsinline loop poster="assets/thumb.jpeg">
+                    <source src="assets/invitation.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </section>
+
+        <!-- LIVESTREAM SECTION -->
+        <section id="livestream" class="reveal">
+            <div class="section-header">
+                <h2 class="section-title">Live Stream</h2>
+                <div class="status-badge"><span class="pulse"></span> LIVE SOON</div>
+            </div>
+
+            <div class="video-container">
+                <div id="youtube-player"></div>
+            </div>
+        </section>
+
+
+
+        <!-- CHAT / WISHES SECTION -->
+        <section id="chat-section" class="reveal">
+            <div class="content-card">
+                <h2 class="section-title">Wishes Wall</h2>
+                <p class="section-subtitle">Send your blessings to the happy couple</p>
+
+                <form id="wishes-form">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <input type="text" id="wish-name" placeholder="Your Name" required>
+                        </div>
+                        <div class="input-group">
+                            <textarea id="wish-message" rows="3" placeholder="Write your message here..."
+                                required></textarea>
+                        </div>
+                        <button type="submit" class="btn primary-btn">Send Message <i
+                                class="fas fa-paper-plane"></i></button>
+                    </div>
+                </form>
+
+                <div id="wishes-list" class="wishes-scroll-area">
+                    <!-- Wishes will appear here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- MAP SECTION -->
+        <section id="map-section" class="reveal">
+            <h2 class="section-title">Locate the Venue</h2>
+            <div class="map-container">
+                <iframe
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1917.0467720586541!2d80.14708175416443!3d16.06063485008458!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a4a63adef6520c9%3A0x458efdaf0f2c3d7c!2sSri%20Prasannanjaneyavari%20Kalyanamandapam!5e0!3m2!1sen!2sin!4v1776448044250!5m2!1sen!2sin"
+                    width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+            <div class="action-buttons">
+                <a href="https://maps.app.goo.gl/h3vr859mEzQZXaEL7" target="_blank" class="btn map-btn">
+                    <i class="fas fa-location-dot"></i> Open in Google Maps
+                </a>
+            </div>
+        </section>
+
+        <!-- FOOTER & PHOTOGRAPHER -->
+        <footer>
+            <div class="photographer-section">
+                <img src="assets/ashok_logo.png" alt="ASHOK Logo" class="photographer-logo">
+                <h3 class="studio-name">ASHOK</h3>
+                <div class="contact-info">
+                    <a href="tel:9010111092"><i class="fas fa-phone"></i> 9010 111 092</a>
+                    <a href="https://www.instagram.com/wedding_studios1?igsh=dmJlMmEzaTlvcnNl&utm_source=qr"
+                        target="_blank"><i class="fab fa-instagram"></i> Instagram</a>
+                </div>
+            </div>
+
+            <div class="legal">
+                <p>&copy; 2026 Powered by Eventcast.pro</p>
+            </div>
+        </footer>
+    </main>
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="https://unpkg.com/scrollreveal"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>

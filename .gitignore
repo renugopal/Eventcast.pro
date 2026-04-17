@@ -1,0 +1,6 @@
+media_assets/
+*.mp4
+*.mov
+*.webm
+node_modules/
+.DS_Store
