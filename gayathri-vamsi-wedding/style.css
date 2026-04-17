@@ -16,13 +16,11 @@
     --heart: #e91e63;
 }
 
-html, body {
+* {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
     scroll-behavior: smooth;
-    overflow-x: hidden;
-    width: 100%;
 }
 
 body {
@@ -33,6 +31,9 @@ body {
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
+    overflow-x: hidden;
+    width: 100%;
+    position: relative;
     line-height: 1.6;
     -webkit-overflow-scrolling: touch;
 }
@@ -735,26 +736,17 @@ section:not(#hero) {
 footer {
     background: var(--primary);
     color: white;
-    padding: 60px 20px 40px;
+    padding: 80px 20px 40px;
     text-align: center;
-    margin-top: 50px;
+    margin-top: 100px;
 }
 
 .photographer-section {
     max-width: 400px;
-    margin: 0 auto 40px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 15px;
+    margin: 0 auto 60px;
 }
 
-.photographer-logo {
-    max-width: 120px;
-    height: auto;
-    margin-bottom: 5px;
-    filter: brightness(0) invert(1); /* If the logo is dark, this makes it white */
-}
+.logo-box {
     width: 60px;
     height: 60px;
     border: 2px solid var(--gold);
