@@ -349,6 +349,21 @@ function triggerCelebration() {
     // Add logic here if needed or use a small library
 }
 
+// --- VIDEO AUTOPLAY FIX ---
+document.addEventListener('DOMContentLoaded', () => {
+    const invVideo = document.querySelector('.invitation-video');
+    if (invVideo) {
+        invVideo.muted = true;
+        invVideo.play().catch(err => {
+            console.log("Autoplay prevented:", err);
+            // Fallback: Play on first interaction
+            document.addEventListener('click', () => invVideo.play(), { once: true });
+            document.addEventListener('touchstart', () => invVideo.play(), { once: true });
+            document.addEventListener('scroll', () => invVideo.play(), { once: true });
+        });
+    }
+});
+
 // --- LIGHTBOX LOGIC ---
 const lightbox = document.getElementById('lightbox');
 const lightboxImg = document.getElementById('lightbox-img');
