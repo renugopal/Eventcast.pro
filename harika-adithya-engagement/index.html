@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💍 Harika & Adithya | Engagement Live Ceremony</title>
+    <meta name="description" content="Watch the special moments live as they begin their beautiful journey together. Your presence and blessings mean the world to us.">
+    <meta property="og:title" content="💍 Harika & Adithya | Engagement Live Ceremony">
+    <meta property="og:description" content="Watch the special moments live as they begin their beautiful journey together. Your presence and blessings mean the world to us.">
+    <meta property="og:image" content="https://eventcast.pro/harika-adithya-engagement/assets/thumb.jpeg">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://eventcast.pro/harika-adithya-engagement/assets/thumb.jpeg">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+
+    <!-- Loader -->
+    <div id="loader">
+        <div class="loader-content">
+            <h1 class="logo-text">H & A</h1>
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <!-- Falling Petals Canvas -->
+    <canvas id="petal-canvas"></canvas>
+
+    <!-- Background Music -->
+    <audio id="bg-music" loop preload="auto">
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Floating Controls -->
+    <div class="controls-container">
+        <button id="music-toggle" class="control-btn" title="Toggle Music">
+            <i class="fas fa-music"></i>
+        </button>
+    </div>
+
+    <a href="#chat-section" id="floating-wish-btn" class="floating-wish-btn">
+        <i class="fas fa-heart"></i> <span>Bless Couple</span>
+    </a>
+
+    <main>
+        <!-- HERO SECTION -->
+        <section id="hero" class="fade-in">
+            <div class="floral-frame tl"></div>
+            <div class="floral-frame tr"></div>
+            <div class="floral-frame bl"></div>
+            <div class="floral-frame br"></div>
+
+            <div class="hero-content">
+                <p class="invite-header">
+                    <span>You are invited to the</span>
+                    <span>Engagement Ceremony of</span>
+                </p>
+
+                <div class="hero-wreath">
+                    <img src="assets/floral.webp" alt="Floral Wreath" class="wreath-img">
+                    <div class="names-overlay">
+                        <div class="initials">H & A</div>
+                    </div>
+                </div>
+
+                <div class="full-names-container">
+                    <h1 class="couple-full-names">
+                        <span class="first-name">Harika</span>
+                        <span class="weds">&</span>
+                        <span class="second-name">Adithya</span>
+                    </h1>
+                </div>
+
+                <div class="hero-info-grid">
+                    <div class="hero-info-item">
+                        <i class="fas fa-ring"></i>
+                        <span class="info-label">Date</span>
+                        <span class="info-text">Sunday, April 19</span>
+                    </div>
+                    <div class="hero-info-item">
+                        <i class="fas fa-clock"></i>
+                        <span class="info-label">Time</span>
+                        <span class="info-text">09:00 AM</span>
+                        <span class="info-subtext">Onwards</span>
+                    </div>
+                    <div class="hero-info-item">
+                        <i class="fas fa-location-dot"></i>
+                        <span class="info-label">Venue</span>
+                        <span class="info-text">Sasi Vedika</span>
+                        <span class="info-subtext">Tenali</span>
+                    </div>
+                </div>
+
+                <div class="countdown-wrapper">
+                    <div id="countdown">
+                        <div class="time-box">
+                            <span id="days">--</span>
+                            <span class="label">Days</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="hours">--</span>
+                            <span class="label">Hours</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="minutes">--</span>
+                            <span class="label">Min</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="seconds">--</span>
+                            <span class="label">Sec</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hero-actions">
+                    <a href="#livestream" class="btn primary-btn">
+                        <i class="fas fa-play"></i> Watch Live
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- LIVESTREAM SECTION -->
+        <section id="livestream" class="reveal">
+            <div class="section-header">
+                <h2 class="section-title">Live Stream</h2>
+                <div class="status-badge"><span class="pulse"></span> LIVE SOON</div>
+            </div>
+            <div class="video-container">
+                <div id="youtube-player"></div>
+            </div>
+        </section>
+
+        <!-- WISHES SECTION -->
+        <section id="chat-section" class="reveal">
+            <div class="content-card">
+                <h2 class="section-title">Wishes Wall</h2>
+                <p class="section-subtitle">Send your blessings to the happy couple</p>
+                <form id="wishes-form">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <input type="text" id="wish-name" placeholder="Your Name" required>
+                        </div>
+                        <div class="input-group">
+                            <textarea id="wish-message" rows="3" placeholder="Write your blessing here..." required></textarea>
+                        </div>
+                        <button type="submit" class="btn primary-btn">Send Blessing <i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </form>
+                <div id="wishes-list" class="wishes-scroll-area"></div>
+            </div>
+        </section>
+
+        <!-- MAP SECTION -->
+        <section id="map-section" class="reveal">
+            <h2 class="section-title">Locate the Venue</h2>
+            <div class="map-container" style="border-radius: 20px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.1); border: 8px solid white;">
+                <iframe src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d3830.572115423334!2d80.645501!3d16.2424227!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a4a060e5f128817%3A0x702874946f821c27!2sSasi%20Vedika!5e0!3m2!1sen!2sin!4v1776540794289!5m2!1sen!2sin" width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+            <div class="hero-actions" style="margin-top: 30px;">
+                <a href="https://maps.app.goo.gl/nphaApdJ3T6QQJXPA" target="_blank" class="btn primary-btn">
+                    <i class="fas fa-location-dot"></i> Open in Google Maps
+                </a>
+            </div>
+        </section>
+
+        <!-- FOOTER & PHOTOGRAPHER -->
+        <footer>
+            <div class="photographer-section">
+                <!-- Photography Details -->
+                <i class="fas fa-camera-retro" style="font-size: 3rem; color: #fff; margin-bottom: 15px; opacity: 0.9;"></i>
+                <h3 class="studio-name" style="font-family: 'Cinzel', serif; font-size: 1.5rem; letter-spacing: 3px; font-weight: 700; margin-bottom: 5px;">VALI IMAGES</h3>
+                <div class="contact-info" style="margin-top: 15px;">
+                    <a href="tel:8897092192" style="color: white; text-decoration: none; font-size: 1.1rem; opacity: 0.9; display: inline-flex; align-items: center; gap: 8px;"><i class="fas fa-phone"></i> 88970 92192</a>
+                </div>
+            </div>
+            <div class="legal">
+                <p>&copy; 2026 Powered by Eventcast.pro</p>
+            </div>
+        </footer>
+    </main>
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="https://unpkg.com/scrollreveal"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
