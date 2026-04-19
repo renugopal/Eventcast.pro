@@ -13,82 +13,9 @@ window.addEventListener('load', () => {
 
     startPetals();
     initScrollReveal();
-    initMusic();
 });
 
-// --- BACKGROUND MUSIC ---
-function initMusic() {
-    const music = document.getElementById('bg-music');
-    const toggle = document.getElementById('music-toggle');
-
-    if (!music || !toggle) return;
-
-    const attemptPlay = () => {
-        music.play().then(() => {
-            toggle.classList.add('playing');
-            removeListeners();
-        }).catch(err => {
-            console.log("Autoplay check:", err);
-        });
-    };
-
-    const removeListeners = () => {
-        document.removeEventListener('click', attemptPlay);
-        document.removeEventListener('touchstart', attemptPlay);
-        document.removeEventListener('scroll', attemptPlay);
-    };
-
-    document.addEventListener('click', attemptPlay);
-    document.addEventListener('touchstart', attemptPlay);
-    document.addEventListener('scroll', attemptPlay, { once: true });
-
-    toggle.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (music.paused) {
-            music.play();
-            toggle.classList.add('playing');
-        } else {
-            music.pause();
-            toggle.classList.remove('playing');
-        }
-    });
-
-    music.addEventListener('error', () => {
-        console.error("Audio error. Trying fallback source...");
-        music.src = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3";
-        music.load();
-    });
-}
-
-// --- YOUTUBE PLAYER API ---
-let player;
-function onYouTubeIframeAPIReady() {
-    player = new YT.Player('youtube-player', {
-        height: '100%',
-        width: '100%',
-        videoId: 'L_iYJZS9PG0', // Engagment Live stream video ID
-        playerVars: {
-            'playsinline': 1,
-            'rel': 0,
-            'modestbranding': 1
-        },
-        events: {
-            'onStateChange': onPlayerStateChange
-        }
-    });
-}
-
-function onPlayerStateChange(event) {
-    const music = document.getElementById('bg-music');
-    const toggle = document.getElementById('music-toggle');
-    if (event.data == YT.PlayerState.PLAYING) {
-        if (music && !music.paused) {
-            music.pause();
-            if (toggle) toggle.classList.remove('playing');
-        }
-    }
-}
+// Background music and YouTube API logic removed
 
 // --- COUNTDOWN TIMER ---
 function updateCountdown() {

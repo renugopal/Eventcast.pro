@@ -39,17 +39,7 @@
     <!-- Falling Petals Canvas -->
     <canvas id="petal-canvas"></canvas>
 
-    <!-- Background Music -->
-    <audio id="bg-music" loop preload="auto">
-        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
-    </audio>
-
-    <!-- Floating Controls -->
-    <div class="controls-container">
-        <button id="music-toggle" class="control-btn" title="Toggle Music">
-            <i class="fas fa-music"></i>
-        </button>
-    </div>
+    <!-- Removed background music and floating controls as requested -->
 
     <a href="#chat-section" id="floating-wish-btn" class="floating-wish-btn">
         <i class="fas fa-heart"></i> <span>Bless Couple</span>
@@ -140,7 +130,7 @@
                 <div class="status-badge"><span class="pulse"></span> LIVE SOON</div>
             </div>
             <div class="video-container">
-                <div id="youtube-player"></div>
+                <iframe width="100%" height="100%" src="https://www.youtube.com/embed/L_iYJZS9PG0?rel=0&modestbranding=1" title="Engagement Live Stream" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="position: absolute; top:0; left:0; width:100%; height:100%;"></iframe>
             </div>
         </section>
 
@@ -193,7 +183,6 @@
         </footer>
     </main>
 
-    <script src="https://www.youtube.com/iframe_api"></script>
     <script src="https://unpkg.com/scrollreveal"></script>
     <script src="script.js"></script>
 </body>
