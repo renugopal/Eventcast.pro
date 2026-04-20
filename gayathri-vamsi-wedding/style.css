@@ -1124,9 +1124,9 @@ footer {
     }
 
     .couple-full-names {
-        font-size: clamp(2.2rem, 8vw, 3.2rem);
-        letter-spacing: 8px;
-        gap: 12px;
+        font-size: clamp(1rem, 5.5vw, 2rem);
+        letter-spacing: 1px;
+        gap: 10px;
     }
 
     .couple-full-names .weds {
