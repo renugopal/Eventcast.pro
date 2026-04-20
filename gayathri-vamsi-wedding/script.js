@@ -115,6 +115,11 @@ function initMusic() {
 }
 
 // --- YOUTUBE PLAYER API ---
+var ytScriptTag = document.createElement('script');
+ytScriptTag.src = "https://www.youtube.com/iframe_api";
+var firstScriptTag = document.getElementsByTagName('script')[0];
+firstScriptTag.parentNode.insertBefore(ytScriptTag, firstScriptTag);
+
 function onYouTubeIframeAPIReady() {
     player = new YT.Player('youtube-player', {
         height: '100%',

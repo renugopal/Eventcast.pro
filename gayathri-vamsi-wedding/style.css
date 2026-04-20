@@ -272,11 +272,11 @@ section {
 
 .couple-full-names {
     font-family: 'Playfair Display', serif;
-    font-size: clamp(2.5rem, 8vw, 4.5rem);
-    /* Increased size */
+    font-size: clamp(1.5rem, 6vw, 4.5rem);
+    /* Reduced min size and vw */
     line-height: 1.1;
     text-transform: uppercase;
-    letter-spacing: 12px;
+    letter-spacing: clamp(2px, 3vw, 12px);
     color: var(--primary);
     font-weight: 700;
     display: flex;
