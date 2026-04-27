@@ -24,7 +24,7 @@ export async function POST(req: Request) {
 
     // 1. Create Live Broadcast
     const broadcastRes = await youtube.liveBroadcasts.insert({
-      part: ['snippet', 'status', 'contentDetails'],
+      part: 'snippet,status,contentDetails',
       requestBody: {
         snippet: {
           title: displayTitle,
@@ -38,25 +38,25 @@ export async function POST(req: Request) {
         },
         contentDetails: {
           enableAutoStart: true,
-          enableAutoStop: false, // Disabled as requested
-          enableDvr: true,      // Enabled for Dual Stream/DVR
+          enableAutoStop: false,
+          enableDvr: true,
           enableContentEncryption: false,
           enableEmbed: true,
           recordFromStart: true,
-          startWithLowLatency: false, // Changed to false for better stability
+          startWithLowLatency: false,
           latencyPreference: 'normal',
         }
       },
-    });
+    } as any);
 
     const broadcastId = broadcastRes.data.id;
 
-    // 2. Create New Live Stream Key with same Title
+    // 2. Create New Live Stream Key
     const streamRes = await youtube.liveStreams.insert({
-      part: ['snippet', 'cdn', 'contentDetails'],
+      part: 'snippet,cdn,contentDetails',
       requestBody: {
         snippet: {
-          title: displayTitle, // Stream key name same as event title
+          title: displayTitle,
         },
         cdn: {
           frameRate: '60fps',
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
           resolution: '1080p',
         }
       }
-    });
+    } as any);
 
     const streamId = streamRes.data.id;
     const streamKey = streamRes.data.cdn?.ingestionInfo?.streamName;
@@ -72,22 +72,24 @@ export async function POST(req: Request) {
     // 3. Bind Broadcast to Stream Key
     await youtube.liveBroadcasts.bind({
       id: broadcastId!,
-      part: ['id', 'contentDetails'],
+      part: 'id,contentDetails',
       streamId: streamId!,
-    });
+    } as any);
 
     // 4. Set Thumbnail
     if (thumbnailUrl && broadcastId) {
       try {
         const thumbRes = await fetch(thumbnailUrl);
-        const buffer = await thumbRes.arrayBuffer();
+        const arrayBuffer = await thumbRes.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        
         await youtube.thumbnails.set({
           videoId: broadcastId,
           media: {
             mimeType: 'image/jpeg',
-            body: Buffer.from(buffer),
+            body: buffer,
           },
-        });
+        } as any);
       } catch (thumbError) {
         console.error("Error setting thumbnail:", thumbError);
       }
