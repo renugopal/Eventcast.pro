@@ -346,7 +346,8 @@ export default function AdminDashboard() {
       galleryUrls: Array.isArray(event.gallery_urls) ? event.gallery_urls.join('\n') : "",
       vodLink: event.vod_link || "",
       templateId: event.template_id || "wedding-template-01",
-      youtubePrivacy: "public"
+      youtubePrivacy: "public",
+      autoGenerateThumbnail: event.auto_generate_thumbnail ?? true
     });
     
     // Find photographer if any
@@ -670,7 +671,8 @@ export default function AdminDashboard() {
         galleryUrls: "",
         vodLink: "",
         templateId: "wedding-template-01",
-        youtubePrivacy: "public"
+        youtubePrivacy: "public",
+        autoGenerateThumbnail: true
       });
       setSelectedPhotographer(null);
       setPhotographerSearchQuery("");
@@ -1559,7 +1561,8 @@ export default function AdminDashboard() {
                         galleryUrls: "",
                         vodLink: "",
                         templateId: "wedding-template-01",
-                        youtubePrivacy: "public"
+                        youtubePrivacy: "public",
+                        autoGenerateThumbnail: true
                       }); setSelectedPhotographer(null); }} className="w-full mt-2 py-2 text-slate-500 font-medium hover:text-slate-800 transition-colors">
                       Cancel Editing
                     </button>
