@@ -373,13 +373,6 @@ export default function AdminDashboard() {
         finalThumbnailUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${transformations}f_auto,q_auto/${currentDesign.id}.jpg`;
       }
 
-      const payload = {
-        ...formData,
-        thumbnailUrl: finalThumbnailUrl,
-        photographerId: selectedPhotographer?.id,
-        galleryUrls: formData.galleryUrls.split('\n').filter(url => url.trim()),
-        baseDesign: selectedBaseDesign
-      };
 
       let youtubeDetails = null;
       if (!isEditing && formData.youtubePrivacy !== 'none') {
