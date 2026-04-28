@@ -38,6 +38,50 @@ export async function POST(req: Request) {
       'User-Agent': 'Eventcast-Admin'
     };
 
+    // --- NEW: Database First to get Event ID ---
+    let eventId = event.editingId;
+    const dbPayload = {
+      event_type: event.event_type || event.eventType,
+      groom_name: event.groom_name || event.groomName,
+      bride_name: event.bride_name || event.brideName,
+      celebrant_name: event.celebrant_name || event.celebrantName,
+      custom_top_title: event.custom_top_title || event.customTopTitle,
+      event_date: event.event_date || event.eventDate,
+      event_time: event.event_time || event.eventTime,
+      timer_target_time: event.timer_target_time || event.timerTargetTime,
+      show_timer: event.show_timer ?? event.showTimer ?? true,
+      venue_name: event.venue_name || event.venueName,
+      venue_map_link: event.venue_map_link || event.venueMapLink,
+      invitation_video_url: event.invitation_video_url || event.invitationVideoUrl,
+      thumbnail_url: event.thumbnail_url || event.thumbnailUrl,
+      privacy_status: event.privacy_status || event.privacyStatus,
+      gallery_urls: event.gallery_urls || [],
+      vod_link: event.vod_link || event.vodLink,
+      template_id: event.template_id || event.templateId,
+      slug: slug,
+      photographer_id: event.photographer_id || event.photographerId,
+      base_design: event.base_design || event.baseDesign,
+      youtube_broadcast_id: event.youtube_broadcast_id,
+      youtube_stream_key: event.youtube_stream_key,
+      youtube_url: event.youtube_url
+    };
+
+    if (event.isEditing && event.editingId) {
+      const { error: dbError } = await supabase
+        .from('events')
+        .update(dbPayload)
+        .eq('id', event.editingId);
+      if (dbError) throw new Error("Database Update Error: " + dbError.message);
+    } else {
+      const { data: dbData, error: dbError } = await supabase
+        .from('events')
+        .insert([dbPayload])
+        .select();
+      if (dbError) throw new Error("Database Insert Error: " + dbError.message);
+      eventId = dbData[0].id;
+    }
+    // -------------------------------------------
+
     console.log(`Generating site for ${slug} via GitHub API...`);
 
     // 3. Get latest commit SHA & Base Tree
@@ -102,7 +146,7 @@ export async function POST(req: Request) {
     gallery: ${JSON.stringify(event.gallery_urls || [])},
     supabaseUrl: "${process.env.NEXT_PUBLIC_SUPABASE_URL || ''}",
     supabaseKey: "${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''}",
-    eventId: "${event.id}",
+    eventId: "${eventId}",
     eventType: "${event.event_type}",
     introText: "${event.custom_top_title || ''}",
     photographer: ${JSON.stringify(event.photographer || null)}
@@ -160,48 +204,18 @@ export async function POST(req: Request) {
 
     console.log("Git Push via API Successful!");
 
-    // 12. Save to Supabase Database
-    const dbPayload = {
-      event_type: event.event_type || event.eventType,
-      groom_name: event.groom_name || event.groomName,
-      bride_name: event.bride_name || event.brideName,
-      celebrant_name: event.celebrant_name || event.celebrantName,
-      custom_top_title: event.custom_top_title || event.customTopTitle,
-      event_date: event.event_date || event.eventDate,
-      event_time: event.event_time || event.eventTime,
-      timer_target_time: event.timer_target_time || event.timerTargetTime,
-      show_timer: event.show_timer ?? event.showTimer ?? true,
-      venue_name: event.venue_name || event.venueName,
-      venue_map_link: event.venue_map_link || event.venueMapLink,
-      invitation_video_url: event.invitation_video_url || event.invitationVideoUrl,
-      thumbnail_url: event.thumbnail_url || event.thumbnailUrl,
-      privacy_status: event.privacy_status || event.privacyStatus,
-      gallery_urls: event.gallery_urls || [],
-      vod_link: event.vod_link || event.vodLink,
-      template_id: event.template_id || event.templateId,
-      slug: slug,
-      photographer_id: event.photographer_id || event.photographerId,
-      base_design: event.base_design || event.baseDesign
-    };
-
-    if (event.isEditing && event.editingId) {
-      const { error: dbError } = await supabase
-        .from('events')
-        .update(dbPayload)
-        .eq('id', event.editingId);
-      if (dbError) throw new Error("Database Update Error: " + dbError.message);
-    } else {
-      const { error: dbError } = await supabase
-        .from('events')
-        .insert([dbPayload]);
-      if (dbError) throw new Error("Database Insert Error: " + dbError.message);
-    }
-
     return NextResponse.json({ 
       success: true, 
       url: `https://eventcast.pro/events/${slug}`, 
-      slug: slug
+      slug: slug,
+      id: eventId
     });
+
+  } catch (error: any) {
+    console.error("Generator Error:", error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
 
   } catch (error: any) {
     console.error("Generator Error:", error);
