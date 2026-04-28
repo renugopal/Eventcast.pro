@@ -60,7 +60,8 @@ export async function POST(req: Request) {
       template_id: event.template_id || event.templateId,
       slug: slug,
       photographer_id: event.photographer_id || event.photographerId,
-      base_design: event.base_design || event.baseDesign,
+      // base_design is optional - ensure column exists in Supabase
+      ...(event.base_design || event.baseDesign ? { base_design: event.base_design || event.baseDesign } : {}),
       youtube_broadcast_id: event.youtube_broadcast_id,
       youtube_stream_key: event.youtube_stream_key,
       youtube_url: event.youtube_url
