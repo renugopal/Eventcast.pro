@@ -78,24 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
                              document.referrer.includes('instagram') ? 'Instagram' : 
                              document.referrer.includes('facebook') ? 'Facebook' : 'Direct';
 
-            // 1. Increment total view count in events table
-            const { data: eventData } = await _supabase
-                .from('events')
-                .select('view_count')
-                .eq('id', CONFIG.eventId)
-                .single();
-            
-            const newCount = (eventData?.view_count || 0) + 1;
-            await _supabase
-                .from('events')
-                .update({ view_count: newCount })
-                .eq('id', CONFIG.eventId);
-
-            // Update UI
-            const viewsDisplay = document.getElementById('total-views-display');
-            if (viewsDisplay) viewsDisplay.innerText = newCount.toLocaleString();
-
-            // 2. Insert detailed view into page_views table
+            // 1. Atomically insert this visit into page_views table
+            //    (No race condition — each visit = 1 insert)
             await _supabase
                 .from('page_views')
                 .insert([{
@@ -104,6 +88,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     referrer: referrer,
                     user_agent: userAgent
                 }]);
+
+            // 2. Count total visits for this event accurately
+            const { count } = await _supabase
+                .from('page_views')
+                .select('*', { count: 'exact', head: true })
+                .eq('event_id', CONFIG.eventId);
+
+            // 3. Update UI with accurate count
+            const viewsDisplay = document.getElementById('total-views-display');
+            if (viewsDisplay && count !== null) {
+                viewsDisplay.innerText = count.toLocaleString();
+            }
 
         } catch (e) { console.error("Analytics error:", e); }
     };
