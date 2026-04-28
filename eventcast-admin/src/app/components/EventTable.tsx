@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy } from "lucide-react";
+import React, { useState } from "react";
+import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy, Search, Download } from "lucide-react";
 
 interface EventTableProps {
   events: any[];
@@ -20,20 +20,84 @@ export const EventTable: React.FC<EventTableProps> = ({
   generateWebsite,
   fullDeleteEvent
 }) => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterType, setFilterType] = useState("All");
+
+  const exportToCSV = () => {
+    const headers = ["Event Type", "Groom Name", "Bride Name", "Celebrant Name", "Date", "Venue", "Views", "Status", "YouTube Link", "Stream Key"];
+    const rows = events.map(e => [
+      e.event_type || '',
+      e.groom_name || '',
+      e.bride_name || '',
+      e.celebrant_name || '',
+      e.event_date || '',
+      e.venue_name || '',
+      e.view_count || 0,
+      e.status || 'Active',
+      e.vod_link || '',
+      e.stream_key || ''
+    ]);
+    
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + headers.join(",") + "\n" 
+      + rows.map(r => r.join(",")).join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `eventcast_events_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const filteredEvents = events.filter(e => {
+    const name = `${e.groom_name || ''} ${e.bride_name || ''} ${e.celebrant_name || ''}`.toLowerCase();
+    const matchesSearch = name.includes(searchQuery.toLowerCase()) || (e.venue_name || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = filterType === "All" || e.event_type === filterType;
+    return matchesSearch && matchesFilter;
+  });
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex justify-between items-center bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-2xl border border-slate-200 shadow-sm gap-4">
         <div>
           <h2 className="text-2xl font-black text-slate-800 tracking-tight">Active Events</h2>
           <p className="text-sm text-slate-500 font-medium">Manage your automated wedding platforms</p>
         </div>
-        <button 
-          onClick={fetchEvents}
-          disabled={isLoadingEvents}
-          className="p-3 bg-slate-50 text-slate-600 rounded-xl hover:bg-slate-100 transition-all border border-slate-200 group"
-        >
-          <RefreshCw size={20} className={isLoadingEvents ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'} />
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative">
+            <input 
+              type="text" 
+              placeholder="Search events or venues..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64"
+            />
+            <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
+          </div>
+          <select 
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option>All</option>
+            <option>Wedding</option>
+            <option>Engagement</option>
+            <option>Birthday</option>
+            <option>Half Saree</option>
+          </select>
+          <button onClick={exportToCSV} className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-xl text-sm font-bold hover:bg-green-100 transition-colors border border-green-200" title="Export to Excel">
+            <Download size={16} /> CSV
+          </button>
+          <button 
+            onClick={fetchEvents}
+            disabled={isLoadingEvents}
+            className="p-2 bg-slate-50 text-slate-600 rounded-xl hover:bg-slate-100 transition-all border border-slate-200 group"
+          >
+            <RefreshCw size={20} className={isLoadingEvents ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'} />
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
@@ -50,17 +114,17 @@ export const EventTable: React.FC<EventTableProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {events.length === 0 ? (
+              {filteredEvents.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-20 text-center">
+                  <td colSpan={6} className="p-20 text-center">
                     <div className="flex flex-col items-center gap-2 opacity-40">
                       <AlertCircle size={48} strokeWidth={1} />
-                      <p className="font-bold text-slate-500">No events found yet.</p>
+                      <p className="font-bold text-slate-500">No events found matching your criteria.</p>
                     </div>
                   </td>
                 </tr>
               ) : (
-                events.map(event => (
+                filteredEvents.map(event => (
                   <tr key={event.id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="p-5">
                       <div className="flex items-center gap-4">
