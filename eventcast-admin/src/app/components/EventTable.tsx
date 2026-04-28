@@ -110,7 +110,8 @@ export const EventTable: React.FC<EventTableProps> = ({
                 <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Venue</th>
                 <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">YouTube / Stream</th>
                 <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Views</th>
-                <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Live Control</th>
+                <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">QR</th>
                 <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Control</th>
               </tr>
             </thead>
@@ -181,9 +182,52 @@ export const EventTable: React.FC<EventTableProps> = ({
                       <span className="font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-bold">{event.view_count || 0}</span>
                     </td>
                     <td className="p-5">
-                       <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-[10px] font-black uppercase tracking-wider border border-green-100 shadow-sm inline-block">
-                         Active
-                       </span>
+                       {event.youtube_broadcast_id ? (
+                         <div className="flex gap-2">
+                           <button 
+                             onClick={async () => {
+                               const heart = (event.event_type || '').toLowerCase().includes('wedding') ? '❤️' : '✨';
+                               const baseTitle = `${event.groom_name || event.celebrant_name} ${heart} ${event.bride_name || 'Family'} ${event.event_type} Live | ${event.event_date}`;
+                               const res = await fetch('/api/youtube/toggle-live', {
+                                 method: 'POST',
+                                 headers: { 'Content-Type': 'application/json' },
+                                 body: JSON.stringify({ broadcastId: event.youtube_broadcast_id, title: baseTitle, isLive: true })
+                               });
+                               if (res.ok) alert("🔴 Event is now LIVE!");
+                             }}
+                             className="px-2 py-1 bg-red-50 text-red-600 rounded text-[9px] font-black hover:bg-red-100 border border-red-100 uppercase"
+                           >
+                             Go Live
+                           </button>
+                           <button 
+                             onClick={async () => {
+                               const heart = (event.event_type || '').toLowerCase().includes('wedding') ? '❤️' : '✨';
+                               const baseTitle = `${event.groom_name || event.celebrant_name} ${heart} ${event.bride_name || 'Family'} ${event.event_type} Live | ${event.event_date}`;
+                               const res = await fetch('/api/youtube/toggle-live', {
+                                 method: 'POST',
+                                 headers: { 'Content-Type': 'application/json' },
+                                 body: JSON.stringify({ broadcastId: event.youtube_broadcast_id, title: baseTitle, isLive: false })
+                               });
+                               if (res.ok) alert("✅ Live Ended");
+                             }}
+                             className="px-2 py-1 bg-slate-50 text-slate-600 rounded text-[9px] font-black hover:bg-slate-100 border border-slate-100 uppercase"
+                           >
+                             End
+                           </button>
+                         </div>
+                       ) : (
+                         <span className="text-[9px] text-slate-300 font-bold uppercase tracking-tighter">No YouTube</span>
+                       )}
+                    </td>
+                    <td className="p-5 text-center">
+                       <div className="flex flex-col items-center gap-1 group/qr">
+                         <img 
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https://eventcast.pro/events/${event.slug}`}
+                            className="w-8 h-8 rounded border border-slate-200"
+                            alt="QR"
+                         />
+                         <a href={`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=https://eventcast.pro/events/${event.slug}`} download className="text-[8px] font-bold text-blue-500 opacity-0 group-hover/qr:opacity-100">PNG</a>
+                       </div>
                     </td>
                     <td className="p-5">
                       <div className="flex items-center justify-end gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
@@ -203,14 +247,6 @@ export const EventTable: React.FC<EventTableProps> = ({
                           <RefreshCw size={18} />
                         </button>
                         
-                        <a 
-                          href={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://eventcast.pro/events/${event.slug}`}
-                          target="_blank"
-                          className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-lg transition-colors border border-transparent hover:border-emerald-200"
-                          title="Generate QR Code"
-                        >
-                          <QrCode size={18} />
-                        </a>
 
                         {event.photographers && event.photographers.phone_number && (
                           <button 

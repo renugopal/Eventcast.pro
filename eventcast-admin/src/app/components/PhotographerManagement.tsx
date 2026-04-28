@@ -34,8 +34,47 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
             <input type="text" name="city" required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" placeholder="e.g. Hyderabad" />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Logo URL (Optional)</label>
-            <input type="text" name="logo_url" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium text-slate-600" placeholder="https://..." />
+            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Logo</label>
+            <div className="flex gap-3">
+              <input type="text" name="logo_url" id="photographer_logo_url" className="flex-1 p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium text-slate-600" placeholder="Paste URL or Upload ->" />
+              <button 
+                type="button"
+                onClick={() => (document.getElementById('p_logo_file') as HTMLInputElement)?.click()}
+                className="px-6 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-bold text-xs uppercase tracking-widest border border-slate-200 transition-all flex items-center gap-2"
+              >
+                <LinkIcon size={16} /> Upload
+              </button>
+              <input 
+                type="file" 
+                id="p_logo_file" 
+                className="hidden" 
+                accept="image/*"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const btn = e.target.previousElementSibling as HTMLButtonElement;
+                    const input = document.getElementById('photographer_logo_url') as HTMLInputElement;
+                    btn.innerText = "UPloading...";
+                    
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('upload_preset', 'ml_default'); 
+
+                    const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, {
+                      method: 'POST',
+                      body: formData
+                    });
+                    const data = await res.json();
+                    if (data.secure_url) {
+                      input.value = data.secure_url;
+                      btn.innerText = "DONE!";
+                    } else {
+                      btn.innerText = "FAILED";
+                    }
+                  }
+                }}
+              />
+            </div>
           </div>
           <div>
             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Instagram Link</label>
