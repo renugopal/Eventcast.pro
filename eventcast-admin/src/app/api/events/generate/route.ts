@@ -55,11 +55,11 @@ export async function POST(req: Request) {
       invitation_video_url: event.invitation_video_url || event.invitationVideoUrl,
       thumbnail_url: event.thumbnail_url || event.thumbnailUrl,
       privacy_status: event.privacy_status || event.privacyStatus,
-      gallery_urls: event.gallery_urls || [],
+      gallery_urls: event.gallery_urls || event.galleryUrls || [],
       vod_link: event.vod_link || event.vodLink,
       template_id: event.template_id || event.templateId,
       slug: slug,
-      photographer_id: event.photographer_id || event.photographerId,
+      photographer_id: event.photographer_id || event.photographerId || null,
       // base_design is optional - ensure column exists in Supabase
       ...(event.base_design || event.baseDesign ? { base_design: event.base_design || event.baseDesign } : {}),
       ...(event.youtube_broadcast_id ? { youtube_broadcast_id: event.youtube_broadcast_id } : {}),
@@ -133,10 +133,12 @@ export async function POST(req: Request) {
     htmlContent = htmlContent.replace(/<meta property="og:image" content=".*?">/g, `<meta property="og:image" content="${event.thumbnail_url}">`);
     htmlContent = htmlContent.replace(/<meta name="twitter:image" content=".*?">/g, `<meta name="twitter:image" content="${event.thumbnail_url}">`);
 
-    if (event.venue_map_link || event.venue_name) {
-      const query = event.venue_name || event.venue_map_link;
+    if (event.venue_map_link || event.venueMapLink || event.venue_name || event.venueName) {
+      const vName = event.venue_name || event.venueName;
+      const vMap = event.venue_map_link || event.venueMapLink;
+      const query = vName || vMap;
       const embedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
-      const navigateUrl = event.venue_map_link || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.venue_name || query)}`;
+      const navigateUrl = vMap || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(vName || query)}`;
       
       htmlContent = htmlContent.replace(/src="https:\/\/www\.google\.com\/maps\/embed.*?"/g, `src="${embedUrl}"`);
       // Update any existing maps links in the template to our new navigateUrl
