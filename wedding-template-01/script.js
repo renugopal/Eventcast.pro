@@ -132,23 +132,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Photographer Credit
-    if (CONFIG.photographer) {
-        const logo = document.querySelector('.photographer-section img');
-        const name = document.querySelector('.studio-name');
-        const phone = document.querySelector('.p-phone');
-        const insta = document.querySelector('.p-insta');
+    const logo = document.querySelector('.photographer-section img');
+    const name = document.querySelector('.studio-name');
+    const phone = document.querySelector('.p-phone');
+    const insta = document.querySelector('.p-insta');
 
-        if (logo && CONFIG.photographer.logo_url) logo.src = optimizeUrl(CONFIG.photographer.logo_url);
-        if (name) name.innerText = CONFIG.photographer.name;
+    if (CONFIG.photographer) {
+        if (logo && CONFIG.photographer.logo_url) {
+            logo.src = optimizeUrl(CONFIG.photographer.logo_url);
+            logo.style.display = 'block';
+        } else if (logo) logo.style.display = 'none';
+
+        if (name) {
+            name.innerText = CONFIG.photographer.name;
+            name.style.display = 'block';
+        }
         
         if (phone && CONFIG.photographer.phone_number) {
             phone.href = `tel:${CONFIG.photographer.phone_number}`;
             phone.querySelector('span').innerText = CONFIG.photographer.phone_number;
+            phone.style.display = 'block';
         } else if (phone) phone.style.display = 'none';
 
         if (insta && CONFIG.photographer.instagram_url) {
             insta.href = CONFIG.photographer.instagram_url;
+            insta.style.display = 'block';
         } else if (insta) insta.style.display = 'none';
+    } else {
+        // Hide all photographer specific elements but keep footer/stats
+        if (logo) logo.style.display = 'none';
+        if (name) name.style.display = 'none';
+        if (phone) phone.style.display = 'none';
+        if (insta) insta.style.display = 'none';
+        const contactInfo = document.querySelector('.contact-info');
+        if (contactInfo) {
+            // Keep public stats visible if it's there
+        }
     }
 });
 
