@@ -445,7 +445,10 @@ export default function AdminDashboard() {
       resetForm();
       fetchEvents();
     } catch (err: any) {
-      setSubmitStatus({ type: 'error', message: err.message });
+      const errorMsg = err.message.includes("base_design") 
+        ? "Database Error: Please run the SQL command to add 'base_design' column to your 'events' table."
+        : err.message;
+      setSubmitStatus({ type: 'error', message: errorMsg });
     } finally {
       setIsSubmitting(false);
     }
