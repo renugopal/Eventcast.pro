@@ -69,13 +69,13 @@ export default function AdminDashboard() {
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const baseDesigns = [
-    { id: "base_thumbnails/base_thumbnails/b421a3bc-10fb-4968-87d3-fc7e5902b55a", name: "Floral Classic", font: "Georgia", nameColor: "C2185B", typeColor: "666666" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_496fib496fib496f", name: "Modern Blush", font: "Arial", nameColor: "D81B60", typeColor: "444444" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_dki6mhdki6mhdki6", name: "Vintage Sage", font: "Georgia", nameColor: "2E7D32", typeColor: "333333" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_h4x887h4x887h4x8", name: "Royal Maroon", font: "Roboto", nameColor: "FFD700", typeColor: "FFFFFF" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_nukskenukskenuks", name: "Golden Frame", font: "Georgia", nameColor: "8E24AA", typeColor: "000000" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_qkvc8rqkvc8rqkvc", name: "Elegant White", font: "Arial", nameColor: "1E88E5", typeColor: "555555" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_rc16u6rc16u6rc16", name: "Artistic Pastel", font: "Roboto", nameColor: "FB8C00", typeColor: "444444" }
+    { id: "base_thumbnails/base_thumbnails/b421a3bc-10fb-4968-87d3-fc7e5902b55a", name: "Floral Classic", font: "Google:Playfair%20Display", accentFont: "Google:Great%20Vibes", nameColor: "7D5A50", typeColor: "8E7F7F" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_496fib496fib496f", name: "Modern Blush", font: "Google:Cinzel", accentFont: "Google:Dancing%20Script", nameColor: "6D4C41", typeColor: "8D6E63" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_dki6mhdki6mhdki6", name: "Vintage Sage", font: "Google:Playfair%20Display", accentFont: "Google:Alex%20Brush", nameColor: "3E4E41", typeColor: "5E6E61" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_h4x887h4x887h4x8", name: "Royal Maroon", font: "Google:Playfair%20Display", accentFont: "Google:Great%20Vibes", nameColor: "5D4037", typeColor: "8D6E63" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_nukskenukskenuks", name: "Golden Frame", font: "Google:Cinzel", accentFont: "Google:Great%20Vibes", nameColor: "4E342E", typeColor: "6D4C41" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_qkvc8rqkvc8rqkvc", name: "Elegant White", font: "Google:Playfair%20Display", accentFont: "Google:Dancing%20Script", nameColor: "424242", typeColor: "757575" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_rc16u6rc16u6rc16", name: "Artistic Pastel", font: "Google:Playfair%20Display", accentFont: "Google:Alex%20Brush", nameColor: "5D4037", typeColor: "8D6E63" }
   ];
 
   useEffect(() => {
@@ -254,16 +254,38 @@ export default function AdminDashboard() {
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const currentDesign = baseDesigns.find(d => d.id === selectedBaseDesign) || baseDesigns[0];
     
-    const formatText = (str: string) => encodeURIComponent(str).replace(/%26/g, "%2526").replace(/%2C/g, "%252C");
+    const formatText = (str: string) => {
+      if (!str) return "";
+      // Double encode for Cloudinary text overlays
+      return encodeURIComponent(str)
+        .replace(/%26/g, "%2526")
+        .replace(/%2C/g, "%252C")
+        .replace(/\//g, "%252F")
+        .replace(/\?/g, "%253F");
+    };
     
-    const names = formatText(`${formData.groomName || formData.celebrantName} ${formData.brideName ? '& ' + formData.brideName : ''}`);
+    const groom = formatText(formData.groomName || formData.celebrantName || "Groom");
+    const bride = formatText(formData.brideName || "");
     const eventTypeText = formatText(`${formData.eventType} Live`);
     
-    // Using a more standard Cloudinary transformation structure
-    const generatedUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_1280,h_720,c_fill/` +
-      `co_rgb:${currentDesign.nameColor},l_text:${currentDesign.font}_80_bold:${names}/g_center,y_-40,fl_layer_apply/` +
-      `co_rgb:${currentDesign.typeColor},l_text:Arial_40_medium:${eventTypeText}/g_center,y_60,fl_layer_apply/` +
-      `f_auto,q_auto/${currentDesign.id}.jpg`;
+    // Premium AI-Style Layout with Shadows
+    let transformations = `w_1280,h_720,c_fill/`;
+    
+    // Groom Name with shadow
+    transformations += `co_rgb:${currentDesign.nameColor},e_shadow:40,x_2,y_2,l_text:${currentDesign.font}_75_bold:${groom}/g_center,y_-110,fl_layer_apply/`;
+    
+    if (bride) {
+      // Ampersand with shadow
+      transformations += `co_rgb:${currentDesign.nameColor},e_shadow:30,l_text:${currentDesign.accentFont}_60:${formatText("&")}/g_center,y_-40,fl_layer_apply/`;
+      // Bride Name with shadow
+      transformations += `co_rgb:${currentDesign.nameColor},e_shadow:40,x_2,y_2,l_text:${currentDesign.font}_75_bold:${bride}/g_center,y_30,fl_layer_apply/`;
+    }
+    
+    // Event Type (Italic-style accent)
+    transformations += `co_rgb:${currentDesign.typeColor},e_shadow:20,l_text:${currentDesign.accentFont}_55:${eventTypeText}/g_center,y_140,fl_layer_apply/`;
+    
+    // Add timestamp for cache busting
+    const generatedUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${transformations}f_auto,q_auto/${currentDesign.id}.jpg?v=${Date.now()}`;
 
     console.log("Generated Thumbnail URL:", generatedUrl);
     setFormData(prev => ({ ...prev, thumbnailUrl: generatedUrl }));
@@ -328,14 +350,23 @@ export default function AdminDashboard() {
         const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
         const currentDesign = baseDesigns.find(d => d.id === selectedBaseDesign) || baseDesigns[0];
         
-        const formatText = (str: string) => encodeURIComponent(str).replace(/%26/g, "%2526").replace(/%2C/g, "%252C");
-        const names = formatText(`${formData.groomName || formData.celebrantName} ${formData.brideName ? '& ' + formData.brideName : ''}`);
+        const formatText = (str: string) => {
+          if (!str) return "";
+          return encodeURIComponent(str).replace(/%26/g, "%2526").replace(/%2C/g, "%252C");
+        };
+        const groom = formatText(formData.groomName || formData.celebrantName || "Groom");
+        const bride = formatText(formData.brideName || "");
         const eventTypeText = formatText(`${formData.eventType} Live`);
         
-        finalThumbnailUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_1280,h_720,c_fill/` +
-          `co_rgb:${currentDesign.nameColor},l_text:${currentDesign.font}_80_bold:${names}/g_center,y_-40,fl_layer_apply/` +
-          `co_rgb:${currentDesign.typeColor},l_text:Arial_40_medium:${eventTypeText}/g_center,y_60,fl_layer_apply/` +
-          `f_auto,q_auto/${currentDesign.id}.jpg`;
+        let transformations = `w_1280,h_720,c_fill/`;
+        transformations += `co_rgb:${currentDesign.nameColor},e_shadow:40,l_text:${currentDesign.font}_75_bold:${groom}/g_center,y_-110,fl_layer_apply/`;
+        if (bride) {
+          transformations += `co_rgb:${currentDesign.nameColor},e_shadow:30,l_text:${currentDesign.accentFont}_60:${formatText("&")}/g_center,y_-40,fl_layer_apply/`;
+          transformations += `co_rgb:${currentDesign.nameColor},e_shadow:40,l_text:${currentDesign.font}_75_bold:${bride}/g_center,y_30,fl_layer_apply/`;
+        }
+        transformations += `co_rgb:${currentDesign.typeColor},e_shadow:20,l_text:${currentDesign.accentFont}_55:${eventTypeText}/g_center,y_140,fl_layer_apply/`;
+        
+        finalThumbnailUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${transformations}f_auto,q_auto/${currentDesign.id}.jpg`;
       }
 
       const payload = {
