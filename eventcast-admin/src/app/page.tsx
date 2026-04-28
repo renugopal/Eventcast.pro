@@ -69,10 +69,13 @@ export default function AdminDashboard() {
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const baseDesigns = [
-    { id: 'ec_premium_pink_v1', name: 'Elegant Pink' },
-    { id: 'ec_floral_gold_v1', name: 'Floral Gold' },
-    { id: 'ec_traditional_v1', name: 'Traditional' },
-    { id: 'ec_modern_sage_v1', name: 'Modern Sage' }
+    { id: "base_thumbnails/base_thumbnails/b421a3bc-10fb-4968-87d3-fc7e5902b55a", name: "Floral Classic", font: "Aref%20Ruqaa", nameColor: "C2185B", typeColor: "666666" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_496fib496fib496f", name: "Modern Blush", font: "Inter", nameColor: "D81B60", typeColor: "444444" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_dki6mhdki6mhdki6", name: "Vintage Sage", font: "Aref%20Ruqaa", nameColor: "2E7D32", typeColor: "333333" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_h4x887h4x887h4x8", name: "Royal Maroon", font: "Inter", nameColor: "FFD700", typeColor: "FFFFFF" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_nukskenukskenuks", name: "Golden Frame", font: "Aref%20Ruqaa", nameColor: "8E24AA", typeColor: "000000" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_qkvc8rqkvc8rqkvc", name: "Elegant White", font: "Inter", nameColor: "1E88E5", typeColor: "555555" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_rc16u6rc16u6rc16", name: "Artistic Pastel", font: "Aref%20Ruqaa", nameColor: "FB8C00", typeColor: "444444" }
   ];
 
   useEffect(() => {
@@ -231,8 +234,25 @@ export default function AdminDashboard() {
     setSubmitStatus(null);
 
     try {
+      let finalThumbnailUrl = formData.thumbnailUrl;
+      
+      if (formData.autoGenerateThumbnail && !finalThumbnailUrl) {
+        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+        const currentDesign = baseDesigns.find(d => d.id === selectedBaseDesign) || baseDesigns[0];
+        
+        const names = encodeURIComponent(`${formData.groomName || formData.celebrantName} & ${formData.brideName || 'Family'}`);
+        const eventTypeText = encodeURIComponent(`${formData.eventType} Live`);
+        
+        finalThumbnailUrl = `https://res.cloudinary.com/${cloudName}/image/upload/` + 
+          `w_1280,h_720,c_fill/` + 
+          `l_text:${currentDesign.font}_80_bold:${names},g_center,y_-40,co_rgb:${currentDesign.nameColor}/` +
+          `l_text:Inter_40_medium:${eventTypeText},g_center,y_60,co_rgb:${currentDesign.typeColor}/` +
+          `${currentDesign.id}.jpg`;
+      }
+
       const payload = {
         ...formData,
+        thumbnailUrl: finalThumbnailUrl,
         photographerId: selectedPhotographer?.id,
         galleryUrls: formData.galleryUrls.split('\n').filter(url => url.trim()),
         baseDesign: selectedBaseDesign
@@ -535,6 +555,38 @@ export default function AdminDashboard() {
                         </div>
                       )}
                     </div>
+                    
+                    {formData.autoGenerateThumbnail && (
+                      <div className="md:col-span-2 bg-blue-50/50 p-6 rounded-2xl border border-blue-100 mt-2">
+                        <label className="block text-sm font-black text-blue-800 mb-4 flex items-center gap-2">
+                          <ImageIcon size={18} /> Choose Your Base Design
+                        </label>
+                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                          {baseDesigns.map((design) => (
+                            <button
+                              key={design.id}
+                              type="button"
+                              onClick={() => setSelectedBaseDesign(design.id)}
+                              className={`flex-shrink-0 w-36 group relative rounded-xl overflow-hidden border-4 transition-all ${
+                                selectedBaseDesign === design.id ? 'border-blue-500 shadow-md scale-105' : 'border-transparent hover:border-blue-200'
+                              }`}
+                            >
+                              <img 
+                                src={`https://res.cloudinary.com/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload/w_300,h_180,c_fill,f_auto,q_auto/${design.id}.jpg`} 
+                                alt={design.name}
+                                className="w-full h-24 object-cover"
+                              />
+                              <div className={`absolute bottom-0 inset-x-0 p-1.5 text-[9px] font-black tracking-wider text-center uppercase ${
+                                selectedBaseDesign === design.id ? 'bg-blue-500 text-white' : 'bg-black/60 text-white backdrop-blur-sm'
+                              }`}>
+                                {design.name}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-blue-600 font-medium mt-2">The text (names and event type) will be automatically written on this design.</p>
+                      </div>
+                    )}
                   </div>
                 </section>
 
