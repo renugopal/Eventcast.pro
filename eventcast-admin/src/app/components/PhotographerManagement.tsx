@@ -1,24 +1,30 @@
 "use client";
 
 import React from "react";
-import { UserPlus, Search, Link as LinkIcon } from "lucide-react";
+import { UserPlus, Search, Link as LinkIcon, Edit, Trash2 } from "lucide-react";
 
 interface PhotographerManagementProps {
   photographers: any[];
   isSubmitting: boolean;
   addPhotographer: (e: React.FormEvent) => void;
+  deletePhotographer: (id: string) => void;
+  onEdit: (pg: any) => void;
+  isEditing: boolean;
 }
 
 export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
   photographers,
   isSubmitting,
-  addPhotographer
+  addPhotographer,
+  deletePhotographer,
+  onEdit,
+  isEditing
 }) => {
   return (
     <div className="max-w-6xl mx-auto space-y-12">
       <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-10">
         <h2 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3">
-          <UserPlus size={28} className="text-blue-600" /> Register New Photographer
+          <UserPlus size={28} className="text-blue-600" /> {isEditing ? "Modify Photographer Details" : "Register New Photographer"}
         </h2>
         <form onSubmit={addPhotographer} className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1">
@@ -81,8 +87,8 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
             <input type="text" name="instagram_url" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium text-slate-600" placeholder="https://instagram.com/..." />
           </div>
           <div className="md:col-span-3 pt-4">
-            <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all disabled:bg-slate-300">
-              {isSubmitting ? "Processing..." : "Add to Credits System"}
+            <button type="submit" disabled={isSubmitting} className={`w-full py-4 ${isEditing ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-2xl font-black shadow-xl transition-all disabled:bg-slate-300`}>
+              {isSubmitting ? "Processing..." : (isEditing ? "Update Photographer Record" : "Add to Credits System")}
             </button>
           </div>
         </form>
@@ -106,11 +112,19 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
                 <p className="font-black text-slate-800 truncate leading-tight">{p.name}</p>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{p.city} • {p.phone_number}</p>
               </div>
-              {p.instagram_url && (
-                <a href={p.instagram_url} target="_blank" className="p-2 bg-white rounded-xl text-slate-400 hover:text-blue-600 shadow-sm transition-colors">
-                  <LinkIcon size={16} />
-                </a>
-              )}
+              <div className="flex items-center gap-1">
+                <button onClick={() => onEdit(p)} className="p-2 bg-white rounded-xl text-slate-400 hover:text-orange-600 shadow-sm transition-colors" title="Edit">
+                  <Edit size={16} />
+                </button>
+                <button onClick={() => deletePhotographer(p.id)} className="p-2 bg-white rounded-xl text-slate-400 hover:text-red-600 shadow-sm transition-colors" title="Delete">
+                  <Trash2 size={16} />
+                </button>
+                {p.instagram_url && (
+                  <a href={p.instagram_url} target="_blank" className="p-2 bg-white rounded-xl text-slate-400 hover:text-blue-600 shadow-sm transition-colors">
+                    <LinkIcon size={16} />
+                  </a>
+                )}
+              </div>
             </div>
           ))}
         </div>

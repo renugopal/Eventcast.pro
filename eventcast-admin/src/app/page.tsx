@@ -63,6 +63,8 @@ export default function AdminDashboard() {
   const [selectedPhotographer, setSelectedPhotographer] = useState<any>(null);
   const [showPhotographerList, setShowPhotographerList] = useState(false);
   const [selectedBaseDesign, setSelectedBaseDesign] = useState("ec_premium_pink_v1");
+  const [isEditingPhotographer, setIsEditingPhotographer] = useState(false);
+  const [editingPhotographerId, setEditingPhotographerId] = useState<string | null>(null);
 
   const thumbInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -534,19 +536,58 @@ export default function AdminDashboard() {
       instagram_url: fd.get('instagram_url')
     };
 
-    console.log("Submitting Photographer:", photographerData);
-
-    const { error } = await supabase.from('photographers').insert(photographerData);
-    
-    if (error) {
-      console.error("Supabase Insert Error:", error);
-      alert("Failed to add photographer: " + error.message);
-    } else {
-      alert("Photographer added successfully!");
+    try {
+      if (isEditingPhotographer && editingPhotographerId) {
+        const { error } = await supabase
+          .from('photographers')
+          .update(photographerData)
+          .eq('id', editingPhotographerId);
+        
+        if (error) throw error;
+        alert("Photographer updated successfully!");
+      } else {
+        const { error } = await supabase.from('photographers').insert(photographerData);
+        if (error) throw error;
+        alert("Photographer added successfully!");
+      }
+      
       e.target.reset();
+      setIsEditingPhotographer(false);
+      setEditingPhotographerId(null);
       fetchPhotographers();
+    } catch (error: any) {
+      console.error("Photographer Action Error:", error);
+      alert("Action failed: " + error.message);
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
+  }
+
+  const handleEditPhotographer = (pg: any) => {
+    setIsEditingPhotographer(true);
+    setEditingPhotographerId(pg.id);
+    // Manually fill form fields
+    const form = document.querySelector('form') as HTMLFormElement; // Note: This might need more specific selector if multiple forms
+    if (form) {
+      (form.elements.namedItem('name') as HTMLInputElement).value = pg.name || "";
+      (form.elements.namedItem('phone') as HTMLInputElement).value = pg.phone_number || "";
+      (form.elements.namedItem('city') as HTMLInputElement).value = pg.city || "";
+      (form.elements.namedItem('logo_url') as HTMLInputElement).value = pg.logo_url || "";
+      (form.elements.namedItem('instagram_url') as HTMLInputElement).value = pg.instagram_url || "";
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  async function deletePhotographer(id: string) {
+    if (!confirm("Are you sure you want to delete this photographer credit? This will not affect existing events but they will lose the photographer info in future edits.")) return;
+    try {
+      const { error } = await supabase.from('photographers').delete().eq('id', id);
+      if (error) throw error;
+      alert("Photographer deleted!");
+      fetchPhotographers();
+    } catch (err: any) {
+      alert("Delete failed: " + err.message);
+    }
   }
 
   function getVideoThumbnail(url: string) {
@@ -882,8 +923,16 @@ export default function AdminDashboard() {
         {activeTab === "moderation" && <WishesModeration wishes={wishes} isLoadingWishes={isLoadingWishes} fetchWishes={fetchWishes} deleteWish={fetchWishes} />}
         {activeTab === "analytics" && <AnalyticsDashboard analyticsData={analyticsData} />}
         {activeTab === "assets" && <AssetLibrary assetLibrary={assetLibrary} getVideoThumbnail={getVideoThumbnail} setSelectedAsset={setSelectedAsset} />}
-        {activeTab === "photographers" && <PhotographerManagement photographers={photographers} isSubmitting={isSubmitting} addPhotographer={addPhotographer} />}
-        
+        {activeTab === "photographers" && (
+          <PhotographerManagement 
+            photographers={photographers} 
+            isSubmitting={isSubmitting} 
+            addPhotographer={addPhotographer}
+            deletePhotographer={deletePhotographer}
+            onEdit={handleEditPhotographer}
+            isEditing={isEditingPhotographer}
+          />
+        )}
       </main>
 
       <AssetPreviewModal selectedAsset={selectedAsset} setSelectedAsset={setSelectedAsset} />
