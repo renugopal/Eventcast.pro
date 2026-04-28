@@ -69,13 +69,13 @@ export default function AdminDashboard() {
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const baseDesigns = [
-    { id: "base_thumbnails/base_thumbnails/b421a3bc-10fb-4968-87d3-fc7e5902b55a", name: "Floral Classic", font: "Google:Playfair%20Display", accentFont: "Google:Great%20Vibes", nameColor: "7D5A50", typeColor: "8E7F7F" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_496fib496fib496f", name: "Modern Blush", font: "Google:Cinzel", accentFont: "Google:Dancing%20Script", nameColor: "6D4C41", typeColor: "8D6E63" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_dki6mhdki6mhdki6", name: "Vintage Sage", font: "Google:Playfair%20Display", accentFont: "Google:Alex%20Brush", nameColor: "3E4E41", typeColor: "5E6E61" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_h4x887h4x887h4x8", name: "Royal Maroon", font: "Google:Playfair%20Display", accentFont: "Google:Great%20Vibes", nameColor: "5D4037", typeColor: "8D6E63" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_nukskenukskenuks", name: "Golden Frame", font: "Google:Cinzel", accentFont: "Google:Great%20Vibes", nameColor: "4E342E", typeColor: "6D4C41" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_qkvc8rqkvc8rqkvc", name: "Elegant White", font: "Google:Playfair%20Display", accentFont: "Google:Dancing%20Script", nameColor: "424242", typeColor: "757575" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_rc16u6rc16u6rc16", name: "Artistic Pastel", font: "Google:Playfair%20Display", accentFont: "Google:Alex%20Brush", nameColor: "5D4037", typeColor: "8D6E63" }
+    { id: "base_thumbnails/base_thumbnails/b421a3bc-10fb-4968-87d3-fc7e5902b55a", name: "Floral Classic", font: "Georgia", accentFont: "Times", nameColor: "7D5A50", typeColor: "8E7F7F" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_496fib496fib496f", name: "Modern Blush", font: "Times", accentFont: "Georgia", nameColor: "6D4C41", typeColor: "8D6E63" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_dki6mhdki6mhdki6", name: "Vintage Sage", font: "Georgia", accentFont: "Times", nameColor: "3E4E41", typeColor: "5E6E61" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_h4x887h4x887h4x8", name: "Royal Maroon", font: "Georgia", accentFont: "Times", nameColor: "5D4037", typeColor: "8D6E63" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_nukskenukskenuks", name: "Golden Frame", font: "Times", accentFont: "Georgia", nameColor: "4E342E", typeColor: "6D4C41" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_qkvc8rqkvc8rqkvc", name: "Elegant White", font: "Georgia", accentFont: "Times", nameColor: "424242", typeColor: "757575" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_rc16u6rc16u6rc16", name: "Artistic Pastel", font: "Georgia", accentFont: "Times", nameColor: "5D4037", typeColor: "8D6E63" }
   ];
 
   useEffect(() => {
@@ -271,18 +271,18 @@ export default function AdminDashboard() {
     // Premium AI-Style Layout with Shadows
     let transformations = `w_1280,h_720,c_fill/`;
     
-    // Groom Name with shadow
-    transformations += `co_rgb:${currentDesign.nameColor},e_shadow:40,x_2,y_2,l_text:${currentDesign.font}_75_bold:${groom}/g_center,y_-110,fl_layer_apply/`;
+    // Layer 1: Groom Name with shadow
+    transformations += `co_rgb:${currentDesign.nameColor},e_shadow:40,x_2,y_2,l_text:Georgia_75_bold:${groom}/g_center,y_-110,fl_layer_apply/`;
     
     if (bride) {
       // Ampersand with shadow
-      transformations += `co_rgb:${currentDesign.nameColor},e_shadow:30,l_text:${currentDesign.accentFont}_60:${formatText("&")}/g_center,y_-40,fl_layer_apply/`;
+      transformations += `co_rgb:${currentDesign.nameColor},e_shadow:30,l_text:Times_60:${formatText("&")}/g_center,y_-40,fl_layer_apply/`;
       // Bride Name with shadow
-      transformations += `co_rgb:${currentDesign.nameColor},e_shadow:40,x_2,y_2,l_text:${currentDesign.font}_75_bold:${bride}/g_center,y_30,fl_layer_apply/`;
+      transformations += `co_rgb:${currentDesign.nameColor},e_shadow:40,x_2,y_2,l_text:Georgia_75_bold:${bride}/g_center,y_30,fl_layer_apply/`;
     }
     
-    // Event Type (Italic-style accent)
-    transformations += `co_rgb:${currentDesign.typeColor},e_shadow:20,l_text:${currentDesign.accentFont}_55:${eventTypeText}/g_center,y_140,fl_layer_apply/`;
+    // Layer 4: Event Type with shadow
+    transformations += `co_rgb:${currentDesign.typeColor},e_shadow:20,l_text:Arial_55:${eventTypeText}/g_center,y_140,fl_layer_apply/`;
     
     // Add timestamp for cache busting
     const generatedUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${transformations}f_auto,q_auto/${currentDesign.id}.jpg?v=${Date.now()}`;
@@ -364,7 +364,7 @@ export default function AdminDashboard() {
           transformations += `co_rgb:${currentDesign.nameColor},e_shadow:30,l_text:${currentDesign.accentFont}_60:${formatText("&")}/g_center,y_-40,fl_layer_apply/`;
           transformations += `co_rgb:${currentDesign.nameColor},e_shadow:40,l_text:${currentDesign.font}_75_bold:${bride}/g_center,y_30,fl_layer_apply/`;
         }
-        transformations += `co_rgb:${currentDesign.typeColor},e_shadow:20,l_text:${currentDesign.accentFont}_55:${eventTypeText}/g_center,y_140,fl_layer_apply/`;
+        transformations += `co_rgb:${currentDesign.typeColor},e_shadow:20,l_text:Arial_55:${eventTypeText}/g_center,y_140,fl_layer_apply/`;
         
         finalThumbnailUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${transformations}f_auto,q_auto/${currentDesign.id}.jpg`;
       }
