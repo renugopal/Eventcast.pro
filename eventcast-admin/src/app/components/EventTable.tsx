@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy, Search, Download } from "lucide-react";
+import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy, Search, Download, QrCode, MessageCircle } from "lucide-react";
 
 interface EventTableProps {
   events: any[];
@@ -109,6 +109,7 @@ export const EventTable: React.FC<EventTableProps> = ({
                 <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Date & Time</th>
                 <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Venue</th>
                 <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">YouTube / Stream</th>
+                <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Views</th>
                 <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                 <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Control</th>
               </tr>
@@ -116,7 +117,7 @@ export const EventTable: React.FC<EventTableProps> = ({
             <tbody className="divide-y divide-slate-50">
               {filteredEvents.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-20 text-center">
+                  <td colSpan={7} className="p-20 text-center">
                     <div className="flex flex-col items-center gap-2 opacity-40">
                       <AlertCircle size={48} strokeWidth={1} />
                       <p className="font-bold text-slate-500">No events found matching your criteria.</p>
@@ -176,6 +177,9 @@ export const EventTable: React.FC<EventTableProps> = ({
                         <span className="text-[10px] text-slate-400 font-medium bg-slate-50 px-2 py-1 rounded">No Stream</span>
                       )}
                     </td>
+                    <td className="p-5 text-center">
+                      <span className="font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-bold">{event.view_count || 0}</span>
+                    </td>
                     <td className="p-5">
                        <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-[10px] font-black uppercase tracking-wider border border-green-100 shadow-sm inline-block">
                          Active
@@ -198,6 +202,29 @@ export const EventTable: React.FC<EventTableProps> = ({
                         >
                           <RefreshCw size={18} />
                         </button>
+                        
+                        <a 
+                          href={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://eventcast.pro/events/${event.slug}`}
+                          target="_blank"
+                          className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-lg transition-colors border border-transparent hover:border-emerald-200"
+                          title="Generate QR Code"
+                        >
+                          <QrCode size={18} />
+                        </a>
+
+                        {event.photographers && event.photographers.phone_number && (
+                          <button 
+                            onClick={() => {
+                              const message = `Hello ${event.photographers.name}! Your event is ready: https://eventcast.pro/events/${event.slug}`;
+                              window.open(`https://wa.me/${event.photographers.phone_number.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
+                            }} 
+                            className="p-2 hover:bg-green-50 text-green-600 rounded-lg transition-colors border border-transparent hover:border-green-200" 
+                            title="Share to Photographer via WhatsApp"
+                          >
+                            <MessageCircle size={18} />
+                          </button>
+                        )}
+
                         <button 
                           onClick={() => handleEditClick(event)} 
                           className="p-2 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors border border-transparent hover:border-slate-200"
