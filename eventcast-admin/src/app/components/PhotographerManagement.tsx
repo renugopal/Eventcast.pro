@@ -60,6 +60,7 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
                   if (file) {
                     const btn = e.target.previousElementSibling as HTMLButtonElement;
                     const input = document.getElementById('photographer_logo_url') as HTMLInputElement;
+                    const preview = document.getElementById('p_logo_preview') as HTMLImageElement;
                     btn.innerText = "UPloading...";
                     
                     const formData = new FormData();
@@ -73,6 +74,10 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
                     const data = await res.json();
                     if (data.secure_url) {
                       input.value = data.secure_url;
+                      if (preview) {
+                        preview.src = data.secure_url;
+                        preview.classList.remove('hidden');
+                      }
                       btn.innerText = "DONE!";
                     } else {
                       btn.innerText = "FAILED";
@@ -80,6 +85,9 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
                   }
                 }}
               />
+            </div>
+            <div className="mt-2">
+              <img id="p_logo_preview" src="" alt="Logo Preview" className="h-12 object-contain rounded-lg hidden border border-slate-100 p-1" />
             </div>
           </div>
           <div>

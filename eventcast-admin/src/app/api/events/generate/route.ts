@@ -146,14 +146,50 @@ export async function POST(req: Request) {
       htmlContent = htmlContent.replace(/href="https:\/\/maps\.app\.goo\.gl[^"]*"/g, `href="${navigateUrl}"`);
     }
 
+    // Fix Photographer Logo in HTML
+    if (photographerData && photographerData.logo_url) {
+        htmlContent = htmlContent.replace(/style="max-width: 150px; height: auto; margin-bottom: 15px; filter: brightness\(0\) invert\(1\);"/g, `style="max-width: 180px; max-height: 100px; height: auto; margin-bottom: 15px; object-fit: contain;"`);
+    }
+
+    // --- Formatting Date and Time ---
+    const rawDate = event.event_date || event.eventDate;
+    const rawTime = event.event_time || event.eventTime;
+    
+    let formattedDate = rawDate;
+    if (rawDate) {
+      const dateObj = new Date(rawDate);
+      formattedDate = new Intl.DateTimeFormat('en-US', { 
+        weekday: 'long', 
+        month: 'long', 
+        day: 'numeric' 
+      }).format(dateObj);
+      
+      // Add ordinal suffix (st, nd, rd, th)
+      const day = dateObj.getDate();
+      const suffix = (day % 10 === 1 && day !== 11) ? 'st' :
+                     (day % 10 === 2 && day !== 12) ? 'nd' :
+                     (day % 10 === 3 && day !== 13) ? 'rd' : 'th';
+      formattedDate = formattedDate.replace(day.toString(), day + suffix);
+    }
+
+    let formattedTime = rawTime;
+    if (rawTime) {
+      const [hours, minutes] = rawTime.split(':');
+      const h = parseInt(hours);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      formattedTime = `${h12}:${minutes} ${ampm}`;
+    }
+    // ---------------------------------
+
     // 7. Generate custom config.js content
     const configContent = `window.WEDDING_CONFIG = {
     groom: "${event.groom_name || event.groomName || event.celebrant_name || event.celebrantName || ''}",
     bride: "${event.bride_name || event.brideName || 'Family'}",
-    date: "${event.event_date || event.eventDate || ''}",
-    time: "${event.event_time || event.eventTime || ''}",
+    date: "${formattedDate}",
+    time: "${formattedTime}",
     timeSubtext: "",
-    timerTarget: "${(event.event_date || event.eventDate)}T${event.timer_target_time || event.timerTargetTime || '09:00'}",
+    timerTarget: "${rawDate}T${event.timer_target_time || event.timerTargetTime || rawTime || '09:00'}",
     venue: "${event.venue_name || event.venueName || ''}",
     venueSubtext: "",
     youtubeId: "${event.vod_link || event.vodLink ? (event.vod_link || event.vodLink).split('/').pop() : ''}",
