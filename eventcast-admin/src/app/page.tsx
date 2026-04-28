@@ -966,6 +966,28 @@ export default function AdminDashboard() {
                 </button>
               </form>
             </div>
+
+            <div className="bg-slate-900 p-10 rounded-3xl shadow-xl text-white">
+              <h3 className="text-xl font-black mb-4 flex items-center gap-2">
+                <Users size={24} className="text-blue-400" /> Team Management
+              </h3>
+              <p className="text-slate-400 text-sm mb-6 font-medium">Manage who has access to your Eventcast PRO dashboard.</p>
+              <div className="space-y-4">
+                <div className="p-4 bg-slate-800 rounded-2xl border border-slate-700 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center font-black">RG</div>
+                    <div>
+                      <p className="font-bold">Super Admin</p>
+                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Owner / Super Admin</p>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-[10px] font-black uppercase">Active</span>
+                </div>
+              </div>
+              <button className="mt-6 text-sm font-bold text-blue-400 hover:text-blue-300 flex items-center gap-2">
+                <PlusCircle size={16} /> Add New Collaborator (Coming Soon)
+              </button>
+            </div>
           </div>
         )}
         {activeTab === "photographers" && (
