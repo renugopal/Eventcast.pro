@@ -427,6 +427,16 @@ export default function AdminDashboard() {
               })
             });
             fetchEvents(); // Refresh list to show stream key
+
+            // --- NEW: Automated Local Sync ---
+            setSubmitStatus({ type: 'success', message: `Site Generated & YouTube Event Created. Syncing local files...` });
+            try {
+              await fetch('/api/local-sync', { method: 'POST' });
+              console.log("Local files synced successfully.");
+            } catch (syncErr) {
+              console.error("Local Sync Failed:", syncErr);
+            }
+            // ---------------------------------
           }
         } catch (ytErr) {
           console.error("YouTube Automation Failed:", ytErr);
