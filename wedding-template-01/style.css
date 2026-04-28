@@ -747,27 +747,28 @@ footer {
 }
 
 .photographer-section {
-    max-width: 400px;
+    max-width: 500px; /* Increased from 400px */
     margin: 0 auto 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Force center */
+    text-align: center;
 }
 
-.logo-box {
-    width: 60px;
-    height: 60px;
-    border: 2px solid var(--gold);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 0 auto 20px;
-    font-family: 'Cinzel', serif;
-    font-size: 1.5rem;
-    color: var(--gold);
+.photographer-section img {
+    max-width: 200px !important; /* Increased size by 30% approx */
+    max-height: 130px !important;
+    height: auto;
+    margin: 0 auto 20px !important; /* Center margin */
+    display: block !important;
+    object-fit: contain;
 }
 
 .studio-name {
-    font-size: 1.5rem;
+    font-size: 1.8rem; /* Increased font size */
     font-weight: 700;
-    margin-bottom: 5px;
+    margin-bottom: 10px;
+    color: white;
 }
 
 .photographer-contact {

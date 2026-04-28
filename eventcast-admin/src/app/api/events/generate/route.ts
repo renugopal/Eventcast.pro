@@ -195,7 +195,7 @@ export async function POST(req: Request) {
     youtubeId: "${event.vod_link || event.vodLink ? (event.vod_link || event.vodLink).split('/').pop() : ''}",
     invitationVideo: "${event.invitation_video_url || event.invitationVideoUrl || ''}",
     thumbnail: "${event.thumbnail_url || event.thumbnailUrl || ''}",
-    gallery: ${JSON.stringify(event.gallery_urls || event.galleryUrls || [])},
+    gallery: ${JSON.stringify(dbPayload.gallery_urls || [])},
     supabaseUrl: "${process.env.NEXT_PUBLIC_SUPABASE_URL || ''}",
     supabaseKey: "${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''}",
     eventId: "${eventId}",
