@@ -40,7 +40,7 @@ export async function POST(req: Request) {
 
     // SEO Title: Names + Event Type + Date
     const displayTitle = `${groomName || celebrantName} & ${brideName || 'Family'} ${eventType} | ${eventDate}`;
-    const displayDescription = `Live streaming of ${eventType} ceremony for ${groomName || celebrantName} & ${brideName || 'Family'}.\n\nDate: ${eventDate}\nVenue: ${venueName}\n\nWatching live on Eventcast.pro`;
+    const displayDescription = `Live streaming of ${eventType} ceremony for ${groomName || celebrantName} & ${brideName || 'Family'}.\n\n📅 Date: ${eventDate}\n📍 Venue: ${venueName}\n\nWatching live on: https://eventcast.pro\n\n#${eventType.replace(/\s+/g, '')} #WeddingLive #Eventcast #LiveStream`;
 
     // 1. Create Live Broadcast
     const broadcastRes = await fetch("https://youtube.googleapis.com/youtube/v3/liveBroadcasts?part=snippet,status,contentDetails", {
@@ -52,6 +52,7 @@ export async function POST(req: Request) {
           description: displayDescription,
           scheduledStartTime: new Date(`${eventDate}T${targetTime || '09:00'}:00+05:30`).toISOString(),
           categoryId: '22',
+          tags: [eventType, 'Wedding Live', 'Eventcast', groomName, brideName, 'Marriage Live Stream', 'Indian Wedding']
         },
         status: {
           privacyStatus: privacy || 'public',
