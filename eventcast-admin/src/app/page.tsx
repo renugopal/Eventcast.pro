@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { 
   PlusCircle, List, Settings, BarChart3, Image as ImageIcon, Video, Search, 
   MapPin, Clock, Calendar, UploadCloud, Film, Play, CheckCircle2, AlertCircle, 
-  Loader2, Link as LinkIcon, X, Layout
+  Loader2, Link as LinkIcon, X, Layout, Users
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -975,9 +975,11 @@ export default function AdminDashboard() {
               <div className="space-y-4">
                 <div className="p-4 bg-slate-800 rounded-2xl border border-slate-700 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center font-black">RG</div>
+                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center font-black">
+                      {user?.email?.charAt(0).toUpperCase() || "A"}
+                    </div>
                     <div>
-                      <p className="font-bold">Super Admin</p>
+                      <p className="font-bold">{user?.email || "Super Admin"}</p>
                       <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Owner / Super Admin</p>
                     </div>
                   </div>
