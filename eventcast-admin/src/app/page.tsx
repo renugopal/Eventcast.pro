@@ -646,6 +646,12 @@ export default function AdminDashboard() {
                         rows={2}
                         placeholder={"e.g. Somisetty & Parchuri's\nWedding Invitation"}
                         className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800 resize-none"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.stopPropagation(); // Prevent form submit
+                            // Allow default textarea newline behavior
+                          }
+                        }}
                       />
                     </div>
                     <div className="md:col-span-1">

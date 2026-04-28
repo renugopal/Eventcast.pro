@@ -38,10 +38,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.querySelector('.first-name')) document.querySelector('.first-name').innerText = CONFIG.groom || CONFIG.bride;
     if (document.querySelector('.second-name')) document.querySelector('.second-name').innerText = CONFIG.bride && CONFIG.groom ? CONFIG.bride : "";
 
-    // Inject Intro & Titles — supports \n for 2-line display (via white-space: pre-line in CSS)
+    // Inject Intro Text — split on \n for multi-line display
+    // Parent .invite-header has display:flex + flex-direction:column, so each span = 1 line
     const introEl = document.querySelector('.intro-text');
-    if (CONFIG.introText && introEl) {
-        introEl.innerText = CONFIG.introText; // CSS white-space:pre-line handles \n
+    if (introEl) {
+        if (CONFIG.introText) {
+            const lines = CONFIG.introText.split('\n');
+            introEl.innerHTML = lines.map(line => `<span style="display:block;text-align:center;">${line}</span>`).join('');
+        }
     }
 
     // --- ANALYTICS: Track Page View ---
