@@ -63,6 +63,34 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
       {/* Deep Analytics Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
+        {/* Top Performing Events - REAL DATA */}
+        <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+          <h3 className="text-sm font-black text-slate-800 mb-6 flex items-center gap-2 uppercase tracking-widest">
+            <TrendingUp size={18} className="text-emerald-500"/> Performance Breakdown
+          </h3>
+          <div className="space-y-4">
+            {analyticsData.slice(0, 5).map((event, idx) => (
+              <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl hover:bg-white hover:shadow-lg transition-all border border-transparent hover:border-slate-100 group">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black text-blue-600 border border-slate-100 shadow-sm group-hover:scale-110 transition-transform">
+                    {idx + 1}
+                  </div>
+                  <div>
+                    <p className="font-black text-slate-800 text-sm uppercase tracking-tight">
+                      {event.groom_name || event.celebrant_name} & {event.bride_name || 'Family'}
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{event.event_type}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-black text-slate-800 text-lg leading-none">{(event.view_count || 0).toLocaleString()}</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Views</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Device & Browser Stats */}
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
