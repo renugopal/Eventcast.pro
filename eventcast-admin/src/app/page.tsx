@@ -195,6 +195,32 @@ export default function AdminDashboard() {
     }
   }, [formData.venueMapLink]);
 
+  const formatDisplayDate = (dateString: string) => {
+    if (!dateString) return "Date";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    const day = date.getDate();
+    const month = date.toLocaleString('default', { month: 'long' });
+    const suffix = ["th", "st", "nd", "rd"][(day % 10 > 3 ? 0 : day % 10) - (day % 100 - day % 10 === 10 ? day % 10 : 0)] || "th";
+    return `${day}${suffix} ${month}`;
+  };
+
+  const handleGenerateThumbnailPreview = () => {
+    if (!formData.groomName && !formData.celebrantName) {
+      alert("Please enter the Groom or Celebrant name first!");
+      return;
+    }
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const currentDesign = baseDesigns.find(d => d.id === selectedBaseDesign) || baseDesigns[0];
+    
+    const names = encodeURIComponent(`${formData.groomName || formData.celebrantName} ${formData.brideName ? '& ' + formData.brideName : ''}`);
+    const eventTypeText = encodeURIComponent(`${formData.eventType} Live`);
+    
+    const generatedUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_1280,h_720,c_fill/l_text:${currentDesign.font}_80_bold:${names},g_center,y_-40,co_rgb:${currentDesign.nameColor}/l_text:Inter_40_medium:${eventTypeText},g_center,y_60,co_rgb:${currentDesign.typeColor}/${currentDesign.id}.jpg`;
+
+    setFormData(prev => ({ ...prev, thumbnailUrl: generatedUrl }));
+  };
+
   async function uploadToCloudinary(files: FileList | null, type: string) {
     if (!files || files.length === 0) return;
     setIsUploading(type);
@@ -207,7 +233,7 @@ export default function AdminDashboard() {
       formDataUpload.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'eventcast_gallery');
 
       try {
-        const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/upload`, {
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/auto/upload`, {
           method: 'POST',
           body: formDataUpload
         });
@@ -584,7 +610,10 @@ export default function AdminDashboard() {
                             </button>
                           ))}
                         </div>
-                        <p className="text-[10px] text-blue-600 font-medium mt-2">The text (names and event type) will be automatically written on this design.</p>
+                        <button type="button" onClick={handleGenerateThumbnailPreview} className="mt-4 w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+                          <ImageIcon size={18} /> Generate Thumbnail Preview
+                        </button>
+                        <p className="text-[10px] text-blue-600 font-medium mt-3 text-center">Click the button above to render the names and see the preview below!</p>
                       </div>
                     )}
                   </div>
@@ -645,10 +674,10 @@ export default function AdminDashboard() {
                     </div>
                     <div className="p-4 bg-[#f0f2f5]">
                       <h4 className="text-sm font-bold text-slate-800 truncate leading-tight">
-                        {formData.groomName || formData.celebrantName || "Couple Names"} & {formData.brideName || "Family"} {formData.eventType} | {formData.eventDate || "Date"}
+                        {formData.groomName || formData.celebrantName || "Couple Names"} & {formData.brideName || "Family"} {formData.eventType} | {formatDisplayDate(formData.eventDate)}
                       </h4>
                       <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">
-                        Join us live for the {formData.eventType} of {formData.groomName || formData.celebrantName || "Name"} & {formData.brideName || "Family"}. Venue: {formData.venueName || "Location Name"}.
+                        Join us live for the {formData.eventType} of {formData.groomName || formData.celebrantName || "Name"} & {formData.brideName || "Family"} on {formatDisplayDate(formData.eventDate)}. Venue: {formData.venueName || "Location Name"}.
                       </p>
                       <div className="text-[10px] text-slate-400 mt-2 font-mono">https://eventcast.pro/events/...</div>
                     </div>
