@@ -17,6 +17,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, handl
     { id: 'moderation', label: 'Moderation', icon: Settings },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'assets', label: 'Asset Library', icon: ImageIcon },
+    { id: 'settings', label: 'Account Settings', icon: Settings },
   ];
 
   return (

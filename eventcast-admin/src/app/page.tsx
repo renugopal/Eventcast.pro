@@ -599,11 +599,34 @@ export default function AdminDashboard() {
 
   if (isAuthLoading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-blue-600" size={48} /></div>;
 
+  async function handlePasswordUpdate(e: any) {
+    e.preventDefault();
+    const newPassword = e.target.newPassword.value;
+    const confirmPassword = e.target.confirmPassword.value;
+    if (newPassword !== confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+    setIsSubmitting(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      alert("Update failed: " + error.message);
+    } else {
+      alert("Password updated successfully!");
+      e.target.reset();
+    }
+    setIsSubmitting(false);
+  }
+
   const filteredPhotographers = photographers.filter(p => p.name.toLowerCase().includes(photographerSearchQuery.toLowerCase()));
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-blue-100 selection:text-blue-900">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} handleSignOut={handleSignOut} />
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        handleSignOut={handleSignOut} 
+      />
 
       <main className="flex-1 p-12 overflow-y-auto">
         {activeTab === "create" && (
@@ -923,6 +946,28 @@ export default function AdminDashboard() {
         {activeTab === "moderation" && <WishesModeration wishes={wishes} isLoadingWishes={isLoadingWishes} fetchWishes={fetchWishes} deleteWish={fetchWishes} />}
         {activeTab === "analytics" && <AnalyticsDashboard analyticsData={analyticsData} />}
         {activeTab === "assets" && <AssetLibrary assetLibrary={assetLibrary} getVideoThumbnail={getVideoThumbnail} setSelectedAsset={setSelectedAsset} />}
+        {activeTab === "settings" && (
+          <div className="max-w-4xl mx-auto space-y-8">
+            <div className="bg-white p-10 rounded-3xl shadow-sm border border-slate-200">
+              <h2 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3">
+                <Settings size={28} className="text-blue-600" /> Account Security
+              </h2>
+              <form onSubmit={handlePasswordUpdate} className="space-y-6">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">New Password</label>
+                  <input type="password" name="newPassword" required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Confirm New Password</label>
+                  <input type="password" name="confirmPassword" required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
+                </div>
+                <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all disabled:bg-slate-300">
+                  {isSubmitting ? "Updating..." : "Update Password"}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
         {activeTab === "photographers" && (
           <PhotographerManagement 
             photographers={photographers} 
