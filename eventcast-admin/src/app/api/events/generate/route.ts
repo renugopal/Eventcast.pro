@@ -229,9 +229,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
-
-  } catch (error: any) {
-    console.error("Generator Error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-  }
-}
