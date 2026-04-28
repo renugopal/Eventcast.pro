@@ -38,18 +38,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.querySelector('.first-name')) document.querySelector('.first-name').innerText = CONFIG.groom || CONFIG.bride;
     if (document.querySelector('.second-name')) document.querySelector('.second-name').innerText = CONFIG.bride && CONFIG.groom ? CONFIG.bride : "";
 
-    // Inject Intro & Titles
-    if (CONFIG.introText && document.querySelector('.intro-text')) {
-        document.querySelector('.intro-text').innerText = CONFIG.introText;
-    }
-    
-    if (CONFIG.eventType && document.querySelector('.section-title')) {
-        // Find the main greeting title (usually "Wedding Invitation" or similar)
-        document.querySelectorAll('h1, .hero-title').forEach(el => {
-            if (el.innerText.toLowerCase().includes('wedding')) {
-                el.innerText = el.innerText.replace(/wedding/gi, CONFIG.eventType);
-            }
-        });
+    // Inject Intro & Titles — supports \n for 2-line display (via white-space: pre-line in CSS)
+    const introEl = document.querySelector('.intro-text');
+    if (CONFIG.introText && introEl) {
+        introEl.innerText = CONFIG.introText; // CSS white-space:pre-line handles \n
     }
 
     // --- ANALYTICS: Track Page View ---

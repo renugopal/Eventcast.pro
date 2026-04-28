@@ -55,7 +55,12 @@ export async function POST(req: Request) {
       invitation_video_url: event.invitation_video_url || event.invitationVideoUrl,
       thumbnail_url: event.thumbnail_url || event.thumbnailUrl,
       privacy_status: event.privacy_status || event.privacyStatus,
-      gallery_urls: event.gallery_urls || event.galleryUrls || [],
+      gallery_urls: (() => {
+        const raw = event.gallery_urls || event.galleryUrls || [];
+        if (Array.isArray(raw)) return raw;
+        if (typeof raw === 'string') return raw.split('\n').map((u: string) => u.trim()).filter((u: string) => u);
+        return [];
+      })(),
       vod_link: event.vod_link || event.vodLink,
       template_id: event.template_id || event.templateId,
       slug: slug,
@@ -123,15 +128,40 @@ export async function POST(req: Request) {
     // ----------------------------------------
 
     // 6. Modify index.html content (SEO & Maps)
-    const displayTitle = `${groom} & ${bride} ${type.charAt(0).toUpperCase() + type.slice(1)} | ${event.event_date || event.eventDate}`;
-    const displayDesc = `Join us live for the ${type} of ${groom} & ${bride}. Venue: ${event.venue_name || event.venueName}`;
+    // Note: formattedDate/formattedTime computed BEFORE displayTitle so we can use them in SEO
+    const rawDate = event.event_date || event.eventDate;
+    const rawTime = event.event_time || event.eventTime;
+    const rawTimerTime = event.timer_target_time || event.timerTargetTime; // Live start time
+    const thumbnailUrl = dbPayload.thumbnail_url || '';
+
+    let formattedDate = rawDate || '';
+    if (rawDate) {
+      // Use UTC date parsing to avoid timezone shift
+      const [y, m, d] = rawDate.split('-').map(Number);
+      const dateObj = new Date(Date.UTC(y, m - 1, d));
+      formattedDate = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' }).format(dateObj);
+      const day = dateObj.getUTCDate();
+      const suffix = (day % 10 === 1 && day !== 11) ? 'st' : (day % 10 === 2 && day !== 12) ? 'nd' : (day % 10 === 3 && day !== 13) ? 'rd' : 'th';
+      formattedDate = formattedDate.replace(String(day), day + suffix);
+    }
+
+    let formattedTime = rawTime || '';
+    if (rawTime) {
+      const [hours, minutes] = rawTime.split(':');
+      const h = parseInt(hours);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      formattedTime = `${h % 12 || 12}:${minutes} ${ampm}`;
+    }
+
+    const displayTitle = `${groom} & ${bride} ${type.charAt(0).toUpperCase() + type.slice(1)} | ${formattedDate}`;
+    const displayDesc = `Join us live for the ${type} of ${groom} & ${bride} on ${formattedDate}. Venue: ${event.venue_name || event.venueName || ''}`;
     
     htmlContent = htmlContent.replace(/<title>.*?<\/title>/g, `<title>${displayTitle}</title>`);
     htmlContent = htmlContent.replace(/<meta property="og:title" content=".*?">/g, `<meta property="og:title" content="${displayTitle}">`);
     htmlContent = htmlContent.replace(/<meta name="description" content=".*?">/g, `<meta name="description" content="${displayDesc}">`);
     htmlContent = htmlContent.replace(/<meta property="og:description" content=".*?">/g, `<meta property="og:description" content="${displayDesc}">`);
-    htmlContent = htmlContent.replace(/<meta property="og:image" content=".*?">/g, `<meta property="og:image" content="${event.thumbnail_url}">`);
-    htmlContent = htmlContent.replace(/<meta name="twitter:image" content=".*?">/g, `<meta name="twitter:image" content="${event.thumbnail_url}">`);
+    htmlContent = htmlContent.replace(/<meta property="og:image" content=".*?">/g, `<meta property="og:image" content="${thumbnailUrl}">`);
+    htmlContent = htmlContent.replace(/<meta name="twitter:image" content=".*?">/g, `<meta name="twitter:image" content="${thumbnailUrl}">`);
 
     if (event.venue_map_link || event.venueMapLink || event.venue_name || event.venueName) {
       const vName = event.venue_name || event.venueName;
@@ -146,61 +176,31 @@ export async function POST(req: Request) {
       htmlContent = htmlContent.replace(/href="https:\/\/maps\.app\.goo\.gl[^"]*"/g, `href="${navigateUrl}"`);
     }
 
-    // Fix Photographer Logo in HTML
-    if (photographerData && photographerData.logo_url) {
-        htmlContent = htmlContent.replace(/style="max-width: 150px; height: auto; margin-bottom: 15px; filter: brightness\(0\) invert\(1\);"/g, `style="max-width: 180px; max-height: 100px; height: auto; margin-bottom: 15px; object-fit: contain;"`);
-    }
-
-    // --- Formatting Date and Time ---
-    const rawDate = event.event_date || event.eventDate;
-    const rawTime = event.event_time || event.eventTime;
-    
-    let formattedDate = rawDate;
-    if (rawDate) {
-      const dateObj = new Date(rawDate);
-      formattedDate = new Intl.DateTimeFormat('en-US', { 
-        weekday: 'long', 
-        month: 'long', 
-        day: 'numeric' 
-      }).format(dateObj);
-      
-      // Add ordinal suffix (st, nd, rd, th)
-      const day = dateObj.getDate();
-      const suffix = (day % 10 === 1 && day !== 11) ? 'st' :
-                     (day % 10 === 2 && day !== 12) ? 'nd' :
-                     (day % 10 === 3 && day !== 13) ? 'rd' : 'th';
-      formattedDate = formattedDate.replace(day.toString(), day + suffix);
-    }
-
-    let formattedTime = rawTime;
-    if (rawTime) {
-      const [hours, minutes] = rawTime.split(':');
-      const h = parseInt(hours);
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      const h12 = h % 12 || 12;
-      formattedTime = `${h12}:${minutes} ${ampm}`;
-    }
-    // ---------------------------------
 
     // 7. Generate custom config.js content
+    // timerTarget = Live Start Time (timer_target_time), NOT muhurtham time
+    // muhurtham time (event_time) is displayed as text only
+    const timerTime = rawTimerTime || rawTime || '09:00';
+    const youtubeId = (dbPayload.vod_link || '') ? (dbPayload.vod_link || '').split('/').pop() : '';
+
     const configContent = `window.WEDDING_CONFIG = {
-    groom: "${event.groom_name || event.groomName || event.celebrant_name || event.celebrantName || ''}",
-    bride: "${event.bride_name || event.brideName || 'Family'}",
+    groom: "${dbPayload.groom_name || dbPayload.celebrant_name || ''}",
+    bride: "${dbPayload.bride_name || 'Family'}",
     date: "${formattedDate}",
     time: "${formattedTime}",
     timeSubtext: "",
-    timerTarget: "${rawDate}T${event.timer_target_time || event.timerTargetTime || rawTime || '09:00'}",
-    venue: "${event.venue_name || event.venueName || ''}",
+    timerTarget: "${rawDate}T${timerTime}",
+    venue: "${dbPayload.venue_name || ''}",
     venueSubtext: "",
-    youtubeId: "${event.vod_link || event.vodLink ? (event.vod_link || event.vodLink).split('/').pop() : ''}",
-    invitationVideo: "${event.invitation_video_url || event.invitationVideoUrl || ''}",
-    thumbnail: "${event.thumbnail_url || event.thumbnailUrl || ''}",
+    youtubeId: "${youtubeId}",
+    invitationVideo: "${dbPayload.invitation_video_url || ''}",
+    thumbnail: "${thumbnailUrl}",
     gallery: ${JSON.stringify(dbPayload.gallery_urls || [])},
     supabaseUrl: "${process.env.NEXT_PUBLIC_SUPABASE_URL || ''}",
     supabaseKey: "${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''}",
     eventId: "${eventId}",
     eventType: "${type}",
-    introText: "${event.custom_top_title || event.customTopTitle || ''}",
+    introText: "${dbPayload.custom_top_title || ''}",
     photographer: ${JSON.stringify(photographerData)}
 };`;
 
