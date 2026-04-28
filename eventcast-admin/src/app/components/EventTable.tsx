@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle } from "lucide-react";
+import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy } from "lucide-react";
 
 interface EventTableProps {
   events: any[];
@@ -44,6 +44,7 @@ export const EventTable: React.FC<EventTableProps> = ({
                 <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Event Identity</th>
                 <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Date & Time</th>
                 <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Venue</th>
+                <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">YouTube / Stream</th>
                 <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                 <th className="p-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Control</th>
               </tr>
@@ -95,6 +96,23 @@ export const EventTable: React.FC<EventTableProps> = ({
                       <div className="text-xs text-slate-600 font-medium max-w-[200px] truncate">{event.venue_name}</div>
                     </td>
                     <td className="p-5">
+                      {event.stream_key ? (
+                        <div className="flex flex-col gap-1.5 items-start">
+                          <div className="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded border border-slate-200">
+                            <code className="text-[10px] font-mono text-slate-700">{event.stream_key}</code>
+                            <button onClick={() => { navigator.clipboard.writeText(event.stream_key); alert("Copied!"); }} className="text-slate-400 hover:text-blue-500"><Copy size={12}/></button>
+                          </div>
+                          {event.vod_link && (
+                            <a href={event.vod_link} target="_blank" className="flex items-center gap-1 text-[10px] text-red-600 font-bold uppercase bg-red-50 px-2 py-0.5 rounded-full hover:bg-red-100 transition-colors">
+                              <Play size={10} /> Live Link
+                            </a>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-medium bg-slate-50 px-2 py-1 rounded">No Stream</span>
+                      )}
+                    </td>
+                    <td className="p-5">
                        <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-[10px] font-black uppercase tracking-wider border border-green-100 shadow-sm inline-block">
                          Active
                        </span>
@@ -124,14 +142,14 @@ export const EventTable: React.FC<EventTableProps> = ({
                         </button>
                         <button 
                           onClick={() => {
-                            if (window.confirm("CRITICAL: This will delete the database entry, the website files from GitHub, and attempt to cancel the YouTube stream. Continue?")) {
+                            if (window.confirm("WARNING: FULL DELETE!\nThis will permanently delete the website record, the YouTube Live event, and ALL photos/videos from Cloudinary.\nThis cannot be undone. Proceed?")) {
                               fullDeleteEvent(event.id);
                             }
                           }} 
-                          className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors border border-transparent hover:border-red-200" 
-                          title="FULL DELETE"
+                          className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors border border-red-100 hover:border-red-200 shadow-sm" 
+                          title="FULL DELETE (Website + YT + Media)"
                         >
-                          <Trash2 size={18} />
+                          <AlertCircle size={18} />
                         </button>
                       </div>
                     </td>

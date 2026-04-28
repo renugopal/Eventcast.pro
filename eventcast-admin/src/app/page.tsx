@@ -334,7 +334,7 @@ export default function AdminDashboard() {
                     <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center"><Calendar size={18} /></div>
                     Event Identity
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div className="md:col-span-1">
                       <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Custom Welcome Title</label>
                       <input type="text" name="customTopTitle" value={formData.customTopTitle} onChange={handleInputChange} placeholder="e.g. Welcome to Our Wedding" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
@@ -348,19 +348,27 @@ export default function AdminDashboard() {
                         <option>Half Saree</option>
                       </select>
                     </div>
+                    <div className="md:col-span-1">
+                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Visual Template</label>
+                      <select name="templateId" value={formData.templateId} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800 appearance-none">
+                        <option value="wedding-template-01">Premium Pink & Gold</option>
+                        <option value="wedding-template">Modern Sage Theme</option>
+                        <option value="wedding">Traditional Maroon</option>
+                      </select>
+                    </div>
                     {(formData.eventType === "Wedding" || formData.eventType === "Engagement") ? (
                       <>
-                        <div>
+                        <div className="md:col-span-1">
                           <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Groom Name</label>
                           <input type="text" name="groomName" value={formData.groomName} onChange={handleInputChange} required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
                         </div>
-                        <div>
+                        <div className="md:col-span-2">
                           <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Bride Name</label>
                           <input type="text" name="brideName" value={formData.brideName} onChange={handleInputChange} required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
                         </div>
                       </>
                     ) : (
-                      <div className="md:col-span-2">
+                      <div className="md:col-span-3">
                         <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Celebrant Name</label>
                         <input type="text" name="celebrantName" value={formData.celebrantName} onChange={handleInputChange} required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
                       </div>
@@ -374,7 +382,7 @@ export default function AdminDashboard() {
                     <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center"><Clock size={18} /></div>
                     Timing & Schedule
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div>
                       <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Event Date</label>
                       <input type="date" name="eventDate" value={formData.eventDate} onChange={handleInputChange} required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
@@ -382,6 +390,106 @@ export default function AdminDashboard() {
                     <div>
                       <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Sumuhurtham Time</label>
                       <input type="time" name="eventTime" value={formData.eventTime} onChange={handleInputChange} required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Live Start Time</label>
+                      <input type="time" name="timerTargetTime" value={formData.timerTargetTime} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
+                    </div>
+                  </div>
+                </section>
+
+                {/* 3. Venue Details */}
+                <section>
+                  <h3 className="text-lg font-black text-slate-800 border-b border-slate-100 pb-4 mb-8 flex items-center gap-3">
+                    <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center"><MapPin size={18} /></div>
+                    Venue & Location
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Venue Name / Address</label>
+                      <textarea name="venueName" value={formData.venueName} onChange={handleInputChange} rows={2} required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800 mb-4" />
+                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Google Maps Link</label>
+                      <input type="text" name="venueMapLink" value={formData.venueMapLink} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
+                    </div>
+                    <div className="bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden h-full min-h-[150px]">
+                      {formData.venueMapLink || formData.venueName ? (
+                        <iframe width="100%" height="100%" style={{ border: 0 }} loading="lazy" src={`https://maps.google.com/maps?q=${encodeURIComponent(formData.venueName || formData.venueMapLink)}&output=embed`}></iframe>
+                      ) : (
+                        <div className="text-slate-300 flex flex-col items-center"><MapPin size={32} className="mb-2" /><span className="text-xs font-bold uppercase">Map Preview</span></div>
+                      )}
+                    </div>
+                  </div>
+                </section>
+
+                {/* 4. Media & Cloudinary */}
+                <section>
+                  <h3 className="text-lg font-black text-slate-800 border-b border-slate-100 pb-4 mb-8 flex items-center gap-3">
+                    <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center"><UploadCloud size={18} /></div>
+                    Media & Assets
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">SEO Thumbnail</label>
+                        <div className="flex items-center gap-2">
+                           <input type="checkbox" id="autoThumb" checked={formData.autoGenerateThumbnail} onChange={(e) => setFormData(prev => ({ ...prev, autoGenerateThumbnail: e.target.checked }))} className="rounded text-blue-600" />
+                           <label htmlFor="autoThumb" className="text-[10px] font-bold text-blue-600 uppercase cursor-pointer">Auto-Design</label>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <input type="text" value={formData.thumbnailUrl} readOnly className="flex-1 p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-medium text-slate-600" />
+                        <button type="button" onClick={() => thumbInputRef.current?.click()} className="p-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-colors">
+                          {isUploading === 'thumbnail' ? <Loader2 className="animate-spin" size={18} /> : <UploadCloud size={18} />}
+                        </button>
+                      </div>
+                      <input type="file" ref={thumbInputRef} hidden accept="image/*" onChange={(e) => uploadToCloudinary(e.target.files, 'thumbnail')} />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Invitation Video (MP4)</label>
+                      <div className="flex gap-2">
+                        <input type="text" value={formData.invitationVideoUrl} readOnly className="flex-1 p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-medium text-slate-600" />
+                        <button type="button" onClick={() => videoInputRef.current?.click()} className="p-4 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 transition-colors">
+                          {isUploading === 'video' ? <Loader2 className="animate-spin" size={18} /> : <Film size={18} />}
+                        </button>
+                      </div>
+                      <input type="file" ref={videoInputRef} hidden accept="video/*" onChange={(e) => uploadToCloudinary(e.target.files, 'video')} />
+                    </div>
+                  </div>
+                </section>
+
+                {/* 5. YouTube & Credits */}
+                <section>
+                  <h3 className="text-lg font-black text-slate-800 border-b border-slate-100 pb-4 mb-8 flex items-center gap-3">
+                    <div className="w-8 h-8 bg-red-50 text-red-600 rounded-lg flex items-center justify-center"><Play size={18} /></div>
+                    YouTube & Production
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">YouTube Privacy</label>
+                      <div className="flex gap-4">
+                        {['public', 'unlisted'].map((p) => (
+                          <button key={p} type="button" onClick={() => setFormData(prev => ({ ...prev, youtubePrivacy: p }))} className={`flex-1 p-4 rounded-2xl border-2 font-bold transition-all ${formData.youtubePrivacy === p ? 'border-red-500 bg-red-50 text-red-600' : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-slate-200'}`}>
+                            {p.charAt(0).toUpperCase() + p.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Assign Photographer</label>
+                      <div className="relative">
+                        <input type="text" placeholder="Search Studio..." value={selectedPhotographer ? selectedPhotographer.name : photographerSearchQuery} onChange={(e) => { setPhotographerSearchQuery(e.target.value); setSelectedPhotographer(null); setShowPhotographerList(true); }} onFocus={() => setShowPhotographerList(true)} className="w-full p-4 pl-12 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800" />
+                        <Search className="absolute left-4 top-4 text-slate-400" size={20} />
+                        {showPhotographerList && photographerSearchQuery && !selectedPhotographer && (
+                          <div className="absolute z-20 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl max-h-48 overflow-y-auto">
+                            {filteredPhotographers.map(p => (
+                              <button key={p.id} type="button" onClick={() => { setSelectedPhotographer(p); setShowPhotographerList(false); }} className="w-full p-4 hover:bg-blue-50 text-left border-b border-slate-50 transition-colors">
+                                <p className="font-bold text-slate-800">{p.name}</p>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -398,6 +506,7 @@ export default function AdminDashboard() {
                 </div>
               </form>
             </div>
+
           </div>
         )}
 
