@@ -15,6 +15,6 @@ window.WEDDING_CONFIG = {
     supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0ZW9nenFldXVveGxla2hvZm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxOTc0ODIsImV4cCI6MjA5Mjc3MzQ4Mn0.eaGIKI5O17PI-bh52IiDDpPr4vqlBOU1Bq_NuAkYZXE",
     eventId: "692e9498-c485-4aa8-9a0e-7c688542d37e",
     eventType: "Wedding",
-    introText: "Somisetty & Parchuri's Wedding Invitation",
+    introText: "Somisetty & Parchuri'sWedding Invitation",
     photographer: {"id":"9faa35c5-4979-4080-9762-e2c6e6f4386c","name":"SSV Photograpy","phone_number":"88861 43930","studio_name":null,"city":"PARCHUR","created_at":"2026-04-28T18:44:14.701862+00:00","instagram_url":"https://www.instagram.com/sri_srinivas_photography?utm_source=qr&igsh=MWwyYmRneDMzcHYxdQ==","phone":null,"logo_url":"https://res.cloudinary.com/df5b4aq7h/image/upload/v1777400943/aqsm7jjln6p78j3gtyov.jpg"}
 };
