@@ -69,13 +69,13 @@ export default function AdminDashboard() {
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const baseDesigns = [
-    { id: "base_thumbnails/base_thumbnails/b421a3bc-10fb-4968-87d3-fc7e5902b55a", name: "Floral Classic", font: "Aref%20Ruqaa", nameColor: "C2185B", typeColor: "666666" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_496fib496fib496f", name: "Modern Blush", font: "Inter", nameColor: "D81B60", typeColor: "444444" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_dki6mhdki6mhdki6", name: "Vintage Sage", font: "Aref%20Ruqaa", nameColor: "2E7D32", typeColor: "333333" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_h4x887h4x887h4x8", name: "Royal Maroon", font: "Inter", nameColor: "FFD700", typeColor: "FFFFFF" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_nukskenukskenuks", name: "Golden Frame", font: "Aref%20Ruqaa", nameColor: "8E24AA", typeColor: "000000" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_qkvc8rqkvc8rqkvc", name: "Elegant White", font: "Inter", nameColor: "1E88E5", typeColor: "555555" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_rc16u6rc16u6rc16", name: "Artistic Pastel", font: "Aref%20Ruqaa", nameColor: "FB8C00", typeColor: "444444" }
+    { id: "base_thumbnails/base_thumbnails/b421a3bc-10fb-4968-87d3-fc7e5902b55a", name: "Floral Classic", font: "Georgia", nameColor: "C2185B", typeColor: "666666" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_496fib496fib496f", name: "Modern Blush", font: "Arial", nameColor: "D81B60", typeColor: "444444" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_dki6mhdki6mhdki6", name: "Vintage Sage", font: "Georgia", nameColor: "2E7D32", typeColor: "333333" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_h4x887h4x887h4x8", name: "Royal Maroon", font: "Roboto", nameColor: "FFD700", typeColor: "FFFFFF" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_nukskenukskenuks", name: "Golden Frame", font: "Georgia", nameColor: "8E24AA", typeColor: "000000" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_qkvc8rqkvc8rqkvc", name: "Elegant White", font: "Arial", nameColor: "1E88E5", typeColor: "555555" },
+    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_rc16u6rc16u6rc16", name: "Artistic Pastel", font: "Roboto", nameColor: "FB8C00", typeColor: "444444" }
   ];
 
   useEffect(() => {
@@ -254,11 +254,18 @@ export default function AdminDashboard() {
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const currentDesign = baseDesigns.find(d => d.id === selectedBaseDesign) || baseDesigns[0];
     
-    const names = encodeURIComponent(`${formData.groomName || formData.celebrantName} ${formData.brideName ? '& ' + formData.brideName : ''}`);
-    const eventTypeText = encodeURIComponent(`${formData.eventType} Live`);
+    const formatText = (str: string) => encodeURIComponent(str).replace(/%26/g, "%2526").replace(/%2C/g, "%252C");
     
-    const generatedUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_1280,h_720,c_fill/l_text:${currentDesign.font}_80_bold:${names},g_center,y_-40,co_rgb:${currentDesign.nameColor}/l_text:Inter_40_medium:${eventTypeText},g_center,y_60,co_rgb:${currentDesign.typeColor}/${currentDesign.id}.jpg`;
+    const names = formatText(`${formData.groomName || formData.celebrantName} ${formData.brideName ? '& ' + formData.brideName : ''}`);
+    const eventTypeText = formatText(`${formData.eventType} Live`);
+    
+    // Using a more standard Cloudinary transformation structure
+    const generatedUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_1280,h_720,c_fill/` +
+      `co_rgb:${currentDesign.nameColor},l_text:${currentDesign.font}_80_bold:${names}/g_center,y_-40,fl_layer_apply/` +
+      `co_rgb:${currentDesign.typeColor},l_text:Arial_40_medium:${eventTypeText}/g_center,y_60,fl_layer_apply/` +
+      `f_auto,q_auto/${currentDesign.id}.jpg`;
 
+    console.log("Generated Thumbnail URL:", generatedUrl);
     setFormData(prev => ({ ...prev, thumbnailUrl: generatedUrl }));
   };
 
@@ -321,14 +328,14 @@ export default function AdminDashboard() {
         const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
         const currentDesign = baseDesigns.find(d => d.id === selectedBaseDesign) || baseDesigns[0];
         
-        const names = encodeURIComponent(`${formData.groomName || formData.celebrantName} & ${formData.brideName || 'Family'}`);
-        const eventTypeText = encodeURIComponent(`${formData.eventType} Live`);
+        const formatText = (str: string) => encodeURIComponent(str).replace(/%26/g, "%2526").replace(/%2C/g, "%252C");
+        const names = formatText(`${formData.groomName || formData.celebrantName} ${formData.brideName ? '& ' + formData.brideName : ''}`);
+        const eventTypeText = formatText(`${formData.eventType} Live`);
         
-        finalThumbnailUrl = `https://res.cloudinary.com/${cloudName}/image/upload/` + 
-          `w_1280,h_720,c_fill/` + 
-          `l_text:${currentDesign.font}_80_bold:${names},g_center,y_-40,co_rgb:${currentDesign.nameColor}/` +
-          `l_text:Inter_40_medium:${eventTypeText},g_center,y_60,co_rgb:${currentDesign.typeColor}/` +
-          `${currentDesign.id}.jpg`;
+        finalThumbnailUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_1280,h_720,c_fill/` +
+          `co_rgb:${currentDesign.nameColor},l_text:${currentDesign.font}_80_bold:${names}/g_center,y_-40,fl_layer_apply/` +
+          `co_rgb:${currentDesign.typeColor},l_text:Arial_40_medium:${eventTypeText}/g_center,y_60,fl_layer_apply/` +
+          `f_auto,q_auto/${currentDesign.id}.jpg`;
       }
 
       const payload = {
