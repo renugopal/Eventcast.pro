@@ -205,6 +205,47 @@ export default function AdminDashboard() {
     return `${day}${suffix} ${month}`;
   };
 
+  const compressImage = async (file: File): Promise<Blob | File> => {
+    if (file.type.startsWith('video/')) return file; // Skip for videos
+    if (file.size < 2 * 1024 * 1024) return file; // Skip if less than 2MB
+
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Limit max dimension to 2500px for high quality but reasonable size
+          const maxDim = 2500;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height *= maxDim / width;
+              width = maxDim;
+            } else {
+              width *= maxDim / height;
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else resolve(file);
+          }, 'image/jpeg', 0.85); // 85% quality is perfect for web
+        };
+      };
+    });
+  };
+
   const handleGenerateThumbnailPreview = () => {
     if (!formData.groomName && !formData.celebrantName) {
       alert("Please enter the Groom or Celebrant name first!");
@@ -227,9 +268,15 @@ export default function AdminDashboard() {
     const uploadedUrls: string[] = [];
 
     for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+      let fileToUpload: File | Blob = files[i];
+      
+      // Auto-compress high-res images BEFORE sending to Cloudinary
+      if (type !== 'video') {
+        fileToUpload = await compressImage(files[i]);
+      }
+
       const formDataUpload = new FormData();
-      formDataUpload.append('file', file);
+      formDataUpload.append('file', fileToUpload);
       formDataUpload.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'eventcast_gallery');
 
       try {
@@ -238,7 +285,15 @@ export default function AdminDashboard() {
           body: formDataUpload
         });
         const data = await res.json();
-        if (data.secure_url) uploadedUrls.push(data.secure_url);
+        
+        if (data.secure_url) {
+          let optimizedUrl = data.secure_url;
+          // Apply Cloudinary's dynamic Auto-Format & Auto-Quality flags for blazing fast delivery
+          if (data.resource_type === 'image') {
+            optimizedUrl = optimizedUrl.replace('/upload/', '/upload/f_auto,q_auto/');
+          }
+          uploadedUrls.push(optimizedUrl);
+        }
       } catch (err) {
         console.error("Upload error:", err);
       }
