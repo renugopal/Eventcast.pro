@@ -400,9 +400,9 @@ export default function AdminDashboard() {
                     <div className="md:col-span-1">
                       <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Visual Template</label>
                       <select name="templateId" value={formData.templateId} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800 appearance-none">
-                        <option value="wedding-template-01">Premium Pink & Gold</option>
-                        <option value="wedding-template">Modern Sage Theme</option>
-                        <option value="wedding">Traditional Maroon</option>
+                        <option value="wedding-template-01">wedding-template-01 (Premium Pink & Gold)</option>
+                        <option value="wedding-template">wedding-template (Modern Sage Theme)</option>
+                        <option value="wedding">wedding (Traditional Maroon)</option>
                       </select>
                     </div>
                     {(formData.eventType === "Wedding" || formData.eventType === "Engagement") ? (
