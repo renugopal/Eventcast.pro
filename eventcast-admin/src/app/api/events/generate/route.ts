@@ -163,6 +163,14 @@ export async function POST(req: Request) {
     htmlContent = htmlContent.replace(/<meta property="og:image" content=".*?">/g, `<meta property="og:image" content="${thumbnailUrl}">`);
     htmlContent = htmlContent.replace(/<meta name="twitter:image" content=".*?">/g, `<meta name="twitter:image" content="${thumbnailUrl}">`);
 
+    // --- Extract gallery directly from form data (bypass Supabase column type issues) ---
+    const galleryArray = (() => {
+      const raw = event.gallery_urls || event.galleryUrls || [];
+      if (Array.isArray(raw)) return (raw as string[]).filter(u => u && u.trim());
+      if (typeof raw === 'string') return (raw as string).split('\n').map(u => u.trim()).filter(Boolean);
+      return [];
+    })();
+
     if (event.venue_map_link || event.venueMapLink || event.venue_name || event.venueName) {
       const vName = event.venue_name || event.venueName;
       const vMap = event.venue_map_link || event.venueMapLink;
@@ -179,9 +187,10 @@ export async function POST(req: Request) {
 
     // 7. Generate custom config.js content
     // timerTarget = Live Start Time (timer_target_time), NOT muhurtham time
-    // muhurtham time (event_time) is displayed as text only
     const timerTime = rawTimerTime || rawTime || '09:00';
     const youtubeId = (dbPayload.vod_link || '') ? (dbPayload.vod_link || '').split('/').pop() : '';
+    // Escape newlines in introText so config.js doesn't have multi-line string syntax error
+    const safeIntroText = (dbPayload.custom_top_title || '').replace(/"/g, '\\"').replace(/\n/g, '\\n');
 
     const configContent = `window.WEDDING_CONFIG = {
     groom: "${dbPayload.groom_name || dbPayload.celebrant_name || ''}",
@@ -195,12 +204,12 @@ export async function POST(req: Request) {
     youtubeId: "${youtubeId}",
     invitationVideo: "${dbPayload.invitation_video_url || ''}",
     thumbnail: "${thumbnailUrl}",
-    gallery: ${JSON.stringify(dbPayload.gallery_urls || [])},
+    gallery: ${JSON.stringify(galleryArray)},
     supabaseUrl: "${process.env.NEXT_PUBLIC_SUPABASE_URL || ''}",
     supabaseKey: "${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''}",
     eventId: "${eventId}",
     eventType: "${type}",
-    introText: "${dbPayload.custom_top_title || ''}",
+    introText: "${safeIntroText}",
     photographer: ${JSON.stringify(photographerData)}
 };`;
 

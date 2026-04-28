@@ -636,8 +636,17 @@ export default function AdminDashboard() {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div className="md:col-span-1">
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Custom Welcome Title</label>
-                      <input type="text" name="customTopTitle" value={formData.customTopTitle} onChange={handleInputChange} placeholder="e.g. Welcome to Our Wedding" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
+                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+                        Intro Text (Press Enter for 2nd line)
+                      </label>
+                      <textarea
+                        name="customTopTitle"
+                        value={formData.customTopTitle}
+                        onChange={handleInputChange}
+                        rows={2}
+                        placeholder={"e.g. Somisetty & Parchuri's\nWedding Invitation"}
+                        className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800 resize-none"
+                      />
                     </div>
                     <div className="md:col-span-1">
                       <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Event Type</label>
