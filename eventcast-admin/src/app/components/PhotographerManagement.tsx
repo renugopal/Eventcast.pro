@@ -36,8 +36,8 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
             <input type="text" name="phone" required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" placeholder="+91 98765 43210" />
           </div>
           <div>
-            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">City</label>
-            <input type="text" name="city" required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" placeholder="e.g. Hyderabad" />
+            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">City (Optional)</label>
+            <input type="text" name="city" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" placeholder="e.g. Hyderabad" />
           </div>
           <div className="md:col-span-2">
             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Logo</label>
