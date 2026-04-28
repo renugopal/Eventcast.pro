@@ -526,15 +526,23 @@ export default function AdminDashboard() {
     e.preventDefault();
     setIsSubmitting(true);
     const fd = new FormData(e.target);
-    const { error } = await supabase.from('photographers').insert({
+    const photographerData = {
       name: fd.get('name'),
       phone_number: fd.get('phone'),
       city: fd.get('city'),
       logo_url: fd.get('logo_url'),
       instagram_url: fd.get('instagram_url')
-    });
-    if (!error) {
-      alert("Photographer added!");
+    };
+
+    console.log("Submitting Photographer:", photographerData);
+
+    const { error } = await supabase.from('photographers').insert(photographerData);
+    
+    if (error) {
+      console.error("Supabase Insert Error:", error);
+      alert("Failed to add photographer: " + error.message);
+    } else {
+      alert("Photographer added successfully!");
       e.target.reset();
       fetchPhotographers();
     }
