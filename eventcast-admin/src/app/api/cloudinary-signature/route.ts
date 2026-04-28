@@ -1,19 +1,30 @@
 import { NextResponse } from 'next/server';
-import { v2 as cloudinary } from 'cloudinary';
 
-cloudinary.config({
-  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+export const runtime = 'edge';
+
+async function generateCloudinarySignature(params: Record<string, string>, apiSecret: string) {
+  const sortedKeys = Object.keys(params).sort();
+  const stringToSign = sortedKeys.map(k => `${k}=${params[k]}`).join('&') + apiSecret;
+  
+  const encoder = new TextEncoder();
+  const data = encoder.encode(stringToSign);
+  const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 export async function POST(req: Request) {
   try {
     const { timestamp, upload_preset } = await req.json();
     
-    const signature = cloudinary.utils.api_sign_request(
-      { timestamp, upload_preset },
-      process.env.CLOUDINARY_API_SECRET!
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+    if (!apiSecret) {
+      throw new Error("CLOUDINARY_API_SECRET is not configured");
+    }
+
+    const signature = await generateCloudinarySignature(
+      { timestamp: timestamp.toString(), upload_preset },
+      apiSecret
     );
 
     return NextResponse.json({ signature });
