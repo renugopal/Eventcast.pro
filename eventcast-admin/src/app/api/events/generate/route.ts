@@ -62,9 +62,9 @@ export async function POST(req: Request) {
       photographer_id: event.photographer_id || event.photographerId,
       // base_design is optional - ensure column exists in Supabase
       ...(event.base_design || event.baseDesign ? { base_design: event.base_design || event.baseDesign } : {}),
-      youtube_broadcast_id: event.youtube_broadcast_id,
-      youtube_stream_key: event.youtube_stream_key,
-      youtube_url: event.youtube_url
+      ...(event.youtube_broadcast_id ? { youtube_broadcast_id: event.youtube_broadcast_id } : {}),
+      ...(event.youtube_stream_key ? { youtube_stream_key: event.youtube_stream_key } : {}),
+      ...(event.youtube_url ? { youtube_url: event.youtube_url } : {})
     };
 
     if (event.isEditing && event.editingId) {
