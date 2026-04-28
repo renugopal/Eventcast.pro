@@ -407,17 +407,26 @@ export default function AdminDashboard() {
           });
           const ytData = await ytRes.json();
           if (ytData.success) {
-            // Re-generate event with the new YouTube URL
+            // 1. Update Supabase with YouTube details
+            await supabase.from('events').update({
+              youtube_broadcast_id: ytData.broadcastId,
+              youtube_stream_key: ytData.streamKey,
+              youtube_url: ytData.youtubeUrl,
+              vod_link: ytData.youtubeUrl // Also update VOD link
+            }).eq('id', data.id || editingId);
+
+            // 2. Re-generate event with the new YouTube URL
             await fetch('/api/events/generate', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
                 ...payload, 
                 vodLink: ytData.youtubeUrl,
-                isEditing: true, // Force update the generated site
+                isEditing: true,
                 editingId: data.id || editingId 
               })
             });
+            fetchEvents(); // Refresh list to show stream key
           }
         } catch (ytErr) {
           console.error("YouTube Automation Failed:", ytErr);
