@@ -10,7 +10,7 @@ window.WEDDING_CONFIG = {
     youtubeId: "g7TfiQ2hRKk",
     invitationVideo: "https://res.cloudinary.com/df5b4aq7h/video/upload/v1777380056/er28x37njhlxju0blzl9.mp4",
     thumbnail: "https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777387900/a2u7csawh6xkgu5oyyra.png",
-    gallery: [],
+    gallery: ["https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777380072/jmiuoqmrcf94ajdpxthh.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777380074/ixxqvf7z7lwr8dcnjakp.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777380075/byfk5auamjfcarcpwsoc.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777380077/zchyzboqayv63nhwa5qz.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777380079/vo9joskifqask3h8m6kq.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777380080/zj0ffxgbfzqabyafttov.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777380081/j8pv0eswhpxkasrfq0mc.jpg"],
     supabaseUrl: "https://lteogzqeuuoxlekhofow.supabase.co",
     supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0ZW9nenFldXVveGxla2hvZm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxOTc0ODIsImV4cCI6MjA5Mjc3MzQ4Mn0.eaGIKI5O17PI-bh52IiDDpPr4vqlBOU1Bq_NuAkYZXE",
     eventId: "692e9498-c485-4aa8-9a0e-7c688542d37e",
