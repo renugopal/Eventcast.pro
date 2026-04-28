@@ -133,15 +133,64 @@ export default function AdminDashboard() {
     const { name, value, type, checked } = e.target;
     const val = type === 'checkbox' ? checked : value;
     setFormData(prev => ({ ...prev, [name]: val }));
-
-    if (name === 'venueMapLink' && value.includes('place/')) {
-      try {
-        const parts = value.split('place/')[1].split('/');
-        const cleanedName = decodeURIComponent(parts[0]).replace(/\+/g, ' ');
-        if (cleanedName) setFormData(prev => ({ ...prev, venueName: cleanedName }));
-      } catch (err) {}
-    }
   };
+
+  // Auto-resolve Google Maps Short Links and Extract Name
+  useEffect(() => {
+    const resolveAndExtract = async () => {
+      let link = formData.venueMapLink;
+      
+      // 1. Resolve and get Title for ALL Google Maps links
+      if (link.includes('google.com/maps') || link.includes('goo.gl')) {
+        try {
+          const res = await fetch('/api/resolve-url', {
+            method: 'POST',
+            body: JSON.stringify({ url: link })
+          });
+          const data = await res.json();
+          
+          if (data.resolvedUrl) link = data.resolvedUrl;
+          
+          // Use Title if available (contains Venue Name, City)
+          if (data.title && formData.venueName !== data.title) {
+            setFormData(prev => ({ ...prev, venueName: data.title, venueMapLink: link }));
+            return; 
+          }
+        } catch (e) {
+          console.error("Link resolution failed", e);
+        }
+      }
+
+      // 2. Extract Name and Address from Full URL
+      if (link.includes('google.com/maps')) {
+        try {
+          let extractedName = "";
+          
+          if (link.includes('/place/')) {
+            extractedName = link.split('/place/')[1].split('/')[0];
+          } else if (link.includes('q=')) {
+            extractedName = new URL(link).searchParams.get('q') || "";
+          }
+
+          if (extractedName) {
+            const decodedName = decodeURIComponent(extractedName.replace(/\+/g, ' '));
+            const cleanedName = decodedName.split('/@')[0].trim();
+            
+            if (cleanedName && formData.venueName !== cleanedName) {
+              setFormData(prev => ({ ...prev, venueName: cleanedName, venueMapLink: link }));
+            }
+          }
+        } catch (e) {
+          console.error("Name extraction failed", e);
+        }
+      }
+    };
+
+    if (formData.venueMapLink) {
+      const timer = setTimeout(resolveAndExtract, 1000); // Debounce
+      return () => clearTimeout(timer);
+    }
+  }, [formData.venueMapLink]);
 
   async function uploadToCloudinary(files: FileList | null, type: string) {
     if (!files || files.length === 0) return;
@@ -455,6 +504,17 @@ export default function AdminDashboard() {
                       </div>
                       <input type="file" ref={videoInputRef} hidden accept="video/*" onChange={(e) => uploadToCloudinary(e.target.files, 'video')} />
                     </div>
+
+                    {/* Gallery Upload */}
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Photo Gallery (Bulk Upload)</label>
+                      <textarea name="galleryUrls" value={formData.galleryUrls} onChange={handleInputChange} rows={3} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-mono text-xs mb-2 text-slate-600 outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="URLs will appear here after upload..." />
+                      <button type="button" onClick={() => galleryInputRef.current?.click()} className="w-full flex items-center justify-center gap-2 py-4 bg-slate-800 text-white rounded-2xl hover:bg-slate-900 font-bold transition-colors">
+                        {isUploading === 'gallery' ? <Loader2 className="animate-spin" size={18} /> : <ImageIcon size={18} />}
+                        Select Multiple Gallery Photos
+                      </button>
+                      <input type="file" ref={galleryInputRef} hidden multiple accept="image/*" onChange={(e) => uploadToCloudinary(e.target.files, 'gallery')} />
+                    </div>
                   </div>
                 </section>
 
@@ -492,6 +552,38 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   </div>
+                </section>
+
+                {/* SEO & Social Preview Section */}
+                <section className="bg-slate-50 rounded-3xl p-8 border border-slate-100">
+                  <h3 className="text-sm font-black text-slate-800 mb-6 flex items-center gap-2">
+                    <Search size={18} className="text-blue-500" /> WhatsApp & Social Share Preview
+                  </h3>
+                  
+                  <div className="max-w-[350px] mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="aspect-video bg-slate-100 relative overflow-hidden">
+                      {formData.thumbnailUrl ? (
+                        <img src={formData.thumbnailUrl} className="w-full h-full object-cover" alt="Preview" />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+                          <ImageIcon size={32} strokeWidth={1} />
+                          <span className="text-[10px] font-bold uppercase tracking-widest">No Thumbnail</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4 bg-[#f0f2f5]">
+                      <h4 className="text-sm font-bold text-slate-800 truncate leading-tight">
+                        {formData.groomName || formData.celebrantName || "Couple Names"} & {formData.brideName || "Family"} {formData.eventType} | {formData.eventDate || "Date"}
+                      </h4>
+                      <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                        Join us live for the {formData.eventType} of {formData.groomName || formData.celebrantName || "Name"} & {formData.brideName || "Family"}. Venue: {formData.venueName || "Location Name"}.
+                      </p>
+                      <div className="text-[10px] text-slate-400 mt-2 font-mono">https://eventcast.pro/events/...</div>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-400 text-center mt-4 font-bold tracking-widest uppercase">
+                    * This is how the link will look when shared *
+                  </p>
                 </section>
 
                 <div className="pt-10">
