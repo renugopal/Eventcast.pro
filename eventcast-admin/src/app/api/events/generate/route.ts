@@ -1,4 +1,10 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+);
 
 export const runtime = 'edge';
 
@@ -153,6 +159,43 @@ export async function POST(req: Request) {
     if (!updateRefRes.ok) throw new Error("Failed to update ref: " + JSON.stringify(updateRefData));
 
     console.log("Git Push via API Successful!");
+
+    // 12. Save to Supabase Database
+    const dbPayload = {
+      event_type: event.event_type || event.eventType,
+      groom_name: event.groom_name || event.groomName,
+      bride_name: event.bride_name || event.brideName,
+      celebrant_name: event.celebrant_name || event.celebrantName,
+      custom_top_title: event.custom_top_title || event.customTopTitle,
+      event_date: event.event_date || event.eventDate,
+      event_time: event.event_time || event.eventTime,
+      timer_target_time: event.timer_target_time || event.timerTargetTime,
+      show_timer: event.show_timer ?? event.showTimer ?? true,
+      venue_name: event.venue_name || event.venueName,
+      venue_map_link: event.venue_map_link || event.venueMapLink,
+      invitation_video_url: event.invitation_video_url || event.invitationVideoUrl,
+      thumbnail_url: event.thumbnail_url || event.thumbnailUrl,
+      privacy_status: event.privacy_status || event.privacyStatus,
+      gallery_urls: event.gallery_urls || [],
+      vod_link: event.vod_link || event.vodLink,
+      template_id: event.template_id || event.templateId,
+      slug: slug,
+      photographer_id: event.photographer_id || event.photographerId,
+      base_design: event.base_design || event.baseDesign
+    };
+
+    if (event.isEditing && event.editingId) {
+      const { error: dbError } = await supabase
+        .from('events')
+        .update(dbPayload)
+        .eq('id', event.editingId);
+      if (dbError) throw new Error("Database Update Error: " + dbError.message);
+    } else {
+      const { error: dbError } = await supabase
+        .from('events')
+        .insert([dbPayload]);
+      if (dbError) throw new Error("Database Insert Error: " + dbError.message);
+    }
 
     return NextResponse.json({ 
       success: true, 
