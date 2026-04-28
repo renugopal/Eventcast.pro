@@ -68,10 +68,12 @@ export async function POST(req: Request) {
     if (event.venue_map_link || event.venue_name) {
       const query = event.venue_name || event.venue_map_link;
       const embedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+      const navigateUrl = event.venue_map_link || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.venue_name || query)}`;
+      
       htmlContent = htmlContent.replace(/src="https:\/\/www\.google\.com\/maps\/embed.*?"/g, `src="${embedUrl}"`);
-      if (event.venue_map_link) {
-        htmlContent = htmlContent.replace(/href="https:\/\/maps\.app\.goo\.gl\/.*?"/g, `href="${event.venue_map_link}"`);
-      }
+      // Update any existing maps links in the template to our new navigateUrl
+      htmlContent = htmlContent.replace(/href="https:\/\/(www\.)?google\.com\/maps[^"]*"/g, `href="${navigateUrl}"`);
+      htmlContent = htmlContent.replace(/href="https:\/\/maps\.app\.goo\.gl[^"]*"/g, `href="${navigateUrl}"`);
     }
 
     // 7. Generate custom config.js content
