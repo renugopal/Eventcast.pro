@@ -7,7 +7,11 @@ export async function POST(req: Request) {
     const event = await req.json();
     
     // 1. Define Paths and Slug
-    const slug = `${(event.groom_name || event.celebrant_name).toLowerCase().replace(/\\s+/g, '-')}-${(event.bride_name || 'family').toLowerCase().replace(/\\s+/g, '-')}-${event.event_type.toLowerCase()}`;
+    const groom = event.groom_name || event.groomName || event.celebrant_name || event.celebrantName || 'event';
+    const bride = event.bride_name || event.brideName || 'family';
+    const type = event.event_type || event.eventType || 'wedding';
+
+    const slug = `${groom.toLowerCase().replace(/\s+/g, '-')}-${bride.toLowerCase().replace(/\s+/g, '-')}-${type.toLowerCase()}`;
     const targetPath = `events/${slug}`;
     const templatePath = event.template_id || 'wedding-template-01';
 
