@@ -39,8 +39,14 @@ export async function POST(req: Request) {
     };
 
     // SEO Title: Names + Event Type + Date
-    const displayTitle = `${groomName || celebrantName} & ${brideName || 'Family'} ${eventType} | ${eventDate}`;
-    const displayDescription = `Live streaming of ${eventType} ceremony for ${groomName || celebrantName} & ${brideName || 'Family'}.\n\n📅 Date: ${eventDate}\n📍 Venue: ${venueName}\n\nWatching live on: https://eventcast.pro\n\n#${eventType.replace(/\s+/g, '')} #WeddingLive #Eventcast #LiveStream`;
+    const heart = eventType.toLowerCase().includes('wedding') ? '❤️' : '✨';
+    const displayTitle = `${groomName} ${heart} ${brideName} ${eventType} Live | ${eventDate}`;
+    
+    // Webpage Short Description (sent in payload for HTML generation)
+    const webpageDesc = `Join us live and be part of this beautiful ${eventType.toLowerCase()} celebration filled with love and joy.`;
+
+    // YouTube Long Description
+    const displayDescription = `Welcome to the ${eventType} Live of\n**${groomName} & ${brideName}** 💐\n\nJoin us live and be part of this beautiful ${eventType.toLowerCase()} celebration filled with love and joy.\n\nBless the couple as they begin their new journey together.\n\n📍 Venue: ${venueName}\n\nThank you for watching 🙏\n\nWatching live on: https://eventcast.pro\n\n#${groomName} #${brideName} #WeddingLive #TeluguWedding #Eventcast`;
 
     // 1. Create Live Broadcast
     const broadcastRes = await fetch("https://youtube.googleapis.com/youtube/v3/liveBroadcasts?part=snippet,status,contentDetails", {
@@ -52,7 +58,20 @@ export async function POST(req: Request) {
           description: displayDescription,
           scheduledStartTime: new Date(`${eventDate}T${targetTime || '09:00'}:00+05:30`).toISOString(),
           categoryId: '22',
-          tags: [eventType, 'Wedding Live', 'Eventcast', groomName, brideName, 'Marriage Live Stream', 'Indian Wedding']
+          tags: [
+            `${groomName} ${brideName} wedding`,
+            `${groomName} wedding live`,
+            `${brideName} wedding live`,
+            'Telugu wedding live',
+            'wedding livestream India',
+            'Indian wedding live',
+            'South Indian wedding live',
+            'Telugu marriage live stream',
+            'traditional Telugu wedding',
+            'wedding ceremony live',
+            'eventcastpro live',
+            'eventcast live'
+          ]
         },
         status: {
           privacyStatus: privacy || 'public',
