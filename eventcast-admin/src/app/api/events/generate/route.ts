@@ -108,9 +108,22 @@ export async function POST(req: Request) {
     const indexHtmlRes = await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${templatePath}/index.html`);
     let htmlContent = await indexHtmlRes.text();
 
+    // --- NEW: Fetch Photographer Details ---
+    let photographerData = null;
+    const photographerId = event.photographer_id || event.photographerId;
+    if (photographerId) {
+      const { data: pData } = await supabase
+        .from('photographers')
+        .select('*')
+        .eq('id', photographerId)
+        .single();
+      photographerData = pData;
+    }
+    // ----------------------------------------
+
     // 6. Modify index.html content (SEO & Maps)
-    const displayTitle = `${event.groom_name || event.celebrant_name} & ${event.bride_name || 'Family'} ${event.event_type} | ${event.event_date}`;
-    const displayDesc = `Join us live for the ${event.event_type} of ${event.groom_name || event.celebrant_name} & ${event.bride_name || 'Family'}. Venue: ${event.venue_name}`;
+    const displayTitle = `${groom} & ${bride} ${type.charAt(0).toUpperCase() + type.slice(1)} | ${event.event_date || event.eventDate}`;
+    const displayDesc = `Join us live for the ${type} of ${groom} & ${bride}. Venue: ${event.venue_name || event.venueName}`;
     
     htmlContent = htmlContent.replace(/<title>.*?<\/title>/g, `<title>${displayTitle}</title>`);
     htmlContent = htmlContent.replace(/<meta property="og:title" content=".*?">/g, `<meta property="og:title" content="${displayTitle}">`);
@@ -147,9 +160,9 @@ export async function POST(req: Request) {
     supabaseUrl: "${process.env.NEXT_PUBLIC_SUPABASE_URL || ''}",
     supabaseKey: "${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''}",
     eventId: "${eventId}",
-    eventType: "${event.event_type}",
-    introText: "${event.custom_top_title || ''}",
-    photographer: ${JSON.stringify(event.photographer || null)}
+    eventType: "${type}",
+    introText: "${event.custom_top_title || event.customTopTitle || ''}",
+    photographer: ${JSON.stringify(photographerData)}
 };`;
 
     // 8. Prepare the new Git Tree
