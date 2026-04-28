@@ -20,7 +20,7 @@ import { AssetPreviewModal } from "./components/AssetPreviewModal";
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("create");
+  const [activeTab, setActiveTab] = useState("create"); const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [events, setEvents] = useState<any[]>([]);
   const [wishes, setWishes] = useState<any[]>([]);
@@ -94,7 +94,7 @@ export default function AdminDashboard() {
     if (!session) {
       router.push("/login");
     } else {
-      setIsAuthLoading(false);
+      setUser(session.user); setIsAuthLoading(false);
     }
   }
 
