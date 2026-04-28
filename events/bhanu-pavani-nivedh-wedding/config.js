@@ -1,8 +1,8 @@
 window.WEDDING_CONFIG = {
     groom: "Bhanu Pavani",
     bride: "Nivedh",
-    date: "2026-05-01",
-    time: "10:12:00",
+    date: "Friday, May 1st",
+    time: "10:12 AM",
     timeSubtext: "",
     timerTarget: "2026-05-01T09:00",
     venue: "Sri Mahalakshmi Convention Hall, Parchur.",
