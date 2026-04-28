@@ -31,8 +31,26 @@ const optimizeUrl = (url) => {
 
 // --- UI INJECTION ---
 document.addEventListener('DOMContentLoaded', () => {
+    // --- LOADER: Update photo & initials dynamically from CONFIG ---
+    const loaderPhoto = document.querySelector('.loader-photo img');
+    if (loaderPhoto) {
+        if (CONFIG.thumbnail) {
+            loaderPhoto.src = optimizeUrl(CONFIG.thumbnail);
+            loaderPhoto.onerror = () => { loaderPhoto.style.display = 'none'; };
+        } else if (CONFIG.gallery && CONFIG.gallery.length > 0) {
+            loaderPhoto.src = optimizeUrl(CONFIG.gallery[0]);
+            loaderPhoto.onerror = () => { loaderPhoto.style.display = 'none'; };
+        } else {
+            // No photo available — hide the photo circle
+            const loaderPhotoDiv = document.querySelector('.loader-photo');
+            if (loaderPhotoDiv) loaderPhotoDiv.style.display = 'none';
+        }
+    }
+
     // Inject names and titles
-    const initials = CONFIG.groom ? `${CONFIG.groom[0]} & ${CONFIG.bride[0]}` : CONFIG.bride[0];
+    const groomInitial = CONFIG.groom ? CONFIG.groom[0].toUpperCase() : '';
+    const brideInitial = CONFIG.bride && CONFIG.bride !== 'Family' ? CONFIG.bride[0].toUpperCase() : '';
+    const initials = groomInitial && brideInitial ? `${groomInitial} & ${brideInitial}` : (groomInitial || brideInitial);
     document.querySelectorAll('.logo-text, .initials').forEach(el => el.innerText = initials);
     
     if (document.querySelector('.first-name')) document.querySelector('.first-name').innerText = CONFIG.groom || CONFIG.bride;
