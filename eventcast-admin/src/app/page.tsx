@@ -492,6 +492,11 @@ export default function AdminDashboard() {
                         </button>
                       </div>
                       <input type="file" ref={thumbInputRef} hidden accept="image/*" onChange={(e) => uploadToCloudinary(e.target.files, 'thumbnail')} />
+                      {formData.thumbnailUrl && (
+                        <div className="mt-4 p-2 bg-slate-50 border border-slate-100 rounded-2xl">
+                          <img src={formData.thumbnailUrl} alt="Thumbnail Preview" className="w-full h-32 object-cover rounded-xl" />
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -503,6 +508,14 @@ export default function AdminDashboard() {
                         </button>
                       </div>
                       <input type="file" ref={videoInputRef} hidden accept="video/*" onChange={(e) => uploadToCloudinary(e.target.files, 'video')} />
+                      {formData.invitationVideoUrl && (
+                        <div className="mt-4 p-2 bg-slate-50 border border-slate-100 rounded-2xl relative overflow-hidden group">
+                           <video src={formData.invitationVideoUrl} className="w-full h-32 object-cover rounded-xl" muted playsInline />
+                           <div className="absolute inset-0 bg-black/20 flex items-center justify-center rounded-xl pointer-events-none">
+                              <Play size={24} fill="currentColor" className="text-white opacity-80" />
+                           </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Gallery Upload */}
@@ -514,6 +527,13 @@ export default function AdminDashboard() {
                         Select Multiple Gallery Photos
                       </button>
                       <input type="file" ref={galleryInputRef} hidden multiple accept="image/*" onChange={(e) => uploadToCloudinary(e.target.files, 'gallery')} />
+                      {formData.galleryUrls && (
+                        <div className="mt-4 grid grid-cols-4 sm:grid-cols-6 gap-2 p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                          {formData.galleryUrls.split('\n').filter(url => url.trim()).map((url, idx) => (
+                            <img key={idx} src={url.trim()} alt={`Gallery Preview ${idx + 1}`} className="w-full aspect-square object-cover rounded-lg border border-slate-200" />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </section>
