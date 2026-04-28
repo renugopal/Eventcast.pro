@@ -381,17 +381,7 @@ export default function AdminDashboard() {
         baseDesign: selectedBaseDesign
       };
 
-      const endpoint = isEditing ? '/api/events/generate' : '/api/events/generate';
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...payload, isEditing, editingId })
-      });
-
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-
-      // --- NEW: Automated YouTube Event Creation ---
+      let youtubeDetails = null;
       if (!isEditing && formData.youtubePrivacy !== 'none') {
         try {
           const ytRes = await fetch('/api/youtube', {
@@ -411,35 +401,37 @@ export default function AdminDashboard() {
           });
           const ytData = await ytRes.json();
           if (ytData.success) {
-            // 1. Update Supabase with YouTube details
-            await supabase.from('events').update({
-              youtube_broadcast_id: ytData.broadcastId,
-              youtube_stream_key: ytData.streamKey,
-              youtube_url: ytData.youtubeUrl,
-              vod_link: ytData.youtubeUrl // Also update VOD link
-            }).eq('id', data.id || editingId);
-
-            // 2. Re-generate event with the new YouTube URL
-            await fetch('/api/events/generate', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                ...payload, 
-                vodLink: ytData.youtubeUrl,
-                isEditing: true,
-                editingId: data.id || editingId 
-              })
-            });
-            fetchEvents(); // Refresh list to show stream key
-
-            setSubmitStatus({ type: 'success', message: `Site Generated & YouTube Event Created Successfully!` });
-            // fetchEvents(); // Refresh list
+            youtubeDetails = ytData;
           }
         } catch (ytErr) {
           console.error("YouTube Automation Failed:", ytErr);
         }
       }
-      // ---------------------------------------------
+
+      const payload = {
+        ...formData,
+        thumbnailUrl: finalThumbnailUrl,
+        photographerId: selectedPhotographer?.id,
+        galleryUrls: formData.galleryUrls.split('\n').filter(url => url.trim()),
+        baseDesign: selectedBaseDesign,
+        vodLink: youtubeDetails?.youtubeUrl || formData.vodLink,
+        youtube_broadcast_id: youtubeDetails?.broadcastId,
+        youtube_stream_key: youtubeDetails?.streamKey,
+        youtube_url: youtubeDetails?.youtubeUrl
+      };
+
+      const res = await fetch('/api/events/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payload, isEditing, editingId })
+      });
+
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+
+      if (youtubeDetails) {
+        setSubmitStatus({ type: 'success', message: `Site Generated & YouTube Event Created Successfully!` });
+      }
 
       setSubmitStatus({ type: 'success', message: `Success! Event ${isEditing ? 'Updated' : 'Created'}.` });
       resetForm();
