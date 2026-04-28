@@ -387,6 +387,44 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
 
+      // --- NEW: Automated YouTube Event Creation ---
+      if (!isEditing && formData.youtubePrivacy !== 'none') {
+        try {
+          const ytRes = await fetch('/api/youtube', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              groomName: formData.groomName,
+              brideName: formData.brideName,
+              celebrantName: formData.celebrantName,
+              eventType: formData.eventType,
+              eventDate: formData.eventDate,
+              targetTime: formData.eventTime,
+              venueName: formData.venueName,
+              thumbnailUrl: finalThumbnailUrl,
+              privacy: formData.youtubePrivacy
+            })
+          });
+          const ytData = await ytRes.json();
+          if (ytData.success) {
+            // Re-generate event with the new YouTube URL
+            await fetch('/api/events/generate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                ...payload, 
+                vodLink: ytData.youtubeUrl,
+                isEditing: true, // Force update the generated site
+                editingId: data.id || editingId 
+              })
+            });
+          }
+        } catch (ytErr) {
+          console.error("YouTube Automation Failed:", ytErr);
+        }
+      }
+      // ---------------------------------------------
+
       setSubmitStatus({ type: 'success', message: `Success! Event ${isEditing ? 'Updated' : 'Created'}.` });
       resetForm();
       fetchEvents();
@@ -624,13 +662,24 @@ export default function AdminDashboard() {
                            <label htmlFor="autoThumb" className="text-[10px] font-bold text-blue-600 uppercase cursor-pointer">Auto-Design</label>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <input type="text" value={formData.thumbnailUrl} readOnly className="flex-1 p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-medium text-slate-600" />
-                        <button type="button" onClick={() => thumbInputRef.current?.click()} className="p-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-colors">
-                          {isUploading === 'thumbnail' ? <Loader2 className="animate-spin" size={18} /> : <UploadCloud size={18} />}
+                      <div className="relative group">
+                        <input
+                          type="text"
+                          name="thumbnailUrl"
+                          value={formData.thumbnailUrl}
+                          onChange={handleInputChange}
+                          placeholder="Paste thumbnail image URL here..."
+                          className="w-full bg-white/50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400 pr-12"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => thumbInputRef.current?.click()}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                        >
+                          <UploadCloud size={18} />
                         </button>
+                        <input type="file" ref={thumbInputRef} hidden accept="image/*" onChange={(e) => uploadToCloudinary(e.target.files, 'thumbnail')} />
                       </div>
-                      <input type="file" ref={thumbInputRef} hidden accept="image/*" onChange={(e) => uploadToCloudinary(e.target.files, 'thumbnail')} />
                       {formData.thumbnailUrl && (
                         <div className="mt-4 p-2 bg-slate-50 border border-slate-100 rounded-2xl">
                           <img src={formData.thumbnailUrl} alt="Thumbnail Preview" className="w-full h-32 object-cover rounded-xl" />
@@ -640,13 +689,24 @@ export default function AdminDashboard() {
 
                     <div>
                       <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Invitation Video (MP4)</label>
-                      <div className="flex gap-2">
-                        <input type="text" value={formData.invitationVideoUrl} readOnly className="flex-1 p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-medium text-slate-600" />
-                        <button type="button" onClick={() => videoInputRef.current?.click()} className="p-4 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 transition-colors">
-                          {isUploading === 'video' ? <Loader2 className="animate-spin" size={18} /> : <Film size={18} />}
+                      <div className="relative group">
+                        <input
+                          type="text"
+                          name="invitationVideoUrl"
+                          value={formData.invitationVideoUrl}
+                          onChange={handleInputChange}
+                          placeholder="Paste invitation video URL (mp4) here..."
+                          className="w-full bg-white/50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400 pr-12"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => videoInputRef.current?.click()}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+                        >
+                          <Film size={18} />
                         </button>
+                        <input type="file" ref={videoInputRef} hidden accept="video/*" onChange={(e) => uploadToCloudinary(e.target.files, 'video')} />
                       </div>
-                      <input type="file" ref={videoInputRef} hidden accept="video/*" onChange={(e) => uploadToCloudinary(e.target.files, 'video')} />
                       {formData.invitationVideoUrl && (
                         <div className="mt-4 p-2 bg-slate-50 border border-slate-100 rounded-2xl relative overflow-hidden group">
                            <video src={formData.invitationVideoUrl} className="w-full h-32 object-cover rounded-xl" muted playsInline />
