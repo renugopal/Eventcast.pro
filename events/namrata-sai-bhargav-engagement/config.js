@@ -1,0 +1,21 @@
+window.WEDDING_CONFIG = {
+    groom: "Namrata",
+    bride: "Sai Bhargav",
+    date: "Thursday, April 30th",
+    time: "11:00 AM",
+    timeLabel: "Engagement",
+    timeSubtext: "",
+    timerTarget: "2026-04-30T10:30",
+    venue: "Kanakamedala Convention, Guntur.",
+    venueSubtext: "",
+    youtubeId: "iH1hr0F861s",
+    invitationVideo: "",
+    thumbnail: "https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777442499/twehkrb9jznqkg620er7.png",
+    gallery: [],
+    supabaseUrl: "https://lteogzqeuuoxlekhofow.supabase.co",
+    supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0ZW9nenFldXVveGxla2hvZm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxOTc0ODIsImV4cCI6MjA5Mjc3MzQ4Mn0.eaGIKI5O17PI-bh52IiDDpPr4vqlBOU1Bq_NuAkYZXE",
+    eventId: "0a1c18f6-4ed5-41e6-96d6-3555275e15d3",
+    eventType: "Engagement",
+    introText: "Welcome to the\nEngagement of",
+    photographer: null
+};
