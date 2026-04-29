@@ -386,7 +386,7 @@ export default function AdminDashboard() {
               celebrantName: formData.celebrantName,
               eventType: formData.eventType,
               eventDate: formData.eventDate,
-              targetTime: formData.eventTime,
+              targetTime: formData.timerTargetTime || formData.eventTime, // Live Start Time first, fallback to muhurtham
               venueName: formData.venueName,
               thumbnailUrl: finalThumbnailUrl,
               privacy: formData.youtubePrivacy
