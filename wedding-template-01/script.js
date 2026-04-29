@@ -115,22 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (infoItems[2]) infoItems[2].innerText = CONFIG.venue;
     
     const subtexts = document.querySelectorAll('.info-subtext');
-    if (subtexts[0]) subtexts[0].innerText = CONFIG.timeSubtext || '';
-    if (subtexts[1]) subtexts[1].innerText = CONFIG.venueSubtext || '';
-
-    // Dynamic Time Label (Sumuhurtham / Ceremony Time / etc.)
-    const timeLabelEl = document.querySelector('.info-time-label');
-    if (timeLabelEl) {
-        timeLabelEl.innerText = CONFIG.timeLabel || 'Sumuhurtham';
-    }
-
-    // Reception Stream: show tabs if receptionYoutubeId provided
-    if (CONFIG.receptionYoutubeId) {
-        const streamTabs = document.getElementById('stream-tabs');
-        if (streamTabs) streamTabs.style.display = 'flex';
-        const recTimeEl = document.getElementById('reception-time-display');
-        if (recTimeEl && CONFIG.receptionTime) recTimeEl.innerText = CONFIG.receptionTime;
-    }
+    if (subtexts[0]) subtexts[0].innerText = CONFIG.timeSubtext;
+    if (subtexts[1]) subtexts[1].innerText = CONFIG.venueSubtext;
 
     // Inject Media
     const invVideo = document.querySelector('.invitation-video');
@@ -212,40 +198,6 @@ window.addEventListener('load', () => {
     initScrollReveal();
     initSlideshow();
 });
-
-// --- RECEPTION STREAM TAB SWITCHER ---
-let currentStream = 'wedding';
-function switchStream(type) {
-    currentStream = type;
-    const youtubeId = type === 'reception'
-        ? (CONFIG.receptionYoutubeId || CONFIG.youtubeId)
-        : CONFIG.youtubeId;
-
-    // Rebuild the iframe
-    const player = document.getElementById('youtube-player');
-    if (player) {
-        player.innerHTML = `<iframe
-            width="100%" height="100%" style="aspect-ratio:16/9; border:none; border-radius:12px;"
-            src="https://www.youtube.com/embed/${youtubeId}?autoplay=0&rel=0&modestbranding=1"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowfullscreen></iframe>`;
-    }
-
-    // Update tab active states
-    const wTab = document.getElementById('tab-wedding');
-    const rTab = document.getElementById('tab-reception');
-    const recInfo = document.getElementById('reception-info');
-
-    if (type === 'reception') {
-        if (wTab) { wTab.className = 'btn secondary-btn'; wTab.style.cssText = 'padding:10px 28px; font-size:0.8rem;'; }
-        if (rTab) { rTab.className = 'btn primary-btn'; rTab.style.cssText = 'padding:10px 28px; font-size:0.8rem;'; }
-        if (recInfo) recInfo.style.display = 'block';
-    } else {
-        if (wTab) { wTab.className = 'btn primary-btn'; wTab.style.cssText = 'padding:10px 28px; font-size:0.8rem;'; }
-        if (rTab) { rTab.className = 'btn secondary-btn'; rTab.style.cssText = 'padding:10px 28px; font-size:0.8rem;'; }
-        if (recInfo) recInfo.style.display = 'none';
-    }
-}
 
 // --- SLIDESHOW LOGIC ---
 function initSlideshow() {

@@ -90,9 +90,9 @@
                     </div>
                     <div class="hero-info-item">
                         <i class="fas fa-clock"></i>
-                        <span class="info-label info-time-label">Sumuhurtham</span>
-                        <span class="info-text"></span>
-                        <span class="info-subtext"></span>
+                        <span class="info-label">Sumuhurtham</span>
+                        <span class="info-text">03:06 AM</span>
+                        <span class="info-subtext">(Early Hours of Sunday)</span>
                     </div>
                     <div class="hero-info-item">
                         <i class="fas fa-house-chimney"></i>
@@ -155,23 +155,8 @@
                 <div class="status-badge"><span class="pulse"></span> LIVE SOON</div>
             </div>
 
-            <!-- Stream Tabs: shown only if reception stream exists -->
-            <div id="stream-tabs" style="display:none; justify-content:center; gap:12px; margin-bottom:20px;">
-                <button id="tab-wedding" onclick="switchStream('wedding')" class="btn primary-btn" style="padding:10px 28px; font-size:0.8rem;">
-                    <i class="fas fa-rings-wedding"></i> Wedding
-                </button>
-                <button id="tab-reception" onclick="switchStream('reception')" class="btn secondary-btn" style="padding:10px 28px; font-size:0.8rem;">
-                    <i class="fas fa-champagne-glasses"></i> Reception
-                </button>
-            </div>
-
             <div class="video-container">
                 <div id="youtube-player"></div>
-            </div>
-
-            <!-- Reception Info (shown only when reception tab active) -->
-            <div id="reception-info" style="display:none; text-align:center; margin-top:16px;">
-                <p class="info-subtext" style="color:var(--gold); font-size:0.9rem;"><i class="fas fa-clock"></i> Reception Time: <span id="reception-time-display"></span></p>
             </div>
         </section>
 
