@@ -764,6 +764,18 @@ footer {
     margin: 0 auto 20px;
     display: block;
     object-fit: contain;
+    border: 1.5px solid rgba(212, 175, 55, 0.5); /* subtle gold border */
+    border-radius: 14px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.06); /* very slight frosted bg */
+    box-shadow: 0 0 22px rgba(212, 175, 55, 0.18), /* soft gold outer glow */
+                inset 0 0 12px rgba(255,255,255,0.03); /* subtle inner highlight */
+    transition: box-shadow 0.3s ease;
+}
+
+.photographer-section img:hover {
+    box-shadow: 0 0 32px rgba(212, 175, 55, 0.35),
+                inset 0 0 12px rgba(255,255,255,0.05);
 }
 
 .studio-name {
