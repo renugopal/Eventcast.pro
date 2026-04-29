@@ -125,40 +125,77 @@ document.addEventListener('DOMContentLoaded', () => {
         if (lbl) lbl.innerText = CONFIG.timeLabel || 'Sumuhurtham';
     }
 
-    // --- Invitation Video Section ---
+    // --- Invitation Video Section: Auto-Playlist ---
     const invVideoSection = document.getElementById('invitation-video');
     const invVideo = document.getElementById('main-invitation-video');
-    const videoTabsContainer = document.getElementById('video-tabs');
+    const videoDotsContainer = document.getElementById('video-dots');
     const allVideos = CONFIG.invitationVideos && CONFIG.invitationVideos.length > 0
         ? CONFIG.invitationVideos
         : (CONFIG.invitationVideo ? [CONFIG.invitationVideo] : []);
 
     if (allVideos.length > 0) {
-        // Set first video as default
-        if (invVideo) {
-            invVideo.setAttribute('poster', optimizeUrl(CONFIG.thumbnail));
-            const src = invVideo.querySelector('source');
-            if (src) src.setAttribute('src', allVideos[0]);
-            invVideo.load();
+        let currentVideoIndex = 0;
+
+        // Helper: load and play a specific video index
+        function playVideoAt(index) {
+            currentVideoIndex = index;
+            if (invVideo) {
+                const src = invVideo.querySelector('source');
+                if (src) src.setAttribute('src', allVideos[index]);
+                invVideo.load();
+                invVideo.play().catch(() => {});
+            }
+            // Update dot indicators
+            if (allVideos.length > 1 && videoDotsContainer) {
+                videoDotsContainer.querySelectorAll('.vdot').forEach((dot, i) => {
+                    dot.style.background = i === index ? 'var(--gold)' : 'rgba(255,255,255,0.3)';
+                    dot.style.transform = i === index ? 'scale(1.4)' : 'scale(1)';
+                });
+            }
         }
 
-        // Show tabs if multiple videos
-        if (allVideos.length > 1 && videoTabsContainer) {
-            videoTabsContainer.style.display = 'flex';
-            videoTabsContainer.innerHTML = allVideos.map((url, i) => `
-                <button onclick="switchVideo(${i})" id="vtab-${i}"
-                    style="padding:8px 20px; border-radius:50px; font-size:0.8rem; font-weight:700; cursor:pointer;
-                           border: 2px solid var(--gold); transition: all 0.3s;
-                           background: ${i === 0 ? 'var(--gold)' : 'transparent'};
-                           color: ${i === 0 ? '#000' : 'var(--gold)'};">
-                    🎬 Video ${i + 1}
-                </button>
-            `).join('');
+        // Set poster and load first video
+        if (invVideo) {
+            invVideo.setAttribute('poster', optimizeUrl(CONFIG.thumbnail));
+
+            if (allVideos.length === 1) {
+                // Single video → loop normally
+                invVideo.setAttribute('loop', '');
+                const src = invVideo.querySelector('source');
+                if (src) src.setAttribute('src', allVideos[0]);
+                invVideo.load();
+            } else {
+                // Multiple videos → auto-playlist, no loop attribute
+                invVideo.removeAttribute('loop');
+                // When current video ends → play next, wrap around
+                invVideo.addEventListener('ended', () => {
+                    const next = (currentVideoIndex + 1) % allVideos.length;
+                    playVideoAt(next);
+                });
+
+                // Build dot indicators
+                videoDotsContainer.style.display = 'flex';
+                videoDotsContainer.innerHTML = allVideos.map((_, i) => `
+                    <span class="vdot" style="
+                        width:10px; height:10px; border-radius:50%;
+                        display:inline-block; cursor:pointer; transition: all 0.3s;
+                        background: ${i === 0 ? 'var(--gold)' : 'rgba(255,255,255,0.3)'};
+                        transform: ${i === 0 ? 'scale(1.4)' : 'scale(1)'};
+                    " onclick="playVideoAt_global(${i})" title="Video ${i + 1}"></span>
+                `).join('');
+
+                // Expose function globally for onclick
+                window.playVideoAt_global = playVideoAt;
+
+                // Start first video
+                playVideoAt(0);
+            }
         }
     } else {
         // No video → hide section
         if (invVideoSection) invVideoSection.style.display = 'none';
     }
+
 
     // --- Photo Gallery: hide section if no photos provided, else inject ---
     const photoSection = document.getElementById('photo-gallery');
