@@ -10,7 +10,7 @@ window.WEDDING_CONFIG = {
     venueSubtext: "",
     youtubeId: "59kbG4MEXR4",
     invitationVideo: "https://res.cloudinary.com/df5b4aq7h/video/upload/v1777448554/buwujwncdfwgqbiibwax.mp4",
-    invitationVideos: ["https://res.cloudinary.com/df5b4aq7h/video/upload/v1777448554/buwujwncdfwgqbiibwax.mp4","https://res.cloudinary.com/df5b4aq7h/video/upload/v1777448560/h5uvzhcdgoptdwd87snu.mp4"],
+    invitationVideos: ["https://res.cloudinary.com/df5b4aq7h/video/upload/v1777448554/buwujwncdfwgqbiibwax.mp4","https://res.cloudinary.com/df5b4aq7h/video/upload/v1777449136/m9akybrzbaar86xmzffu.mp4"],
     thumbnail: "https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777447329/kwdeisvgtkbytx5rlts9.png",
     gallery: ["https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777448486/fsekz2ip3a3qdgspqa5p.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777448487/qvfm4vjrajbozip57bit.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777448488/fck74y9q8qjzdzhvcmcp.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777448488/useckcyyuishfjuhmn4f.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777448489/pqafg69z0fjgcd57x5uh.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777448490/kr4repsbdy9rbwvsczqv.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777448491/f7qbybgrdamuowvsrrnt.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777448491/ozujnx58bacxrzkxplje.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777448492/wdn4agjwwhmxyfqct56x.jpg"],
     supabaseUrl: "https://lteogzqeuuoxlekhofow.supabase.co",
