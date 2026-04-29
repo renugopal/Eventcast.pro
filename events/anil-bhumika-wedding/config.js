@@ -16,5 +16,5 @@ window.WEDDING_CONFIG = {
     eventId: "55466812-7c08-489a-8fe7-f0eb171862e7",
     eventType: "Wedding",
     introText: "Ramakuri & Birudu's\n Wedding Invitation",
-    photographer: null
+    photographer: {"id":"1c5b19f8-186f-4700-a33b-e04b8c933db1","name":"Ramesh","phone_number":"98491 39952","studio_name":null,"city":"Chilukaluripet","created_at":"2026-04-29T02:05:05.815183+00:00","instagram_url":"","phone":null,"logo_url":"https://res.cloudinary.com/df5b4aq7h/image/upload/v1777428296/t3lmovxlvnuqh6skmdus.jpg"}
 };
