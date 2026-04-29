@@ -351,7 +351,7 @@ export default function AdminDashboard() {
 
     if (type === 'thumbnail') setFormData(prev => ({ ...prev, thumbnailUrl: uploadedUrls[0] }));
     else if (type === 'video') setFormData(prev => ({ ...prev, invitationVideoUrl: uploadedUrls[0] }));
-    else if (type === 'photographer_logo') setNewPhotographer(prev => ({ ...prev, logo_url: uploadedUrls[0] }));
+    else if (type === 'photographer_logo') setSelectedPhotographer((prev: any) => ({ ...prev, logo_url: uploadedUrls[0] }));
     else if (type === 'gallery') {
       const currentUrls = formData.galleryUrls;
       const newUrls = uploadedUrls.join('\n');
