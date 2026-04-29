@@ -153,8 +153,9 @@ export async function POST(req: Request) {
       formattedTime = `${h % 12 || 12}:${minutes} ${ampm}`;
     }
 
-    const displayTitle = `${groom} & ${bride} ${type.charAt(0).toUpperCase() + type.slice(1)} | ${formattedDate}`;
-    const displayDesc = `Join us live for the ${type} of ${groom} & ${bride} on ${formattedDate}. Venue: ${event.venue_name || event.venueName || ''}`;
+    const heart = type.toLowerCase().includes('wedding') ? '❤️' : '✨';
+    const displayTitle = `${groom} ${heart} ${bride} ${type.charAt(0).toUpperCase() + type.slice(1)} | ${formattedDate}`;
+    const displayDesc = `Join us live and be part of this beautiful ${type.toLowerCase()} celebration filled with love and joy.`;
     
     htmlContent = htmlContent.replace(/<title>.*?<\/title>/g, `<title>${displayTitle}</title>`);
     htmlContent = htmlContent.replace(/<meta property="og:title" content=".*?">/g, `<meta property="og:title" content="${displayTitle}">`);
