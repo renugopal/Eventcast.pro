@@ -115,33 +115,58 @@ document.addEventListener('DOMContentLoaded', () => {
     if (infoItems[2]) infoItems[2].innerText = CONFIG.venue;
     
     const subtexts = document.querySelectorAll('.info-subtext');
-    if (subtexts[0]) subtexts[0].innerText = CONFIG.timeSubtext;
-    if (subtexts[1]) subtexts[1].innerText = CONFIG.venueSubtext;
+    if (subtexts[0]) subtexts[0].innerText = CONFIG.timeSubtext || '';
+    if (subtexts[1]) subtexts[1].innerText = CONFIG.venueSubtext || '';
 
-    // Inject Media
-    const invVideo = document.querySelector('.invitation-video');
-    if (invVideo) {
-        invVideo.setAttribute('poster', optimizeUrl(CONFIG.thumbnail));
-        invVideo.querySelector('source').setAttribute('src', CONFIG.invitationVideo);
-        invVideo.load();
+    // Dynamic Time Label (e.g. 'Sumuhurtham' / 'Wedding' / 'Ceremony')
+    const heroInfoItems = document.querySelectorAll('.hero-info-item');
+    if (heroInfoItems[1]) {
+        const lbl = heroInfoItems[1].querySelector('.info-label');
+        if (lbl) lbl.innerText = CONFIG.timeLabel || 'Sumuhurtham';
     }
 
-    // Dynamic Gallery
+    // --- Invitation Video Section: hide if no video provided ---
+    const invVideoSection = document.getElementById('invitation-video');
+    const invVideo = document.querySelector('.invitation-video');
+    if (CONFIG.invitationVideo) {
+        if (invVideo) {
+            invVideo.setAttribute('poster', optimizeUrl(CONFIG.thumbnail));
+            const src = invVideo.querySelector('source');
+            if (src) src.setAttribute('src', CONFIG.invitationVideo);
+            invVideo.load();
+        }
+    } else {
+        // No video provided → hide the entire section
+        if (invVideoSection) invVideoSection.style.display = 'none';
+    }
+
+    // --- Photo Gallery: hide section if no photos provided, else inject ---
+    const photoSection = document.getElementById('photo-gallery');
     const slideshowWrapper = document.querySelector('.slideshow-wrapper');
     const dotsContainer = document.querySelector('.ss-dots');
-    if (slideshowWrapper && CONFIG.gallery && CONFIG.gallery.length > 0) {
-        slideshowWrapper.innerHTML = CONFIG.gallery.map((url, i) => `
-            <div class="slide ${i === 0 ? 'active' : ''}">
-                <div class="slide-bg" style="background-image: url('${optimizeUrl(url)}');"></div>
-                <img src="${optimizeUrl(url)}" alt="Memory ${i+1}" class="gallery-img">
-            </div>
-        `).join('');
+    
+    // Update gallery section title
+    const galleryTitle = document.querySelector('#photo-gallery .section-title');
+    if (galleryTitle) galleryTitle.innerText = 'Memories';
+
+    if (CONFIG.gallery && CONFIG.gallery.length > 0) {
+        if (slideshowWrapper) {
+            slideshowWrapper.innerHTML = CONFIG.gallery.map((url, i) => `
+                <div class="slide ${i === 0 ? 'active' : ''}">
+                    <div class="slide-bg" style="background-image: url('${optimizeUrl(url)}');"></div>
+                    <img src="${optimizeUrl(url)}" alt="Memory ${i+1}" class="gallery-img">
+                </div>
+            `).join('');
+        }
         
         if (dotsContainer) {
             dotsContainer.innerHTML = CONFIG.gallery.map((_, i) => `
                 <span class="dot ${i === 0 ? 'active' : ''}"></span>
             `).join('');
         }
+    } else {
+        // No photos → hide the entire gallery section
+        if (photoSection) photoSection.style.display = 'none';
     }
 
     // Photographer Credit

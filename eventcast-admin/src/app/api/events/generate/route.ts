@@ -197,6 +197,7 @@ export async function POST(req: Request) {
     bride: "${dbPayload.bride_name || 'Family'}",
     date: "${formattedDate}",
     time: "${formattedTime}",
+    timeLabel: "${event.time_label || event.timeLabel || type || 'Wedding'}",
     timeSubtext: "",
     timerTarget: "${rawDate}T${timerTime}",
     venue: "${dbPayload.venue_name || ''}",
