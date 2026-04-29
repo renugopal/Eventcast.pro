@@ -1,0 +1,22 @@
+window.WEDDING_CONFIG = {
+    groom: "Vinay Raj",
+    bride: "Tanuja",
+    date: "Wednesday, April 29th",
+    time: "11:03 PM",
+    timeLabel: "Wedding",
+    timeSubtext: "",
+    timerTarget: "2026-04-29T19:30",
+    venue: "Sri Chennakesava Venkateswara Swamy Temple, Upputur.",
+    venueSubtext: "",
+    youtubeId: "59kbG4MEXR4",
+    invitationVideo: "https://res.cloudinary.com/df5b4aq7h/video/upload/v1777448554/buwujwncdfwgqbiibwax.mp4",
+    invitationVideos: ["https://res.cloudinary.com/df5b4aq7h/video/upload/v1777448554/buwujwncdfwgqbiibwax.mp4","https://res.cloudinary.com/df5b4aq7h/video/upload/v1777448560/h5uvzhcdgoptdwd87snu.mp4"],
+    thumbnail: "https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777447329/kwdeisvgtkbytx5rlts9.png",
+    gallery: ["https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777448486/fsekz2ip3a3qdgspqa5p.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777448487/qvfm4vjrajbozip57bit.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777448488/fck74y9q8qjzdzhvcmcp.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777448488/useckcyyuishfjuhmn4f.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777448489/pqafg69z0fjgcd57x5uh.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777448490/kr4repsbdy9rbwvsczqv.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777448491/f7qbybgrdamuowvsrrnt.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777448491/ozujnx58bacxrzkxplje.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777448492/wdn4agjwwhmxyfqct56x.jpg"],
+    supabaseUrl: "https://lteogzqeuuoxlekhofow.supabase.co",
+    supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0ZW9nenFldXVveGxla2hvZm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxOTc0ODIsImV4cCI6MjA5Mjc3MzQ4Mn0.eaGIKI5O17PI-bh52IiDDpPr4vqlBOU1Bq_NuAkYZXE",
+    eventId: "5e6ee3d3-04c8-4a10-bc1e-3ffff307244a",
+    eventType: "Wedding",
+    introText: "Jangili & Kommanaboina's\n      Wedding Invitation      ",
+    photographer: {"id":"f837fb19-18cc-488a-ab42-be1c25e29504","name":"Kabir Digital Studio","phone_number":"98498 90286","studio_name":null,"city":"Upputuru","created_at":"2026-04-29T07:21:45.402881+00:00","instagram_url":null,"phone":null,"logo_url":"https://res.cloudinary.com/df5b4aq7h/image/upload/v1777447222/othntd9okosku7soxbgd.png","nickname":"Babu Parchur"}
+};
