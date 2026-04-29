@@ -1,21 +1,24 @@
 // --- CONFIG DRIVEN LOGIC ---
 // These values should be provided by config.js
 const CONFIG = window.WEDDING_CONFIG || {
-    groom: "Arjun",
-    bride: "Nithya",
-    date: "Saturday, April 25",
-    time: "03:06 AM",
-    timeSubtext: "(Early Hours of Sunday)",
-    timerTarget: "2026-04-25T03:06:00",
-    venue: "Sri Prasannanjaneya Swamy Vari Kalyanamandapam",
-    venueSubtext: "Boppudi Village",
-    youtubeId: "jfKfPfyJRdk",
-    invitationVideo: "assets/invitation.mp4",
-    thumbnail: "assets/thumb.jpeg",
-    gallery: ["assets/gallery_1.png", "assets/gallery_2.png", "assets/gallery_3.png", "assets/gallery_4.png"],
-    supabaseUrl: 'https://ntjqjmuripwexwlhfrny.supabase.co',
-    supabaseKey: 'sb_publishable_vi_vz9qfKMJnEymw3WaPpg_2A6SeSWR',
-    eventId: 'arjun-nithya'
+    groom: "Sample",
+    bride: "Event",
+    date: "Saturday, January 1st",
+    time: "09:00 AM",
+    timeSubtext: "",
+    timerTarget: new Date().toISOString(),
+    venue: "Venue Name",
+    venueSubtext: "",
+    youtubeId: "",
+    invitationVideo: "",
+    thumbnail: "assets/gallery_1.png",
+    gallery: ["assets/gallery_1.png", "assets/gallery_2.png", "assets/gallery_3.png"],
+    supabaseUrl: '',
+    supabaseKey: '',
+    eventId: '',
+    eventType: 'Wedding',
+    introText: '',
+    photographer: null
 };
 
 const WEDDING_DATE = new Date(CONFIG.timerTarget).getTime();
