@@ -757,19 +757,19 @@ footer {
 }
 
 .photographer-section img {
-    max-width: 220px;
-    max-height: 140px;
+    max-width: 300px;
+    max-height: 190px;
     height: auto;
-    width: auto;
+    width: 100%;
     margin: 0 auto 20px;
     display: block;
     object-fit: contain;
-    border: 1.5px solid rgba(212, 175, 55, 0.5); /* subtle gold border */
+    border: 1.5px solid rgba(212, 175, 55, 0.5);
     border-radius: 14px;
     padding: 10px 14px;
-    background: rgba(255, 255, 255, 0.06); /* very slight frosted bg */
-    box-shadow: 0 0 22px rgba(212, 175, 55, 0.18), /* soft gold outer glow */
-                inset 0 0 12px rgba(255,255,255,0.03); /* subtle inner highlight */
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 0 22px rgba(212, 175, 55, 0.18),
+                inset 0 0 12px rgba(255,255,255,0.03);
     transition: box-shadow 0.3s ease;
 }
 
