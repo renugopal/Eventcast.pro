@@ -10,6 +10,7 @@ window.WEDDING_CONFIG = {
     venueSubtext: "",
     youtubeId: "iH1hr0F861s",
     invitationVideo: "",
+    invitationVideos: [],
     thumbnail: "https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777442499/twehkrb9jznqkg620er7.png",
     gallery: [],
     supabaseUrl: "https://lteogzqeuuoxlekhofow.supabase.co",
@@ -17,5 +18,5 @@ window.WEDDING_CONFIG = {
     eventId: "0a1c18f6-4ed5-41e6-96d6-3555275e15d3",
     eventType: "Engagement",
     introText: "Welcome to the\nEngagement of",
-    photographer: null
+    photographer: {"id":"26964888-a807-42d7-a864-fc0bbc3c1d48","name":"Vinay Photography","phone_number":"99480 37753","studio_name":null,"city":"Guntur","created_at":"2026-04-29T08:00:11.66965+00:00","instagram_url":null,"phone":null,"logo_url":"https://res.cloudinary.com/df5b4aq7h/image/upload/v1777449551/kjwxaf8xjzmjqsg0dxjf.png","nickname":"Vinay GNT"}
 };
