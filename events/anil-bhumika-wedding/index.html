@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anil & Bhumika Wedding | Wednesday, April 29th</title>
+    <!-- SEO Meta Tags -->
+    <meta name="description"
+        content="Join us live and be part of this beautiful wedding celebration filled with love and joy.">
+    <meta property="og:title" content="Anil & Bhumika Wedding | Wednesday, April 29th">
+    <meta property="og:description"
+        content="Join us live and be part of this beautiful wedding celebration filled with love and joy.">
+    <meta property="og:image" content="https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777428201/e1an4khf5pg3pjpmzzdy.png">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777428201/e1an4khf5pg3pjpmzzdy.png">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Configuration -->
+    <script src="config.js"></script>
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+
+    <div id="loader">
+        <div class="loader-content">
+            <div class="loader-photo">
+                <img src="assets/gallery_1.png" alt="Couple" onerror="this.style.display='none'; this.parentElement.style.display='none';">
+            </div>
+            <h1 class="logo-text">A & N</h1>
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <!-- Animated Overlays -->
+    <canvas id="petal-canvas"></canvas>
+    <div class="confetti-overlay" id="confetti-container"></div>
+
+
+
+    <a href="#livestream" id="floating-live-btn" class="floating-wish-btn" style="display: none;">
+        <span class="live-dot"></span> <i class="fas fa-video"></i> <span>Watch Live</span>
+    </a>
+
+    <main>
+        <!-- HERO SECTION -->
+        <section id="hero" class="fade-in">
+            <div class="floral-frame tl"></div>
+            <div class="floral-frame tr"></div>
+            <div class="floral-frame bl"></div>
+            <div class="floral-frame br"></div>
+
+            <div class="hero-content">
+                <p class="invite-header intro-text">
+                    Welcome to the Wedding of
+                </p>
+
+                <div class="hero-wreath">
+                    <img src="wreath.webp" alt="Floral Wreath" class="wreath-img">
+                    <div class="names-overlay">
+                        <div class="initials">A & N</div>
+                    </div>
+                </div>
+
+                <div class="full-names-container">
+                    <h1 class="couple-full-names">
+                        <span class="first-name">Arjun</span>
+                        <span class="weds">&</span>
+                        <span class="second-name">Nithya</span>
+                    </h1>
+                </div>
+
+                <div class="hero-info-grid">
+                    <div class="hero-info-item">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span class="info-label">Date</span>
+                        <span class="info-text">Saturday, April 25</span>
+                    </div>
+                    <div class="hero-info-item">
+                        <i class="fas fa-clock"></i>
+                        <span class="info-label">Sumuhurtham</span>
+                        <span class="info-text">03:06 AM</span>
+                        <span class="info-subtext">(Early Hours of Sunday)</span>
+                    </div>
+                    <div class="hero-info-item">
+                        <i class="fas fa-house-chimney"></i>
+                        <span class="info-label">Venue</span>
+                        <span class="info-text">Sri Prasannanjaneya Swamy Vari Kalyanamandapam</span>
+                        <span class="info-subtext">Boppudi Village</span>
+                    </div>
+                </div>
+
+                <div class="countdown-wrapper">
+                    <div id="countdown">
+                        <div class="time-box">
+                            <span id="days">--</span>
+                            <span class="label">Days</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="hours">--</span>
+                            <span class="label">Hours</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="minutes">--</span>
+                            <span class="label">Min</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="seconds">--</span>
+                            <span class="label">Sec</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hero-actions">
+                    <a href="https://calendar.google.com/calendar/render?action=TEMPLATE&text=Arjun+%26+Nithya+Wedding&dates=20260425T213600Z/20260425T230000Z&details=Join+us+live+and+bless+the+couple:+https://eventcast.pro/wedding-automation-template&location=Sri+Prasannanjaneya+Swamy+Vari+Kalyanamandapam,+Boppudi+Village"
+                        target="_blank" class="btn secondary-btn save-date-btn">
+                        <i class="fas fa-calendar-check"></i> Save to Calendar
+                    </a>
+                    <button id="whatsapp-share-btn" class="btn primary-btn whatsapp-btn">
+                        <i class="fab fa-whatsapp"></i> Share on WhatsApp
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- INVITATION VIDEO SECTION -->
+        <section id="invitation-video" class="reveal">
+            <h2 class="section-title">Wedding Invitation</h2>
+            <div class="invitation-container">
+                <video class="invitation-video" autoplay muted playsinline loop poster="assets/thumb.jpeg">
+                    <source src="assets/invitation.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </section>
+
+
+
+        <!-- LIVESTREAM SECTION -->
+        <section id="livestream" class="reveal">
+            <div class="section-header">
+                <h2 class="section-title">Live Stream</h2>
+                <div class="status-badge"><span class="pulse"></span> LIVE SOON</div>
+            </div>
+
+            <div class="video-container">
+                <div id="youtube-player"></div>
+            </div>
+        </section>
+
+        <!-- PHOTO GALLERY SLIDESHOW SECTION -->
+        <section id="photo-gallery" class="reveal">
+            <h2 class="section-title">Pre-Wedding Memories</h2>
+            <div class="slideshow-container">
+                <div class="slideshow-wrapper">
+                    <div class="slide active">
+                        <div class="slide-bg" style="background-image: url('assets/gallery_1.png');"></div>
+                        <img src="assets/gallery_1.png" alt="Pre-wedding photo 1" class="gallery-img">
+                    </div>
+                    <div class="slide">
+                        <div class="slide-bg" style="background-image: url('assets/gallery_2.png');"></div>
+                        <img src="assets/gallery_2.png" alt="Pre-wedding photo 2" class="gallery-img">
+                    </div>
+                    <div class="slide">
+                        <div class="slide-bg" style="background-image: url('assets/gallery_3.png');"></div>
+                        <img src="assets/gallery_3.png" alt="Pre-wedding photo 3" class="gallery-img">
+                    </div>
+                    <div class="slide">
+                        <div class="slide-bg" style="background-image: url('assets/gallery_4.png');"></div>
+                        <img src="assets/gallery_4.png" alt="Pre-wedding photo 4" class="gallery-img">
+                    </div>
+                </div>
+                
+                <button class="ss-nav ss-prev"><i class="fas fa-chevron-left"></i></button>
+                <button class="ss-nav ss-next"><i class="fas fa-chevron-right"></i></button>
+                
+                <div class="ss-dots">
+                    <span class="dot active"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
+            </div>
+        </section>
+
+
+
+
+
+        <!-- CHAT / WISHES SECTION -->
+        <section id="chat-section" class="reveal">
+            <div class="content-card">
+                <h2 class="section-title">Wishes Wall</h2>
+                <p class="section-subtitle">Send your blessings to the happy couple</p>
+
+                <form id="wishes-form">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <input type="text" id="wish-name" placeholder="Your Name" required>
+                        </div>
+                        <div class="input-group">
+                            <textarea id="wish-message" rows="3" placeholder="Write your message here..."
+                                required></textarea>
+                        </div>
+                        <button type="submit" class="btn primary-btn">Send Message <i
+                                class="fas fa-paper-plane"></i></button>
+                    </div>
+                </form>
+
+                <div id="wishes-list" class="wishes-scroll-area">
+                    <!-- Wishes will appear here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- MAP SECTION -->
+        <section id="map-section" class="reveal">
+            <h2 class="section-title">Locate the Venue</h2>
+            <div class="map-container">
+                <iframe
+                    src="https://maps.google.com/maps?q=Konanki%2C%20Martur.&output=embed"
+                    width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+            <div class="action-buttons">
+                <a href="https://www.google.com/maps/search/?api=1&query=Konanki%2C%20Martur." target="_blank" class="btn map-btn">
+                    <i class="fas fa-location-dot"></i> Open in Google Maps
+                </a>
+            </div>
+        </section>
+
+        <!-- FOOTER & PHOTOGRAPHER -->
+        <footer>
+            <div class="photographer-section">
+                <img src="https://res.cloudinary.com/df5b4aq7h/image/upload/v1777197482/ashok_logo.png" alt="Studio Logo">
+                <h3 class="studio-name">SSV Photography</h3>
+                <div class="contact-info">
+                    <a href="tel:8886143930" class="p-phone"><i class="fas fa-phone"></i> <span>88861 43930</span></a>
+                    <a href="https://instagram.com/" class="p-insta" target="_blank"><i class="fab fa-instagram"></i> Instagram</a>
+                    <div class="public-stats" style="margin-top: 20px; font-size: 0.8rem; color: rgba(255,255,255,0.5); border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+                        <i class="fas fa-eye"></i> <span id="total-views-display">124</span> People visited this page
+                    </div>
+                </div>
+            </div>
+
+
+        </footer>
+    </main>
+
+    <script src="https://unpkg.com/scrollreveal"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
