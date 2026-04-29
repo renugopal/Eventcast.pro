@@ -17,5 +17,5 @@ window.WEDDING_CONFIG = {
     eventId: "090f72c9-df56-4549-a17a-a6efdf0d1ffb",
     eventType: "Wedding",
     introText: "Welcome to the\n   Wedding of",
-    photographer: null
+    photographer: {"id":"ae2191d6-20a6-4a89-8481-fce9f76c3b04","name":"Varna Videos","phone_number":"73868 51228","studio_name":null,"city":"Chilakaluripet","created_at":"2026-04-29T04:05:29.631651+00:00","instagram_url":"","phone":null,"logo_url":"https://res.cloudinary.com/df5b4aq7h/image/upload/v1777435512/upupntqfbhznglmoekl7.png"}
 };
