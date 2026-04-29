@@ -46,6 +46,7 @@ export default function AdminDashboard() {
     eventDate: new Date().toISOString().split('T')[0],
     eventTime: "",
     timerTargetTime: "",
+    timeLabel: "",           // e.g. 'Sumuhurtham', 'Ceremony Time', 'Muhurtham'
     showTimer: true,
     venueName: "",
     venueMapLink: "",
@@ -54,6 +55,8 @@ export default function AdminDashboard() {
     privacyStatus: "Unlisted (Link Only)",
     galleryUrls: "",
     vodLink: "",
+    receptionYoutubeId: "",  // Optional: for Wedding + Reception same page
+    receptionTime: "",       // e.g. '7:00 PM'
     templateId: "wedding-template-01",
     youtubePrivacy: "public",
     autoGenerateThumbnail: true
@@ -477,6 +480,9 @@ export default function AdminDashboard() {
       privacyStatus: "Unlisted (Link Only)",
       galleryUrls: "",
       vodLink: "",
+      receptionYoutubeId: "",
+      receptionTime: "",
+      timeLabel: "",
       templateId: "wedding-template-01",
       youtubePrivacy: "public",
       autoGenerateThumbnail: true
@@ -504,6 +510,9 @@ export default function AdminDashboard() {
       privacyStatus: event.privacy_status || "Unlisted (Link Only)",
       galleryUrls: Array.isArray(event.gallery_urls) ? event.gallery_urls.join('\n') : "",
       vodLink: event.vod_link || "",
+      receptionYoutubeId: event.reception_youtube_id || "",
+      receptionTime: event.reception_time || "",
+      timeLabel: event.time_label || "",
       templateId: event.template_id || "wedding-template-01",
       youtubePrivacy: "public",
       autoGenerateThumbnail: event.auto_generate_thumbnail ?? true
@@ -730,6 +739,19 @@ export default function AdminDashboard() {
                       <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Live Start Time</label>
                       <input type="time" name="timerTargetTime" value={formData.timerTargetTime} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
                     </div>
+                    <div>
+                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+                        Time Label <span className="text-blue-400 normal-case font-normal">(optional — default: Sumuhurtham)</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="timeLabel"
+                        value={formData.timeLabel}
+                        onChange={handleInputChange}
+                        placeholder="e.g. Ceremony Time / Muhurtham / Sumuhurtham"
+                        className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800"
+                      />
+                    </div>
                   </div>
                 </section>
 
@@ -842,6 +864,37 @@ export default function AdminDashboard() {
                           ))}
                         </div>
                       )}
+                    </div>
+
+                    {/* Reception Stream (Optional) */}
+                    <div className="md:col-span-2 bg-amber-50/60 p-6 rounded-2xl border border-amber-100">
+                      <label className="block text-sm font-black text-amber-800 mb-4 flex items-center gap-2">
+                        <Play size={18} /> Reception Stream <span className="font-normal text-xs text-amber-600 ml-2">(optional — shows a Wedding/Reception tab on the page)</span>
+                      </label>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Reception YouTube ID / URL</label>
+                          <input
+                            type="text"
+                            name="receptionYoutubeId"
+                            value={formData.receptionYoutubeId}
+                            onChange={handleInputChange}
+                            placeholder="e.g. aBcDeFgHiJk"
+                            className="w-full p-4 bg-white border border-amber-200 rounded-2xl outline-none focus:ring-2 focus:ring-amber-400 transition-all font-bold text-slate-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Reception Time (Display)</label>
+                          <input
+                            type="text"
+                            name="receptionTime"
+                            value={formData.receptionTime}
+                            onChange={handleInputChange}
+                            placeholder="e.g. 7:00 PM"
+                            className="w-full p-4 bg-white border border-amber-200 rounded-2xl outline-none focus:ring-2 focus:ring-amber-400 transition-all font-bold text-slate-800"
+                          />
+                        </div>
+                      </div>
                     </div>
                     
                     {formData.autoGenerateThumbnail && (

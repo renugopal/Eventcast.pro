@@ -192,16 +192,23 @@ export async function POST(req: Request) {
     // Escape newlines in introText so config.js doesn't have multi-line string syntax error
     const safeIntroText = (dbPayload.custom_top_title || '').replace(/"/g, '\\"').replace(/\n/g, '\\n');
 
+    const receptionId = (event.receptionYoutubeId || event.reception_youtube_id || '').trim();
+    const receptionTime = (event.receptionTime || event.reception_time || '').trim();
+    const timeLabel = (event.timeLabel || event.time_label || 'Sumuhurtham').trim();
+
     const configContent = `window.WEDDING_CONFIG = {
     groom: "${dbPayload.groom_name || dbPayload.celebrant_name || ''}",
     bride: "${dbPayload.bride_name || 'Family'}",
     date: "${formattedDate}",
     time: "${formattedTime}",
+    timeLabel: "${timeLabel}",
     timeSubtext: "",
     timerTarget: "${rawDate}T${timerTime}",
     venue: "${dbPayload.venue_name || ''}",
     venueSubtext: "",
     youtubeId: "${youtubeId}",
+    receptionYoutubeId: "${receptionId}",
+    receptionTime: "${receptionTime}",
     invitationVideo: "${dbPayload.invitation_video_url || ''}",
     thumbnail: "${thumbnailUrl}",
     gallery: ${JSON.stringify(galleryArray)},
