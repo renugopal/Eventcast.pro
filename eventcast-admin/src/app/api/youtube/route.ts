@@ -38,9 +38,21 @@ export async function POST(req: Request) {
       "Content-Type": "application/json"
     };
 
-    // SEO Title: Names + Event Type + Date
+    // SEO Title: Names + Event Type + Date (formatted)
     const heart = eventType.toLowerCase().includes('wedding') ? '❤️' : '✨';
-    const displayTitle = `${groomName} ${heart} ${brideName} ${eventType} Live | ${eventDate}`;
+
+    // Format date: "2026-05-01" → "Friday, May 1st"
+    let formattedEventDate = eventDate;
+    if (eventDate) {
+      const [y, m, d] = eventDate.split('-').map(Number);
+      const dateObj = new Date(Date.UTC(y, m - 1, d));
+      let fd = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' }).format(dateObj);
+      const day = dateObj.getUTCDate();
+      const suffix = (day % 10 === 1 && day !== 11) ? 'st' : (day % 10 === 2 && day !== 12) ? 'nd' : (day % 10 === 3 && day !== 13) ? 'rd' : 'th';
+      formattedEventDate = fd.replace(String(day), day + suffix);
+    }
+
+    const displayTitle = `${groomName} ${heart} ${brideName} ${eventType} Live | ${formattedEventDate}`;
     
     // Webpage Short Description (sent in payload for HTML generation)
     const webpageDesc = `Join us live and be part of this beautiful ${eventType.toLowerCase()} celebration filled with love and joy.`;
