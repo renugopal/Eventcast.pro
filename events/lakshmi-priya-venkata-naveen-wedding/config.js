@@ -1,0 +1,21 @@
+window.WEDDING_CONFIG = {
+    groom: "Lakshmi Priya",
+    bride: "Venkata Naveen",
+    date: "Thursday, April 30th",
+    time: "11:15 AM",
+    timeLabel: "Wedding",
+    timeSubtext: "",
+    timerTarget: "2026-04-30T09:30",
+    venue: "S V Hotels, Addanki.",
+    venueSubtext: "",
+    youtubeId: "Jg0FNve_Qs0",
+    invitationVideo: "",
+    thumbnail: "https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777440024/kdtqxvc39lw8d9xguxdz.png",
+    gallery: [],
+    supabaseUrl: "https://lteogzqeuuoxlekhofow.supabase.co",
+    supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0ZW9nenFldXVveGxla2hvZm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxOTc0ODIsImV4cCI6MjA5Mjc3MzQ4Mn0.eaGIKI5O17PI-bh52IiDDpPr4vqlBOU1Bq_NuAkYZXE",
+    eventId: "2a3097b9-026d-4371-9335-504d54da7d13",
+    eventType: "Wedding",
+    introText: "Welcome to the\n   Wedding of",
+    photographer: {"id":"5c9dde42-6e48-4e0b-84b0-1e4b3e1fa896","name":"Omkar Digitals","phone_number":"91105 02873","studio_name":null,"city":"","created_at":"2026-04-29T05:14:13.989023+00:00","instagram_url":"","phone":null,"logo_url":"https://res.cloudinary.com/df5b4aq7h/image/upload/v1777439645/uo3eazosqhwl8igiit4v.png"}
+};
