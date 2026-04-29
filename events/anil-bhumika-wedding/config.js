@@ -3,6 +3,7 @@ window.WEDDING_CONFIG = {
     bride: "Bhumika",
     date: "Wednesday, April 29th",
     time: "7:52 PM",
+    timeLabel: "Wedding",
     timeSubtext: "",
     timerTarget: "2026-04-29T18:00",
     venue: "Konanki, Martur.",
