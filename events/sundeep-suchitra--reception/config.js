@@ -5,7 +5,7 @@ window.WEDDING_CONFIG = {
     time: "12:00 PM",
     timeLabel: "Reception",
     timeSubtext: "",
-    timerTarget: "2026-05-01T23:00",
+    timerTarget: "2026-05-01T11:00",
     venue: "M.S. Function Hall, Ongole.",
     venueSubtext: "",
     youtubeId: "BNs4A-EuF9c",
@@ -17,5 +17,5 @@ window.WEDDING_CONFIG = {
     eventId: "dc1576e5-e5a1-4d90-b49c-139f8b24897c",
     eventType: "Reception",
     introText: "Welcome to the\n  Rececption of ",
-    photographer: null
+    photographer: {"id":"ae2191d6-20a6-4a89-8481-fce9f76c3b04","name":"Varna Videos","phone_number":"73868 51228","studio_name":null,"city":"Chilakaluripet","created_at":"2026-04-29T04:05:29.631651+00:00","instagram_url":"","phone":null,"logo_url":"https://res.cloudinary.com/df5b4aq7h/image/upload/v1777435512/upupntqfbhznglmoekl7.png"}
 };
