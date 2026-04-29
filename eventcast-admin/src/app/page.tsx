@@ -126,8 +126,26 @@ export default function AdminDashboard() {
   }
 
   async function fetchAnalytics() {
-    const { data } = await supabase.from('events').select('groom_name, celebrant_name, event_type, view_count').order('view_count', { ascending: false });
-    if (data) setAnalyticsData(data);
+    // Use page_views count per event (accurate, no race condition)
+    const { data: eventsData } = await supabase
+      .from('events')
+      .select('id, groom_name, celebrant_name, event_type, slug')
+      .order('created_at', { ascending: false });
+    
+    const { data: viewsData } = await supabase
+      .from('page_views')
+      .select('event_id');
+    
+    if (eventsData) {
+      const viewCounts = (viewsData || []).reduce((acc: any, v: any) => {
+        acc[v.event_id] = (acc[v.event_id] || 0) + 1;
+        return acc;
+      }, {});
+      setAnalyticsData(eventsData.map((e: any) => ({
+        ...e,
+        view_count: viewCounts[e.id] || 0
+      })));
+    }
   }
 
   async function fetchPhotographers() {
@@ -490,8 +508,10 @@ export default function AdminDashboard() {
       youtubePrivacy: "public",
       autoGenerateThumbnail: event.auto_generate_thumbnail ?? true
     });
-    const pg = photographers.find(p => p.id === event.photographer_id);
+    const pg = photographers.find((p: any) => p.id === event.photographer_id);
     if (pg) setSelectedPhotographer(pg);
+    // Restore base design selection if available
+    if (event.base_design) setSelectedBaseDesign(event.base_design);
     setActiveTab("create");
   };
 
