@@ -1,0 +1,21 @@
+window.WEDDING_CONFIG = {
+    groom: "Sundeep",
+    bride: "Suchitra ",
+    date: "Friday, May 1st",
+    time: "12:00 PM",
+    timeLabel: "Reception",
+    timeSubtext: "",
+    timerTarget: "2026-05-01T23:00",
+    venue: "M.S. Function Hall, Ongole.",
+    venueSubtext: "",
+    youtubeId: "BNs4A-EuF9c",
+    invitationVideo: "",
+    thumbnail: "https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777436591/mlzmgttpzbxsrvmxi2en.png",
+    gallery: [],
+    supabaseUrl: "https://lteogzqeuuoxlekhofow.supabase.co",
+    supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0ZW9nenFldXVveGxla2hvZm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxOTc0ODIsImV4cCI6MjA5Mjc3MzQ4Mn0.eaGIKI5O17PI-bh52IiDDpPr4vqlBOU1Bq_NuAkYZXE",
+    eventId: "dc1576e5-e5a1-4d90-b49c-139f8b24897c",
+    eventType: "Reception",
+    introText: "Welcome to the\n  Rececption of ",
+    photographer: null
+};
