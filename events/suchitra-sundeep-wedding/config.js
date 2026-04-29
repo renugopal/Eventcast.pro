@@ -1,0 +1,21 @@
+window.WEDDING_CONFIG = {
+    groom: "Suchitra",
+    bride: "Sundeep",
+    date: "Wednesday, April 29th",
+    time: "12:51 AM",
+    timeLabel: "Wedding",
+    timeSubtext: "",
+    timerTarget: "2026-04-29T19:30",
+    venue: "Sri Venkateswaraswamy Temple Function Hall, Guntur",
+    venueSubtext: "",
+    youtubeId: "_MzLbfvhgK0",
+    invitationVideo: "",
+    thumbnail: "https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777435657/asxmas6ntfxcqrudsxac.png",
+    gallery: [],
+    supabaseUrl: "https://lteogzqeuuoxlekhofow.supabase.co",
+    supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0ZW9nenFldXVveGxla2hvZm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxOTc0ODIsImV4cCI6MjA5Mjc3MzQ4Mn0.eaGIKI5O17PI-bh52IiDDpPr4vqlBOU1Bq_NuAkYZXE",
+    eventId: "090f72c9-df56-4549-a17a-a6efdf0d1ffb",
+    eventType: "Wedding",
+    introText: "Welcome to the\n   Wedding of",
+    photographer: null
+};
