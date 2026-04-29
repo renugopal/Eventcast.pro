@@ -52,7 +52,13 @@ export async function POST(req: Request) {
       show_timer: event.show_timer ?? event.showTimer ?? true,
       venue_name: event.venue_name || event.venueName,
       venue_map_link: event.venue_map_link || event.venueMapLink,
-      invitation_video_url: event.invitation_video_url || event.invitationVideoUrl,
+      invitation_video_url: (() => {
+        // Support both single URL and multi-URL (newline separated)
+        const raw = event.invitation_video_url || event.invitationVideoUrl || event.invitationVideoUrls || '';
+        if (Array.isArray(raw)) return raw[0] || null;
+        if (typeof raw === 'string') return raw.split('\n').map((u: string) => u.trim()).filter(Boolean)[0] || null;
+        return null;
+      })(),
       thumbnail_url: event.thumbnail_url || event.thumbnailUrl,
       privacy_status: event.privacy_status || event.privacyStatus,
       gallery_urls: (() => {
@@ -193,6 +199,14 @@ export async function POST(req: Request) {
     // Escape newlines in introText so config.js doesn't have multi-line string syntax error
     const safeIntroText = (dbPayload.custom_top_title || '').replace(/"/g, '\\"').replace(/\n/g, '\\n');
 
+    // Parse invitation videos array
+    const invitationVideosArray = (() => {
+      const raw = event.invitation_video_url || event.invitationVideoUrl || event.invitationVideoUrls || '';
+      if (Array.isArray(raw)) return (raw as string[]).filter(Boolean);
+      if (typeof raw === 'string') return (raw as string).split('\n').map((u: string) => u.trim()).filter(Boolean);
+      return [];
+    })();
+
     const configContent = `window.WEDDING_CONFIG = {
     groom: "${dbPayload.groom_name || dbPayload.celebrant_name || ''}",
     bride: "${dbPayload.bride_name || 'Family'}",
@@ -204,7 +218,8 @@ export async function POST(req: Request) {
     venue: "${dbPayload.venue_name || ''}",
     venueSubtext: "",
     youtubeId: "${youtubeId}",
-    invitationVideo: "${dbPayload.invitation_video_url || ''}",
+    invitationVideo: "${invitationVideosArray[0] || ''}",
+    invitationVideos: ${JSON.stringify(invitationVideosArray)},
     thumbnail: "${thumbnailUrl}",
     gallery: ${JSON.stringify(galleryArray)},
     supabaseUrl: "${process.env.NEXT_PUBLIC_SUPABASE_URL || ''}",

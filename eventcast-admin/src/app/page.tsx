@@ -49,7 +49,7 @@ export default function AdminDashboard() {
     showTimer: true,
     venueName: "",
     venueMapLink: "",
-    invitationVideoUrl: "",
+    invitationVideoUrls: "",
     thumbnailUrl: "",
     privacyStatus: "Unlisted (Link Only)",
     galleryUrls: "",
@@ -350,7 +350,10 @@ export default function AdminDashboard() {
     }
 
     if (type === 'thumbnail') setFormData(prev => ({ ...prev, thumbnailUrl: uploadedUrls[0] }));
-    else if (type === 'video') setFormData(prev => ({ ...prev, invitationVideoUrl: uploadedUrls[0] }));
+    else if (type === 'video') {
+      const newUrls = uploadedUrls.join('\n');
+      setFormData(prev => ({ ...prev, invitationVideoUrls: prev.invitationVideoUrls ? `${prev.invitationVideoUrls}\n${newUrls}` : newUrls }));
+    }
     else if (type === 'photographer_logo') setSelectedPhotographer((prev: any) => ({ ...prev, logo_url: uploadedUrls[0] }));
     else if (type === 'gallery') {
       const currentUrls = formData.galleryUrls;
@@ -472,7 +475,7 @@ export default function AdminDashboard() {
       showTimer: true,
       venueName: "",
       venueMapLink: "",
-      invitationVideoUrl: "",
+      invitationVideoUrls: "",
       thumbnailUrl: "",
       privacyStatus: "Unlisted (Link Only)",
       galleryUrls: "",
@@ -499,7 +502,9 @@ export default function AdminDashboard() {
       showTimer: event.show_timer ?? true,
       venueName: event.venue_name || "",
       venueMapLink: event.venue_map_link || "",
-      invitationVideoUrl: event.invitation_video_url || "",
+      invitationVideoUrls: Array.isArray(event.invitation_video_url)
+        ? event.invitation_video_url.join('\n')
+        : (event.invitation_video_url || ""),
       thumbnailUrl: event.thumbnail_url || "",
       privacyStatus: event.privacy_status || "Unlisted (Link Only)",
       galleryUrls: Array.isArray(event.gallery_urls) ? event.gallery_urls.join('\n') : "",
@@ -809,31 +814,46 @@ export default function AdminDashboard() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Invitation Video (MP4)</label>
-                      <div className="relative group">
-                        <input
-                          type="text"
-                          name="invitationVideoUrl"
-                          value={formData.invitationVideoUrl}
-                          onChange={handleInputChange}
-                          placeholder="Paste invitation video URL (mp4) here..."
-                          className="w-full bg-white/50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400 pr-12"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => videoInputRef.current?.click()}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-                        >
-                          <Film size={18} />
-                        </button>
-                        <input type="file" ref={videoInputRef} hidden accept="video/*" onChange={(e) => uploadToCloudinary(e.target.files, 'video')} />
-                      </div>
-                      {formData.invitationVideoUrl && (
-                        <div className="mt-4 p-2 bg-slate-50 border border-slate-100 rounded-2xl relative overflow-hidden group">
-                           <video src={formData.invitationVideoUrl} className="w-full h-32 object-cover rounded-xl" muted playsInline />
-                           <div className="absolute inset-0 bg-black/20 flex items-center justify-center rounded-xl pointer-events-none">
-                              <Play size={24} fill="currentColor" className="text-white opacity-80" />
-                           </div>
+                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+                        Invitation Videos (MP4) <span className="normal-case font-normal text-slate-400">— upload 1, 2 or 3 videos</span>
+                      </label>
+                      <textarea
+                        name="invitationVideoUrls"
+                        value={formData.invitationVideoUrls}
+                        onChange={handleInputChange}
+                        rows={2}
+                        className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-mono text-xs mb-2 text-slate-600 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                        placeholder="Video URLs will appear here after upload (one per line)..."
+                        readOnly
+                      />
+                      <button
+                        type="button"
+                        onClick={() => videoInputRef.current?.click()}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 font-bold transition-colors"
+                      >
+                        {isUploading === 'video' ? <Loader2 className="animate-spin" size={18} /> : <Film size={18} />}
+                        Upload Invitation Video(s)
+                      </button>
+                      <input type="file" ref={videoInputRef} hidden multiple accept="video/*" onChange={(e) => uploadToCloudinary(e.target.files, 'video')} />
+                      {formData.invitationVideoUrls && (
+                        <div className="mt-3 grid grid-cols-3 gap-2">
+                          {formData.invitationVideoUrls.split('\n').filter(u => u.trim()).map((url, idx) => (
+                            <div key={idx} className="relative group">
+                              <video src={url.trim()} className="w-full h-24 object-cover rounded-xl border border-slate-200 bg-slate-100" muted playsInline />
+                              <div className="absolute inset-0 bg-black/30 flex items-center justify-center rounded-xl">
+                                <span className="text-white font-black text-xs">Video {idx + 1}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const urls = formData.invitationVideoUrls.split('\n').filter(u => u.trim());
+                                  urls.splice(idx, 1);
+                                  setFormData(prev => ({ ...prev, invitationVideoUrls: urls.join('\n') }));
+                                }}
+                                className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              >✕</button>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>

@@ -125,18 +125,38 @@ document.addEventListener('DOMContentLoaded', () => {
         if (lbl) lbl.innerText = CONFIG.timeLabel || 'Sumuhurtham';
     }
 
-    // --- Invitation Video Section: hide if no video provided ---
+    // --- Invitation Video Section ---
     const invVideoSection = document.getElementById('invitation-video');
-    const invVideo = document.querySelector('.invitation-video');
-    if (CONFIG.invitationVideo) {
+    const invVideo = document.getElementById('main-invitation-video');
+    const videoTabsContainer = document.getElementById('video-tabs');
+    const allVideos = CONFIG.invitationVideos && CONFIG.invitationVideos.length > 0
+        ? CONFIG.invitationVideos
+        : (CONFIG.invitationVideo ? [CONFIG.invitationVideo] : []);
+
+    if (allVideos.length > 0) {
+        // Set first video as default
         if (invVideo) {
             invVideo.setAttribute('poster', optimizeUrl(CONFIG.thumbnail));
             const src = invVideo.querySelector('source');
-            if (src) src.setAttribute('src', CONFIG.invitationVideo);
+            if (src) src.setAttribute('src', allVideos[0]);
             invVideo.load();
         }
+
+        // Show tabs if multiple videos
+        if (allVideos.length > 1 && videoTabsContainer) {
+            videoTabsContainer.style.display = 'flex';
+            videoTabsContainer.innerHTML = allVideos.map((url, i) => `
+                <button onclick="switchVideo(${i})" id="vtab-${i}"
+                    style="padding:8px 20px; border-radius:50px; font-size:0.8rem; font-weight:700; cursor:pointer;
+                           border: 2px solid var(--gold); transition: all 0.3s;
+                           background: ${i === 0 ? 'var(--gold)' : 'transparent'};
+                           color: ${i === 0 ? '#000' : 'var(--gold)'};">
+                    🎬 Video ${i + 1}
+                </button>
+            `).join('');
+        }
     } else {
-        // No video provided → hide the entire section
+        // No video → hide section
         if (invVideoSection) invVideoSection.style.display = 'none';
     }
 
@@ -423,6 +443,28 @@ function startPetals() {
         requestAnimationFrame(animate);
     }
     animate();
+}
+
+// --- MULTI VIDEO SWITCHER ---
+function switchVideo(index) {
+    const allVideos = (CONFIG.invitationVideos && CONFIG.invitationVideos.length > 0)
+        ? CONFIG.invitationVideos
+        : (CONFIG.invitationVideo ? [CONFIG.invitationVideo] : []);
+    const vid = document.getElementById('main-invitation-video');
+    if (vid && allVideos[index]) {
+        const src = vid.querySelector('source');
+        if (src) src.setAttribute('src', allVideos[index]);
+        vid.load();
+        vid.play().catch(() => {});
+    }
+    // Update tab highlight
+    allVideos.forEach((_, i) => {
+        const tab = document.getElementById(`vtab-${i}`);
+        if (tab) {
+            tab.style.background = i === index ? 'var(--gold)' : 'transparent';
+            tab.style.color = i === index ? '#000' : 'var(--gold)';
+        }
+    });
 }
 
 // --- SUPABASE WISHES LOGIC ---
