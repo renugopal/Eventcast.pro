@@ -537,11 +537,12 @@ export default function AdminDashboard() {
     setIsSubmitting(true);
     const fd = new FormData(e.target);
     const photographerData = {
-      name: fd.get('name'),
-      phone_number: fd.get('phone'),
-      city: fd.get('city'),
-      logo_url: fd.get('logo_url'),
-      instagram_url: fd.get('instagram_url')
+      nickname: fd.get('nickname') || null,
+      name: fd.get('name') || null,
+      phone_number: fd.get('phone') || null,
+      city: fd.get('city') || null,
+      logo_url: fd.get('logo_url') || null,
+      instagram_url: fd.get('instagram_url') || null
     };
 
     try {
@@ -626,7 +627,15 @@ export default function AdminDashboard() {
     setIsSubmitting(false);
   }
 
-  const filteredPhotographers = photographers.filter(p => p.name.toLowerCase().includes(photographerSearchQuery.toLowerCase()));
+  const filteredPhotographers = photographers.filter(p => {
+    const q = photographerSearchQuery.toLowerCase();
+    return (
+      (p.nickname || '').toLowerCase().includes(q) ||
+      (p.name || '').toLowerCase().includes(q) ||
+      (p.phone_number || '').toLowerCase().includes(q) ||
+      (p.city || '').toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-blue-100 selection:text-blue-900">
@@ -902,20 +911,56 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Assign Photographer</label>
+                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Photography Details</label>
                       <div className="relative">
-                        <input type="text" placeholder="Search Studio..." value={selectedPhotographer ? selectedPhotographer.name : photographerSearchQuery} onChange={(e) => { setPhotographerSearchQuery(e.target.value); setSelectedPhotographer(null); setShowPhotographerList(true); }} onFocus={() => setShowPhotographerList(true)} className="w-full p-4 pl-12 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800" />
+                        <input
+                          type="text"
+                          placeholder="Search by nickname, studio, phone, city..."
+                          value={selectedPhotographer ? `${selectedPhotographer.nickname ? selectedPhotographer.nickname + ' — ' : ''}${selectedPhotographer.name || ''}` : photographerSearchQuery}
+                          onChange={(e) => { setPhotographerSearchQuery(e.target.value); setSelectedPhotographer(null); setShowPhotographerList(true); }}
+                          onFocus={() => setShowPhotographerList(true)}
+                          className="w-full p-4 pl-12 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800"
+                        />
                         <Search className="absolute left-4 top-4 text-slate-400" size={20} />
+                        {selectedPhotographer && (
+                          <button type="button" onClick={() => { setSelectedPhotographer(null); setPhotographerSearchQuery(''); }} className="absolute right-4 top-4 text-slate-400 hover:text-red-500">
+                            ✕
+                          </button>
+                        )}
                         {showPhotographerList && photographerSearchQuery && !selectedPhotographer && (
-                          <div className="absolute z-20 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl max-h-48 overflow-y-auto">
-                            {filteredPhotographers.map(p => (
+                          <div className="absolute z-20 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl max-h-64 overflow-y-auto">
+                            {filteredPhotographers.length === 0 ? (
+                              <div className="p-4 text-center text-slate-400 text-sm">No results found</div>
+                            ) : filteredPhotographers.map(p => (
                               <button key={p.id} type="button" onClick={() => { setSelectedPhotographer(p); setShowPhotographerList(false); }} className="w-full p-4 hover:bg-blue-50 text-left border-b border-slate-50 transition-colors">
-                                <p className="font-bold text-slate-800">{p.name}</p>
+                                <div className="flex items-center gap-3">
+                                  {p.logo_url ? (
+                                    <img src={p.logo_url} className="w-10 h-10 object-contain rounded-lg border border-slate-100 p-1 bg-white" alt={p.name} />
+                                  ) : (
+                                    <div className="w-10 h-10 bg-blue-600 text-white rounded-lg flex items-center justify-center font-black text-sm">
+                                      {(p.nickname || p.name || '?')[0].toUpperCase()}
+                                    </div>
+                                  )}
+                                  <div>
+                                    {p.nickname && <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">{p.nickname}</p>}
+                                    <p className="font-bold text-slate-800 text-sm">{p.name || <span className="italic text-slate-400">No studio name</span>}</p>
+                                    <p className="text-[10px] text-slate-400">{[p.phone_number, p.city].filter(Boolean).join(' • ')}</p>
+                                  </div>
+                                </div>
                               </button>
                             ))}
                           </div>
                         )}
                       </div>
+                      {selectedPhotographer && (
+                        <div className="mt-2 p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-center gap-3">
+                          {selectedPhotographer.logo_url && <img src={selectedPhotographer.logo_url} className="w-8 h-8 object-contain rounded" alt="" />}
+                          <div>
+                            <p className="text-xs font-black text-blue-800">{selectedPhotographer.name || 'Photographer'}</p>
+                            <p className="text-[10px] text-blue-500">{[selectedPhotographer.phone_number, selectedPhotographer.city].filter(Boolean).join(' • ')}</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </section>
