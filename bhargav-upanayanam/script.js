@@ -124,9 +124,22 @@ document.addEventListener('DOMContentLoaded', () => {
             invVideo.setAttribute('poster', optimizeUrl(CONFIG.thumbnail));
             if (allVideos.length === 1) {
                 invVideo.setAttribute('loop', '');
+                invVideo.muted = true; // Ensure it's muted for autoplay
                 invVideo.src = allVideos[0];
                 invVideo.load();
-                invVideo.play().catch(() => {});
+                
+                // Attempt to play
+                const playPromise = invVideo.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(() => {
+                        // If autoplay is blocked, play on first user interaction
+                        const playOnInteraction = () => {
+                            invVideo.play();
+                            document.removeEventListener('click', playOnInteraction);
+                        };
+                        document.addEventListener('click', playOnInteraction);
+                    });
+                }
             } else {
                 invVideo.removeAttribute('loop');
                 invVideo.addEventListener('ended', () => playVideoAt((currentVideoIndex + 1) % allVideos.length));
