@@ -21,7 +21,7 @@ window.UPANAYANAM_CONFIG = {
     youtubeId: "GL7tq1OH_Os",
     invitationVideo: "assets/invitation.mp4",
     invitationVideos: [],
-    thumbnail: "",
+    thumbnail: "assets/thumbnail.jpg",
     gallery: [],
     // About ceremony text
     aboutText: "యజ్ఞోపవీతం ధారణ వల్ల బాలుడు బ్రహ్మచర్య దీక్ష స్వీకరించి వేద విద్యను అభ్యసించే అధికారాన్ని పొందుతాడు. ఈ పవిత్ర సంస్కారం ద్వారా వటువు తన జీవితంలో ధర్మ మార్గంలో నడవడానికి సంకల్పిస్తాడు. ఇది ఒక బాలుని జీవితంలో మరపురాని పవిత్ర క్షణం.",
