@@ -22,7 +22,7 @@ body {
     background-color: var(--cream);
     color: var(--dark-brown);
     overflow-x: hidden;
-    background-image: url('assets/bg_texture.png');
+    background-image: url('assets/bg_texture.webp');
     background-size: 600px 600px;
     background-repeat: repeat;
 }
@@ -136,6 +136,15 @@ body {
     to { transform: rotate(3deg); }
 }
 .leaf-flower { font-size: 1.4rem; }
+
+/* Jasmine Flower Scatter */
+.jasmine {
+    position: absolute; pointer-events: none; z-index: 2;
+    opacity: 0.75;
+}
+.jasmine.j1 { width: 70px; top: 15%; right: 12%; transform: rotate(20deg); }
+.jasmine.j2 { width: 55px; bottom: 20%; left: 8%; transform: rotate(-15deg); }
+.jasmine.j3 { width: 50px; top: 60%; right: 6%; transform: rotate(35deg); }
 
 /* Gold Divider Image */
 .gold-divider-img {
