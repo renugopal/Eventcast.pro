@@ -184,25 +184,13 @@ body {
     position: relative; display: inline-block;
     margin-bottom: 12px;
 }
-.diya-icon {
-    width: 80px;
-    height: 80px;
+/* Kalasha Icon — static, no animation */
+.kalasha-icon {
+    width: 90px;
+    height: 90px;
     object-fit: contain;
-    display: inline-block;
-    animation: flicker 2s ease-in-out infinite;
-    filter: drop-shadow(0 0 12px rgba(232,131,26,0.6));
-}
-.diya-glow {
-    position: absolute; top: 0; left: 50%;
-    transform: translateX(-50%);
-    width: 60px; height: 60px;
-    background: radial-gradient(circle, rgba(232,131,26,0.3) 0%, transparent 70%);
-    border-radius: 50%; pointer-events: none;
-    animation: glow-pulse 2s ease-in-out infinite;
-}
-@keyframes glow-pulse {
-    0%,100% { opacity: 0.5; transform: translateX(-50%) scale(1); }
-    50% { opacity: 1; transform: translateX(-50%) scale(1.3); }
+    display: block;
+    margin: 0 auto 4px;
 }
 
 /* Gold Divider */
@@ -503,6 +491,13 @@ section:nth-child(even) { background: rgba(255,255,255,0.5); }
     font-family: 'Noto Serif Telugu', serif;
     font-size: 1rem; color: var(--maroon);
     font-weight: 600; line-height: 1.6;
+}
+.itlu-header { text-align: center; }
+.itlu-label {
+    font-family: 'Noto Serif Telugu', serif;
+    font-size: 1rem; color: var(--gold);
+    font-weight: 700; margin: 6px 0;
+    letter-spacing: 0.08em;
 }
 
 /* ===== FOOTER ===== */

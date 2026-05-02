@@ -14,9 +14,9 @@ window.UPANAYANAM_CONFIG = {
     muhurthamTime: "ఉదయం 7:14",
     venue: "పద్మశాలి వెల్ఫేర్ సొసైటి",
     venueSubtext: "ముత్తెంశెట్టిపాలెం, తెనాలి",
-    venueMapLink: "https://maps.google.com",
-    // Timer target — ceremony STARTS before muhurtham
-    timerTarget: "2026-05-03T05:00:00",
+    venueMapLink: "https://maps.app.goo.gl/DiWJcVA6K9ShrkV88",
+    // Timer target — ceremony STARTS before muhurtham (4:00 AM)
+    timerTarget: "2026-05-03T04:00:00",
     // Media
     youtubeId: "",
     invitationVideo: "",
