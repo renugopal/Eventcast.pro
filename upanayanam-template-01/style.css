@@ -22,14 +22,9 @@ body {
     background-color: var(--cream);
     color: var(--dark-brown);
     overflow-x: hidden;
-    /* Subtle diamond pattern */
-    background-image:
-        linear-gradient(45deg, rgba(201,168,76,0.07) 25%, transparent 25%),
-        linear-gradient(-45deg, rgba(201,168,76,0.07) 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, rgba(201,168,76,0.07) 75%),
-        linear-gradient(-45deg, transparent 75%, rgba(201,168,76,0.07) 75%);
-    background-size: 24px 24px;
-    background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+    background-image: url('assets/bg_texture.png');
+    background-size: 600px 600px;
+    background-repeat: repeat;
 }
 
 /* ===== LOADER ===== */
@@ -129,11 +124,18 @@ body {
     align-items: center; justify-content: center;
     gap: 8px; z-index: 1; pointer-events: none;
 }
-.banana-leaves.left { left: 0; transform: translateX(-10px); }
-.banana-leaves.right { right: 0; transform: translateX(10px) scaleX(-1); }
-.leaf { width: 55px; opacity: 0.88; filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.2)); }
-.leaf.l1 { transform: rotate(-8deg); }
-.leaf.l2 { transform: rotate(6deg) translateX(8px); }
+.banana-leaves.left { left: 0; }
+.banana-leaves.right { right: 0; transform: scaleX(-1); }
+.banana-leaves img {
+    width: 120px;
+    object-fit: contain;
+    filter: drop-shadow(3px 3px 8px rgba(0,0,0,0.25));
+    animation: leaf-sway 4s ease-in-out infinite alternate;
+}
+@keyframes leaf-sway {
+    from { transform: rotate(-3deg); }
+    to { transform: rotate(3deg); }
+}
 .leaf-flower { font-size: 1.4rem; }
 
 /* Hero Content */
@@ -161,9 +163,12 @@ body {
     margin-bottom: 12px;
 }
 .diya-icon {
-    font-size: 2.8rem;
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
     display: inline-block;
     animation: flicker 2s ease-in-out infinite;
+    filter: drop-shadow(0 0 12px rgba(232,131,26,0.6));
 }
 .diya-glow {
     position: absolute; top: 0; left: 50%;
@@ -515,7 +520,10 @@ footer {
 /* ===== ANIMATIONS ===== */
 .fade-in { animation: fadeIn 1s ease forwards; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-.reveal { opacity: 0; }
+
+/* Reveal: visible by default, animated when IntersectionObserver triggers */
+.reveal { opacity: 1; transform: translateY(0); transition: opacity 0.7s ease, transform 0.7s ease; }
+.reveal.hidden { opacity: 0; transform: translateY(40px); }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 600px) {
