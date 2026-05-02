@@ -113,16 +113,16 @@ body {
 /* Dynamic overlay — placed in the empty bottom section of the design */
 .hero-overlay {
     position: absolute;
-    top: 50%;
-    left: 60%;
-    transform: translateX(-45%);
-    width: 75%;
-    text-align: right;
+    top: 48%;
+    left: 52%;
+    transform: translateX(-35%);
+    width: 80%;
+    text-align: center;
     z-index: 5;
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
-    gap: 8px;
+    align-items: center;
+    gap: 4px;
 }
 
 /* Hero Content (unused but kept for script.js compat) */
@@ -204,15 +204,15 @@ body {
 
 /* Event Info Grid */
 .event-info-grid {
-    display: flex; gap: 6px; justify-content: flex-end;
-    flex-wrap: wrap; margin: 4px 0;
+    display: flex; gap: 4px; justify-content: center;
+    flex-wrap: wrap; margin: 2px 0;
     width: 100%;
 }
 .info-card {
-    background: rgba(255,255,255,0.75);
-    border: 1.5px solid var(--border-gold);
-    border-radius: 12px; padding: 14px 18px;
-    text-align: center; min-width: 110px;
+    background: rgba(255,255,255,0.85);
+    border: 1px solid var(--border-gold);
+    border-radius: 10px; padding: 10px 12px;
+    text-align: center; min-width: 90px;
     backdrop-filter: blur(4px);
 }
 .info-card.highlight {
@@ -243,13 +243,13 @@ body {
 }
 .time-box {
     background: linear-gradient(135deg, var(--saffron), #C9A84C);
-    color: #fff; border-radius: 10px;
-    padding: 12px 14px; min-width: 60px;
+    color: #fff; border-radius: 8px;
+    padding: 8px 10px; min-width: 52px;
     text-align: center;
-    box-shadow: 0 4px 12px rgba(232,131,26,0.2);
+    box-shadow: 0 4px 10px rgba(232,131,26,0.2);
 }
 .time-box span:first-child {
-    display: block; font-size: 1.5rem;
+    display: block; font-size: 1.2rem;
     font-weight: 800; line-height: 1; font-family: 'Cinzel', serif;
 }
 .time-box .label {
@@ -260,14 +260,14 @@ body {
 
 /* Buttons */
 .hero-actions {
-    display: flex; gap: 10px;
-    justify-content: flex-end; flex-wrap: wrap; margin-top: 4px;
+    display: flex; gap: 8px;
+    justify-content: center; flex-wrap: wrap; margin-top: 2px;
     width: 100%;
 }
 .btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 12px 22px; border-radius: 50px;
-    font-weight: 700; font-size: 0.85rem;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: 50px;
+    font-weight: 700; font-size: 0.75rem;
     cursor: pointer; text-decoration: none;
     border: none; transition: all 0.3s ease;
     font-family: 'Noto Serif Telugu', serif;
