@@ -97,7 +97,6 @@ body {
     position: relative;
     width: 100%;
     aspect-ratio: 9/16;
-    min-height: 100dvh;
     overflow: hidden;
     border-bottom: none;
 }
@@ -114,16 +113,16 @@ body {
 /* Dynamic overlay — placed in the empty bottom section of the design */
 .hero-overlay {
     position: absolute;
-    top: 62%;
+    top: 60%;
     left: 50%;
     transform: translateX(-50%);
-    width: 85%;
+    width: 78%;
     text-align: center;
     z-index: 5;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
 }
 
 /* Hero Content (unused but kept for script.js compat) */
@@ -514,56 +513,24 @@ footer {
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 600px) {
-    /* Hero padding — give room for 160px corners */
-    #hero { padding: 80px 12px 50px; min-height: auto; }
+    /* Info cards smaller */
+    .event-info-grid { gap: 5px; margin: 10px 0; }
+    .info-card { min-width: 78px; padding: 8px 6px; }
+    .info-label { font-size: 0.58rem; }
+    .info-value { font-size: 0.68rem; }
+    .info-card i { font-size: 0.85rem; }
 
-    /* Hero content — keep centered with reduced side padding */
-    .hero-content { padding: 0 4px; max-width: 100%; }
-
-    /* Banana leaves — smaller size on mobile, stay visible */
-    .banana-leaves img { width: 70px; }
-
-    /* Jasmine flowers — reposition to not overlap text */
-    .jasmine.j1 { width: 45px; top: 8%; right: 5%; }
-    .jasmine.j2 { width: 40px; bottom: 8%; left: 4%; }
-    .jasmine.j3 { display: none; }
-
-    /* Boy illustration — smaller, positioned safely at bottom-right */
-    .boy-illustration { left: unset; right: 8px; bottom: 0; }
-    .boy-illustration img { width: 75px; }
-
-    /* Auspicious row */
-    .auspicious-row { font-size: 0.7rem; gap: 5px; margin-bottom: 10px; }
-
-    /* Kalasha */
-    .kalasha-icon { width: 60px; height: 60px; }
-
-    /* Gold divider */
-    .gold-divider-img { max-width: 90%; }
-
-    /* Ceremony title */
-    .ceremony-title { font-size: 1.7rem; }
-
-    /* Celebrant */
-    .celebrant-name { font-size: 1.2rem; }
-    .parents-line { font-size: 0.75rem; }
-
-    /* Info cards — keep 3-in-a-row, just smaller */
-    .event-info-grid { gap: 6px; }
-    .info-card { min-width: 85px; padding: 10px 8px; }
-    .info-label { font-size: 0.6rem; }
-    .info-value { font-size: 0.72rem; }
-    .info-card i { font-size: 0.9rem; }
-
-    /* Countdown — keep 4-in-a-row, smaller */
-    #countdown { gap: 6px; }
-    .time-box { min-width: 56px; padding: 10px 8px; }
-    .time-box span:first-child { font-size: 1.4rem; }
-    .time-box .label { font-size: 0.52rem; }
+    /* Countdown smaller */
+    #countdown { gap: 5px; }
+    .time-box { min-width: 52px; padding: 8px 6px; }
+    .time-box span:first-child { font-size: 1.3rem; }
+    .time-box .label { font-size: 0.48rem; }
+    .countdown-wrapper { margin: 8px 0; }
 
     /* Buttons */
-    .hero-actions { flex-direction: column; gap: 8px; }
-    .btn { width: 100%; justify-content: center; }
+    .hero-actions { flex-direction: column; gap: 6px; }
+    .btn { width: 100%; justify-content: center; padding: 10px 14px; font-size: 0.8rem; }
+    .hero-overlay { gap: 6px; }
 
     /* Sections */
     section { padding: 50px 16px; }

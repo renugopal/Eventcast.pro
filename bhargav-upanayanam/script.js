@@ -47,12 +47,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const loaderName = document.getElementById('loader-name');
     if (loaderName && CONFIG.celebrantName) loaderName.innerText = CONFIG.celebrantName;
 
-    // --- SEO Meta Update ---
-    document.title = `చి॥ ${CONFIG.celebrantName} ఉపనయన మహోత్సవం | Eventcast PRO`;
-    const metaDesc = document.querySelector('meta[name="description"]');
-    if (metaDesc) metaDesc.content = `చి॥ ${CONFIG.celebrantName} ఉపనయన మహోత్సవం లైవ్‌స్ట్రీమ్‌లో పాల్గొని ఆశీర్వదించండి.`;
-    const ogTitle = document.querySelector('meta[property="og:title"]');
-    if (ogTitle) ogTitle.content = `చి॥ ${CONFIG.celebrantName} ఉపనయన మహోత్సవం`;
+    // --- SEO Meta Update (skip if HTML already has specific values) ---
+    // document.title override disabled — title set directly in HTML
+    // const metaDesc = document.querySelector('meta[name="description"]');
     if (CONFIG.thumbnail) {
         const ogImg = document.querySelector('meta[property="og:image"]');
         if (ogImg) ogImg.content = optimizeUrl(CONFIG.thumbnail);
@@ -130,6 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const src = invVideo.querySelector('source');
                 if (src) src.setAttribute('src', allVideos[0]);
                 invVideo.load();
+                invVideo.addEventListener('canplay', () => invVideo.play().catch(() => {}), { once: true });
             } else {
                 invVideo.removeAttribute('loop');
                 invVideo.addEventListener('ended', () => playVideoAt((currentVideoIndex + 1) % allVideos.length));
