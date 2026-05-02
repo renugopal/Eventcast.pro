@@ -180,8 +180,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const mapIframe = document.getElementById('venue-map');
     const mapLink = document.getElementById('map-link');
     if (CONFIG.venueMapLink) {
-        if (mapIframe) mapIframe.src = CONFIG.venueMapLink;
-        if (mapLink) mapLink.href = CONFIG.venueMapLink;
+        // Construct embeddable URL from venue address (short URLs can't be iframed)
+        const encVenue = encodeURIComponent(`${CONFIG.venue}, ${CONFIG.venueSubtext}`);
+        const embedUrl = `https://www.google.com/maps?q=${encVenue}&output=embed`;
+        if (mapIframe) mapIframe.src = embedUrl;
+        if (mapLink) mapLink.href = CONFIG.venueMapLink; // button opens original link
     } else {
         const mapSection = document.getElementById('map-section');
         if (mapSection) mapSection.style.display = 'none';
@@ -281,6 +284,16 @@ if (CONFIG.youtubeId) {
     const ytTag = document.createElement('script');
     ytTag.src = 'https://www.youtube.com/iframe_api';
     document.head.appendChild(ytTag);
+} else {
+    // Show placeholder when no YouTube ID
+    const ytPlayer = document.getElementById('youtube-player');
+    if (ytPlayer) {
+        ytPlayer.style.cssText = 'display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:rgba(255,255,255,0.5);height:100%;';
+        ytPlayer.innerHTML = `
+            <span style="font-size:3rem;">📺</span>
+            <p style="font-family:'Noto Serif Telugu',serif;font-size:0.9rem;">వేడుక సమయంలో ఇక్కడ లైవ్ చూడవచ్చు</p>
+        `;
+    }
 }
 function onYouTubeIframeAPIReady() {
     if (!CONFIG.youtubeId) return;
@@ -314,16 +327,7 @@ function initSlideshow() {
     iv = setInterval(() => show(cur + 1), 5000);
 }
 
-// ===== SCROLL REVEAL =====
-function initScrollReveal() {
-    if (typeof ScrollReveal === 'undefined') return;
-    const sr = ScrollReveal({ origin: 'bottom', distance: '40px', duration: 800, delay: 100, reset: false, viewFactor: 0.1 });
-    sr.reveal('.reveal', { interval: 200 });
-    sr.reveal('.section-title', { origin: 'left', distance: '80px' });
-    sr.reveal('.info-card', { interval: 150, scale: 0.9 });
-    sr.reveal('.about-card', { scale: 0.95 });
-    sr.reveal('.itlu-card', { scale: 0.95 });
-}
+// (Scroll reveal handled by IntersectionObserver above — see initScrollReveal at top)
 
 // ===== FALLING PETALS (Marigold / Saffron) =====
 function startPetals() {
