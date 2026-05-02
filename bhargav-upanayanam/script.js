@@ -124,10 +124,9 @@ document.addEventListener('DOMContentLoaded', () => {
             invVideo.setAttribute('poster', optimizeUrl(CONFIG.thumbnail));
             if (allVideos.length === 1) {
                 invVideo.setAttribute('loop', '');
-                const src = invVideo.querySelector('source');
-                if (src) src.setAttribute('src', allVideos[0]);
+                invVideo.src = allVideos[0];
                 invVideo.load();
-                invVideo.addEventListener('canplay', () => invVideo.play().catch(() => {}), { once: true });
+                invVideo.play().catch(() => {});
             } else {
                 invVideo.removeAttribute('loop');
                 invVideo.addEventListener('ended', () => playVideoAt((currentVideoIndex + 1) % allVideos.length));
