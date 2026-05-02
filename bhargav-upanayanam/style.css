@@ -115,7 +115,7 @@ body {
     position: absolute;
     top: 48%;
     left: 52%;
-    transform: translateX(-35%);
+    transform: translateX(-42%);
     width: 80%;
     text-align: center;
     z-index: 5;
@@ -530,8 +530,8 @@ footer {
     .countdown-wrapper { margin: 8px 0; }
 
     /* Buttons */
-    .hero-actions { flex-direction: column; gap: 6px; }
-    .btn { width: 100%; justify-content: center; padding: 10px 14px; font-size: 0.8rem; }
+    .hero-actions { flex-direction: column; gap: 6px; align-items: center; }
+    .btn { width: auto; min-width: 160px; justify-content: center; padding: 10px 14px; font-size: 0.8rem; }
     .hero-overlay { gap: 6px; }
 
     /* Sections */
