@@ -18,8 +18,8 @@ window.UPANAYANAM_CONFIG = {
     // Timer target — ceremony STARTS before muhurtham (4:00 AM)
     timerTarget: "2026-05-03T04:00:00",
     // Media
-    youtubeId: "",
-    invitationVideo: "",
+    youtubeId: "GL7tq1OH_Os",
+    invitationVideo: "assets/invitation.mp4",
     invitationVideos: [],
     thumbnail: "",
     gallery: [],
