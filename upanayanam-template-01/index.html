@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="te">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ఉపనయన మహోత్సవం | Eventcast PRO</title>
+    <meta name="description" content="ఉపనయన మహోత్సవం లైవ్‌స్ట్రీమ్‌లో పాల్గొని ఆశీర్వదించండి.">
+    <meta property="og:title" content="ఉపనయన మహోత్సవం | Eventcast PRO">
+    <meta property="og:description" content="ఉపనయన మహోత్సవం లైవ్‌స్ట్రీమ్‌లో పాల్గొని ఆశీర్వదించండి.">
+    <meta property="og:image" content="">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Telugu:wght@400;600;700&family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script src="config.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- ═══ LOADER ═══ -->
+    <div id="loader">
+        <div class="loader-content">
+            <div class="loader-diya">🪔</div>
+            <div class="loader-name" id="loader-name">వటువు</div>
+            <p class="loader-ceremony">ఉపనయన మహోత్సవం</p>
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <!-- Falling petals canvas -->
+    <canvas id="petal-canvas"></canvas>
+
+    <!-- Floating Watch Live Button -->
+    <a href="#livestream" id="floating-live-btn" style="display:none;">
+        <span class="live-dot"></span>
+        <i class="fas fa-video"></i>
+        <span>వేడుక చూడండి</span>
+    </a>
+
+    <main>
+
+        <!-- ═══════════════════════════════════════
+             HERO SECTION
+        ════════════════════════════════════════ -->
+        <section id="hero" class="fade-in">
+
+            <!-- Gold Corner Decorations -->
+            <div class="corner tl"></div>
+            <div class="corner tr"></div>
+            <div class="corner bl"></div>
+            <div class="corner br"></div>
+
+            <!-- Banana Leaves LEFT -->
+            <div class="banana-leaves left">
+                <svg viewBox="0 0 70 220" xmlns="http://www.w3.org/2000/svg" class="leaf l1">
+                    <path d="M35,0 C50,35 60,90 54,150 C48,190 30,218 28,220 C26,218 14,188 18,150 C14,90 22,35 35,0Z" fill="#2d6a1b"/>
+                    <path d="M33,4 C43,38 52,95 46,153 C42,188 32,213 30,220" stroke="#5ab82e" stroke-width="1.5" fill="none" opacity="0.5"/>
+                </svg>
+                <svg viewBox="0 0 70 220" xmlns="http://www.w3.org/2000/svg" class="leaf l2">
+                    <path d="M35,0 C50,35 60,90 54,150 C48,190 30,218 28,220 C26,218 14,188 18,150 C14,90 22,35 35,0Z" fill="#3a7d22"/>
+                    <path d="M33,4 C43,38 52,95 46,153 C42,188 32,213 30,220" stroke="#6acc38" stroke-width="1.5" fill="none" opacity="0.4"/>
+                </svg>
+                <div class="leaf-flower">🌼</div>
+            </div>
+
+            <!-- Banana Leaves RIGHT -->
+            <div class="banana-leaves right">
+                <svg viewBox="0 0 70 220" xmlns="http://www.w3.org/2000/svg" class="leaf l1">
+                    <path d="M35,0 C50,35 60,90 54,150 C48,190 30,218 28,220 C26,218 14,188 18,150 C14,90 22,35 35,0Z" fill="#2d6a1b"/>
+                    <path d="M33,4 C43,38 52,95 46,153 C42,188 32,213 30,220" stroke="#5ab82e" stroke-width="1.5" fill="none" opacity="0.5"/>
+                </svg>
+                <svg viewBox="0 0 70 220" xmlns="http://www.w3.org/2000/svg" class="leaf l2">
+                    <path d="M35,0 C50,35 60,90 54,150 C48,190 30,218 28,220 C26,218 14,188 18,150 C14,90 22,35 35,0Z" fill="#3a7d22"/>
+                    <path d="M33,4 C43,38 52,95 46,153 C42,188 32,213 30,220" stroke="#6acc38" stroke-width="1.5" fill="none" opacity="0.4"/>
+                </svg>
+                <div class="leaf-flower">🌼</div>
+            </div>
+
+            <div class="hero-content">
+
+                <!-- Auspicious Words -->
+                <div class="auspicious-row">
+                    <span>శ్రీరస్తు</span>
+                    <span class="auspicious-dot">✦</span>
+                    <span>శుభమస్తు</span>
+                    <span class="auspicious-dot">✦</span>
+                    <span>అవిఘ్నమస్తు</span>
+                </div>
+
+                <!-- Diya Icon -->
+                <div class="diya-wrap">
+                    <span class="diya-icon">🪔</span>
+                    <div class="diya-glow"></div>
+                </div>
+
+                <!-- Gold Divider -->
+                <div class="gold-divider"><span>✦</span></div>
+
+                <!-- Main Title -->
+                <h1 class="ceremony-title">ఉపనయన మహోత్సవం</h1>
+
+                <!-- Gold Divider -->
+                <div class="gold-divider"><span>✦</span></div>
+
+                <!-- Celebrant Name -->
+                <p class="celebrant-prefix">చి॥</p>
+                <h2 class="celebrant-name" id="celebrant-name">సాయి మహేంద్ర భార్గవ్</h2>
+
+                <!-- Parents Line -->
+                <p class="parents-line" id="parents-line">
+                    శ్రీ బొమ్మరాజు శ్రీరామ్ కుమార్ - శ్రీమతి రమాదేవి గారి పుత్రుడు
+                </p>
+
+                <!-- Gold Divider -->
+                <div class="gold-divider small"><span>✦</span></div>
+
+                <!-- Event Info Cards -->
+                <div class="event-info-grid">
+                    <div class="info-card">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span class="info-label">తేదీ</span>
+                        <span class="info-value" id="event-date">ఆదివారం, 3 మే 2026</span>
+                    </div>
+                    <div class="info-card highlight">
+                        <i class="fas fa-clock"></i>
+                        <span class="info-label">మహూర్తం</span>
+                        <span class="info-value" id="event-muhurtham">ఉదయం 7:14</span>
+                    </div>
+                    <div class="info-card">
+                        <i class="fas fa-location-dot"></i>
+                        <span class="info-label">వేదిక</span>
+                        <span class="info-value" id="event-venue">పద్మశాలి సొసైటి, తెనాలి</span>
+                    </div>
+                </div>
+
+                <!-- Countdown Timer -->
+                <div class="countdown-wrapper">
+                    <div id="countdown">
+                        <div class="time-box">
+                            <span id="days">--</span>
+                            <span class="label">రోజులు</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="hours">--</span>
+                            <span class="label">గంటలు</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="minutes">--</span>
+                            <span class="label">నిమిషాలు</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="seconds">--</span>
+                            <span class="label">సెకన్లు</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="hero-actions">
+                    <a id="calendar-btn" href="#" target="_blank" class="btn btn-secondary">
+                        <i class="fas fa-calendar-check"></i> Calendar లో Save చేయండి
+                    </a>
+                    <button id="whatsapp-share-btn" class="btn btn-whatsapp">
+                        <i class="fab fa-whatsapp"></i> Share చేయండి
+                    </button>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════
+             INVITATION VIDEO SECTION
+        ════════════════════════════════════════ -->
+        <section id="invitation-video" class="reveal">
+            <h2 class="section-title">ఆహ్వాన వీడియో</h2>
+            <div id="video-dots" style="display:none; justify-content:center; gap:8px; margin-bottom:16px;"></div>
+            <div class="video-container-wrap">
+                <video id="main-invitation-video" class="invitation-video" autoplay muted playsinline poster="">
+                    <source src="" type="video/mp4">
+                </video>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════
+             ABOUT UPANAYANAM SECTION
+        ════════════════════════════════════════ -->
+        <section id="about-ceremony" class="reveal">
+            <h2 class="section-title">ఉపనయన మహోత్సవం గురించి</h2>
+            <div class="gold-divider"><span>✦</span></div>
+            <div class="about-card">
+                <div class="about-thread">
+                    <div class="thread-visual">🕉️</div>
+                </div>
+                <p class="about-text" id="about-text">
+                    యజ్ఞోపవీతం ధారణ వల్ల బాలుడు బ్రహ్మచర్య దీక్ష స్వీకరించి వేద విద్యను అభ్యసించే అధికారాన్ని పొందుతాడు.
+                </p>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════
+             LIVE STREAM SECTION
+        ════════════════════════════════════════ -->
+        <section id="livestream" class="reveal">
+            <div class="section-header">
+                <h2 class="section-title">లైవ్ వేడుక</h2>
+                <div class="status-badge"><span class="pulse"></span> LIVE SOON</div>
+            </div>
+            <div class="yt-container">
+                <div id="youtube-player"></div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════
+             BLESSINGS WALL
+        ════════════════════════════════════════ -->
+        <section id="blessings-section" class="reveal">
+            <div class="content-card">
+                <h2 class="section-title">ఆశీర్వాద వేదిక</h2>
+                <p class="section-subtitle" id="blessings-subtitle">వటువుకు మీ ఆశీర్వాదాలు తెలియజేయండి</p>
+
+                <form id="wishes-form">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <input type="text" id="wish-name" placeholder="మీ పేరు" required>
+                        </div>
+                        <div class="input-group">
+                            <textarea id="wish-message" rows="3" placeholder="మీ ఆశీర్వాదం ఇక్కడ రాయండి..." required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            ఆశీర్వాదం పంపండి <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </form>
+
+                <div id="wishes-list" class="wishes-scroll-area"></div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════
+             PHOTO GALLERY
+        ════════════════════════════════════════ -->
+        <section id="photo-gallery" class="reveal">
+            <h2 class="section-title">వేడుక జ్ఞాపకాలు</h2>
+            <div class="slideshow-container">
+                <div class="slideshow-wrapper">
+                    <div class="slide active">
+                        <div class="slide-bg"></div>
+                        <img src="" alt="Memory 1" class="gallery-img">
+                    </div>
+                </div>
+                <button class="ss-nav ss-prev"><i class="fas fa-chevron-left"></i></button>
+                <button class="ss-nav ss-next"><i class="fas fa-chevron-right"></i></button>
+                <div class="ss-dots"></div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════
+             VENUE MAP
+        ════════════════════════════════════════ -->
+        <section id="map-section" class="reveal">
+            <h2 class="section-title">వేదిక చిరునామా</h2>
+            <div class="map-container">
+                <iframe id="venue-map" src="" width="100%" height="400"
+                    style="border:0;" allowfullscreen="" loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+            <div class="map-actions">
+                <a id="map-link" href="#" target="_blank" class="btn btn-map">
+                    <i class="fas fa-location-dot"></i> Google Maps లో తెరువు
+                </a>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════
+             ITLU SECTION (Hosted By)
+        ════════════════════════════════════════ -->
+        <section id="itlu-section" class="reveal">
+            <div class="itlu-card">
+                <div class="gold-divider"><span>✦ ఇట్లు ✦</span></div>
+                <div class="itlu-names" id="itlu-names">
+                    <p>శ్రీ బొమ్మరాజు సమీర్ కుమార్</p>
+                    <p>శ్రీమతి విజయలక్ష్మి</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════
+             FOOTER — PHOTOGRAPHER
+        ════════════════════════════════════════ -->
+        <footer>
+            <div class="photographer-section">
+                <img id="photo-logo" src="" alt="Studio Logo" style="display:none;">
+                <h3 class="studio-name" id="studio-name" style="display:none;"></h3>
+                <div class="contact-info">
+                    <a id="p-phone" href="#" class="p-phone" style="display:none;">
+                        <i class="fas fa-phone"></i> <span></span>
+                    </a>
+                    <a id="p-insta" href="#" class="p-insta" target="_blank" style="display:none;">
+                        <i class="fab fa-instagram"></i> Instagram
+                    </a>
+                    <div class="public-stats">
+                        <i class="fas fa-eye"></i>
+                        <span id="total-views-display">0</span> మంది ఈ పేజీని సందర్శించారు
+                    </div>
+                </div>
+            </div>
+        </footer>
+
+    </main>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/scrollreveal"></script>
+    <script src="script.js"></script>
+
+</body>
+</html>
