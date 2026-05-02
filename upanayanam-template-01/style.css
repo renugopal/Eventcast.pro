@@ -22,9 +22,10 @@ body {
     background-color: var(--cream);
     color: var(--dark-brown);
     overflow-x: hidden;
-    background-image: url('assets/bg_texture.webp');
-    background-size: 600px 600px;
-    background-repeat: repeat;
+    background-image: url('Upanayanam/Background.webp');
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
 }
 
 /* ===== LOADER ===== */
@@ -97,75 +98,96 @@ body {
 /* ===== HERO SECTION ===== */
 #hero {
     position: relative;
-    min-height: 100vh;
-    display: flex; align-items: center; justify-content: center;
-    padding: 60px 20px;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32dvh 16px 40px;
     overflow: hidden;
-    border-bottom: 3px solid var(--border-gold);
+    border-bottom: none;
 }
 /* OM Watermark */
 #hero::before {
     content: "ॐ";
     position: absolute;
-    font-size: min(60vw, 500px);
-    color: rgba(201,168,76,0.045);
+    font-size: min(60vw, 400px);
+    color: rgba(201,168,76,0.04);
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
     font-family: serif; pointer-events: none; z-index: 0;
     user-select: none;
 }
 
-/* Banana Leaves */
-.banana-leaves {
-    position: absolute; top: 0; bottom: 0;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 8px; z-index: 1; pointer-events: none;
-}
-.banana-leaves.left { left: 0; }
-.banana-leaves.right { right: 0; transform: scaleX(-1); }
-.banana-leaves img {
-    width: 120px;
-    object-fit: contain;
-    filter: drop-shadow(3px 3px 8px rgba(0,0,0,0.25));
-    animation: leaf-sway 4s ease-in-out infinite alternate;
-}
-@keyframes leaf-sway {
-    from { transform: rotate(-3deg); }
-    to { transform: rotate(3deg); }
-}
-.leaf-flower { font-size: 1.4rem; }
-
-/* Jasmine Flower Scatter */
-.jasmine {
-    position: absolute; pointer-events: none; z-index: 2;
-    opacity: 0.75;
-}
-.jasmine.j1 { width: 70px; top: 15%; right: 12%; transform: rotate(20deg); }
-.jasmine.j2 { width: 55px; bottom: 20%; left: 8%; transform: rotate(-15deg); }
-.jasmine.j3 { width: 50px; top: 60%; right: 6%; transform: rotate(35deg); }
-
-/* Gold Divider Image */
-.gold-divider-img {
-    width: 100%; max-width: 400px; margin: 10px auto;
-    display: flex; justify-content: center;
-}
-.gold-divider-img img { width: 100%; height: auto; opacity: 0.85; }
-
-/* Boy Illustration */
-.boy-illustration {
-    position: absolute; bottom: 0; left: 40px; z-index: 2;
+/* Auspicious words — absolute top row */
+.auspicious-top-row {
+    position: absolute;
+    top: 8dvh;
+    left: 0; right: 0;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 14%;
+    z-index: 3;
     pointer-events: none;
 }
-.boy-illustration img { width: 130px; height: auto; }
+.auspicious-top-row img {
+    height: 28px;
+    width: auto;
+    object-fit: contain;
+}
+
+/* Kalasam — centered top */
+.kalasam-img {
+    position: absolute;
+    top: 13dvh;
+    left: 50%;
+    transform: translateX(-50%);
+    width: clamp(80px, 22%, 130px);
+    z-index: 3;
+    pointer-events: none;
+}
+
+/* Flowers set — flanking kalasam */
+.flowers-set {
+    position: absolute;
+    z-index: 2; pointer-events: none;
+    width: clamp(50px, 14%, 90px);
+    top: 18dvh;
+}
+.flowers-set.fl { left: 8%; transform: scaleX(-1); }
+.flowers-set.fr { right: 8%; }
+
+/* Jasmine scattered */
+.jasmine {
+    position: absolute; pointer-events: none; z-index: 2;
+}
+.jasmine.j1 { width: 40px; top: 26dvh; left: 6%; }
+.jasmine.j2 { width: 32px; top: 22dvh; right: 6%; }
+.jasmine.j3 { width: 28px; top: 29dvh; right: 12%; }
+
+/* Boy illustration — bottom left */
+.boy-img {
+    position: absolute;
+    bottom: 0; left: 0;
+    width: clamp(100px, 32%, 180px);
+    z-index: 3; pointer-events: none;
+}
 
 /* Hero Content */
 .hero-content {
-    position: relative; z-index: 2;
+    position: relative; z-index: 4;
     text-align: center;
-    max-width: 680px; width: 100%;
-    padding: 0 20px;
+    width: 100%; max-width: 600px;
+    padding: 0 16px;
 }
+
+/* Gold Divider Image */
+.gold-divider-img {
+    width: 100%; max-width: 420px; margin: 8px auto;
+    display: flex; justify-content: center;
+}
+.gold-divider-img img { width: 100%; height: auto; }
+
 
 /* Auspicious Words */
 .auspicious-row {
