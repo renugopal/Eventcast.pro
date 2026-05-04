@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy, Search, Download, QrCode, MessageCircle } from "lucide-react";
 
 interface EventTableProps {
@@ -24,6 +24,53 @@ export const EventTable: React.FC<EventTableProps> = ({
   const [filterType, setFilterType] = useState("All");
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
   const [tableDensity, setTableDensity] = useState<"compact" | "standard" | "spacious">("standard");
+  const [columnWidths, setColumnWidths] = useState<{ [key: string]: number }>({
+    identity: 280,
+    schedule: 160,
+    venue: 200,
+    youtube: 220,
+    views: 80,
+    control: 180,
+    qr: 80,
+    actions: 120
+  });
+
+  const resizingColumn = useRef<string | null>(null);
+  const startX = useRef<number>(0);
+  const startWidth = useRef<number>(0);
+
+  const handleMouseDown = (e: React.MouseEvent, column: string) => {
+    e.preventDefault();
+    resizingColumn.current = column;
+    startX.current = e.pageX;
+    startWidth.current = columnWidths[column];
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!resizingColumn.current) return;
+    const diff = e.pageX - startX.current;
+    const newWidth = Math.max(50, startWidth.current + diff);
+    setColumnWidths(prev => ({ ...prev, [resizingColumn.current!]: newWidth }));
+  };
+
+  const handleMouseUp = () => {
+    resizingColumn.current = null;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'default';
+  };
+
+  const handleDoubleClick = (column: string) => {
+    // Reset to a default "auto-fit" like value
+    const defaults: { [key: string]: number } = {
+      identity: 280, schedule: 160, venue: 200, youtube: 220, views: 80, control: 180, qr: 80, actions: 120
+    };
+    setColumnWidths(prev => ({ ...prev, [column]: defaults[column] }));
+  };
 
   const requestSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -190,23 +237,88 @@ export const EventTable: React.FC<EventTableProps> = ({
 
       <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse table-auto">
+          <table className="w-full text-left border-collapse table-fixed">
             <thead>
               <tr className="bg-slate-900 border-b border-slate-800">
-                <th onClick={() => requestSort('groom_name')} className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-white transition-colors">
-                  Event Identity {sortConfig?.key === 'groom_name' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                <th 
+                  style={{ width: columnWidths.identity }}
+                  className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest relative group"
+                >
+                  <div onClick={() => requestSort('groom_name')} className="cursor-pointer hover:text-white transition-colors">
+                    Event Identity {sortConfig?.key === 'groom_name' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                  </div>
+                  <div 
+                    onMouseDown={(e) => handleMouseDown(e, 'identity')}
+                    onDoubleClick={() => handleDoubleClick('identity')}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  />
                 </th>
-                <th onClick={() => requestSort('date')} className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-white transition-colors">
-                  Schedule {sortConfig?.key === 'date' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                <th 
+                  style={{ width: columnWidths.schedule }}
+                  className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest relative group"
+                >
+                  <div onClick={() => requestSort('date')} className="cursor-pointer hover:text-white transition-colors">
+                    Schedule {sortConfig?.key === 'date' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                  </div>
+                  <div 
+                    onMouseDown={(e) => handleMouseDown(e, 'schedule')}
+                    onDoubleClick={() => handleDoubleClick('schedule')}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  />
                 </th>
-                <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Venue</th>
-                <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">YouTube / Stream</th>
-                <th onClick={() => requestSort('view_count')} className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center cursor-pointer hover:text-white transition-colors">
-                  Views {sortConfig?.key === 'view_count' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                <th style={{ width: columnWidths.venue }} className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest relative group">
+                  Venue
+                  <div 
+                    onMouseDown={(e) => handleMouseDown(e, 'venue')}
+                    onDoubleClick={() => handleDoubleClick('venue')}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  />
                 </th>
-                <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Live Control</th>
-                <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">QR</th>
-                <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                <th style={{ width: columnWidths.youtube }} className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest relative group">
+                  YouTube / Stream
+                  <div 
+                    onMouseDown={(e) => handleMouseDown(e, 'youtube')}
+                    onDoubleClick={() => handleDoubleClick('youtube')}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  />
+                </th>
+                <th 
+                  style={{ width: columnWidths.views }}
+                  className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center relative group"
+                >
+                  <div onClick={() => requestSort('view_count')} className="cursor-pointer hover:text-white transition-colors">
+                    Views {sortConfig?.key === 'view_count' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                  </div>
+                  <div 
+                    onMouseDown={(e) => handleMouseDown(e, 'views')}
+                    onDoubleClick={() => handleDoubleClick('views')}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  />
+                </th>
+                <th style={{ width: columnWidths.control }} className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest relative group">
+                  Live Control
+                  <div 
+                    onMouseDown={(e) => handleMouseDown(e, 'control')}
+                    onDoubleClick={() => handleDoubleClick('control')}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  />
+                </th>
+                <th style={{ width: columnWidths.qr }} className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center relative group">
+                  QR
+                  <div 
+                    onMouseDown={(e) => handleMouseDown(e, 'qr')}
+                    onDoubleClick={() => handleDoubleClick('qr')}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  />
+                </th>
+                <th style={{ width: columnWidths.actions }} className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right relative group">
+                  Actions
+                  <div 
+                    onMouseDown={(e) => handleMouseDown(e, 'actions')}
+                    onDoubleClick={() => handleDoubleClick('actions')}
+                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  />
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -222,7 +334,7 @@ export const EventTable: React.FC<EventTableProps> = ({
               ) : (
                 sortedEvents.map(event => (
                   <tr key={event.id} className="hover:bg-blue-50/30 transition-colors group even:bg-slate-50/50">
-                    <td className={`${getPadding()}`}>
+                    <td className={`${getPadding()} overflow-hidden`}>
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0">
                           {event.thumbnail_url ? (
