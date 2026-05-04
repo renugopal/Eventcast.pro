@@ -678,7 +678,7 @@ export default function AdminDashboard() {
         handleSignOut={handleSignOut} 
       />
 
-      <main className="flex-1 p-12 overflow-y-auto">
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
         {activeTab === "create" && (
           <div className="max-w-5xl mx-auto pb-20">
             {submitStatus && (
