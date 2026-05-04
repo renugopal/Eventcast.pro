@@ -138,11 +138,16 @@
             <h2 class="section-title" id="invitation-title">Wedding Invitation</h2>
             <!-- Video progress dots: shown only if multiple videos -->
             <div id="video-dots" style="display:none; justify-content:center; gap:8px; margin-bottom:16px;"></div>
-            <div class="invitation-container">
-                <video id="main-invitation-video" class="invitation-video" autoplay muted playsinline poster="assets/thumb.jpeg">
+            <div class="invitation-container" id="video-wrapper">
+                <video id="main-invitation-video" class="invitation-video" muted playsinline poster="assets/thumb.jpeg">
                     <source src="assets/invitation.mp4" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
+                <div id="video-play-overlay" class="video-overlay" style="display: none;">
+                    <div class="play-icon-circle">
+                        <i class="fas fa-play"></i>
+                    </div>
+                </div>
             </div>
         </section>
 
