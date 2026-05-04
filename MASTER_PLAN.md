@@ -140,12 +140,12 @@ DATABASES & SERVICES:
 
 | # | Location | Bug | Fix Required |
 |---|----------|-----|-------------|
-| B1 | Events Table | **Stream Key రావడం లేదు** — fetchEvents query లో select అవ్వట్లేదు | fetchEvents() లో stream_key explicitly select చేయాలి |
-| B2 | Events Table | **Date raw format** — "2026-05-01" కనిపిస్తోంది | "Friday, May 1st" గా format చేయాలి |
-| B3 | Events Table | **Go Live button title** లో raw date | Same date format function వాడాలి |
-| B4 | Events Table | **Reception filter missing** | Filter dropdown లో Reception add చేయాలి |
-| B5 | Analytics | **Views = 0** — page_views table నుండి fetch చేయట్లేదు | Real count fetch logic add చేయాలి |
-| B6 | Analytics | **Fake data** — "4m 12s", "+12% this week" hardcoded | Remove or label as estimated |
+| B1 | Events Table | **Stream Key రావడం లేదు** — fetchEvents query లో select అవ్వట్లేదు | ✅ Fixed |
+| B2 | Events Table | **Date raw format** — "2026-05-01" కనిపిస్తోంది | ✅ Fixed |
+| B3 | Events Table | **Go Live button title** లో raw date | ✅ Fixed |
+| B4 | Events Table | **Reception filter missing** | ✅ Fixed |
+| B5 | Analytics | **Views = 0** — page_views table నుండి fetch చేయట్లేదు | ✅ Fixed |
+| B6 | Analytics | **Fake data** — "4m 12s", "+12% this week" hardcoded | ✅ Fixed |
 | B7 | Template | **Save to Calendar link hardcoded** — "Arjun & Nithya Wedding" | ✅ Fixed |
 | B8 | Template | **Supabase race condition** — _supabase define అవ్వడానికి ముందే trackPageView() call | ✅ Fixed |
 | B9 | Template | **YouTube iframe** — youtubeId empty అయినా load అవుతోంది | ✅ Fixed |
@@ -165,12 +165,12 @@ DATABASES & SERVICES:
 
 ### Phase 1: Bug Fixes (Priority: HIGH — Do First)
 ```
-[ ] B1: Stream Key in table fix
-[ ] B2: Date format in table
-[ ] B3: Go Live button date format
-[ ] B4: Reception filter in table
-[ ] B5: Real analytics views
-[ ] B6: Remove fake analytics data
+[x] B1: Stream Key in table fix
+[x] B2: Date format in table
+[x] B3: Go Live button date format
+[x] B4: Reception filter in table
+[x] B5: Real analytics views
+[x] B6: Remove fake analytics data
 [x] B7: Save to Calendar dynamic link
 [x] B8: Supabase race condition fix
 [x] B9: YouTube iframe conditional
@@ -180,12 +180,12 @@ DATABASES & SERVICES:
 
 ### Phase 2: Events Table Improvements
 ```
-[ ] Status badges: Upcoming 🟡 / Today 🟢 / Live 🔴 / Completed ⚫
-[ ] Sort by date (upcoming first)
-[ ] Photographer name in row
-[ ] Page URL one-click copy button
-[ ] Client WhatsApp share button
-[ ] Stream Key copy button (cleaner UI)
+[x] Status badges: Upcoming 🟡 / Today 🟢 / Live 🔴 / Completed ⚫
+[x] Sort by date (upcoming first)
+[x] Photographer name in row
+[x] Page URL one-click copy button
+[x] Client WhatsApp share button
+[x] Stream Key copy button (cleaner UI)
 ```
 
 ### Phase 3: Dashboard Home Screen (New)

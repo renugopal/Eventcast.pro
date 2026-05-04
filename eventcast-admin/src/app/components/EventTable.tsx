@@ -35,7 +35,7 @@ export const EventTable: React.FC<EventTableProps> = ({
       e.view_count || 0,
       e.status || 'Active',
       e.vod_link || '',
-      e.stream_key || ''
+      e.youtube_stream_key || ''
     ]);
     
     const csvContent = "data:text/csv;charset=utf-8," 
@@ -57,6 +57,43 @@ export const EventTable: React.FC<EventTableProps> = ({
     const matchesFilter = filterType === "All" || e.event_type === filterType;
     return matchesSearch && matchesFilter;
   });
+
+  const sortedEvents = [...filteredEvents].sort((a, b) => {
+    const timeA = new Date(`${a.event_date}T00:00`).getTime() || 0;
+    const timeB = new Date(`${b.event_date}T00:00`).getTime() || 0;
+    const today = new Date().setHours(0,0,0,0);
+    
+    const isAPast = timeA < today;
+    const isBPast = timeB < today;
+    
+    if (!isAPast && !isBPast) return timeA - timeB; // Both future/today: closest first
+    if (isAPast && isBPast) return timeB - timeA;   // Both past: most recent first
+    return isAPast ? 1 : -1; // Future/Today comes before Past
+  });
+
+  const formatDisplayDate = (dateString: string) => {
+    if (!dateString) return "Date";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    const day = date.getDate();
+    const month = date.toLocaleString('default', { month: 'short' });
+    const year = date.getFullYear();
+    const suffix = ["th", "st", "nd", "rd"][(day % 10 > 3 ? 0 : day % 10) - (day % 100 - day % 10 === 10 ? day % 10 : 0)] || "th";
+    return `${day}${suffix} ${month} ${year}`;
+  };
+
+  const getEventStatus = (dateStr: string) => {
+    if (!dateStr) return { label: 'Unknown', color: 'bg-slate-100 text-slate-600 border-slate-200' };
+    const eventDate = new Date(`${dateStr}T00:00`);
+    const now = new Date();
+    
+    const eventDay = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate()).getTime();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    
+    if (eventDay === today) return { label: 'Today', color: 'bg-green-100 text-green-700 border-green-200' };
+    if (eventDay > today) return { label: 'Upcoming', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' };
+    return { label: 'Completed', color: 'bg-slate-100 text-slate-600 border-slate-200' };
+  };
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -83,6 +120,7 @@ export const EventTable: React.FC<EventTableProps> = ({
           >
             <option>All</option>
             <option>Wedding</option>
+            <option>Reception</option>
             <option>Engagement</option>
             <option>Birthday</option>
             <option>Half Saree</option>
@@ -126,7 +164,7 @@ export const EventTable: React.FC<EventTableProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredEvents.map(event => (
+                sortedEvents.map(event => (
                   <tr key={event.id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="p-5">
                       <div className="flex items-center gap-4">
@@ -155,27 +193,37 @@ export const EventTable: React.FC<EventTableProps> = ({
                       </div>
                     </td>
                     <td className="p-5">
-                      <div className="text-sm font-bold text-slate-700">{event.event_date}</div>
-                      <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{event.event_time}</div>
+                      <div className="text-sm font-bold text-slate-700 mb-1">{formatDisplayDate(event.event_date)}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{event.event_time}</div>
+                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border ${getEventStatus(event.event_date).color}`}>
+                          {getEventStatus(event.event_date).label}
+                        </span>
+                      </div>
                     </td>
                     <td className="p-5">
-                      <div className="text-xs text-slate-600 font-medium max-w-[200px] truncate">{event.venue_name}</div>
+                      <div className="text-xs text-slate-600 font-medium max-w-[200px] truncate mb-1">{event.venue_name}</div>
+                      {event.photographers?.name && (
+                        <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest bg-slate-50 inline-block px-1.5 py-0.5 rounded border border-slate-100">
+                          📷 {event.photographers.name}
+                        </div>
+                      )}
                     </td>
                     <td className="p-5">
-                      {event.stream_key ? (
+                      {event.youtube_stream_key ? (
                         <div className="flex flex-col gap-1.5 items-start">
                           <div className="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded border border-slate-200">
-                            <code className="text-[10px] font-mono text-slate-700">{event.stream_key}</code>
-                            <button onClick={() => { navigator.clipboard.writeText(event.stream_key); alert("Copied!"); }} className="text-slate-400 hover:text-blue-500"><Copy size={12}/></button>
+                            <code className="text-[10px] font-mono text-slate-700">{event.youtube_stream_key}</code>
+                            <button onClick={() => { navigator.clipboard.writeText(event.youtube_stream_key); alert("Copied!"); }} className="text-slate-400 hover:text-blue-500"><Copy size={12}/></button>
                           </div>
                           {event.vod_link && (
-                            <a href={event.vod_link} target="_blank" className="flex items-center gap-1 text-[10px] text-red-600 font-bold uppercase bg-red-50 px-2 py-0.5 rounded-full hover:bg-red-100 transition-colors">
+                            <a href={event.vod_link} target="_blank" className="flex items-center gap-1 text-[10px] text-red-600 font-bold uppercase bg-red-50 px-2 py-0.5 rounded-full hover:bg-red-100 transition-colors border border-red-100">
                               <Play size={10} /> Live Link
                             </a>
                           )}
                         </div>
                       ) : (
-                        <span className="text-[10px] text-slate-400 font-medium bg-slate-50 px-2 py-1 rounded">No Stream</span>
+                        <span className="text-[10px] text-slate-400 font-medium bg-slate-50 px-2 py-1 rounded border border-slate-100">No Stream</span>
                       )}
                     </td>
                     <td className="p-5 text-center">
@@ -187,7 +235,7 @@ export const EventTable: React.FC<EventTableProps> = ({
                            <button 
                              onClick={async () => {
                                const heart = (event.event_type || '').toLowerCase().includes('wedding') ? '❤️' : '✨';
-                               const baseTitle = `${event.groom_name || event.celebrant_name} ${heart} ${event.bride_name || 'Family'} ${event.event_type} Live | ${event.event_date}`;
+                               const baseTitle = `${event.groom_name || event.celebrant_name} ${heart} ${event.bride_name || 'Family'} ${event.event_type} Live | ${formatDisplayDate(event.event_date)}`;
                                const res = await fetch('/api/youtube/toggle-live', {
                                  method: 'POST',
                                  headers: { 'Content-Type': 'application/json' },
@@ -201,8 +249,8 @@ export const EventTable: React.FC<EventTableProps> = ({
                            </button>
                            <button 
                              onClick={async () => {
-                               const heart = (event.event_type || '').toLowerCase().includes('wedding') ? '❤️' : '✨';
-                               const baseTitle = `${event.groom_name || event.celebrant_name} ${heart} ${event.bride_name || 'Family'} ${event.event_type} Live | ${event.event_date}`;
+                             const heart = (event.event_type || '').toLowerCase().includes('wedding') ? '❤️' : '✨';
+                               const baseTitle = `${event.groom_name || event.celebrant_name} ${heart} ${event.bride_name || 'Family'} ${event.event_type} Live | ${formatDisplayDate(event.event_date)}`;
                                const res = await fetch('/api/youtube/toggle-live', {
                                  method: 'POST',
                                  headers: { 'Content-Type': 'application/json' },
@@ -240,6 +288,13 @@ export const EventTable: React.FC<EventTableProps> = ({
                           <ExternalLink size={18} />
                         </a>
                         <button 
+                          onClick={() => { navigator.clipboard.writeText(`https://eventcast.pro/events/${event.slug}`); alert("Link Copied!"); }}
+                          className="p-2 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors border border-transparent hover:border-slate-200" 
+                          title="Copy Page URL"
+                        >
+                          <Copy size={18} />
+                        </button>
+                        <button 
                           onClick={() => generateWebsite(event)} 
                           className="p-2 hover:bg-indigo-50 text-indigo-600 rounded-lg transition-colors border border-transparent hover:border-indigo-200" 
                           title="Force Regenerate Files"
@@ -248,18 +303,16 @@ export const EventTable: React.FC<EventTableProps> = ({
                         </button>
                         
 
-                        {event.photographers && event.photographers.phone_number && (
-                          <button 
-                            onClick={() => {
-                              const message = `Hello ${event.photographers.name}! Your event is ready: https://eventcast.pro/events/${event.slug}`;
-                              window.open(`https://wa.me/${event.photographers.phone_number.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
-                            }} 
-                            className="p-2 hover:bg-green-50 text-green-600 rounded-lg transition-colors border border-transparent hover:border-green-200" 
-                            title="Share to Photographer via WhatsApp"
-                          >
-                            <MessageCircle size={18} />
-                          </button>
-                        )}
+                        <button 
+                          onClick={() => {
+                            const message = `Hello! We are excited to invite you to the ${event.event_type}. Join us live here: https://eventcast.pro/events/${event.slug}`;
+                            window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+                          }} 
+                          className="p-2 hover:bg-green-50 text-green-600 rounded-lg transition-colors border border-transparent hover:border-green-200" 
+                          title="Share to Client/Guests via WhatsApp"
+                        >
+                          <MessageCircle size={18} />
+                        </button>
 
                         <button 
                           onClick={() => handleEditClick(event)} 
