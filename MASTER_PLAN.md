@@ -154,26 +154,26 @@ DATABASES & SERVICES:
 - [x] YouTube Automation Lifecycle
 - [x] Real-time Engagement Badges (Wishes)
 
-### Phase 3: Dashboard Home Screen (NEW)
-- [ ] New "Home" tab in sidebar
-- [ ] Today's events card (Live Tracking)
-- [ ] Upcoming events (next 7 days)
-- [ ] Stats: Total events, total views, active now
-- [ ] Recent activity feed (new wishes, views)
+### Phase 3: Dashboard Home Screen (COMPLETED)
+- [x] New "Home" tab in sidebar
+- [x] Today's events card (Live Tracking)
+- [x] Upcoming events (next 7 days)
+- [x] Stats: Total events, total views, active now
+- [x] Recent activity feed (new wishes, views)
 
-### Phase 4: Analytics Improvements
+### Phase 4: Analytics Improvements (COMPLETED)
 - [x] Wishes count per event in table
 - [x] Remove hardcoded/fake views in table
-- [ ] Per-event analytics detailed page
-- [ ] Peak hours view chart (event day)
+- [x] Per-event analytics detailed page
+- [x] Peak hours view chart (event day visualizer)
 
-### Phase 5: New Major Features
-- [ ] Live Monitor Screen (event day dashboard)
-- [ ] Client Portal Link Generator
-- [ ] Account Settings (default settings)
-- [ ] Sidebar collapse for wider content
-- [ ] Duplicate Event button
-- [ ] Event Notes field (internal only)
+### Phase 5: New Major Features (COMPLETED)
+- [x] Live Monitor Screen (event day dashboard)
+- [x] Client Portal Link Generator (Read-only stats/wishes for clients)
+- [x] Duplicate Event button (One-click cloning)
+- [x] Account Settings (Default event settings persistence)
+- [x] Sidebar collapse for wider content
+- [x] Event Notes field (internal team communication)
 
 ---
 
@@ -198,19 +198,21 @@ photographer_id       uuid (FK → photographers)
 | Automated YT Lifecycle | Reduce manual admin intervention on event day | May 2026 |
 | Resizable Columns | High-density data management requires manual fit | May 2026 |
 | Wishes badge in Identity | Immediate visual feedback on event popularity | May 2026 |
+| Client Portal Route | Provide value to clients with read-only dashboard | May 2026 |
 
 ---
 
 ## 📊 SECTION 7: CURRENT STATUS SUMMARY
 
 ```
-Admin Panel:     85% complete
+Admin Panel:     95% complete
   Create Event:  ✅ 95% done
-  Events Table:  ✅ 95% done (All features + Excel UI)
+  Events Table:  ✅ 100% done (All features + Excel UI)
   Photographers: ✅ 90% done
-  Analytics:     ⚠️ 50% done (Table views fixed, Home stats pending)
+  Analytics:     ✅ 90% done (Detailed views added, Home stats fixed)
   Automation:    ✅ 100% done (Cron + Sync)
-
+  Portal/Monitor: ✅ 90% done
+  
 Wedding Template: ✅ 100% complete
 ```
 

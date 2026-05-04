@@ -24,6 +24,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("home"); const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [events, setEvents] = useState<any[]>([]);
   const [wishes, setWishes] = useState<any[]>([]);
   const [analyticsData, setAnalyticsData] = useState<any[]>([]);
@@ -56,12 +57,13 @@ export default function AdminDashboard() {
     privacyStatus: "Unlisted (Link Only)",
     galleryUrls: "",
     vodLink: "",
-    templateId: "wedding-template-01",
-    youtubePrivacy: "public",
+    templateId: (typeof window !== 'undefined' ? localStorage.getItem('defaultTemplate') : null) || "wedding-template-01",
+    youtubePrivacy: (typeof window !== 'undefined' ? localStorage.getItem('defaultYoutubePrivacy') : null) || "public",
     autoGenerateThumbnail: true,
     customInitials: "",
     hideLoaderPhoto: false,
-    loaderPhotoUrl: ""
+    loaderPhotoUrl: "",
+    notes: ""
   });
 
   const [hasManuallyEditedInitials, setHasManuallyEditedInitials] = useState(false);
@@ -516,12 +518,13 @@ export default function AdminDashboard() {
       privacyStatus: "Unlisted (Link Only)",
       galleryUrls: "",
       vodLink: "",
-      templateId: "wedding-template-01",
-      youtubePrivacy: "public",
+      templateId: (typeof window !== 'undefined' ? localStorage.getItem('defaultTemplate') : null) || "wedding-template-01",
+      youtubePrivacy: (typeof window !== 'undefined' ? localStorage.getItem('defaultYoutubePrivacy') : null) || "public",
       autoGenerateThumbnail: true,
       customInitials: "",
       hideLoaderPhoto: false,
-      loaderPhotoUrl: ""
+      loaderPhotoUrl: "",
+      notes: ""
     });
     setHasManuallyEditedInitials(false);
     setSelectedPhotographer(null);
@@ -554,7 +557,8 @@ export default function AdminDashboard() {
       autoGenerateThumbnail: event.auto_generate_thumbnail ?? true,
       customInitials: event.custom_initials || "",
       hideLoaderPhoto: event.hide_loader_photo || false,
-      loaderPhotoUrl: event.loader_photo_url || ""
+      loaderPhotoUrl: event.loader_photo_url || "",
+      notes: event.notes || ""
     });
     setHasManuallyEditedInitials(!!event.custom_initials);
     const pg = photographers.find((p: any) => p.id === event.photographer_id);
@@ -591,7 +595,8 @@ export default function AdminDashboard() {
       autoGenerateThumbnail: event.auto_generate_thumbnail ?? true,
       customInitials: event.custom_initials || "",
       hideLoaderPhoto: event.hide_loader_photo || false,
-      loaderPhotoUrl: event.loader_photo_url || ""
+      loaderPhotoUrl: event.loader_photo_url || "",
+      notes: event.notes || ""
     });
     setHasManuallyEditedInitials(!!event.custom_initials);
     const pg = photographers.find((p: any) => p.id === event.photographer_id);
@@ -746,6 +751,8 @@ export default function AdminDashboard() {
       <Sidebar 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
+        isCollapsed={isSidebarCollapsed}
+        setIsCollapsed={setIsSidebarCollapsed}
         handleSignOut={handleSignOut} 
       />
 
@@ -1166,6 +1173,23 @@ export default function AdminDashboard() {
                   </div>
                 </section>
 
+                {/* 6. Internal Metadata */}
+                <section>
+                  <h3 className="text-lg font-black text-slate-800 border-b border-slate-100 pb-4 mb-8 flex items-center gap-3">
+                    <div className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center"><Layout size={18} /></div>
+                    Internal Metadata
+                  </h3>
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Internal Event Notes</label>
+                    <textarea 
+                      placeholder="Add private notes for the team (e.g. 'Customer requested extra focus on group photos', 'Payment pending', etc.)"
+                      value={formData.notes}
+                      onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800 h-32 resize-none"
+                    />
+                  </div>
+                </section>
+
                 {/* SEO & Social Preview Section */}
                 <section className="bg-slate-50 rounded-3xl p-8 border border-slate-100">
                   <h3 className="text-sm font-black text-slate-800 mb-6 flex items-center gap-2">
@@ -1249,6 +1273,42 @@ export default function AdminDashboard() {
                   {isSubmitting ? "Updating..." : "Update Password"}
                 </button>
               </form>
+            </div>
+
+            <div className="bg-white p-10 rounded-3xl shadow-sm border border-slate-200">
+              <h3 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3">
+                <Layout size={24} className="text-blue-600" /> Default Event Settings
+              </h3>
+              <p className="text-slate-500 text-sm mb-8 font-medium">Set your preferred defaults for every new event you create.</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Default Template</label>
+                  <select 
+                    id="defaultTemplate"
+                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800"
+                    defaultValue={typeof window !== 'undefined' ? localStorage.getItem('defaultTemplate') || 'wedding-template-01' : 'wedding-template-01'}
+                    onChange={(e) => localStorage.setItem('defaultTemplate', e.target.value)}
+                  >
+                    <option value="wedding-template-01">Wedding Template v1</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Default YouTube Privacy</label>
+                  <select 
+                    id="defaultYoutubePrivacy"
+                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800"
+                    defaultValue={typeof window !== 'undefined' ? localStorage.getItem('defaultYoutubePrivacy') || 'public' : 'public'}
+                    onChange={(e) => localStorage.setItem('defaultYoutubePrivacy', e.target.value)}
+                  >
+                    <option value="public">Public (Everyone)</option>
+                    <option value="unlisted">Unlisted (Link Only)</option>
+                  </select>
+                </div>
+              </div>
+              <div className="mt-8 p-4 bg-blue-50 rounded-2xl border border-blue-100 text-blue-700 text-xs font-bold">
+                ✨ These settings will be automatically applied whenever you open the "Create Event" form.
+              </div>
             </div>
 
             <div className="bg-slate-900 p-10 rounded-3xl shadow-xl text-white">

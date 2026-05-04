@@ -74,13 +74,36 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm md:col-span-2">
             <div className="flex items-center gap-3 mb-6">
                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center"><Clock size={20} /></div>
-               <h3 className="font-black text-slate-800">Peak Traffic</h3>
+               <h3 className="font-black text-slate-800">Peak Hours (Views by Time)</h3>
             </div>
-            <p className="text-3xl font-black text-slate-800 text-center py-4">{peakHour}</p>
-            <p className="text-xs text-center text-slate-400 font-bold uppercase tracking-widest">Busiest Hour</p>
+            
+            {/* Visual Bar Chart */}
+            <div className="h-40 flex items-end gap-1.5 px-2">
+              {['12 AM', '1 AM', '2 AM', '3 AM', '4 AM', '5 AM', '6 AM', '7 AM', '8 AM', '9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM', '8 PM', '9 PM', '10 PM', '11 PM'].map((h, i) => {
+                const count = viewsByHour[h] || 0;
+                const maxCount = Math.max(...Object.values(viewsByHour), 1);
+                const height = (count / maxCount) * 100;
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center group relative">
+                    <div 
+                      className={`w-full rounded-t-lg transition-all duration-500 ${count > 0 ? 'bg-indigo-500 hover:bg-indigo-600' : 'bg-slate-50'}`} 
+                      style={{ height: `${Math.max(5, height)}%` }}
+                    />
+                    <div className="absolute bottom-full mb-2 hidden group-hover:block z-10 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap shadow-xl">
+                      {h}: {count} views
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex justify-between mt-4 px-2 text-[8px] font-black text-slate-400 uppercase tracking-widest">
+              <span>12 AM</span>
+              <span>12 PM</span>
+              <span>11 PM</span>
+            </div>
           </div>
 
           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
@@ -89,7 +112,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
                <h3 className="font-black text-slate-800">Top Sources</h3>
             </div>
             <div className="space-y-3">
-              {Object.entries(referrers).sort((a, b) => b[1] - a[1]).slice(0,3).map(([ref, count], i) => (
+              {Object.entries(referrers).sort((a, b) => b[1] - a[1]).slice(0,4).map(([ref, count], i) => (
                 <div key={i} className="flex items-center justify-between">
                   <span className="text-sm font-bold text-slate-700">{ref}</span>
                   <span className="text-xs font-black bg-slate-100 px-2 py-1 rounded text-slate-600">{count as number}</span>
@@ -103,14 +126,24 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
                <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center"><Smartphone size={20} /></div>
                <h3 className="font-black text-slate-800">Devices</h3>
             </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-700">Mobile</span>
-                <span className="text-xs font-black bg-slate-100 px-2 py-1 rounded text-slate-600">{devices.Mobile}</span>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  <span>Mobile</span>
+                  <span>{Math.round((devices.Mobile / Math.max(1, selectedEvent.view_count)) * 100)}%</span>
+                </div>
+                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-purple-500 rounded-full" style={{ width: `${(devices.Mobile / Math.max(1, selectedEvent.view_count)) * 100}%` }} />
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-700">Desktop</span>
-                <span className="text-xs font-black bg-slate-100 px-2 py-1 rounded text-slate-600">{devices.Desktop}</span>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  <span>Desktop</span>
+                  <span>{Math.round((devices.Desktop / Math.max(1, selectedEvent.view_count)) * 100)}%</span>
+                </div>
+                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(devices.Desktop / Math.max(1, selectedEvent.view_count)) * 100}%` }} />
+                </div>
               </div>
             </div>
           </div>

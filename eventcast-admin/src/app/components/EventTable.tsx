@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy, Search, Download, QrCode, MessageCircle, Link as LinkIcon, CopyPlus } from "lucide-react";
+import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy, Search, Download, QrCode, MessageCircle, Link as LinkIcon, CopyPlus, StickyNote } from "lucide-react";
 
 interface EventTableProps {
   events: any[];
@@ -386,6 +386,11 @@ export const EventTable: React.FC<EventTableProps> = ({
                                   <MessageCircle size={8} /> {eventWishes.length}
                                 </span>
                               )}
+                              {event.notes && (
+                                <span className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-900 text-white text-[8px] font-black uppercase rounded border border-slate-800" title={event.notes}>
+                                  <StickyNote size={8} /> Note
+                                </span>
+                              )}
                             </div>
                             <h3 className="text-sm font-black text-slate-800 truncate">
                               {event.groom_name || event.celebrant_name}
@@ -431,7 +436,8 @@ export const EventTable: React.FC<EventTableProps> = ({
                       ) : (
                         <span className="text-[10px] text-slate-400 font-medium bg-slate-50 px-2 py-1 rounded border border-slate-100">No Stream</span>
                       )}
-                                   <td className={`${getPadding()} text-center`}>
+                    </td>
+                    <td className={`${getPadding()} text-center`}>
                        <span className="font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-bold">{event.view_count || 0}</span>
                     </td>
                     <td className={`${getPadding()}`}>

@@ -75,7 +75,8 @@ export async function POST(req: Request) {
       ...(event.base_design || event.baseDesign ? { base_design: event.base_design || event.baseDesign } : {}),
       ...(event.youtube_broadcast_id ? { youtube_broadcast_id: event.youtube_broadcast_id } : {}),
       ...(event.youtube_stream_key ? { youtube_stream_key: event.youtube_stream_key } : {}),
-      ...(event.youtube_url ? { youtube_url: event.youtube_url } : {})
+      ...(event.youtube_url ? { youtube_url: event.youtube_url } : {}),
+      notes: event.notes || ""
     };
 
     if (event.isEditing && event.editingId) {
