@@ -18,6 +18,7 @@ import { AssetLibrary } from "./components/AssetLibrary";
 import { PhotographerManagement } from "./components/PhotographerManagement";
 import { AssetPreviewModal } from "./components/AssetPreviewModal";
 import { DashboardHome } from "./components/DashboardHome";
+import { LiveMonitor } from "./components/LiveMonitor";
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -563,6 +564,42 @@ export default function AdminDashboard() {
     setActiveTab("create");
   };
 
+  const handleDuplicateClick = (event: any) => {
+    setIsEditing(false);
+    setEditingId(null);
+    setFormData({
+      eventType: event.event_type || "Wedding",
+      groomName: (event.groom_name || "") + " (Copy)",
+      brideName: event.bride_name || "",
+      celebrantName: (event.celebrant_name || "") + " (Copy)",
+      customTopTitle: event.custom_top_title || "",
+      eventDate: event.event_date || "",
+      eventTime: event.event_time || "",
+      timerTargetTime: event.timer_target_time || "",
+      showTimer: event.show_timer ?? true,
+      venueName: event.venue_name || "",
+      venueMapLink: event.venue_map_link || "",
+      invitationVideoUrls: Array.isArray(event.invitation_video_url)
+        ? event.invitation_video_url.join('\n')
+        : (event.invitation_video_url || ""),
+      thumbnailUrl: event.thumbnail_url || "",
+      privacyStatus: event.privacy_status || "Unlisted (Link Only)",
+      galleryUrls: Array.isArray(event.gallery_urls) ? event.gallery_urls.join('\n') : "",
+      vodLink: "", // Do not copy vodLink or youtube stream details
+      templateId: event.template_id || "wedding-template-01",
+      youtubePrivacy: "public",
+      autoGenerateThumbnail: event.auto_generate_thumbnail ?? true,
+      customInitials: event.custom_initials || "",
+      hideLoaderPhoto: event.hide_loader_photo || false,
+      loaderPhotoUrl: event.loader_photo_url || ""
+    });
+    setHasManuallyEditedInitials(!!event.custom_initials);
+    const pg = photographers.find((p: any) => p.id === event.photographer_id);
+    if (pg) setSelectedPhotographer(pg);
+    if (event.base_design) setSelectedBaseDesign(event.base_design);
+    setActiveTab("create");
+  };
+
   async function fullDeleteEvent(id: string) {
     if (!confirm("Are you sure?")) return;
     setIsLoadingEvents(true);
@@ -721,6 +758,7 @@ export default function AdminDashboard() {
             setActiveTab={setActiveTab} 
           />
         )}
+        {activeTab === "monitor" && <LiveMonitor events={events} wishes={wishes} />}
         {activeTab === "create" && (
           <div className="max-w-5xl mx-auto pb-20">
             {submitStatus && (
@@ -1183,6 +1221,7 @@ export default function AdminDashboard() {
             isLoadingEvents={isLoadingEvents} 
             fetchEvents={fetchEvents} 
             handleEditClick={handleEditClick} 
+            handleDuplicateClick={handleDuplicateClick}
             generateWebsite={fetchEvents} 
             fullDeleteEvent={fullDeleteEvent} 
             deleteMultipleEvents={deleteMultipleEvents}

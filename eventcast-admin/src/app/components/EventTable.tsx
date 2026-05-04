@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy, Search, Download, QrCode, MessageCircle } from "lucide-react";
+import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy, Search, Download, QrCode, MessageCircle, Link as LinkIcon, CopyPlus } from "lucide-react";
 
 interface EventTableProps {
   events: any[];
@@ -9,6 +9,7 @@ interface EventTableProps {
   isLoadingEvents: boolean;
   fetchEvents: () => void;
   handleEditClick: (event: any) => void;
+  handleDuplicateClick: (event: any) => void;
   generateWebsite: (event: any) => void;
   fullDeleteEvent: (id: string) => void;
   deleteMultipleEvents: (ids: string[]) => void;
@@ -20,6 +21,7 @@ export const EventTable: React.FC<EventTableProps> = ({
   isLoadingEvents,
   fetchEvents,
   handleEditClick,
+  handleDuplicateClick,
   generateWebsite,
   fullDeleteEvent,
   deleteMultipleEvents
@@ -517,11 +519,25 @@ export const EventTable: React.FC<EventTableProps> = ({
                           <ExternalLink size={18} />
                         </a>
                         <button 
-                          onClick={() => { navigator.clipboard.writeText(`https://eventcast.pro/events/${event.slug}`); alert("Link Copied!"); }}
+                          onClick={() => { navigator.clipboard.writeText(`https://admin.eventcast.pro/portal/${event.slug}`); alert("Client Portal Link Copied!"); }}
+                          className="p-2 hover:bg-pink-50 text-pink-600 rounded-lg transition-colors border border-transparent hover:border-pink-200" 
+                          title="Copy Client Portal Link"
+                        >
+                          <LinkIcon size={18} />
+                        </button>
+                        <button 
+                          onClick={() => { navigator.clipboard.writeText(`https://eventcast.pro/events/${event.slug}`); alert("Live Page Link Copied!"); }}
                           className="p-2 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors border border-transparent hover:border-slate-200" 
                           title="Copy Page URL"
                         >
                           <Copy size={18} />
+                        </button>
+                        <button 
+                          onClick={() => handleDuplicateClick(event)}
+                          className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-lg transition-colors border border-transparent hover:border-emerald-200" 
+                          title="Duplicate Event"
+                        >
+                          <CopyPlus size={18} />
                         </button>
                         <button 
                           onClick={() => handleEditClick(event)}

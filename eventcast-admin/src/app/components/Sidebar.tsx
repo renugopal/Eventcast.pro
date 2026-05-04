@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { PlusCircle, List, Settings, BarChart3, Image as ImageIcon, LogOut, Layout, Users, Home } from "lucide-react";
+import { PlusCircle, List, Settings, BarChart3, Image as ImageIcon, LogOut, Layout, Users, Home, Monitor } from "lucide-react";
 
 interface SidebarProps {
   activeTab: string;
@@ -12,6 +12,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, handleSignOut }) => {
     const menuItems = [
     { id: 'home', label: 'Dashboard Home', icon: Home },
+    { id: 'monitor', label: 'Live Monitor', icon: Monitor },
     { id: 'create', label: 'Create Event', icon: PlusCircle },
     { id: 'list', label: 'All Events', icon: List },
     { id: 'photographers', label: 'Photographers', icon: Users },
