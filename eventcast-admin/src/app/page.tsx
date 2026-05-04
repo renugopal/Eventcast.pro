@@ -489,8 +489,8 @@ export default function AdminDashboard() {
       resetForm();
       fetchEvents();
     } catch (err: any) {
-      const errorMsg = err.message.includes("base_design") 
-        ? "Database Error: Please run the SQL command to add 'base_design' column to your 'events' table."
+      const errorMsg = err.message.includes("base_design") || err.message.includes("notes")
+        ? "Database Error: Please run the SQL command to add 'base_design' and 'notes' columns to your 'events' table in Supabase."
         : err.message;
       setSubmitStatus({ type: 'error', message: errorMsg });
     } finally {
