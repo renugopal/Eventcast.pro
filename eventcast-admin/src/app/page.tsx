@@ -17,10 +17,11 @@ import { AnalyticsDashboard } from "./components/AnalyticsDashboard";
 import { AssetLibrary } from "./components/AssetLibrary";
 import { PhotographerManagement } from "./components/PhotographerManagement";
 import { AssetPreviewModal } from "./components/AssetPreviewModal";
+import { DashboardHome } from "./components/DashboardHome";
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("create"); const [user, setUser] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState("home"); const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [events, setEvents] = useState<any[]>([]);
   const [wishes, setWishes] = useState<any[]>([]);
@@ -147,12 +148,12 @@ export default function AdminDashboard() {
     // Use page_views count per event (accurate, no race condition)
     const { data: eventsData } = await supabase
       .from('events')
-      .select('id, groom_name, celebrant_name, event_type, slug')
+      .select('id, groom_name, celebrant_name, bride_name, event_type, slug, event_date')
       .order('created_at', { ascending: false });
     
     const { data: viewsData } = await supabase
       .from('page_views')
-      .select('event_id');
+      .select('*');
     
     if (eventsData) {
       const viewCounts = (viewsData || []).reduce((acc: any, v: any) => {
@@ -161,7 +162,8 @@ export default function AdminDashboard() {
       }, {});
       setAnalyticsData(eventsData.map((e: any) => ({
         ...e,
-        view_count: viewCounts[e.id] || 0
+        view_count: viewCounts[e.id] || 0,
+        raw_views: (viewsData || []).filter((v: any) => v.event_id === e.id)
       })));
     }
   }
@@ -711,6 +713,14 @@ export default function AdminDashboard() {
       />
 
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+        {activeTab === "home" && (
+          <DashboardHome 
+            events={events} 
+            wishes={wishes} 
+            analyticsData={analyticsData} 
+            setActiveTab={setActiveTab} 
+          />
+        )}
         {activeTab === "create" && (
           <div className="max-w-5xl mx-auto pb-20">
             {submitStatus && (
