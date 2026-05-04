@@ -171,27 +171,35 @@ document.addEventListener('DOMContentLoaded', () => {
         if (lbl) lbl.innerText = CONFIG.timeLabel || 'Sumuhurtham';
     }
 
-    // --- Invitation Video Section: Auto-Playlist ---
-    const invVideoSection = document.getElementById('invitation-video');
+    // --- Invitation Video Section: Smart Control ---
     const invVideo = document.getElementById('main-invitation-video');
+    const videoOverlay = document.getElementById('video-play-overlay');
+    const videoWrapper = document.getElementById('video-wrapper');
     const videoDotsContainer = document.getElementById('video-dots');
-    const allVideos = CONFIG.invitationVideos && CONFIG.invitationVideos.length > 0
+    const allVideos = (CONFIG.invitationVideos && CONFIG.invitationVideos.length > 0)
         ? CONFIG.invitationVideos
         : (CONFIG.invitationVideo ? [CONFIG.invitationVideo] : []);
 
-    if (allVideos.length > 0) {
+    if (allVideos.length > 0 && invVideo) {
         let currentVideoIndex = 0;
+        let loopCount = 0;
+        const MAX_LOOPS = 3;
+        let isLoopingEnabled = true;
 
-        // Helper: load and play a specific video index
+        invVideo.setAttribute('poster', optimizeUrl(CONFIG.thumbnail));
+
         function playVideoAt(index) {
             currentVideoIndex = index;
-            if (invVideo) {
-                const src = invVideo.querySelector('source');
-                if (src) src.setAttribute('src', allVideos[index]);
-                invVideo.load();
+            const src = invVideo.querySelector('source');
+            if (src) src.setAttribute('src', allVideos[index]);
+            invVideo.load();
+            
+            // Only play if in viewport or manually triggered
+            if (videoOverlay && videoOverlay.style.display === 'none') {
                 invVideo.play().catch(() => {});
             }
-            // Update dot indicators
+            
+            // Update dots
             if (allVideos.length > 1 && videoDotsContainer) {
                 videoDotsContainer.querySelectorAll('.vdot').forEach((dot, i) => {
                     dot.style.background = i === index ? 'var(--gold)' : 'rgba(255,255,255,0.3)';
@@ -200,46 +208,76 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Set poster and load first video
-        if (invVideo) {
-            invVideo.setAttribute('poster', optimizeUrl(CONFIG.thumbnail));
-
+        // Handle video end
+        invVideo.addEventListener('ended', () => {
             if (allVideos.length === 1) {
-                // Single video → loop normally
-                invVideo.setAttribute('loop', '');
-                const src = invVideo.querySelector('source');
-                if (src) src.setAttribute('src', allVideos[0]);
-                invVideo.load();
+                // Single video loop logic
+                loopCount++;
+                if (loopCount < MAX_LOOPS && isLoopingEnabled) {
+                    invVideo.play().catch(() => {});
+                } else {
+                    stopVideoAndShowOverlay();
+                }
             } else {
-                // Multiple videos → auto-playlist, no loop attribute
-                invVideo.removeAttribute('loop');
-                // When current video ends → play next, wrap around
-                invVideo.addEventListener('ended', () => {
-                    const next = (currentVideoIndex + 1) % allVideos.length;
+                // Playlist logic
+                const next = (currentVideoIndex + 1) % allVideos.length;
+                if (next === 0) loopCount++; // Finished one full cycle
+                
+                if (loopCount < MAX_LOOPS && isLoopingEnabled) {
                     playVideoAt(next);
-                });
-
-                // Build dot indicators
-                videoDotsContainer.style.display = 'flex';
-                videoDotsContainer.innerHTML = allVideos.map((_, i) => `
-                    <span class="vdot" style="
-                        width:10px; height:10px; border-radius:50%;
-                        display:inline-block; cursor:pointer; transition: all 0.3s;
-                        background: ${i === 0 ? 'var(--gold)' : 'rgba(255,255,255,0.3)'};
-                        transform: ${i === 0 ? 'scale(1.4)' : 'scale(1)'};
-                    " onclick="playVideoAt_global(${i})" title="Video ${i + 1}"></span>
-                `).join('');
-
-                // Expose function globally for onclick
-                window.playVideoAt_global = playVideoAt;
-
-                // Start first video
-                playVideoAt(0);
+                } else {
+                    stopVideoAndShowOverlay();
+                }
             }
+        });
+
+        function stopVideoAndShowOverlay() {
+            isLoopingEnabled = false;
+            if (videoOverlay) videoOverlay.style.display = 'flex';
+            invVideo.pause();
         }
-    } else {
-        // No video → hide section
-        if (invVideoSection) invVideoSection.style.display = 'none';
+
+        function startVideoManually() {
+            isLoopingEnabled = true;
+            loopCount = 0;
+            if (videoOverlay) videoOverlay.style.display = 'none';
+            invVideo.play().catch(() => {});
+        }
+
+        if (videoOverlay) {
+            videoOverlay.addEventListener('click', startVideoManually);
+        }
+
+        // --- Intersection Observer: Play only when visible ---
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && isLoopingEnabled) {
+                    invVideo.play().catch(() => {});
+                } else {
+                    invVideo.pause();
+                }
+            });
+        }, { threshold: 0.3 });
+
+        if (videoWrapper) observer.observe(videoWrapper);
+
+        // Initial setup
+        if (allVideos.length > 1 && videoDotsContainer) {
+            videoDotsContainer.style.display = 'flex';
+            videoDotsContainer.innerHTML = allVideos.map((_, i) => `
+                <span class="vdot" style="width:10px; height:10px; border-radius:50%; display:inline-block; cursor:pointer; transition: all 0.3s; background: rgba(255,255,255,0.3);" onclick="playVideoAt_global(${i})"></span>
+            `).join('');
+            window.playVideoAt_global = (i) => {
+                isLoopingEnabled = true;
+                if (videoOverlay) videoOverlay.style.display = 'none';
+                playVideoAt(i);
+            };
+        }
+
+        playVideoAt(0);
+    } else if (invVideo) {
+        const section = document.getElementById('invitation-video');
+        if (section) section.style.display = 'none';
     }
 
 
