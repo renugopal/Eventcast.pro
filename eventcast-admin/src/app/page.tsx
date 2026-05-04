@@ -110,10 +110,23 @@ export default function AdminDashboard() {
 
   async function fetchEvents() {
     setIsLoadingEvents(true);
-    const { data, error } = await supabase.from('events').select('*').order('created_at', { ascending: false });
-    if (data) {
-      setEvents(data);
-      const allAssets = data.flatMap(e => [
+    const { data: eventsData, error } = await supabase.from('events').select('*, photographers(name)').order('created_at', { ascending: false });
+    const { data: viewsData } = await supabase.from('page_views').select('event_id');
+    
+    if (eventsData) {
+      const viewCounts = (viewsData || []).reduce((acc: any, v: any) => {
+        acc[v.event_id] = (acc[v.event_id] || 0) + 1;
+        return acc;
+      }, {});
+
+      const eventsWithViews = eventsData.map((e: any) => ({
+        ...e,
+        view_count: viewCounts[e.id] || 0
+      }));
+
+      setEvents(eventsWithViews);
+      
+      const allAssets = eventsWithViews.flatMap(e => [
         e.thumbnail_url,
         e.invitation_video_url,
         ...(Array.isArray(e.gallery_urls) ? e.gallery_urls : [])
