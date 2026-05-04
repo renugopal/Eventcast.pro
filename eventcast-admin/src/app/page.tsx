@@ -565,6 +565,25 @@ export default function AdminDashboard() {
     }
   }
 
+  async function deleteMultipleEvents(ids: string[]) {
+    setIsLoadingEvents(true);
+    try {
+      await Promise.all(ids.map(id => 
+        fetch('/api/events/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        })
+      ));
+      alert(`${ids.length} events deleted successfully.`);
+      fetchEvents();
+    } catch (err) {
+      alert("Bulk delete failed.");
+    } finally {
+      setIsLoadingEvents(false);
+    }
+  }
+
   async function addPhotographer(e: any) {
     e.preventDefault();
     setIsSubmitting(true);
@@ -1134,7 +1153,18 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {activeTab === "list" && <EventTable events={events} isLoadingEvents={isLoadingEvents} fetchEvents={fetchEvents} handleEditClick={handleEditClick} generateWebsite={fetchEvents} fullDeleteEvent={fullDeleteEvent} />}
+        {activeTab === "list" && (
+          <EventTable 
+            events={events} 
+            wishes={wishes}
+            isLoadingEvents={isLoadingEvents} 
+            fetchEvents={fetchEvents} 
+            handleEditClick={handleEditClick} 
+            generateWebsite={fetchEvents} 
+            fullDeleteEvent={fullDeleteEvent} 
+            deleteMultipleEvents={deleteMultipleEvents}
+          />
+        )}
         {activeTab === "moderation" && <WishesModeration wishes={wishes} isLoadingWishes={isLoadingWishes} fetchWishes={fetchWishes} deleteWish={fetchWishes} />}
         {activeTab === "analytics" && <AnalyticsDashboard analyticsData={analyticsData} />}
         {activeTab === "assets" && <AssetLibrary assetLibrary={assetLibrary} getVideoThumbnail={getVideoThumbnail} setSelectedAsset={setSelectedAsset} />}

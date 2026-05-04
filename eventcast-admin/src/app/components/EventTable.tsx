@@ -5,34 +5,39 @@ import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy, Search,
 
 interface EventTableProps {
   events: any[];
+  wishes: any[];
   isLoadingEvents: boolean;
   fetchEvents: () => void;
   handleEditClick: (event: any) => void;
   generateWebsite: (event: any) => void;
   fullDeleteEvent: (id: string) => void;
+  deleteMultipleEvents: (ids: string[]) => void;
 }
 
 export const EventTable: React.FC<EventTableProps> = ({
   events,
+  wishes,
   isLoadingEvents,
   fetchEvents,
   handleEditClick,
   generateWebsite,
-  fullDeleteEvent
+  fullDeleteEvent,
+  deleteMultipleEvents
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("All");
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
   const [tableDensity, setTableDensity] = useState<"compact" | "standard" | "spacious">("standard");
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [columnWidths, setColumnWidths] = useState<{ [key: string]: number }>({
+    select: 40,
     identity: 280,
     schedule: 160,
-    venue: 200,
+    venue: 250,
     youtube: 220,
     views: 80,
     control: 180,
-    qr: 80,
-    actions: 120
+    actions: 140
   });
 
   const resizingColumn = useRef<string | null>(null);
@@ -166,6 +171,23 @@ export const EventTable: React.FC<EventTableProps> = ({
     return { label: 'Completed', color: 'bg-slate-100 text-slate-600 border-slate-200' };
   };
 
+  const toggleSelection = (id: string) => {
+    setSelectedEventIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedEventIds.size === sortedEvents.length) {
+      setSelectedEventIds(new Set());
+    } else {
+      setSelectedEventIds(new Set(sortedEvents.map(e => e.id)));
+    }
+  };
+
   const getPadding = () => {
     if (tableDensity === "compact") return "p-2";
     if (tableDensity === "spacious") return "p-6";
@@ -174,6 +196,35 @@ export const EventTable: React.FC<EventTableProps> = ({
 
   return (
     <div className="w-full space-y-6">
+      {selectedEventIds.size > 0 && (
+        <div className="flex items-center justify-between bg-blue-600 p-4 rounded-2xl shadow-lg animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center gap-4 text-white">
+            <span className="text-sm font-black uppercase tracking-widest bg-blue-500/50 px-3 py-1 rounded-lg border border-blue-400/30">
+              {selectedEventIds.size} Selected
+            </span>
+            <p className="text-sm font-bold opacity-90">Manage multiple events at once</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => {
+                if (confirm(`Are you sure you want to delete ${selectedEventIds.size} events?`)) {
+                  deleteMultipleEvents(Array.from(selectedEventIds));
+                  setSelectedEventIds(new Set());
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-white text-red-600 rounded-xl text-xs font-black hover:bg-red-50 transition-all shadow-sm"
+            >
+              <Trash2 size={14} /> Bulk Delete
+            </button>
+            <button 
+              onClick={() => setSelectedEventIds(new Set())}
+              className="px-4 py-2 bg-blue-500/50 text-white rounded-xl text-xs font-black hover:bg-blue-500 transition-all border border-blue-400/30"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-2xl border border-slate-200 shadow-sm gap-4">
         <div>
           <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-tight">Active Events</h2>
@@ -240,6 +291,14 @@ export const EventTable: React.FC<EventTableProps> = ({
           <table className="w-full text-left border-collapse table-fixed">
             <thead>
               <tr className="bg-slate-900 border-b border-slate-800">
+                <th style={{ width: columnWidths.select }} className="p-4">
+                  <input 
+                    type="checkbox" 
+                    checked={selectedEventIds.size === sortedEvents.length && sortedEvents.length > 0}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-blue-500"
+                  />
+                </th>
                 <th 
                   style={{ width: columnWidths.identity }}
                   className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest relative group"
@@ -247,11 +306,7 @@ export const EventTable: React.FC<EventTableProps> = ({
                   <div onClick={() => requestSort('groom_name')} className="cursor-pointer hover:text-white transition-colors">
                     Event Identity {sortConfig?.key === 'groom_name' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
                   </div>
-                  <div 
-                    onMouseDown={(e) => handleMouseDown(e, 'identity')}
-                    onDoubleClick={() => handleDoubleClick('identity')}
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                  />
+                  <div onMouseDown={(e) => handleMouseDown(e, 'identity')} onDoubleClick={() => handleDoubleClick('identity')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
                 <th 
                   style={{ width: columnWidths.schedule }}
@@ -260,27 +315,15 @@ export const EventTable: React.FC<EventTableProps> = ({
                   <div onClick={() => requestSort('date')} className="cursor-pointer hover:text-white transition-colors">
                     Schedule {sortConfig?.key === 'date' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
                   </div>
-                  <div 
-                    onMouseDown={(e) => handleMouseDown(e, 'schedule')}
-                    onDoubleClick={() => handleDoubleClick('schedule')}
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                  />
+                  <div onMouseDown={(e) => handleMouseDown(e, 'schedule')} onDoubleClick={() => handleDoubleClick('schedule')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
                 <th style={{ width: columnWidths.venue }} className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest relative group">
-                  Venue
-                  <div 
-                    onMouseDown={(e) => handleMouseDown(e, 'venue')}
-                    onDoubleClick={() => handleDoubleClick('venue')}
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                  />
+                  Venue & Photographer
+                  <div onMouseDown={(e) => handleMouseDown(e, 'venue')} onDoubleClick={() => handleDoubleClick('venue')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
                 <th style={{ width: columnWidths.youtube }} className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest relative group">
                   YouTube / Stream
-                  <div 
-                    onMouseDown={(e) => handleMouseDown(e, 'youtube')}
-                    onDoubleClick={() => handleDoubleClick('youtube')}
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                  />
+                  <div onMouseDown={(e) => handleMouseDown(e, 'youtube')} onDoubleClick={() => handleDoubleClick('youtube')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
                 <th 
                   style={{ width: columnWidths.views }}
@@ -289,94 +332,87 @@ export const EventTable: React.FC<EventTableProps> = ({
                   <div onClick={() => requestSort('view_count')} className="cursor-pointer hover:text-white transition-colors">
                     Views {sortConfig?.key === 'view_count' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
                   </div>
-                  <div 
-                    onMouseDown={(e) => handleMouseDown(e, 'views')}
-                    onDoubleClick={() => handleDoubleClick('views')}
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                  />
+                  <div onMouseDown={(e) => handleMouseDown(e, 'views')} onDoubleClick={() => handleDoubleClick('views')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
                 <th style={{ width: columnWidths.control }} className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest relative group">
                   Live Control
-                  <div 
-                    onMouseDown={(e) => handleMouseDown(e, 'control')}
-                    onDoubleClick={() => handleDoubleClick('control')}
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                  />
-                </th>
-                <th style={{ width: columnWidths.qr }} className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center relative group">
-                  QR
-                  <div 
-                    onMouseDown={(e) => handleMouseDown(e, 'qr')}
-                    onDoubleClick={() => handleDoubleClick('qr')}
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                  />
+                  <div onMouseDown={(e) => handleMouseDown(e, 'control')} onDoubleClick={() => handleDoubleClick('control')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
                 <th style={{ width: columnWidths.actions }} className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right relative group">
                   Actions
-                  <div 
-                    onMouseDown={(e) => handleMouseDown(e, 'actions')}
-                    onDoubleClick={() => handleDoubleClick('actions')}
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                  />
+                  <div onMouseDown={(e) => handleMouseDown(e, 'actions')} onDoubleClick={() => handleDoubleClick('actions')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredEvents.length === 0 ? (
+              {isLoadingEvents ? (
                 <tr>
-                  <td colSpan={7} className="p-20 text-center">
-                    <div className="flex flex-col items-center gap-2 opacity-40">
-                      <AlertCircle size={48} strokeWidth={1} />
-                      <p className="font-bold text-slate-500">No events found matching your criteria.</p>
-                    </div>
+                  <td colSpan={8} className="p-20 text-center">
+                    <RefreshCw className="animate-spin mx-auto text-blue-500 mb-4" size={40} />
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs animate-pulse">Loading Platforms...</p>
                   </td>
                 </tr>
               ) : (
-                sortedEvents.map(event => (
-                  <tr key={event.id} className="hover:bg-blue-50/30 transition-colors group even:bg-slate-50/50">
-                    <td className={`${getPadding()} overflow-hidden`}>
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0">
-                          {event.thumbnail_url ? (
-                            <img src={event.thumbnail_url} className="w-full h-full object-cover" alt="Thumb" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-300">
-                              <AlertCircle size={20} />
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-black text-slate-800 tracking-tight leading-none mb-1 text-sm uppercase">
-                            {event.groom_name || event.celebrant_name} & {event.bride_name || 'Family'}
-                          </div>
-                          <div className="text-[10px] font-bold text-blue-600 uppercase tracking-widest flex items-center gap-2">
-                            {event.event_type}
-                            {event.template_id && (
-                              <span className="bg-blue-50 text-blue-400 px-1.5 py-0.5 rounded text-[8px] border border-blue-100">
-                                {event.template_id.replace('wedding-template-', 'v')}
-                              </span>
+                sortedEvents.map(event => {
+                  const eventWishes = wishes.filter(w => w.event_id === event.id);
+                  return (
+                    <tr key={event.id} className={`hover:bg-blue-50/30 transition-colors group even:bg-slate-50/50 ${selectedEventIds.has(event.id) ? 'bg-blue-50/50' : ''}`}>
+                      <td className="p-4">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedEventIds.has(event.id)}
+                          onChange={() => toggleSelection(event.id)}
+                          className="w-4 h-4 rounded border-slate-300 text-blue-600"
+                        />
+                      </td>
+                      <td className={`${getPadding()} overflow-hidden`}>
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0">
+                            {event.thumbnail_url ? (
+                              <img src={event.thumbnail_url} className="w-full h-full object-cover" alt="Thumb" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-slate-300"><AlertCircle size={20} /></div>
                             )}
                           </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[8px] font-black uppercase rounded border border-blue-100">
+                                {event.event_type}
+                              </span>
+                              {eventWishes.length > 0 && (
+                                <span className="flex items-center gap-1 px-1.5 py-0.5 bg-green-50 text-green-600 text-[8px] font-black uppercase rounded border border-green-100">
+                                  <MessageCircle size={8} /> {eventWishes.length}
+                                </span>
+                              )}
+                            </div>
+                            <h3 className="text-sm font-black text-slate-800 truncate">
+                              {event.groom_name || event.celebrant_name}
+                            </h3>
+                            <p className="text-[10px] text-slate-400 font-bold truncate">
+                              & {event.bride_name || 'Family'}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className={`${getPadding()}`}>
-                      <div className="text-sm font-bold text-slate-700 mb-1">{formatDisplayDate(event.event_date)}</div>
-                      <div className="flex items-center gap-2">
-                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{event.event_time}</div>
-                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border ${getEventStatus(event.event_date).color}`}>
-                          {getEventStatus(event.event_date).label}
-                        </span>
-                      </div>
-                    </td>
-                    <td className={`${getPadding()}`}>
-                      <div className="text-xs text-slate-600 font-medium max-w-[200px] truncate mb-1">{event.venue_name}</div>
-                      {event.photographers?.name && (
-                        <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest bg-slate-50 inline-block px-1.5 py-0.5 rounded border border-slate-100">
-                          📷 {event.photographers.name}
+                      </td>
+                      <td className={`${getPadding()} overflow-hidden`}>
+                        <div className="text-sm font-bold text-slate-700 mb-1">{formatDisplayDate(event.event_date)}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{event.event_time}</div>
+                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border ${getEventStatus(event.event_date).color}`}>
+                            {getEventStatus(event.event_date).label}
+                          </span>
                         </div>
-                      )}
-                    </td>
+                      </td>
+                      <td className={`${getPadding()} overflow-hidden`}>
+                        <div className="text-xs text-slate-800 font-bold max-w-[200px] truncate mb-1">{event.venue_name}</div>
+                        {event.photographers?.name ? (
+                          <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
+                            <span className="text-slate-300">by</span> {event.photographers.name}
+                          </div>
+                        ) : (
+                          <div className="text-[9px] text-slate-300 font-bold uppercase">No Photographer Credit</div>
+                        )}
+                      </td>
                     <td className={`${getPadding()}`}>
                       {event.youtube_stream_key ? (
                         <div className="flex flex-col gap-1.5 items-start">
@@ -393,9 +429,8 @@ export const EventTable: React.FC<EventTableProps> = ({
                       ) : (
                         <span className="text-[10px] text-slate-400 font-medium bg-slate-50 px-2 py-1 rounded border border-slate-100">No Stream</span>
                       )}
-                    </td>
-                    <td className={`${getPadding()} text-center`}>
-                      <span className="font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-bold">{event.view_count || 0}</span>
+                                   <td className={`${getPadding()} text-center`}>
+                       <span className="font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-bold">{event.view_count || 0}</span>
                     </td>
                     <td className={`${getPadding()}`}>
                        {event.youtube_broadcast_id ? (
@@ -445,18 +480,34 @@ export const EventTable: React.FC<EventTableProps> = ({
                          <span className="text-[9px] text-slate-300 font-bold uppercase tracking-tighter">No YouTube</span>
                        )}
                     </td>
-                    <td className={`${getPadding()} text-center`}>
-                       <div className="flex flex-col items-center gap-1 group/qr">
-                         <img 
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https://eventcast.pro/events/${event.slug}`}
-                            className="w-8 h-8 rounded border border-slate-200"
-                            alt="QR"
-                         />
-                         <a href={`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=https://eventcast.pro/events/${event.slug}`} download className="text-[8px] font-bold text-blue-500 opacity-0 group-hover/qr:opacity-100">PNG</a>
-                       </div>
-                    </td>
                     <td className={`${getPadding()}`}>
-                      <div className="flex items-center justify-end gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                        {/* QR Code Quick View */}
+                        <div className="relative group/qr">
+                          <button className="p-2 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors border border-transparent hover:border-slate-200">
+                            <QrCode size={18} />
+                          </button>
+                          <div className="absolute right-0 bottom-full mb-2 hidden group-hover/qr:block z-50 bg-white p-3 rounded-2xl shadow-2xl border border-slate-200 w-40">
+                             <img 
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://eventcast.pro/events/${event.slug}`}
+                                className="w-full h-auto rounded-lg border border-slate-100 mb-2"
+                                alt="QR"
+                             />
+                             <div className="flex gap-2">
+                               <a 
+                                 href={`https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data=https://eventcast.pro/events/${event.slug}`} 
+                                 download 
+                                 className="flex-1 text-center py-1 bg-slate-900 text-white text-[8px] font-black uppercase rounded"
+                               >PNG</a>
+                               <a 
+                                 href={`https://eventcast.pro/events/${event.slug}`} 
+                                 target="_blank" 
+                                 className="flex-1 text-center py-1 bg-blue-600 text-white text-[8px] font-black uppercase rounded"
+                               >Visit</a>
+                             </div>
+                          </div>
+                        </div>
+
                         <a 
                           href={`https://eventcast.pro/events/${event.slug}`} 
                           target="_blank" 
@@ -473,51 +524,29 @@ export const EventTable: React.FC<EventTableProps> = ({
                           <Copy size={18} />
                         </button>
                         <button 
-                          onClick={() => generateWebsite(event)} 
-                          className="p-2 hover:bg-indigo-50 text-indigo-600 rounded-lg transition-colors border border-transparent hover:border-indigo-200" 
-                          title="Force Regenerate Files"
-                        >
-                          <RefreshCw size={18} />
-                        </button>
-                        
-
-                        <button 
-                          onClick={() => {
-                            const message = `Hello! We are excited to invite you to the ${event.event_type}. Join us live here: https://eventcast.pro/events/${event.slug}`;
-                            window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
-                          }} 
-                          className="p-2 hover:bg-green-50 text-green-600 rounded-lg transition-colors border border-transparent hover:border-green-200" 
-                          title="Share to Client/Guests via WhatsApp"
-                        >
-                          <MessageCircle size={18} />
-                        </button>
-
-                        <button 
-                          onClick={() => handleEditClick(event)} 
-                          className="p-2 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors border border-transparent hover:border-slate-200"
+                          onClick={() => handleEditClick(event)}
+                          className="p-2 hover:bg-amber-50 text-amber-600 rounded-lg transition-colors border border-transparent hover:border-amber-200" 
+                          title="Edit Event"
                         >
                           <Edit size={18} />
                         </button>
                         <button 
-                          onClick={() => {
-                            if (window.confirm("WARNING: FULL DELETE!\nThis will permanently delete the website record, the YouTube Live event, and ALL photos/videos from Cloudinary.\nThis cannot be undone. Proceed?")) {
-                              fullDeleteEvent(event.id);
-                            }
-                          }} 
-                          className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors border border-red-100 hover:border-red-200 shadow-sm" 
-                          title="FULL DELETE (Website + YT + Media)"
+                          onClick={() => fullDeleteEvent(event.id)}
+                          className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors border border-transparent hover:border-red-200" 
+                          title="Delete Event"
                         >
-                          <AlertCircle size={18} />
+                          <Trash2 size={18} />
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
-  );
+  </div>
+);
 };
