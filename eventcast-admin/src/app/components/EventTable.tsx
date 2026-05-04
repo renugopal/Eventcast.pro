@@ -23,6 +23,7 @@ export const EventTable: React.FC<EventTableProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("All");
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+  const [tableDensity, setTableDensity] = useState<"compact" | "standard" | "spacious">("standard");
 
   const requestSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -118,6 +119,12 @@ export const EventTable: React.FC<EventTableProps> = ({
     return { label: 'Completed', color: 'bg-slate-100 text-slate-600 border-slate-200' };
   };
 
+  const getPadding = () => {
+    if (tableDensity === "compact") return "p-2";
+    if (tableDensity === "spacious") return "p-6";
+    return "p-4";
+  };
+
   return (
     <div className="w-full space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-2xl border border-slate-200 shadow-sm gap-4">
@@ -148,6 +155,26 @@ export const EventTable: React.FC<EventTableProps> = ({
             <option>Birthday</option>
             <option>Half Saree</option>
           </select>
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <button 
+              onClick={() => setTableDensity("compact")}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${tableDensity === "compact" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
+            >
+              Compact
+            </button>
+            <button 
+              onClick={() => setTableDensity("standard")}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${tableDensity === "standard" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
+            >
+              Std
+            </button>
+            <button 
+              onClick={() => setTableDensity("spacious")}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${tableDensity === "spacious" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
+            >
+              Tall
+            </button>
+          </div>
           <button onClick={exportToCSV} className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm font-black hover:bg-green-700 transition-all shadow-lg shadow-green-100" title="Export to Excel">
             <Download size={16} /> Export
           </button>
@@ -195,7 +222,7 @@ export const EventTable: React.FC<EventTableProps> = ({
               ) : (
                 sortedEvents.map(event => (
                   <tr key={event.id} className="hover:bg-blue-50/30 transition-colors group even:bg-slate-50/50">
-                    <td className="p-3">
+                    <td className={`${getPadding()}`}>
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0">
                           {event.thumbnail_url ? (
@@ -221,7 +248,7 @@ export const EventTable: React.FC<EventTableProps> = ({
                         </div>
                       </div>
                     </td>
-                    <td className="p-3">
+                    <td className={`${getPadding()}`}>
                       <div className="text-sm font-bold text-slate-700 mb-1">{formatDisplayDate(event.event_date)}</div>
                       <div className="flex items-center gap-2">
                         <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{event.event_time}</div>
@@ -230,7 +257,7 @@ export const EventTable: React.FC<EventTableProps> = ({
                         </span>
                       </div>
                     </td>
-                    <td className="p-3">
+                    <td className={`${getPadding()}`}>
                       <div className="text-xs text-slate-600 font-medium max-w-[200px] truncate mb-1">{event.venue_name}</div>
                       {event.photographers?.name && (
                         <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest bg-slate-50 inline-block px-1.5 py-0.5 rounded border border-slate-100">
@@ -238,7 +265,7 @@ export const EventTable: React.FC<EventTableProps> = ({
                         </div>
                       )}
                     </td>
-                    <td className="p-3">
+                    <td className={`${getPadding()}`}>
                       {event.youtube_stream_key ? (
                         <div className="flex flex-col gap-1.5 items-start">
                           <div className="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded border border-slate-200">
@@ -255,10 +282,10 @@ export const EventTable: React.FC<EventTableProps> = ({
                         <span className="text-[10px] text-slate-400 font-medium bg-slate-50 px-2 py-1 rounded border border-slate-100">No Stream</span>
                       )}
                     </td>
-                    <td className="p-3 text-center">
+                    <td className={`${getPadding()} text-center`}>
                       <span className="font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-bold">{event.view_count || 0}</span>
                     </td>
-                    <td className="p-3">
+                    <td className={`${getPadding()}`}>
                        {event.youtube_broadcast_id ? (
                          <div className="flex gap-2">
                            <button 
@@ -296,7 +323,7 @@ export const EventTable: React.FC<EventTableProps> = ({
                          <span className="text-[9px] text-slate-300 font-bold uppercase tracking-tighter">No YouTube</span>
                        )}
                     </td>
-                    <td className="p-3 text-center">
+                    <td className={`${getPadding()} text-center`}>
                        <div className="flex flex-col items-center gap-1 group/qr">
                          <img 
                             src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https://eventcast.pro/events/${event.slug}`}
@@ -306,7 +333,7 @@ export const EventTable: React.FC<EventTableProps> = ({
                          <a href={`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=https://eventcast.pro/events/${event.slug}`} download className="text-[8px] font-bold text-blue-500 opacity-0 group-hover/qr:opacity-100">PNG</a>
                        </div>
                     </td>
-                    <td className="p-3">
+                    <td className={`${getPadding()}`}>
                       <div className="flex items-center justify-end gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                         <a 
                           href={`https://eventcast.pro/events/${event.slug}`} 
