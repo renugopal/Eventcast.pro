@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
-    const { broadcastId, title, isLive } = await req.json();
+    const { eventId, broadcastId, title, isLive } = await req.json();
 
     // 1. Get YouTube Access Token
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -38,6 +38,15 @@ export async function POST(req: Request) {
 
     const data = await updateRes.json();
     if (!updateRes.ok) throw new Error(JSON.stringify(data));
+
+    // 3. Sync Status back to DB
+    const { supabaseAdmin } = await import('@/lib/supabase');
+    if (supabaseAdmin && eventId) {
+      await supabaseAdmin
+        .from('events')
+        .update({ youtube_status: isLive ? 'live' : 'completed' })
+        .eq('id', eventId);
+    }
 
     return NextResponse.json({ success: true, newTitle });
   } catch (error: any) {

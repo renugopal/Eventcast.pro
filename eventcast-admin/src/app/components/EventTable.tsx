@@ -295,7 +295,12 @@ export const EventTable: React.FC<EventTableProps> = ({
                                const res = await fetch('/api/youtube/toggle-live', {
                                  method: 'POST',
                                  headers: { 'Content-Type': 'application/json' },
-                                 body: JSON.stringify({ broadcastId: event.youtube_broadcast_id, title: baseTitle, isLive: true })
+                                 body: JSON.stringify({ 
+                                   eventId: event.id,
+                                   broadcastId: event.youtube_broadcast_id, 
+                                   title: baseTitle, 
+                                   isLive: true 
+                                 })
                                });
                                if (res.ok) alert("🔴 Event is now LIVE!");
                              }}
@@ -305,12 +310,17 @@ export const EventTable: React.FC<EventTableProps> = ({
                            </button>
                            <button 
                              onClick={async () => {
-                             const heart = (event.event_type || '').toLowerCase().includes('wedding') ? '❤️' : '✨';
+                               const heart = (event.event_type || '').toLowerCase().includes('wedding') ? '❤️' : '✨';
                                const baseTitle = `${event.groom_name || event.celebrant_name} ${heart} ${event.bride_name || 'Family'} ${event.event_type} Live | ${formatDisplayDate(event.event_date)}`;
                                const res = await fetch('/api/youtube/toggle-live', {
                                  method: 'POST',
                                  headers: { 'Content-Type': 'application/json' },
-                                 body: JSON.stringify({ broadcastId: event.youtube_broadcast_id, title: baseTitle, isLive: false })
+                                 body: JSON.stringify({ 
+                                   eventId: event.id,
+                                   broadcastId: event.youtube_broadcast_id, 
+                                   title: baseTitle, 
+                                   isLive: false 
+                                 })
                                });
                                if (res.ok) alert("✅ Live Ended");
                              }}
