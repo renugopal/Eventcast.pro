@@ -45,7 +45,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (CONFIG.hideLoaderPhoto) {
         if (loaderPhotoDiv) loaderPhotoDiv.style.display = 'none';
     } else if (loaderPhoto) {
-        if (CONFIG.thumbnail) {
+        if (CONFIG.loaderPhotoUrl) {
+            loaderPhoto.src = optimizeUrl(CONFIG.loaderPhotoUrl);
+            loaderPhoto.onerror = () => { loaderPhoto.style.display = 'none'; };
+        } else if (CONFIG.thumbnail) {
             loaderPhoto.src = optimizeUrl(CONFIG.thumbnail);
             loaderPhoto.onerror = () => { loaderPhoto.style.display = 'none'; };
         } else if (CONFIG.gallery && CONFIG.gallery.length > 0) {

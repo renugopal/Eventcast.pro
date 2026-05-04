@@ -249,6 +249,7 @@ show_timer            boolean
 privacy_status        text
 custom_initials       text — Optional manual override for loader initials
 hide_loader_photo     boolean — Toggle to completely hide the loader photo
+loader_photo_url      text — Optional specific photo for the loader
 view_count            integer (legacy — use page_views table instead)
 created_at            timestamp
 ```

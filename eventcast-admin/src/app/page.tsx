@@ -58,9 +58,11 @@ export default function AdminDashboard() {
     youtubePrivacy: "public",
     autoGenerateThumbnail: true,
     customInitials: "",
-    hideLoaderPhoto: false
+    hideLoaderPhoto: false,
+    loaderPhotoUrl: ""
   });
 
+  const [hasManuallyEditedInitials, setHasManuallyEditedInitials] = useState(false);
   const [photographerSearchQuery, setPhotographerSearchQuery] = useState("");
   const [selectedPhotographer, setSelectedPhotographer] = useState<any>(null);
   const [showPhotographerList, setShowPhotographerList] = useState(false);
@@ -72,6 +74,7 @@ export default function AdminDashboard() {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const photographerLogoInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const loaderPhotoInputRef = useRef<HTMLInputElement>(null);
 
   const baseDesigns = [
     { id: "base_thumbnails/base_thumbnails/b421a3bc-10fb-4968-87d3-fc7e5902b55a", name: "Floral Classic", font: "Georgia", accentFont: "Times", nameColor: "7D5A50", typeColor: "8E7F7F" },
@@ -158,8 +161,22 @@ export default function AdminDashboard() {
   const handleInputChange = (e: any) => {
     const { name, value, type, checked } = e.target;
     const val = type === 'checkbox' ? checked : value;
+    if (name === 'customInitials') setHasManuallyEditedInitials(true);
     setFormData(prev => ({ ...prev, [name]: val }));
   };
+
+  // Auto-fill Initials
+  useEffect(() => {
+    if (!hasManuallyEditedInitials) {
+      const groomInitial = (formData.groomName || formData.celebrantName || "").charAt(0).toUpperCase();
+      const brideRaw = formData.brideName || "";
+      const brideInitial = brideRaw.toLowerCase() !== "family" && brideRaw.toLowerCase() !== "event" ? brideRaw.charAt(0).toUpperCase() : "";
+      const autoInitials = groomInitial && brideInitial ? `${groomInitial} & ${brideInitial}` : (groomInitial || brideInitial);
+      if (autoInitials !== formData.customInitials) {
+        setFormData(prev => ({ ...prev, customInitials: autoInitials }));
+      }
+    }
+  }, [formData.groomName, formData.brideName, formData.celebrantName, hasManuallyEditedInitials]);
 
   // Auto-resolve Google Maps Short Links and Extract Name
   useEffect(() => {
@@ -357,6 +374,7 @@ export default function AdminDashboard() {
       setFormData(prev => ({ ...prev, invitationVideoUrls: prev.invitationVideoUrls ? `${prev.invitationVideoUrls}\n${newUrls}` : newUrls }));
     }
     else if (type === 'photographer_logo') setSelectedPhotographer((prev: any) => ({ ...prev, logo_url: uploadedUrls[0] }));
+    else if (type === 'loaderPhoto') setFormData(prev => ({ ...prev, loaderPhotoUrl: uploadedUrls[0] }));
     else if (type === 'gallery') {
       const currentUrls = formData.galleryUrls;
       const newUrls = uploadedUrls.join('\n');
@@ -486,8 +504,10 @@ export default function AdminDashboard() {
       youtubePrivacy: "public",
       autoGenerateThumbnail: true,
       customInitials: "",
-      hideLoaderPhoto: false
+      hideLoaderPhoto: false,
+      loaderPhotoUrl: ""
     });
+    setHasManuallyEditedInitials(false);
     setSelectedPhotographer(null);
   };
 
@@ -517,8 +537,10 @@ export default function AdminDashboard() {
       youtubePrivacy: "public",
       autoGenerateThumbnail: event.auto_generate_thumbnail ?? true,
       customInitials: event.custom_initials || "",
-      hideLoaderPhoto: event.hide_loader_photo || false
+      hideLoaderPhoto: event.hide_loader_photo || false,
+      loaderPhotoUrl: event.loader_photo_url || ""
     });
+    setHasManuallyEditedInitials(!!event.custom_initials);
     const pg = photographers.find((p: any) => p.id === event.photographer_id);
     if (pg) setSelectedPhotographer(pg);
     // Restore base design selection if available
@@ -750,20 +772,57 @@ export default function AdminDashboard() {
                         className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" 
                       />
                     </div>
-                    <div className="flex items-center">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          name="hideLoaderPhoto" 
-                          checked={formData.hideLoaderPhoto} 
-                          onChange={handleInputChange} 
-                          className="w-5 h-5 rounded text-blue-600" 
-                        />
+                    <div className="flex flex-col justify-center">
+                      <div className="flex items-center mb-4">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            name="hideLoaderPhoto" 
+                            checked={formData.hideLoaderPhoto} 
+                            onChange={handleInputChange} 
+                            className="w-5 h-5 rounded text-blue-600" 
+                          />
+                          <div>
+                            <span className="block text-sm font-bold text-slate-800">Hide Loader Photo</span>
+                            <span className="block text-xs text-slate-500">Only show initials in the center circle</span>
+                          </div>
+                        </label>
+                      </div>
+                      
+                      {!formData.hideLoaderPhoto && (
                         <div>
-                          <span className="block text-sm font-bold text-slate-800">Hide Loader Photo</span>
-                          <span className="block text-xs text-slate-500">Only show initials in the center circle</span>
+                          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Manual Loader Photo (Optional)</label>
+                          <div className="relative group">
+                            <input
+                              type="text"
+                              name="loaderPhotoUrl"
+                              value={formData.loaderPhotoUrl}
+                              onChange={handleInputChange}
+                              placeholder="Leave empty to auto-use Thumbnail/Gallery"
+                              className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all pr-12 text-sm"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => loaderPhotoInputRef.current?.click()}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                            >
+                              {isUploading === 'loaderPhoto' ? <Loader2 size={16} className="animate-spin" /> : <UploadCloud size={16} />}
+                            </button>
+                            <input
+                              type="file"
+                              ref={loaderPhotoInputRef}
+                              onChange={(e) => uploadToCloudinary(e.target.files, 'loaderPhoto')}
+                              accept="image/*"
+                              className="hidden"
+                            />
+                          </div>
+                          {formData.loaderPhotoUrl && (
+                            <div className="mt-2 text-xs text-green-600 font-bold flex items-center gap-1">
+                              <CheckCircle2 size={14} /> Custom loader photo uploaded
+                            </div>
+                          )}
                         </div>
-                      </label>
+                      )}
                     </div>
                   </div>
                 </section>

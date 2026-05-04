@@ -195,6 +195,7 @@ export async function POST(req: Request) {
     // --- HTML INJECTION FOR LOADER & INITIALS ---
     const customInitials = event.customInitials || event.custom_initials || '';
     const hideLoaderPhoto = event.hideLoaderPhoto || event.hide_loader_photo || false;
+    const loaderPhotoUrl = event.loaderPhotoUrl || event.loader_photo_url || '';
 
     const groomInitial = (dbPayload.groom_name || dbPayload.celebrant_name || groom || '').charAt(0).toUpperCase();
     const brideRaw = (dbPayload.bride_name || bride || '');
@@ -209,7 +210,7 @@ export async function POST(req: Request) {
     if (hideLoaderPhoto) {
       htmlContent = htmlContent.replace(/<div class="loader-photo">[\s\S]*?<\/div>/g, `<div class="loader-photo" style="display:none;"></div>`);
     } else {
-      const loaderPhotoSrc = thumbnailUrl || (galleryArray.length > 0 ? galleryArray[0] : '');
+      const loaderPhotoSrc = loaderPhotoUrl || thumbnailUrl || (galleryArray.length > 0 ? galleryArray[0] : '');
       if (loaderPhotoSrc) {
         const optimizedPhotoSrc = loaderPhotoSrc.includes('/upload/') ? loaderPhotoSrc.replace('/upload/', '/upload/f_auto,q_auto/') : loaderPhotoSrc;
         htmlContent = htmlContent.replace(/<div class="loader-photo">\s*<img src="[^"]*"/g, `<div class="loader-photo">\n                <img src="${optimizedPhotoSrc}"`);
@@ -257,7 +258,8 @@ export async function POST(req: Request) {
     introText: "${safeIntroText}",
     photographer: ${JSON.stringify(photographerData)},
     customInitials: "${customInitials ? customInitials.replace(/"/g, '\\"') : ""}",
-    hideLoaderPhoto: ${hideLoaderPhoto ? 'true' : 'false'}
+    hideLoaderPhoto: ${hideLoaderPhoto ? 'true' : 'false'},
+    loaderPhotoUrl: "${loaderPhotoUrl}"
 };`;
 
     // 8. Prepare the new Git Tree
