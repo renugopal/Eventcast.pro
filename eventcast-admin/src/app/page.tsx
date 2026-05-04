@@ -56,7 +56,9 @@ export default function AdminDashboard() {
     vodLink: "",
     templateId: "wedding-template-01",
     youtubePrivacy: "public",
-    autoGenerateThumbnail: true
+    autoGenerateThumbnail: true,
+    customInitials: "",
+    hideLoaderPhoto: false
   });
 
   const [photographerSearchQuery, setPhotographerSearchQuery] = useState("");
@@ -482,7 +484,9 @@ export default function AdminDashboard() {
       vodLink: "",
       templateId: "wedding-template-01",
       youtubePrivacy: "public",
-      autoGenerateThumbnail: true
+      autoGenerateThumbnail: true,
+      customInitials: "",
+      hideLoaderPhoto: false
     });
     setSelectedPhotographer(null);
   };
@@ -511,7 +515,9 @@ export default function AdminDashboard() {
       vodLink: event.vod_link || "",
       templateId: event.template_id || "wedding-template-01",
       youtubePrivacy: "public",
-      autoGenerateThumbnail: event.auto_generate_thumbnail ?? true
+      autoGenerateThumbnail: event.auto_generate_thumbnail ?? true,
+      customInitials: event.custom_initials || "",
+      hideLoaderPhoto: event.hide_loader_photo || false
     });
     const pg = photographers.find((p: any) => p.id === event.photographer_id);
     if (pg) setSelectedPhotographer(pg);
@@ -723,6 +729,42 @@ export default function AdminDashboard() {
                         <input type="text" name="celebrantName" value={formData.celebrantName} onChange={handleInputChange} required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
                       </div>
                     )}
+                  </div>
+                </section>
+
+                {/* 1.5. Loader & Branding */}
+                <section>
+                  <h3 className="text-lg font-black text-slate-800 border-b border-slate-100 pb-4 mb-8 flex items-center gap-3">
+                    <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center"><Layout size={18} /></div>
+                    Loader & Branding
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Custom Initials (Optional)</label>
+                      <input 
+                        type="text" 
+                        name="customInitials" 
+                        value={formData.customInitials} 
+                        onChange={handleInputChange} 
+                        placeholder={`e.g. A & N (Auto-generated if empty)`}
+                        className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" 
+                      />
+                    </div>
+                    <div className="flex items-center">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          name="hideLoaderPhoto" 
+                          checked={formData.hideLoaderPhoto} 
+                          onChange={handleInputChange} 
+                          className="w-5 h-5 rounded text-blue-600" 
+                        />
+                        <div>
+                          <span className="block text-sm font-bold text-slate-800">Hide Loader Photo</span>
+                          <span className="block text-xs text-slate-500">Only show initials in the center circle</span>
+                        </div>
+                      </label>
+                    </div>
                   </div>
                 </section>
 

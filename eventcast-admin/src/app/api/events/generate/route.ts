@@ -168,6 +168,7 @@ export async function POST(req: Request) {
     htmlContent = htmlContent.replace(/<meta name="description" content=".*?">/g, `<meta name="description" content="${displayDesc}">`);
     htmlContent = htmlContent.replace(/<meta property="og:description" content=".*?">/g, `<meta property="og:description" content="${displayDesc}">`);
     htmlContent = htmlContent.replace(/<meta property="og:image" content=".*?">/g, `<meta property="og:image" content="${thumbnailUrl}">`);
+    htmlContent = htmlContent.replace(/<meta property="og:url" content=".*?">/g, `<meta property="og:url" content="https://eventcast.pro/events/${slug}">`);
     htmlContent = htmlContent.replace(/<meta name="twitter:image" content=".*?">/g, `<meta name="twitter:image" content="${thumbnailUrl}">`);
 
     // --- Extract gallery directly from form data (bypass Supabase column type issues) ---
@@ -190,6 +191,33 @@ export async function POST(req: Request) {
       htmlContent = htmlContent.replace(/href="https:\/\/(www\.)?google\.com\/maps[^"]*"/g, `href="${navigateUrl}"`);
       htmlContent = htmlContent.replace(/href="https:\/\/maps\.app\.goo\.gl[^"]*"/g, `href="${navigateUrl}"`);
     }
+
+    // --- HTML INJECTION FOR LOADER & INITIALS ---
+    const customInitials = event.customInitials || event.custom_initials || '';
+    const hideLoaderPhoto = event.hideLoaderPhoto || event.hide_loader_photo || false;
+
+    const groomInitial = (dbPayload.groom_name || dbPayload.celebrant_name || groom || '').charAt(0).toUpperCase();
+    const brideRaw = (dbPayload.bride_name || bride || '');
+    const brideInitial = brideRaw.toLowerCase() !== 'family' && brideRaw.toLowerCase() !== 'event' ? brideRaw.charAt(0).toUpperCase() : '';
+    const autoInitials = groomInitial && brideInitial ? `${groomInitial} & ${brideInitial}` : (groomInitial || brideInitial || 'E');
+
+    const finalInitials = customInitials || autoInitials;
+
+    htmlContent = htmlContent.replace(/<h1 class="logo-text">.*?<\/h1>/g, `<h1 class="logo-text">${finalInitials}</h1>`);
+    htmlContent = htmlContent.replace(/<div class="initials">.*?<\/div>/g, `<div class="initials">${finalInitials}</div>`);
+    
+    if (hideLoaderPhoto) {
+      htmlContent = htmlContent.replace(/<div class="loader-photo">[\s\S]*?<\/div>/g, `<div class="loader-photo" style="display:none;"></div>`);
+    } else {
+      const loaderPhotoSrc = thumbnailUrl || (galleryArray.length > 0 ? galleryArray[0] : '');
+      if (loaderPhotoSrc) {
+        const optimizedPhotoSrc = loaderPhotoSrc.includes('/upload/') ? loaderPhotoSrc.replace('/upload/', '/upload/f_auto,q_auto/') : loaderPhotoSrc;
+        htmlContent = htmlContent.replace(/<div class="loader-photo">\s*<img src="[^"]*"/g, `<div class="loader-photo">\n                <img src="${optimizedPhotoSrc}"`);
+      } else {
+        htmlContent = htmlContent.replace(/<div class="loader-photo">[\s\S]*?<\/div>/g, `<div class="loader-photo" style="display:none;"></div>`);
+      }
+    }
+    // --------------------------------------------
 
 
     // 7. Generate custom config.js content
@@ -227,7 +255,9 @@ export async function POST(req: Request) {
     eventId: "${eventId}",
     eventType: "${type}",
     introText: "${safeIntroText}",
-    photographer: ${JSON.stringify(photographerData)}
+    photographer: ${JSON.stringify(photographerData)},
+    customInitials: "${customInitials ? customInitials.replace(/"/g, '\\"') : ""}",
+    hideLoaderPhoto: ${hideLoaderPhoto ? 'true' : 'false'}
 };`;
 
     // 8. Prepare the new Git Tree

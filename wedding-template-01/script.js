@@ -23,6 +23,11 @@ const CONFIG = window.WEDDING_CONFIG || {
 
 const WEDDING_DATE = new Date(CONFIG.timerTarget).getTime();
 
+// --- SUPABASE WISHES LOGIC ---
+const _supabase = (CONFIG.supabaseUrl && CONFIG.supabaseKey) 
+    ? supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey) 
+    : null;
+
 // --- CLOUDINARY OPTIMIZATION ---
 const optimizeUrl = (url) => {
     if (!url || !url.includes('cloudinary.com')) return url;
@@ -36,7 +41,10 @@ const optimizeUrl = (url) => {
 document.addEventListener('DOMContentLoaded', () => {
     // --- LOADER: Update photo & initials dynamically from CONFIG ---
     const loaderPhoto = document.querySelector('.loader-photo img');
-    if (loaderPhoto) {
+    const loaderPhotoDiv = document.querySelector('.loader-photo');
+    if (CONFIG.hideLoaderPhoto) {
+        if (loaderPhotoDiv) loaderPhotoDiv.style.display = 'none';
+    } else if (loaderPhoto) {
         if (CONFIG.thumbnail) {
             loaderPhoto.src = optimizeUrl(CONFIG.thumbnail);
             loaderPhoto.onerror = () => { loaderPhoto.style.display = 'none'; };
@@ -45,28 +53,62 @@ document.addEventListener('DOMContentLoaded', () => {
             loaderPhoto.onerror = () => { loaderPhoto.style.display = 'none'; };
         } else {
             // No photo available — hide the photo circle
-            const loaderPhotoDiv = document.querySelector('.loader-photo');
             if (loaderPhotoDiv) loaderPhotoDiv.style.display = 'none';
         }
     }
 
     // Inject names and titles
-    const groomInitial = CONFIG.groom ? CONFIG.groom[0].toUpperCase() : '';
-    const brideInitial = CONFIG.bride && CONFIG.bride !== 'Family' ? CONFIG.bride[0].toUpperCase() : '';
-    const initials = groomInitial && brideInitial ? `${groomInitial} & ${brideInitial}` : (groomInitial || brideInitial);
+    let initials = CONFIG.customInitials;
+    if (!initials) {
+        const groomInitial = CONFIG.groom ? CONFIG.groom[0].toUpperCase() : '';
+        const brideInitial = CONFIG.bride && CONFIG.bride !== 'Family' ? CONFIG.bride[0].toUpperCase() : '';
+        initials = groomInitial && brideInitial ? `${groomInitial} & ${brideInitial}` : (groomInitial || brideInitial);
+    }
     document.querySelectorAll('.logo-text, .initials').forEach(el => el.innerText = initials);
     
     if (document.querySelector('.first-name')) document.querySelector('.first-name').innerText = CONFIG.groom || CONFIG.bride;
     if (document.querySelector('.second-name')) document.querySelector('.second-name').innerText = CONFIG.bride && CONFIG.groom ? CONFIG.bride : "";
 
     // Inject Intro Text — split on \n for multi-line display
-    // Parent .invite-header has display:flex + flex-direction:column, so each span = 1 line
     const introEl = document.querySelector('.intro-text');
     if (introEl) {
         if (CONFIG.introText) {
             const lines = CONFIG.introText.split('\n');
             introEl.innerHTML = lines.map(line => `<span style="display:block;text-align:center;">${line}</span>`).join('');
         }
+    }
+
+    // --- SEO & TITLE UPDATE ---
+    const pageTitle = `${CONFIG.groom} ${CONFIG.bride ? '❤️ ' + CONFIG.bride : ''} ${CONFIG.eventType} | Eventcast PRO`;
+    document.title = pageTitle;
+    const updateMeta = (property, content) => {
+        const el = document.querySelector(`meta[property="${property}"]`) || document.querySelector(`meta[name="${property}"]`);
+        if (el) el.setAttribute('content', content);
+    };
+    updateMeta('og:title', pageTitle);
+    updateMeta('og:description', `Join us live for the ${CONFIG.eventType} of ${CONFIG.groom} ${CONFIG.bride ? '& ' + CONFIG.bride : ''}.`);
+    updateMeta('description', `Join us live for the ${CONFIG.eventType} of ${CONFIG.groom} ${CONFIG.bride ? '& ' + CONFIG.bride : ''}.`);
+    if (CONFIG.thumbnail) {
+        updateMeta('og:image', CONFIG.thumbnail);
+        updateMeta('twitter:image', CONFIG.thumbnail);
+    }
+    updateMeta('og:url', window.location.href);
+
+    // --- DYNAMIC TITLES ---
+    const invTitle = document.getElementById('invitation-title');
+    if (invTitle) invTitle.innerText = `${CONFIG.eventType} Invitation`;
+    const galTitle = document.getElementById('gallery-title');
+    if (galTitle) galTitle.innerText = 'Memories';
+
+    // --- SAVE TO CALENDAR DYNAMIC LINK ---
+    const saveCalBtn = document.getElementById('save-calendar-btn');
+    if (saveCalBtn) {
+        const calTitle = encodeURIComponent(`${CONFIG.groom} ${CONFIG.bride ? '& ' + CONFIG.bride : ''} ${CONFIG.eventType}`);
+        const calDate = new Date(CONFIG.timerTarget).toISOString().replace(/-|:|\.\d\d\d/g, "");
+        const calEndDate = new Date(new Date(CONFIG.timerTarget).getTime() + 3600000).toISOString().replace(/-|:|\.\d\d\d/g, "");
+        const calDetails = encodeURIComponent(`Join us live and bless the couple: ${window.location.href}`);
+        const calLoc = encodeURIComponent(CONFIG.venue);
+        saveCalBtn.href = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${calTitle}&dates=${calDate}/${calEndDate}&details=${calDetails}&location=${calLoc}`;
     }
 
     // --- ANALYTICS: Track Page View ---
@@ -83,27 +125,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 1. Atomically insert this visit into page_views table
             //    (No race condition — each visit = 1 insert)
-            await _supabase
-                .from('page_views')
-                .insert([{
-                    event_id: CONFIG.eventId,
-                    device_type: deviceType,
-                    referrer: referrer,
-                    user_agent: userAgent
-                }]);
+            if (_supabase) {
+                await _supabase
+                    .from('page_views')
+                    .insert([{
+                        event_id: CONFIG.eventId,
+                        device_type: deviceType,
+                        referrer: referrer,
+                        user_agent: userAgent
+                    }]);
 
-            // 2. Count total visits for this event accurately
-            const { count } = await _supabase
-                .from('page_views')
-                .select('*', { count: 'exact', head: true })
-                .eq('event_id', CONFIG.eventId);
+                // 2. Count total visits for this event accurately
+                const { count } = await _supabase
+                    .from('page_views')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('event_id', CONFIG.eventId);
 
-            // 3. Update UI with accurate count
-            const viewsDisplay = document.getElementById('total-views-display');
-            if (viewsDisplay && count !== null) {
-                viewsDisplay.innerText = count.toLocaleString();
+                // 3. Update UI with accurate count
+                const viewsDisplay = document.getElementById('total-views-display');
+                if (viewsDisplay && count !== null) {
+                    viewsDisplay.innerText = count.toLocaleString();
+                }
             }
-
         } catch (e) { console.error("Analytics error:", e); }
     };
     trackPageView();
@@ -227,10 +270,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Photographer Credit
-    const logo = document.querySelector('.photographer-section img');
-    const name = document.querySelector('.studio-name');
-    const phone = document.querySelector('.p-phone');
-    const insta = document.querySelector('.p-insta');
+    const logo = document.getElementById('footer-logo');
+    const name = document.getElementById('footer-studio-name');
+    const phone = document.getElementById('footer-phone');
+    const insta = document.getElementById('footer-insta');
 
     if (CONFIG.photographer) {
         if (logo && CONFIG.photographer.logo_url) {
@@ -259,10 +302,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (name) name.style.display = 'none';
         if (phone) phone.style.display = 'none';
         if (insta) insta.style.display = 'none';
-        const contactInfo = document.querySelector('.contact-info');
-        if (contactInfo) {
-            // Keep public stats visible if it's there
-        }
     }
 });
 
@@ -341,6 +380,11 @@ firstScriptTag.parentNode.insertBefore(ytScriptTag, firstScriptTag);
 
 let player;
 function onYouTubeIframeAPIReady() {
+    if (!CONFIG.youtubeId) {
+        const livestreamSection = document.getElementById('livestream');
+        if (livestreamSection) livestreamSection.style.display = 'none';
+        return;
+    }
     player = new YT.Player('youtube-player', {
         height: '100%',
         width: '100%',
@@ -505,7 +549,7 @@ function switchVideo(index) {
 }
 
 // --- SUPABASE WISHES LOGIC ---
-const _supabase = supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
+// Moved to top to avoid race condition
 
 const wishesForm = document.getElementById('wishes-form');
 const wishesList = document.getElementById('wishes-list');
@@ -513,7 +557,7 @@ const nameInput = document.getElementById('wish-name');
 const messageInput = document.getElementById('wish-message');
 
 async function fetchWishes() {
-    if (!wishesList) return;
+    if (!wishesList || !_supabase) return;
     const { data, error } = await _supabase
         .from('wishes')
         .select('*')
@@ -548,7 +592,7 @@ if (wishesForm) {
         e.preventDefault();
         const name = nameInput.value.trim();
         const message = messageInput.value.trim();
-        if (!name || !message) return;
+        if (!name || !message || !_supabase) return;
 
         const btn = wishesForm.querySelector('button');
         const originalText = btn.innerHTML;
@@ -572,10 +616,12 @@ if (wishesForm) {
     });
 }
 
-_supabase.channel(`public:wishes_${CONFIG.eventId}`)
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wishes' }, payload => {
-        fetchWishes();
-    }).subscribe();
+if (_supabase) {
+    _supabase.channel(`public:wishes_${CONFIG.eventId}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wishes' }, payload => {
+            fetchWishes();
+        }).subscribe();
+}
 
 function escapeHTML(str) {
     const div = document.createElement('div');
