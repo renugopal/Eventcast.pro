@@ -1,0 +1,22 @@
+window.WEDDING_CONFIG = {
+    groom: "Gunadeep",
+    bride: "Lakshmi Chaitanya",
+    date: "Friday, May 8th",
+    time: "7:24 PM",
+    timeLabel: "Wedding",
+    timeSubtext: "",
+    timerTarget: "2026-05-08T19:00",
+    venue: "Gowsala Kalyanamandapam, Sattenapalli.",
+    venueSubtext: "",
+    youtubeId: "KbDI2Boveyc",
+    invitationVideo: "",
+    invitationVideos: [],
+    thumbnail: "https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1777870136/ad42b95gfu6397jrmr3v.jpg",
+    gallery: [],
+    supabaseUrl: "https://lteogzqeuuoxlekhofow.supabase.co",
+    supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0ZW9nenFldXVveGxla2hvZm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxOTc0ODIsImV4cCI6MjA5Mjc3MzQ4Mn0.eaGIKI5O17PI-bh52IiDDpPr4vqlBOU1Bq_NuAkYZXE",
+    eventId: "26c5b3a7-9ece-42dd-9cc9-e6fc352e12ba",
+    eventType: "Wedding",
+    introText: "Welcome to the\n    Wedding of   ",
+    photographer: {"id":"5b9b3a06-f7f5-429a-8a89-b2bdb580a19b","name":"SR Photography","phone_number":"8074 344 923","studio_name":null,"city":"Sattenapalli","created_at":"2026-05-04T04:32:45.046118+00:00","instagram_url":"https://www.instagram.com/srphotographyforyou?igsh=ZjlzdGh4Z2pnNjI1&utm_source=qr","phone":null,"logo_url":"https://res.cloudinary.com/df5b4aq7h/image/upload/v1777869145/rvowbafmygsicf0cwdug.jpg","nickname":"Yaswanth Sattenapalli"}
+};
