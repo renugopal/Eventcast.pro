@@ -6,7 +6,7 @@ window.WEDDING_CONFIG = {
     timeLabel: "Wedding",
     timeSubtext: "",
     timerTarget: "2026-05-08T19:30",
-    venue: "Anjaneya Swamy temple, Parchur.",
+    venue: "Anjaneya Swamy Temple, Parchur.",
     venueSubtext: "",
     youtubeId: "RctVStBeN7A",
     invitationVideo: "https://res.cloudinary.com/df5b4aq7h/video/upload/v1778069365/pe2ahmhgs6clpvcbz5us.mp4",
@@ -21,5 +21,5 @@ window.WEDDING_CONFIG = {
     photographer: {"id":"f837fb19-18cc-488a-ab42-be1c25e29504","name":"Kabir Digital Studio","phone_number":"98498 90286","studio_name":null,"city":"Upputuru","created_at":"2026-04-29T07:21:45.402881+00:00","instagram_url":null,"phone":null,"logo_url":"https://res.cloudinary.com/df5b4aq7h/image/upload/v1777447222/othntd9okosku7soxbgd.png","nickname":"Babu Parchur"},
     customInitials: "A & S",
     hideLoaderPhoto: false,
-    loaderPhotoUrl: ""
+    loaderPhotoUrl: "https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1778079719/hdqnow1xk191dqbaogzx.jpg"
 };
