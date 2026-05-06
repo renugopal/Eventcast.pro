@@ -391,12 +391,17 @@ export const EventTable: React.FC<EventTableProps> = ({
                                 </span>
                               )}
                             </div>
-                            <h3 className="text-sm font-black text-slate-800 truncate">
+                            <h3 className="text-[13px] font-black text-slate-800 leading-tight">
                               {event.groom_name || event.celebrant_name}
+                              {event.bride_name && event.bride_name.toLowerCase() !== 'family' && (
+                                <span className="text-slate-800"> & {event.bride_name}</span>
+                              )}
                             </h3>
-                            <p className="text-[10px] text-slate-400 font-bold truncate">
-                              & {event.bride_name || 'Family'}
-                            </p>
+                            {(!event.bride_name || event.bride_name.toLowerCase() === 'family') && (
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                                & Family
+                              </p>
+                            )}
                           </div>
                         </div>
                       </td>
