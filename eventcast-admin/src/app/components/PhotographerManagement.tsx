@@ -35,7 +35,7 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
   return (
     <div className="max-w-6xl mx-auto space-y-12">
       {/* --- ADD / EDIT FORM --- */}
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-10">
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 md:p-10">
         <h2 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3">
           <UserPlus size={28} className="text-blue-600" />
           {isEditing ? "Modify Photographer Details" : "Register New Photographer"}
@@ -174,7 +174,7 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
       </div>
 
       {/* --- PHOTOGRAPHER LIST WITH SEARCH --- */}
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-10">
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 md:p-10">
         <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
           <Search size={24} className="text-blue-600" /> Professional Partners
           <span className="ml-auto text-sm font-normal text-slate-400">{photographers.length} registered</span>

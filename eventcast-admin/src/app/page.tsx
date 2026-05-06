@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { 
   PlusCircle, List, Settings, BarChart3, Image as ImageIcon, Video, Search, 
   MapPin, Clock, Calendar, UploadCloud, Film, Play, CheckCircle2, AlertCircle, 
-  Loader2, Link as LinkIcon, X, Layout, Users
+  Loader2, Link as LinkIcon, X, Layout, Users, Menu
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -25,6 +25,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("home"); const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [events, setEvents] = useState<any[]>([]);
   const [wishes, setWishes] = useState<any[]>([]);
   const [analyticsData, setAnalyticsData] = useState<any[]>([]);
@@ -892,16 +893,35 @@ export default function AdminDashboard() {
   });
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-blue-100 selection:text-blue-900">
+    <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-blue-100 selection:text-blue-900 md:overflow-hidden">
       <Sidebar 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
         isCollapsed={isSidebarCollapsed}
         setIsCollapsed={setIsSidebarCollapsed}
-        handleSignOut={handleSignOut} 
+        handleSignOut={handleSignOut}
+        isMobileOpen={isMobileMenuOpen}
+        setIsMobileOpen={setIsMobileMenuOpen}
       />
 
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+        {/* Mobile Header */}
+        <header className="md:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
+              <Layout size={16} />
+            </div>
+            <h1 className="font-black text-slate-800 tracking-tight text-lg leading-none">EVENTCAST</h1>
+          </div>
+          <button 
+            className="p-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+            onClick={() => setIsMobileMenuOpen(true)}
+          >
+            <Menu size={24} />
+          </button>
+        </header>
+
+        <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto w-full">
         {activeTab === "home" && (
           <DashboardHome 
             events={events} 
@@ -920,7 +940,7 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-10">
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 md:p-10">
               <form onSubmit={handleSubmit} className="space-y-12">
                 {/* 1. Identity Section */}
                 <section>
@@ -1443,7 +1463,7 @@ export default function AdminDashboard() {
         {activeTab === "assets" && <AssetLibrary assetLibrary={assetLibrary} getVideoThumbnail={getVideoThumbnail} setSelectedAsset={setSelectedAsset} />}
         {activeTab === "settings" && (
           <div className="max-w-4xl mx-auto space-y-8">
-            <div className="bg-white p-10 rounded-3xl shadow-sm border border-slate-200">
+            <div className="bg-white p-6 md:p-10 rounded-3xl shadow-sm border border-slate-200">
               <h2 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3">
                 <Settings size={28} className="text-blue-600" /> Account Security
               </h2>
@@ -1469,7 +1489,7 @@ export default function AdminDashboard() {
               </form>
             </div>
 
-            <div className="bg-white p-10 rounded-3xl shadow-sm border border-slate-200">
+            <div className="bg-white p-6 md:p-10 rounded-3xl shadow-sm border border-slate-200">
               <h3 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3">
                 <Layout size={24} className="text-blue-600" /> Default Event Settings
               </h3>
@@ -1505,7 +1525,7 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="bg-slate-900 p-10 rounded-3xl shadow-xl text-white">
+            <div className="bg-slate-900 p-6 md:p-10 rounded-3xl shadow-xl text-white">
               <h3 className="text-xl font-black mb-4 flex items-center gap-2">
                 <Users size={24} className="text-blue-400" /> Team Management
               </h3>
@@ -1540,7 +1560,8 @@ export default function AdminDashboard() {
             isEditing={isEditingPhotographer}
           />
         )}
-      </main>
+        </main>
+      </div>
 
       <AssetPreviewModal selectedAsset={selectedAsset} setSelectedAsset={setSelectedAsset} />
 

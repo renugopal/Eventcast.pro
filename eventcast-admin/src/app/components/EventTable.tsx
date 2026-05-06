@@ -289,7 +289,7 @@ export const EventTable: React.FC<EventTableProps> = ({
 
       <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse table-fixed">
+          <table className="w-full min-w-[1200px] text-left border-collapse table-fixed">
             <thead>
               <tr className="bg-slate-900 border-b border-slate-800">
                 <th style={{ width: columnWidths.select }} className="p-4">
