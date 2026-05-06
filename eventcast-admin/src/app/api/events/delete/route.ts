@@ -17,21 +17,22 @@ async function generateCloudinarySignature(params: Record<string, string>, apiSe
 
 export async function POST(req: Request) {
   try {
-    const { eventId } = await req.json();
+    const { id } = await req.json();
 
     // 1. Fetch Event Details from Supabase
     const { data: event, error: fetchError } = await supabase
       .from('events')
       .select('*')
-      .eq('id', eventId)
+      .eq('id', id)
       .single();
 
     if (fetchError || !event) throw new Error("Event not found.");
 
     // 2. Delete from YouTube (via Edge fetch)
-    if (event.vod_link) {
+    const broadcastId = event.youtube_broadcast_id || (event.vod_link ? event.vod_link.split('/').pop()?.split('v=')?.pop()?.split('&')[0] : null);
+    
+    if (broadcastId) {
       try {
-        const broadcastId = event.vod_link.split('/').pop();
         
         // Refresh Token
         const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -164,7 +165,7 @@ export async function POST(req: Request) {
     }
 
     // 5. Delete from Supabase
-    await supabase.from('events').delete().eq('id', eventId);
+    await supabase.from('events').delete().eq('id', id);
 
     return NextResponse.json({ success: true, message: "Everything deleted successfully!" });
 

@@ -611,14 +611,22 @@ export default function AdminDashboard() {
     if (!confirm("Are you sure?")) return;
     setIsLoadingEvents(true);
     try {
-      await fetch('/api/events/delete', {
+      const res = await fetch('/api/events/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
       });
+      
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to delete event.");
+      }
+      
+      alert("✅ Event and all related data deleted successfully!");
       fetchEvents();
-    } catch (err) {
-      alert("Delete failed.");
+    } catch (err: any) {
+      console.error("Delete error:", err);
+      alert(`❌ Delete failed: ${err.message}`);
     } finally {
       setIsLoadingEvents(false);
     }
@@ -627,17 +635,24 @@ export default function AdminDashboard() {
   async function deleteMultipleEvents(ids: string[]) {
     setIsLoadingEvents(true);
     try {
-      await Promise.all(ids.map(id => 
+      const results = await Promise.all(ids.map(id => 
         fetch('/api/events/delete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id })
-        })
+        }).then(res => res.json())
       ));
-      alert(`${ids.length} events deleted successfully.`);
+      
+      const failed = results.filter(r => !r.success);
+      if (failed.length > 0) {
+        alert(`${failed.length} events failed to delete. ${results.length - failed.length} succeeded.`);
+      } else {
+        alert(`✅ All ${ids.length} events deleted successfully.`);
+      }
       fetchEvents();
     } catch (err) {
-      alert("Bulk delete failed.");
+      console.error("Bulk delete error:", err);
+      alert("❌ Bulk delete failed.");
     } finally {
       setIsLoadingEvents(false);
     }
