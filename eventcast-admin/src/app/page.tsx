@@ -28,7 +28,9 @@ export default function AdminDashboard() {
   const [events, setEvents] = useState<any[]>([]);
   const [wishes, setWishes] = useState<any[]>([]);
   const [analyticsData, setAnalyticsData] = useState<any[]>([]);
-  const [assetLibrary, setAssetLibrary] = useState<any[]>([]);
+  const [assetLibrary, setAssetLibrary] = useState<any[]>([]); // Grouped by event
+  const [showHealthCheck, setShowHealthCheck] = useState(false);
+  const [healthResults, setHealthResults] = useState<any[]>([]);
   const [photographers, setPhotographers] = useState<any[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [isLoadingWishes, setIsLoadingWishes] = useState(false);
@@ -145,12 +147,19 @@ export default function AdminDashboard() {
 
       setEvents(eventsWithViews);
       
-      const allAssets = eventsWithViews.flatMap(e => [
-        e.thumbnail_url,
-        e.invitation_video_url,
-        ...(Array.isArray(e.gallery_urls) ? e.gallery_urls : [])
-      ]).filter(Boolean);
-      setAssetLibrary(Array.from(new Set(allAssets)));
+      // Group assets by event for Folder View
+      const groupedAssets = eventsWithViews.map((e: any) => ({
+        eventId: e.id,
+        eventTitle: `${e.groom_name || e.celebrant_name} & ${e.bride_name || 'Family'}`,
+        slug: e.slug,
+        assets: [
+          e.thumbnail_url,
+          e.invitation_video_url,
+          ...(Array.isArray(e.gallery_urls) ? e.gallery_urls : [])
+        ].filter(Boolean)
+      })).filter(group => group.assets.length > 0);
+
+      setAssetLibrary(groupedAssets);
     }
     setIsLoadingEvents(false);
   }
@@ -381,6 +390,14 @@ export default function AdminDashboard() {
       const formDataUpload = new FormData();
       formDataUpload.append('file', fileToUpload);
       formDataUpload.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'eventcast_gallery');
+      
+      // Organize into event-specific folders in Cloudinary
+      if (formData.slug) {
+        formDataUpload.append('folder', `events/${formData.slug}`);
+      } else if (formData.groomName || formData.celebrantName) {
+        const tempSlug = (formData.groomName || formData.celebrantName || 'temp').toLowerCase().replace(/\s+/g, '-');
+        formDataUpload.append('folder', `events/${tempSlug}`);
+      }
 
       try {
         const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/auto/upload`, {
@@ -544,6 +561,27 @@ export default function AdminDashboard() {
     });
     setHasManuallyEditedInitials(false);
     setSelectedPhotographer(null);
+  };
+
+  const runHealthCheck = () => {
+    const issues = [];
+    
+    // 1. Critical Checks
+    if (!formData.groom_name && !formData.celebrant_name) issues.push({ type: 'error', text: 'Main name (Groom/Celebrant) is missing!' });
+    if (!formData.eventDate) issues.push({ type: 'error', text: 'Event date is not set!' });
+    if (!formData.thumbnailUrl) issues.push({ type: 'warning', text: 'No thumbnail uploaded. Social sharing will look basic.' });
+    if (!formData.venueMapLink) issues.push({ type: 'warning', text: 'Google Maps link is missing. Guests might find it hard to navigate.' });
+    
+    // 2. Production Quality Checks
+    if (!selectedPhotographer) issues.push({ type: 'info', text: 'No photographer credited. Good for branding!' });
+    if (!formData.loaderPhotoUrl) issues.push({ type: 'info', text: 'Custom loader photo is not set. Default will be used.' });
+    if (!formData.invitationVideoUrls) issues.push({ type: 'info', text: 'No invitation video. Cinematic experience might be less.' });
+    
+    // 3. YouTube Check
+    if (isEditing && !formData.vodLink) issues.push({ type: 'warning', text: 'No VOD/Stream link set. Guests won\'t be able to watch live.' });
+
+    setHealthResults(issues);
+    setShowHealthCheck(true);
   };
 
   const handleEditClick = (event: any) => {
@@ -1367,10 +1405,15 @@ export default function AdminDashboard() {
                   </p>
                 </section>
 
-                <div className="pt-10">
-                  <button type="submit" disabled={isSubmitting || !!isUploading} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-xl shadow-2xl shadow-blue-200 hover:bg-blue-700 transition-all disabled:bg-slate-300 transform active:scale-[0.98]">
-                    {isSubmitting ? (isEditing ? "Updating Event..." : "Creating Event...") : (isEditing ? "💾 Save & Update Event" : "🚀 Create Event")}
-                  </button>
+                 <div className="pt-10 flex flex-col gap-4">
+                  <div className="flex gap-4">
+                    <button type="button" onClick={runHealthCheck} className="flex-1 py-4 bg-slate-100 text-slate-700 rounded-2xl font-black hover:bg-slate-200 transition-all flex items-center justify-center gap-2">
+                      <Search size={20} /> Check Readiness
+                    </button>
+                    <button type="submit" disabled={isSubmitting || !!isUploading} className="flex-[2] py-5 bg-blue-600 text-white rounded-2xl font-black text-xl shadow-2xl shadow-blue-200 hover:bg-blue-700 transition-all disabled:bg-slate-300 transform active:scale-[0.98]">
+                      {isSubmitting ? (isEditing ? "Updating Event..." : "Creating Event...") : (isEditing ? "💾 Save & Update Event" : "🚀 Create Event")}
+                    </button>
+                  </div>
                   {isEditing && (
                     <button type="button" onClick={resetForm} className="w-full mt-4 py-3 text-slate-400 font-bold hover:text-slate-600 transition-colors">
                       Cancel Editing
@@ -1500,6 +1543,57 @@ export default function AdminDashboard() {
       </main>
 
       <AssetPreviewModal selectedAsset={selectedAsset} setSelectedAsset={setSelectedAsset} />
+
+      {/* Health Check Modal */}
+      {showHealthCheck && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-3xl overflow-hidden shadow-2xl">
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <div>
+                <h3 className="text-xl font-black text-slate-800">Ready to Launch?</h3>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Event Health Report</p>
+              </div>
+              <button onClick={() => setShowHealthCheck(false)} className="p-2 hover:bg-white rounded-full text-slate-400 hover:text-red-500 transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-8 space-y-4 max-h-[400px] overflow-y-auto">
+              {healthResults.length === 0 ? (
+                <div className="text-center py-10">
+                  <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                    <CheckCircle2 size={40} />
+                  </div>
+                  <h4 className="text-lg font-black text-slate-800">Perfect Score!</h4>
+                  <p className="text-slate-500 text-sm font-medium">Everything looks amazing. You are ready to go live.</p>
+                </div>
+              ) : (
+                healthResults.map((issue, idx) => (
+                  <div key={idx} className={`p-4 rounded-2xl flex items-start gap-4 border-l-4 ${
+                    issue.type === 'error' ? 'bg-red-50 border-red-500 text-red-700' : 
+                    issue.type === 'warning' ? 'bg-amber-50 border-amber-500 text-amber-700' : 
+                    'bg-blue-50 border-blue-500 text-blue-700'
+                  }`}>
+                    <div className="mt-0.5">
+                      {issue.type === 'error' ? <AlertCircle size={18} /> : 
+                       issue.type === 'warning' ? <AlertTriangle size={18} /> : 
+                       <CheckCircle2 size={18} />}
+                    </div>
+                    <p className="text-sm font-bold">{issue.text}</p>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="p-8 bg-slate-50 border-t border-slate-100">
+              <button 
+                onClick={() => setShowHealthCheck(false)} 
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all"
+              >
+                Got it, let's fix these
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

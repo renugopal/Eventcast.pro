@@ -686,3 +686,45 @@ document.getElementById('whatsapp-share-btn')?.addEventListener('click', () => {
         window.open(whatsappUrl, '_blank');
     }
 });
+
+// --- HEART SHOWER LOGIC ---
+document.addEventListener('DOMContentLoaded', () => {
+    const heartBtn = document.getElementById('heart-shower-btn');
+    
+    const spawnHeart = () => {
+        const heart = document.createElement('div');
+        heart.className = 'floating-heart';
+        heart.innerHTML = ['❤️', '💖', '💝', '💕', '💗'][Math.floor(Math.random() * 5)];
+        // Randomize position slightly around the button area
+        const rightPos = 25 + Math.random() * 30;
+        heart.style.right = rightPos + 'px';
+        document.body.appendChild(heart);
+        setTimeout(() => heart.remove(), 3000);
+    };
+
+    if (_supabase && CONFIG.eventId) {
+        const interactionChannel = _supabase.channel(`interactions_${CONFIG.eventId}`, {
+            config: { broadcast: { self: true } }
+        });
+        
+        interactionChannel
+            .on('broadcast', { event: 'heart' }, () => {
+                spawnHeart();
+            })
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log("Interactions sync active!");
+                }
+            });
+
+        if (heartBtn) {
+            heartBtn.addEventListener('click', () => {
+                interactionChannel.send({
+                    type: 'broadcast',
+                    event: 'heart',
+                    payload: {}
+                });
+            });
+        }
+    }
+});
