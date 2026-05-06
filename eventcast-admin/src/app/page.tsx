@@ -36,6 +36,8 @@ export default function AdminDashboard() {
   const [isUploading, setIsUploading] = useState<string | null>(null);
   const [submitStatus, setSubmitStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
+  const [thumbOverlayStyle, setThumbOverlayStyle] = useState<'classic_white' | 'golden' | 'dark_shadow' | 'minimal'>('classic_white');
+  const [thumbOverlayPreview, setThumbOverlayPreview] = useState<string>('');
 
   // Form State
   const [isEditing, setIsEditing] = useState(false);
@@ -719,22 +721,97 @@ export default function AdminDashboard() {
 
   async function handlePasswordUpdate(e: any) {
     e.preventDefault();
+    const currentPassword = e.target.currentPassword.value;
     const newPassword = e.target.newPassword.value;
     const confirmPassword = e.target.confirmPassword.value;
     if (newPassword !== confirmPassword) {
-      alert("Passwords do not match!");
+      alert("New passwords do not match!");
+      return;
+    }
+    if (newPassword.length < 8) {
+      alert("New password must be at least 8 characters.");
       return;
     }
     setIsSubmitting(true);
+    // Step 1: Verify current password by re-authenticating
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: user?.email || '',
+      password: currentPassword,
+    });
+    if (authError) {
+      alert("❌ Current password is incorrect. Please try again.");
+      setIsSubmitting(false);
+      return;
+    }
+    // Step 2: Update to new password
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) {
       alert("Update failed: " + error.message);
     } else {
-      alert("Password updated successfully!");
+      alert("✅ Password updated successfully! Please re-login on all devices.");
       e.target.reset();
+      // Sign out all other sessions by signing out and back in
+      await supabase.auth.signOut({ scope: 'others' });
     }
     setIsSubmitting(false);
   }
+
+  const generateThumbWithNames = () => {
+    if (!formData.thumbnailUrl) return;
+    if (!formData.groomName && !formData.celebrantName) {
+      alert('Please enter names first!');
+      return;
+    }
+    // Extract Cloudinary public_id from URL
+    const url = formData.thumbnailUrl;
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    if (!url.includes('cloudinary.com')) {
+      alert('Only works with Cloudinary-uploaded images. Upload the photo first.');
+      return;
+    }
+    const uploadSegment = url.split('/upload/')[1];
+    if (!uploadSegment) return;
+    // Strip any existing transformations — find the public_id part (after the last transform)
+    const segments = uploadSegment.split('/');
+    // Cloudinary transforms are segments matching x_y or x_y,z_w patterns
+    const transformPat = /^[a-zA-Z]+_[^/,]+([,][a-zA-Z]+_[^/,]+)*$/;
+    let idSegments: string[] = [];
+    let pastTransforms = false;
+    for (const seg of segments) {
+      if (!pastTransforms && transformPat.test(seg)) continue;
+      pastTransforms = true;
+      idSegments.push(seg);
+    }
+    const publicId = idSegments.join('/').replace(/\.[^.]+$/, ''); // remove extension
+
+    const fmt = (s: string) => encodeURIComponent(s).replace(/%2C/g, '%252C').replace(/%26/g, '%2526').replace(/%2F/g, '%252F');
+    const groomText = fmt(formData.groomName || formData.celebrantName || '');
+    const brideText = fmt(formData.brideName || '');
+
+    const styles: Record<string, { nameColor: string; groomFont: string; brideFont: string; yGroom: string; yBride: string; shadow: string; overlay: string }> = {
+      classic_white: { nameColor: 'FFFFFF', groomFont: 'Georgia_70_bold', brideFont: 'Georgia_55_italic', yGroom: '-80', yBride: '-20', shadow: 'e_shadow:50', overlay: '' },
+      golden:        { nameColor: 'F5C842', groomFont: 'Georgia_72_bold', brideFont: 'Georgia_58_italic', yGroom: '-80', yBride: '-20', shadow: 'e_shadow:40', overlay: 'e_brightness:-20,' },
+      dark_shadow:   { nameColor: '1A1A1A', groomFont: 'Georgia_70_bold', brideFont: 'Georgia_55_italic', yGroom: '80', yBride: '140', shadow: 'e_shadow:60', overlay: '' },
+      minimal:       { nameColor: 'F0EDE6', groomFont: 'Arial_65_bold', brideFont: 'Arial_50', yGroom: '-60', yBride: '5', shadow: '', overlay: '' },
+    };
+    const s = styles[thumbOverlayStyle];
+
+    let transforms = `w_1280,h_720,c_fill/`;
+    if (s.overlay) transforms += `${s.overlay}/`;
+    // Dark semi-transparent gradient overlay at bottom for readability (for classic & golden)
+    if (thumbOverlayStyle === 'classic_white' || thumbOverlayStyle === 'golden') {
+      transforms += `e_gradient_fade:symmetric_pad,x_0.5,y_0.4,b_rgb:000000/`;
+    }
+    transforms += `co_rgb:${s.nameColor},${s.shadow ? s.shadow + ',' : ''}l_text:${s.groomFont}:${groomText}/g_south,y_${s.yGroom},fl_layer_apply/`;
+    if (brideText) {
+      const amp = fmt('& ');
+      transforms += `co_rgb:${s.nameColor},l_text:${s.brideFont}:${amp}${brideText}/g_south,y_${s.yBride},fl_layer_apply/`;
+    }
+    transforms += `f_auto,q_auto/`;
+
+    const previewUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${transforms}${publicId}.jpg?v=${Date.now()}`;
+    setThumbOverlayPreview(previewUrl);
+  };
 
   const filteredPhotographers = photographers.filter(p => {
     const q = photographerSearchQuery.toLowerCase();
@@ -995,8 +1072,46 @@ export default function AdminDashboard() {
                         <input type="file" ref={thumbInputRef} hidden accept="image/*" onChange={(e) => uploadToCloudinary(e.target.files, 'thumbnail')} />
                       </div>
                       {formData.thumbnailUrl && (
-                        <div className="mt-4 p-2 bg-slate-50 border border-slate-100 rounded-2xl">
-                          <img src={formData.thumbnailUrl} alt="Thumbnail Preview" className="w-full h-32 object-cover rounded-xl" />
+                        <div className="mt-4 space-y-3">
+                          <div className="p-2 bg-slate-50 border border-slate-100 rounded-2xl">
+                            <img src={formData.thumbnailUrl} alt="Thumbnail Preview" className="w-full h-32 object-cover rounded-xl" />
+                          </div>
+                          {/* ✨ Names on Photo Designer */}
+                          {formData.thumbnailUrl.includes('cloudinary.com') && (formData.groomName || formData.celebrantName) && (
+                            <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-3">
+                              <p className="text-xs font-black text-amber-800 uppercase tracking-widest flex items-center gap-2">
+                                ✨ Add Names to Your Photo
+                              </p>
+                              <div className="grid grid-cols-2 gap-2">
+                                {[['classic_white','☁️ Classic White'], ['golden','✨ Golden'], ['dark_shadow','🖤 Dark Text'], ['minimal','🤍 Minimal']].map(([val, label]) => (
+                                  <button key={val} type="button"
+                                    onClick={() => setThumbOverlayStyle(val as any)}
+                                    className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all ${
+                                      thumbOverlayStyle === val
+                                        ? 'bg-amber-600 text-white border-amber-600 shadow-md'
+                                        : 'bg-white text-amber-700 border-amber-200 hover:border-amber-400'
+                                    }`}
+                                  >{label}</button>
+                                ))}
+                              </div>
+                              <button type="button" onClick={generateThumbWithNames}
+                                className="w-full py-2.5 bg-amber-600 text-white rounded-xl text-sm font-black hover:bg-amber-700 transition-colors flex items-center justify-center gap-2"
+                              >
+                                🪄 Generate Preview
+                              </button>
+                              {thumbOverlayPreview && (
+                                <div className="space-y-2">
+                                  <img src={thumbOverlayPreview} alt="Name Overlay Preview" className="w-full rounded-xl border-2 border-amber-300 shadow-md" />
+                                  <button type="button"
+                                    onClick={() => { setFormData(prev => ({ ...prev, thumbnailUrl: thumbOverlayPreview })); setThumbOverlayPreview(''); }}
+                                    className="w-full py-2 bg-green-600 text-white rounded-xl text-xs font-black hover:bg-green-700 transition-colors"
+                                  >
+                                    ✅ Use This as Thumbnail
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1246,7 +1361,6 @@ export default function AdminDashboard() {
             fetchEvents={fetchEvents} 
             handleEditClick={handleEditClick} 
             handleDuplicateClick={handleDuplicateClick}
-            generateWebsite={fetchEvents} 
             fullDeleteEvent={fullDeleteEvent} 
             deleteMultipleEvents={deleteMultipleEvents}
           />
@@ -1260,17 +1374,24 @@ export default function AdminDashboard() {
               <h2 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3">
                 <Settings size={28} className="text-blue-600" /> Account Security
               </h2>
+              <div className="mb-6 p-4 bg-blue-50 rounded-2xl border border-blue-100 text-blue-700 text-xs font-bold">
+                🔐 Sessions: Supabase keeps you logged in using a secure refresh token (stored in browser). Your session is valid until you explicitly sign out or change password. After changing password, all other devices will be signed out automatically.
+              </div>
               <form onSubmit={handlePasswordUpdate} className="space-y-6">
                 <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Current Password <span className="text-red-500">*</span></label>
+                  <input type="password" name="currentPassword" required placeholder="Enter your current password to verify identity" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
+                </div>
+                <div>
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">New Password</label>
-                  <input type="password" name="newPassword" required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
+                  <input type="password" name="newPassword" required minLength={8} placeholder="Minimum 8 characters" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
                 </div>
                 <div>
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Confirm New Password</label>
                   <input type="password" name="confirmPassword" required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
                 </div>
                 <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all disabled:bg-slate-300">
-                  {isSubmitting ? "Updating..." : "Update Password"}
+                  {isSubmitting ? "Verifying & Updating..." : "🔒 Change Password (Signs Out Other Devices)"}
                 </button>
               </form>
             </div>

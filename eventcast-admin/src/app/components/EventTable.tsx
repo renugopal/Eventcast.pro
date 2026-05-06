@@ -10,7 +10,6 @@ interface EventTableProps {
   fetchEvents: () => void;
   handleEditClick: (event: any) => void;
   handleDuplicateClick: (event: any) => void;
-  generateWebsite: (event: any) => void;
   fullDeleteEvent: (id: string) => void;
   deleteMultipleEvents: (ids: string[]) => void;
 }
@@ -22,7 +21,6 @@ export const EventTable: React.FC<EventTableProps> = ({
   fetchEvents,
   handleEditClick,
   handleDuplicateClick,
-  generateWebsite,
   fullDeleteEvent,
   deleteMultipleEvents
 }) => {

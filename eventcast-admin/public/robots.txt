@@ -1,0 +1,4 @@
+User-agent: *
+Disallow: /
+
+# Eventcast PRO Admin Panel — Private. No indexing allowed.

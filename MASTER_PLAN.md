@@ -137,12 +137,12 @@ DATABASES & SERVICES:
 | # | Location | Bug | Status |
 |---|----------|-----|--------|
 | B5 | Events Table | **Views = 0** — Not fetching from page_views | ✅ Fixed |
-| B13| Template | **invitationVideos** undefined in old events | Fallback needed |
+| B13| Template | **invitationVideos** undefined in old events | ✅ Fixed |
 
 ### 🟡 Medium Priority
 | # | Location | Bug | Status |
 |---|----------|-----|--------|
-| B14| Analytics | Dashboard stats (Home) are still placeholders | ❌ Pending |
+| B14| Analytics | Dashboard stats (Home) are now fully functional | ✅ Fixed |
 
 ---
 
