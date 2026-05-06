@@ -249,11 +249,11 @@ export default function AdminDashboard() {
       }
     };
 
-    if (formData.venueMapLink) {
+    if (formData.venueMapLink && !isEditing) {
       const timer = setTimeout(resolveAndExtract, 1000); // Debounce
       return () => clearTimeout(timer);
     }
-  }, [formData.venueMapLink]);
+  }, [formData.venueMapLink, isEditing]);
 
   const formatDisplayDate = (dateString: string) => {
     if (!dateString) return "Date";
@@ -562,7 +562,8 @@ export default function AdminDashboard() {
       loaderPhotoUrl: event.loader_photo_url || "",
       notes: event.notes || ""
     });
-    setHasManuallyEditedInitials(!!event.custom_initials);
+    // Always set true when editing so auto-fill doesn't wipe existing values
+    setHasManuallyEditedInitials(true);
     const pg = photographers.find((p: any) => p.id === event.photographer_id);
     if (pg) setSelectedPhotographer(pg);
     // Restore base design selection if available
@@ -1354,7 +1355,7 @@ export default function AdminDashboard() {
 
                 <div className="pt-10">
                   <button type="submit" disabled={isSubmitting || !!isUploading} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-xl shadow-2xl shadow-blue-200 hover:bg-blue-700 transition-all disabled:bg-slate-300 transform active:scale-[0.98]">
-                    {isSubmitting ? (isEditing ? "Updating Platform..." : "Creating Platform...") : (isEditing ? "Save & Update Event" : "Create Automated Platform")}
+                    {isSubmitting ? (isEditing ? "Updating Event..." : "Creating Event...") : (isEditing ? "💾 Save & Update Event" : "🚀 Create Event")}
                   </button>
                   {isEditing && (
                     <button type="button" onClick={resetForm} className="w-full mt-4 py-3 text-slate-400 font-bold hover:text-slate-600 transition-colors">

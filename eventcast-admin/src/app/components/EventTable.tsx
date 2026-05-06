@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy, Search, Download, QrCode, MessageCircle, Link as LinkIcon, CopyPlus, StickyNote } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy, Search, Download, QrCode, MessageCircle, Link as LinkIcon, CopyPlus, StickyNote, X } from "lucide-react";
 
 interface EventTableProps {
   events: any[];
@@ -29,6 +29,7 @@ export const EventTable: React.FC<EventTableProps> = ({
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
   const [tableDensity, setTableDensity] = useState<"compact" | "standard" | "spacious">("standard");
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
+  const [openQrEventId, setOpenQrEventId] = useState<string | null>(null);
   const [columnWidths, setColumnWidths] = useState<{ [key: string]: number }>({
     select: 40,
     identity: 280,
@@ -411,8 +412,18 @@ export const EventTable: React.FC<EventTableProps> = ({
                       <td className={`${getPadding()} overflow-hidden`}>
                         <div className="text-xs text-slate-800 font-bold max-w-[200px] truncate mb-1">{event.venue_name}</div>
                         {event.photographers?.name ? (
-                          <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
-                            <span className="text-slate-300">by</span> {event.photographers.name}
+                          <div className="flex items-center gap-1.5 mt-1">
+                            {event.photographers.logo_url ? (
+                              <img src={event.photographers.logo_url} className="w-5 h-5 object-contain rounded" alt="" />
+                            ) : (
+                              <div className="w-5 h-5 bg-blue-100 text-blue-600 rounded text-[8px] font-black flex items-center justify-center">
+                                {(event.photographers.name || '?')[0].toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <div className="text-[9px] text-slate-600 font-black leading-tight">{event.photographers.name}</div>
+                              {event.photographers.city && <div className="text-[8px] text-slate-400 font-bold">{event.photographers.city}</div>}
+                            </div>
                           </div>
                         ) : (
                           <div className="text-[9px] text-slate-300 font-bold uppercase">No Photographer Credit</div>
@@ -487,32 +498,41 @@ export const EventTable: React.FC<EventTableProps> = ({
                        )}
                     </td>
                     <td className={`${getPadding()}`}>
-                      <div className="flex items-center justify-end gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                        {/* QR Code Quick View */}
-                        <div className="relative group/qr">
-                          <button className="p-2 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors border border-transparent hover:border-slate-200">
-                            <QrCode size={18} />
-                          </button>
-                          <div className="absolute right-0 bottom-full mb-2 hidden group-hover/qr:block z-50 bg-white p-3 rounded-2xl shadow-2xl border border-slate-200 w-40">
-                             <img 
-                                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://eventcast.pro/events/${event.slug}`}
-                                className="w-full h-auto rounded-lg border border-slate-100 mb-2"
-                                alt="QR"
-                             />
-                             <div className="flex gap-2">
-                               <a 
-                                 href={`https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data=https://eventcast.pro/events/${event.slug}`} 
-                                 download 
-                                 className="flex-1 text-center py-1 bg-slate-900 text-white text-[8px] font-black uppercase rounded"
-                               >PNG</a>
-                               <a 
-                                 href={`https://eventcast.pro/events/${event.slug}`} 
-                                 target="_blank" 
-                                 className="flex-1 text-center py-1 bg-blue-600 text-white text-[8px] font-black uppercase rounded"
-                               >Visit</a>
+                       <div className="flex items-center justify-end gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                         {/* QR Code Quick View — click-based popup */}
+                         <div className="relative">
+                           <button 
+                             onClick={() => setOpenQrEventId(openQrEventId === event.id ? null : event.id)}
+                             className={`p-2 rounded-lg transition-colors border ${openQrEventId === event.id ? 'bg-blue-100 text-blue-600 border-blue-200' : 'hover:bg-slate-100 text-slate-600 border-transparent hover:border-slate-200'}`}
+                           >
+                             <QrCode size={18} />
+                           </button>
+                           {openQrEventId === event.id && (
+                             <div className="absolute right-0 bottom-full mb-2 z-50 bg-white p-3 rounded-2xl shadow-2xl border border-slate-200 w-44">
+                               <div className="flex items-center justify-between mb-2">
+                                 <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">QR Code</span>
+                                 <button onClick={() => setOpenQrEventId(null)} className="text-slate-400 hover:text-red-500"><X size={12} /></button>
+                               </div>
+                               <img 
+                                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://eventcast.pro/events/${event.slug}`}
+                                  className="w-full h-auto rounded-lg border border-slate-100 mb-2"
+                                  alt="QR"
+                               />
+                               <div className="flex gap-2">
+                                 <a 
+                                   href={`https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data=https://eventcast.pro/events/${event.slug}`} 
+                                   download={`qr-${event.slug}.png`}
+                                   className="flex-1 text-center py-1.5 bg-slate-900 text-white text-[8px] font-black uppercase rounded-lg hover:bg-slate-700 transition-colors"
+                                 >⬇ PNG</a>
+                                 <a 
+                                   href={`https://eventcast.pro/events/${event.slug}`} 
+                                   target="_blank" 
+                                   className="flex-1 text-center py-1.5 bg-blue-600 text-white text-[8px] font-black uppercase rounded-lg hover:bg-blue-700 transition-colors"
+                                 >Visit</a>
+                               </div>
                              </div>
-                          </div>
-                        </div>
+                           )}
+                         </div>
 
                         <a 
                           href={`https://eventcast.pro/events/${event.slug}`} 
