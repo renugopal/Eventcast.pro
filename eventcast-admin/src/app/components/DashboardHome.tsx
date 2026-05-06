@@ -160,14 +160,22 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ events, wishes, an
                 </div>
               ) : (
                 upcomingEvents.map(event => (
-                  <div key={event.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between">
+                  <a 
+                    key={event.id} 
+                    href={`https://eventcast.pro/events/${event.slug}`}
+                    target="_blank"
+                    className="p-4 hover:bg-blue-50 transition-colors flex items-center justify-between group"
+                  >
                     <div>
-                      <h4 className="text-sm font-bold text-slate-800">{event.groom_name || event.celebrant_name} & {event.bride_name || 'Family'}</h4>
+                      <h4 className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{event.groom_name || event.celebrant_name} & {event.bride_name || 'Family'}</h4>
                       <p className="text-[11px] text-slate-500 font-medium">
                         {event.event_date} • {event.event_type}
                       </p>
                     </div>
-                  </div>
+                    <div className="w-8 h-8 bg-slate-100 text-slate-400 group-hover:bg-blue-600 group-hover:text-white rounded-lg flex items-center justify-center transition-all">
+                      <ChevronRight size={16} />
+                    </div>
+                  </a>
                 ))
               )}
             </div>

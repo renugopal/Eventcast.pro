@@ -98,6 +98,19 @@ export default function AdminDashboard() {
     fetchWishes();
     fetchAnalytics();
     fetchPhotographers();
+
+    // Real-time listener for page views (Instantly update Dashboard counts!)
+    const viewsChannel = supabase
+      .channel('realtime-views')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'page_views' }, () => {
+        console.log("New view detected! Updating analytics...");
+        fetchAnalytics();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(viewsChannel);
+    };
   }, []);
 
   async function checkUser() {
@@ -158,7 +171,8 @@ export default function AdminDashboard() {
     
     const { data: viewsData } = await supabase
       .from('page_views')
-      .select('*');
+      .select('*')
+      .range(0, 10000); // Fetch up to 10,000 recent views for analytics
     
     if (eventsData) {
       const viewCounts = (viewsData || []).reduce((acc: any, v: any) => {
