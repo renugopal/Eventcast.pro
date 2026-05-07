@@ -1022,6 +1022,7 @@ export default function AdminDashboard() {
                       <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Visual Template</label>
                       <select name="templateId" value={formData.templateId} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800 appearance-none">
                         <option value="wedding-template-01">wedding-template-01 (Premium Pink & Gold)</option>
+                        <option value="half-saree-template-01">half-saree-template-01 (Premium Emerald & Gold)</option>
                         <option value="wedding-template">wedding-template (Modern Sage Theme)</option>
                         <option value="wedding">wedding (Traditional Maroon)</option>
                       </select>
@@ -1608,6 +1609,7 @@ export default function AdminDashboard() {
                     onChange={(e) => localStorage.setItem('defaultTemplate', e.target.value)}
                   >
                     <option value="wedding-template-01">Wedding Template v1</option>
+                    <option value="half-saree-template-01">Half Saree Premium Template</option>
                   </select>
                 </div>
                 <div>

@@ -399,4 +399,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
         observer.observe(invVideo);
     }
+
+    // 5. ANALYTICS TRACKING
+    const trackPageView = async () => {
+        try {
+            const userAgent = navigator.userAgent;
+            let deviceType = 'Desktop';
+            if (/Mobi|Android/i.test(userAgent)) deviceType = 'Mobile';
+            else if (/Tablet|iPad/i.test(userAgent)) deviceType = 'Tablet';
+
+            const referrer = document.referrer.includes('whatsapp') ? 'WhatsApp' : 
+                             document.referrer.includes('instagram') ? 'Instagram' : 
+                             document.referrer.includes('facebook') ? 'Facebook' : 'Direct';
+
+            if (_supabase && EVENT_ID) {
+                await _supabase
+                    .from('page_views')
+                    .insert([{
+                        event_id: EVENT_ID,
+                        device_type: deviceType,
+                        referrer: referrer,
+                        user_agent: userAgent
+                    }]);
+
+                const { count } = await _supabase
+                    .from('page_views')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('event_id', EVENT_ID);
+
+                const viewsDisplay = document.getElementById('total-views-display');
+                if (viewsDisplay && count !== null) {
+                    viewsDisplay.innerText = count.toLocaleString();
+                }
+            }
+        } catch (e) { console.error("Analytics error:", e); }
+    };
+    trackPageView();
 });
