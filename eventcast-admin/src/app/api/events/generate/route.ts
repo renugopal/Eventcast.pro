@@ -211,7 +211,7 @@ export async function POST(req: Request) {
       }
       
       const query = embedQuery || vName;
-      let embedUrl = `https://www.google.com/maps/embed?origin=mfe&pb=!1m3!2m1!1s${encodeURIComponent(query)}!6i14!3m1!1sen!5m1!1sen`;
+      let embedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(query)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
       
       if (vMap && vMap.includes('<iframe')) {
         const match = vMap.match(/src="([^"]+)"/);

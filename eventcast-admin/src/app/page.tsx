@@ -265,8 +265,8 @@ export default function AdminDashboard() {
       }
       if (!query) return '';
 
-      // Use modern Google Maps Embed pb= format (100% bypasses SAMEORIGIN blocks and adblockers)
-      return `https://www.google.com/maps/embed?origin=mfe&pb=!1m3!2m1!1s${encodeURIComponent(query)}!6i14!3m1!1sen!5m1!1sen`;
+      // Use standard Google Maps embed format. (Coordinate extraction ensures precision without triggering DMS errors)
+      return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
     } catch {
       return '';
     }
@@ -293,7 +293,7 @@ export default function AdminDashboard() {
     } catch {
       // Fallback: try to build an embed URL directly from the input
       const fallback = isSearchQuery
-        ? `https://www.google.com/maps/embed?origin=mfe&pb=!1m3!2m1!1s${encodeURIComponent(linkOrQuery.trim())}!6i14!3m1!1sen!5m1!1sen`
+        ? `https://maps.google.com/maps?q=${encodeURIComponent(linkOrQuery.trim())}&t=&z=15&ie=UTF8&iwloc=&output=embed`
         : extractEmbedUrl(linkOrQuery);
       setMapPreviewUrl(fallback);
     } finally {
