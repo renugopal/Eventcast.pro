@@ -75,6 +75,8 @@ export default function AdminDashboard() {
   const [photographerSearchQuery, setPhotographerSearchQuery] = useState("");
   const [selectedPhotographer, setSelectedPhotographer] = useState<any>(null);
   const [showPhotographerList, setShowPhotographerList] = useState(false);
+  const [venueSearchQuery, setVenueSearchQuery] = useState("");
+  const [isSearchingVenue, setIsSearchingVenue] = useState(false);
   const [selectedBaseDesign, setSelectedBaseDesign] = useState("ec_premium_pink_v1");
   const [isEditingPhotographer, setIsEditingPhotographer] = useState(false);
   const [editingPhotographerId, setEditingPhotographerId] = useState<string | null>(null);
@@ -222,62 +224,47 @@ export default function AdminDashboard() {
     }
   }, [formData.groomName, formData.brideName, formData.celebrantName, hasManuallyEditedInitials]);
 
-  // Auto-resolve Google Maps Short Links and Extract Name
-  useEffect(() => {
-    const resolveAndExtract = async () => {
-      let link = formData.venueMapLink;
-      
-      // 1. Resolve and get Title for ALL Google Maps links
-      if (link.includes('google.com/maps') || link.includes('goo.gl')) {
-        try {
-          const res = await fetch('/api/resolve-url', {
-            method: 'POST',
-            body: JSON.stringify({ url: link })
-          });
-          const data = await res.json();
-          
-          if (data.resolvedUrl) link = data.resolvedUrl;
-          
-          // Use Title if available (contains Venue Name, City)
-          if (data.title && formData.venueName !== data.title) {
-            setFormData(prev => ({ ...prev, venueName: data.title, venueMapLink: link }));
-            return; 
-          }
-        } catch (e) {
-          console.error("Link resolution failed", e);
-        }
+  // Helper: compute embed URL from a raw Google Maps link
+  const getMapEmbedUrl = (link: string): string => {
+    if (!link) return '';
+    try {
+      const url = new URL(link.startsWith('http') ? link : `https://${link}`);
+      let query = '';
+      if (url.pathname.includes('/place/')) {
+        query = decodeURIComponent(url.pathname.split('/place/')[1].split('/')[0]);
+      } else if (url.searchParams.has('q')) {
+        query = url.searchParams.get('q') || '';
+      } else if (url.pathname.includes('/search/')) {
+        query = decodeURIComponent(url.pathname.split('/search/')[1].split('/')[0]);
+      } else {
+        query = link; // fallback
       }
-
-      // 2. Extract Name and Address from Full URL
-      if (link.includes('google.com/maps')) {
-        try {
-          let extractedName = "";
-          
-          if (link.includes('/place/')) {
-            extractedName = link.split('/place/')[1].split('/')[0];
-          } else if (link.includes('q=')) {
-            extractedName = new URL(link).searchParams.get('q') || "";
-          }
-
-          if (extractedName) {
-            const decodedName = decodeURIComponent(extractedName.replace(/\+/g, ' '));
-            const cleanedName = decodedName.split('/@')[0].trim();
-            
-            if (cleanedName && formData.venueName !== cleanedName) {
-              setFormData(prev => ({ ...prev, venueName: cleanedName, venueMapLink: link }));
-            }
-          }
-        } catch (e) {
-          console.error("Name extraction failed", e);
-        }
-      }
-    };
-
-    if (formData.venueMapLink && !isEditing) {
-      const timer = setTimeout(resolveAndExtract, 1000); // Debounce
-      return () => clearTimeout(timer);
+      return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+    } catch {
+      return `https://maps.google.com/maps?q=${encodeURIComponent(link)}&output=embed`;
     }
-  }, [formData.venueMapLink, isEditing]);
+  };
+
+  // Search venue on Google Maps — updates venueMapLink only, never touches venueName
+  const handleVenueSearch = async () => {
+    if (!venueSearchQuery.trim()) return;
+    setIsSearchingVenue(true);
+    try {
+      const res = await fetch('/api/resolve-url', {
+        method: 'POST',
+        body: JSON.stringify({ url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueSearchQuery.trim())}` })
+      });
+      const data = await res.json();
+      const resolvedLink = data.resolvedUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueSearchQuery.trim())}`;
+      setFormData(prev => ({ ...prev, venueMapLink: resolvedLink }));
+    } catch {
+      // Fallback — still set a usable maps link without disturbing venueName
+      const fallbackLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueSearchQuery.trim())}`;
+      setFormData(prev => ({ ...prev, venueMapLink: fallbackLink }));
+    } finally {
+      setIsSearchingVenue(false);
+    }
+  };
 
   const formatDisplayDate = (dateString: string) => {
     if (!dateString) return "Date";
@@ -1110,17 +1097,71 @@ export default function AdminDashboard() {
                     Venue & Location
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Venue Name / Address</label>
-                      <textarea name="venueName" value={formData.venueName} onChange={handleInputChange} rows={2} required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800 mb-4" />
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Google Maps Link</label>
-                      <input type="text" name="venueMapLink" value={formData.venueMapLink} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
+                    <div className="space-y-4">
+                      {/* Venue Name — purely for display text on the wedding page */}
+                      <div>
+                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Venue Name / Address <span className="text-slate-300 normal-case font-medium">(displayed on page)</span></label>
+                        <textarea name="venueName" value={formData.venueName} onChange={handleInputChange} rows={2} required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800 resize-none" />
+                      </div>
+
+                      {/* Search box — find venue on Maps, updates venueMapLink only */}
+                      <div>
+                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Search on Google Maps <span className="text-blue-400 normal-case font-medium">(updates map preview)</span></label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={venueSearchQuery}
+                            onChange={e => setVenueSearchQuery(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleVenueSearch(); } }}
+                            placeholder="e.g. Sri Prasannanjaneya Kalyanamandapam..."
+                            className="flex-1 p-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-slate-700 text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleVenueSearch}
+                            disabled={isSearchingVenue || !venueSearchQuery.trim()}
+                            className="px-4 py-3 bg-blue-600 text-white rounded-2xl font-bold text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+                          >
+                            {isSearchingVenue ? <Loader2 size={16} className="animate-spin" /> : <MapPin size={16} />}
+                            {isSearchingVenue ? '...' : 'Search'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Direct Maps link paste — for sharing link (navigate button) */}
+                      <div>
+                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Google Maps Link <span className="text-slate-300 normal-case font-medium">(paste direct link)</span></label>
+                        <input
+                          type="text"
+                          name="venueMapLink"
+                          value={formData.venueMapLink}
+                          onChange={handleInputChange}
+                          placeholder="https://maps.app.goo.gl/... or https://www.google.com/maps/place/..."
+                          className="w-full p-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-slate-700 text-sm"
+                        />
+                        {formData.venueMapLink && (
+                          <p className="mt-1 text-[10px] text-green-600 font-bold flex items-center gap-1"><CheckCircle2 size={12} /> Map link set — preview updated</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden h-full min-h-[150px]">
-                      {formData.venueMapLink || formData.venueName ? (
-                        <iframe width="100%" height="100%" style={{ border: 0 }} loading="lazy" src={`https://maps.google.com/maps?q=${encodeURIComponent(formData.venueName || formData.venueMapLink)}&output=embed`}></iframe>
+
+                    {/* Map Preview — based on venueMapLink only */}
+                    <div className="bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden h-full min-h-[220px]">
+                      {formData.venueMapLink ? (
+                        <iframe
+                          key={formData.venueMapLink}
+                          width="100%"
+                          height="100%"
+                          style={{ border: 0, minHeight: '220px' }}
+                          loading="lazy"
+                          src={getMapEmbedUrl(formData.venueMapLink)}
+                        />
                       ) : (
-                        <div className="text-slate-300 flex flex-col items-center"><MapPin size={32} className="mb-2" /><span className="text-xs font-bold uppercase">Map Preview</span></div>
+                        <div className="text-slate-300 flex flex-col items-center gap-2 p-6 text-center">
+                          <MapPin size={32} />
+                          <span className="text-xs font-bold uppercase">Map Preview</span>
+                          <span className="text-[10px] text-slate-300">Search a venue above or paste a Maps link</span>
+                        </div>
                       )}
                     </div>
                   </div>
