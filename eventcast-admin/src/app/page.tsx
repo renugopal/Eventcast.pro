@@ -1193,7 +1193,7 @@ export default function AdminDashboard() {
                           className="w-full p-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-slate-700 text-sm"
                         />
                         {formData.venueMapLink && (() => {
-                          const embedUrl = getMapEmbedUrl(formData.venueMapLink);
+                          const embedUrl = extractEmbedUrl(formData.venueMapLink);
                           const isShortLink = !embedUrl && formData.venueMapLink.includes('goo.gl');
                           return isShortLink
                             ? <p className="mt-1 text-[10px] text-amber-600 font-bold flex items-center gap-1">⚠️ Short link — preview not available. Paste a full Maps URL for preview.</p>
