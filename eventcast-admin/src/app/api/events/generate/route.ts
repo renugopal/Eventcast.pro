@@ -76,6 +76,9 @@ export async function POST(req: Request) {
       ...(event.youtube_broadcast_id ? { youtube_broadcast_id: event.youtube_broadcast_id } : {}),
       ...(event.youtube_stream_key ? { youtube_stream_key: event.youtube_stream_key } : {}),
       ...(event.youtube_url ? { youtube_url: event.youtube_url } : {}),
+      custom_initials: event.custom_initials || event.customInitials || null,
+      hide_loader_photo: event.hide_loader_photo ?? event.hideLoaderPhoto ?? false,
+      loader_photo_url: event.loader_photo_url || event.loaderPhotoUrl || null,
       ...(event.notes ? { notes: event.notes } : {})
     };
 
