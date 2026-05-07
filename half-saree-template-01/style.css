@@ -153,15 +153,16 @@ h1, h2, h3, .logo-text, .ceremony-title {
     max-width: 1100px;
     margin: 40px auto;
     background-color: var(--glass-bg);
-    /* Composite Background: Radial Glow + Mandala Pattern + Paper Texture */
+    /* Composite Background: Watercolor Wash + Visible Mandala Pattern + Paper Texture */
     background-image: 
-        radial-gradient(circle at 50% 30%, rgba(255,255,255,0.9) 0%, transparent 100%),
+        radial-gradient(circle at 50% 30%, rgba(255,255,255,1) 0%, rgba(255,255,255,0.8) 100%),
         url('https://res.cloudinary.com/df5b4aq7h/image/upload/v1778175500/mandala_pattern.png'),
+        url('bg_wash.png'),
         url('https://www.transparenttextures.com/patterns/natural-paper.png');
-    background-size: auto, 600px, auto;
-    background-repeat: no-repeat, repeat, repeat;
-    background-position: center top, center, center;
-    background-blend-mode: overlay, multiply, normal;
+    background-size: auto, 500px, cover, auto;
+    background-repeat: no-repeat, repeat, no-repeat, repeat;
+    background-position: center top, center, center, center;
+    background-blend-mode: normal, overlay, normal, normal;
     backdrop-filter: blur(12px) saturate(1.2);
     -webkit-backdrop-filter: blur(12px) saturate(1.2);
     border: 2px solid var(--glass-border);
@@ -173,15 +174,12 @@ h1, h2, h3, .logo-text, .ceremony-title {
     overflow: hidden;
 }
 
-/* Decorative Inner Frame for Glass Container */
+/* Decorative Inner Frame */
 .glass-container::before {
     content: '';
     position: absolute;
-    top: 15px;
-    left: 15px;
-    right: 15px;
-    bottom: 15px;
-    border: 1px solid rgba(212, 175, 55, 0.2);
+    top: 15px; left: 15px; right: 15px; bottom: 15px;
+    border: 1px solid rgba(212, 175, 55, 0.3);
     border-radius: 25px;
     pointer-events: none;
     z-index: -1;
@@ -210,39 +208,35 @@ h1, h2, h3, .logo-text, .ceremony-title {
     }
 }
 
+/* Ornamental Divider */
+.ornamental-divider {
+    position: relative;
+    height: 1px;
+    width: 80%;
+    margin: 40px auto;
+    background: linear-gradient(to right, transparent, var(--accent), transparent);
+    opacity: 0.6;
+}
+
+.ornamental-divider::after {
+    content: '◆';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 0 15px;
+    color: var(--accent);
+    font-size: 14px;
+}
+
 /* Hero Section */
 #hero {
     text-align: center;
-    padding: 60px 20px;
+    padding: 60px 20px 40px;
     display: flex;
     flex-direction: column;
     align-items: center;
     position: relative;
-}
-
-/* Ornamental Divider */
-#hero::after, .section-divider {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 10%;
-    right: 10%;
-    height: 1px;
-    background: linear-gradient(to right, transparent, rgba(212, 175, 55, 0.5), transparent);
-}
-
-/* Diamond Ornament in Divider */
-#hero::before {
-    content: '◆';
-    position: absolute;
-    bottom: -8px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: var(--accent);
-    background: var(--glass-bg);
-    padding: 0 15px;
-    font-size: 12px;
-    z-index: 2;
 }
 
 .invite-header {
@@ -255,33 +249,32 @@ h1, h2, h3, .logo-text, .ceremony-title {
 }
 
 .ceremony-title {
-    font-size: 2rem;
+    font-size: 2.2rem;
     color: var(--primary);
     letter-spacing: 6px;
     text-transform: uppercase;
-    margin-bottom: 10px;
+    margin-bottom: 5px;
 }
 
 .of-connector {
     font-family: 'Great Vibes', cursive;
-    font-size: 1.8rem;
+    font-size: 2.5rem; /* Increased size */
     color: var(--secondary);
-    margin: 5px 0;
-    font-style: italic;
-    opacity: 0.8;
+    margin: 0;
+    font-weight: 400;
 }
 
 .name-showcase {
-    margin: 20px 0 40px;
+    margin: 10px 0 40px;
 }
 
 .girl-name {
     font-family: 'Great Vibes', cursive;
-    font-size: clamp(4rem, 12vw, 7rem);
+    font-size: clamp(4rem, 12vw, 7.5rem);
     line-height: 1.2;
     padding: 10px 20px;
-    /* Added Golden Glow */
-    filter: drop-shadow(0 0 8px rgba(212, 175, 55, 0.3));
+    /* Stronger Glow */
+    filter: drop-shadow(0 0 12px rgba(212, 175, 55, 0.4));
     background: linear-gradient(135deg, var(--secondary) 0%, #B7113D 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
