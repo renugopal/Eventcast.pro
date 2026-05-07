@@ -1,5 +1,5 @@
 // --- CONFIG ---
-const WEDDING_DATE = new Date('May 8, 2026 09:45:00').getTime();
+const WEDDING_DATE = new Date('May 8, 2026 09:30:00').getTime();
 
 // --- LOADER ---
 window.addEventListener('load', () => {
@@ -109,7 +109,7 @@ function updateCountdown() {
     const now = new Date().getTime();
     const distance = WEDDING_DATE - now;
 
-    const wrapper = document.querySelector('.countdown-wrapper');
+    const wrapper = document.querySelector('.countdown-glass');
     if (!wrapper) return;
 
     if (distance < 0) {

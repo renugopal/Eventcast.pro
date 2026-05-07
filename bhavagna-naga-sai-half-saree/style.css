@@ -100,7 +100,10 @@ h1, h2, h3, .logo-text, .ceremony-title {
 .glass-container {
     max-width: 1200px;
     margin: 40px auto;
-    background: var(--glass-bg);
+    background-image: url('bg_wash.png');
+    background-size: cover;
+    background-color: var(--glass-bg);
+    background-blend-mode: overlay;
     backdrop-filter: blur(15px);
     -webkit-backdrop-filter: blur(15px);
     border: 1px solid var(--glass-border);
@@ -153,9 +156,8 @@ h1, h2, h3, .logo-text, .ceremony-title {
 
 .girl-name {
     font-family: 'Great Vibes', cursive;
-    font-size: clamp(4rem, 12vw, 8rem);
-    color: var(--secondary);
-    line-height: 1;
+    font-size: clamp(4rem, 12vw, 7rem);
+    line-height: 0.9;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
     background: linear-gradient(135deg, var(--secondary) 0%, #B7113D 100%);
     -webkit-background-clip: text;
@@ -163,15 +165,13 @@ h1, h2, h3, .logo-text, .ceremony-title {
 }
 
 .last-name {
-    font-family: 'Cinzel', serif;
-    font-size: clamp(1.2rem, 3vw, 2rem);
-    color: var(--primary);
-    letter-spacing: 8px;
+    font-family: 'Great Vibes', cursive;
+    font-size: clamp(3rem, 9vw, 5rem);
     display: block;
     margin-top: 10px;
-    -webkit-text-fill-color: var(--primary);
-    background: none;
-    text-shadow: none;
+    background: linear-gradient(135deg, var(--secondary) 0%, #B7113D 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .info-row {
