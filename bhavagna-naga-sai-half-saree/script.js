@@ -306,13 +306,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const invVideo = document.querySelector('.invitation-video');
     if (invVideo) {
         invVideo.muted = true;
-        invVideo.play().catch(err => {
-            console.log("Autoplay prevented:", err);
-            // Fallback: Play on first interaction
-            document.addEventListener('click', () => invVideo.play(), { once: true });
-            document.addEventListener('touchstart', () => invVideo.play(), { once: true });
-            document.addEventListener('scroll', () => invVideo.play(), { once: true });
-        });
+        
+        const playVideo = () => {
+            invVideo.play().catch(err => console.log("Autoplay blocked"));
+        };
+
+        // Try playing after a short delay
+        setTimeout(playVideo, 1000);
+
+        // Fallback: Play on first interaction
+        const triggerPlay = () => {
+            playVideo();
+            document.removeEventListener('click', triggerPlay);
+            document.removeEventListener('touchstart', triggerPlay);
+            document.removeEventListener('scroll', triggerPlay);
+        };
+
+        document.addEventListener('click', triggerPlay, { once: true });
+        document.addEventListener('touchstart', triggerPlay, { once: true });
+        document.addEventListener('scroll', triggerPlay, { once: true });
     }
 });
 
