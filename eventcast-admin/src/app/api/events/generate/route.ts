@@ -193,11 +193,15 @@ export async function POST(req: Request) {
           try {
             const urlStr = vMap.startsWith('http') ? vMap : `https://${vMap}`;
             const url = new URL(urlStr);
-            if (url.pathname.includes('/place/')) {
+            if (url.pathname.includes('/@')) {
+              const coordsMatch = url.pathname.match(/\/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+              if (coordsMatch) embedQuery = `${coordsMatch[1]},${coordsMatch[2]}`;
+            }
+            if (!embedQuery && url.pathname.includes('/place/')) {
               embedQuery = decodeURIComponent(url.pathname.split('/place/')[1].split('/')[0]);
-            } else if (url.searchParams.has('q')) {
+            } else if (!embedQuery && url.searchParams.has('q')) {
               embedQuery = url.searchParams.get('q') || vName;
-            } else if (url.pathname.includes('/search/')) {
+            } else if (!embedQuery && url.pathname.includes('/search/')) {
               embedQuery = decodeURIComponent(url.pathname.split('/search/')[1].split('/')[0]);
             }
           } catch (e) {
@@ -207,7 +211,7 @@ export async function POST(req: Request) {
       }
       
       const query = embedQuery || vName;
-      let embedUrl = `https://maps.google.com/maps?width=100%25&height=600&hl=en&q=${encodeURIComponent(query)}&t=&z=14&ie=UTF8&iwloc=B&output=embed`;
+      let embedUrl = `https://www.google.com/maps/embed?origin=mfe&pb=!1m3!2m1!1s${encodeURIComponent(query)}!6i14!3m1!1sen!5m1!1sen`;
       
       if (vMap && vMap.includes('<iframe')) {
         const match = vMap.match(/src="([^"]+)"/);

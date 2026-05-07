@@ -242,10 +242,19 @@ export default function AdminDashboard() {
       const url = new URL(resolvedUrl);
       let query = '';
 
-      if (url.pathname.includes('/place/')) {
+      // Highest precision: extract exact coordinates if present
+      if (url.pathname.includes('/@')) {
+        const coordsMatch = url.pathname.match(/\/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (coordsMatch) {
+          query = `${coordsMatch[1]},${coordsMatch[2]}`;
+        }
+      }
+
+      // Fallback to place name or search term
+      if (!query && url.pathname.includes('/place/')) {
         const raw = url.pathname.split('/place/')[1].split('/')[0];
         query = decodeURIComponent(raw.replace(/\+/g, ' ')).split('/@')[0].trim();
-      } else if (url.pathname.includes('/search/')) {
+      } else if (!query && url.pathname.includes('/search/')) {
         const part = url.pathname.split('/search/')[1];
         if (part && part.length > 0) {
           query = decodeURIComponent(part.split('/')[0].replace(/\+/g, ' ')).trim();
@@ -256,8 +265,8 @@ export default function AdminDashboard() {
       }
       if (!query) return '';
 
-      // Use Google Maps legacy embed format (avoids X-Frame-Options SAMEORIGIN redirect)
-      return `https://maps.google.com/maps?width=100%25&height=600&hl=en&q=${encodeURIComponent(query)}&t=&z=14&ie=UTF8&iwloc=B&output=embed`;
+      // Use modern Google Maps Embed pb= format (100% bypasses SAMEORIGIN blocks and adblockers)
+      return `https://www.google.com/maps/embed?origin=mfe&pb=!1m3!2m1!1s${encodeURIComponent(query)}!6i14!3m1!1sen!5m1!1sen`;
     } catch {
       return '';
     }
@@ -284,7 +293,7 @@ export default function AdminDashboard() {
     } catch {
       // Fallback: try to build an embed URL directly from the input
       const fallback = isSearchQuery
-        ? `https://maps.google.com/maps?q=${encodeURIComponent(linkOrQuery.trim())}&output=embed&hl=en`
+        ? `https://www.google.com/maps/embed?origin=mfe&pb=!1m3!2m1!1s${encodeURIComponent(linkOrQuery.trim())}!6i14!3m1!1sen!5m1!1sen`
         : extractEmbedUrl(linkOrQuery);
       setMapPreviewUrl(fallback);
     } finally {
