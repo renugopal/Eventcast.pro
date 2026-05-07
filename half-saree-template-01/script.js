@@ -324,17 +324,19 @@ document.addEventListener('DOMContentLoaded', () => {
         loaderPhoto.onerror = () => { if (loaderPhotoDiv) loaderPhotoDiv.style.display = 'none'; };
     }
 
-    // Map URL
+    // Map URL - use venueUrl (embed) and venueNavigateUrl (button link)
     const mapIframe = document.getElementById('venue-iframe');
     const mapBtn = document.getElementById('venue-nav-btn');
-    if (CONFIG.venueUrl) {
-        if (mapBtn) mapBtn.href = CONFIG.venueUrl;
-        if (mapIframe && CONFIG.venueUrl.includes('/maps/embed')) {
-            mapIframe.src = CONFIG.venueUrl;
-        } else if (mapIframe) {
-            mapIframe.style.display = 'none'; // Fallback if no embed URL provided
-        }
-    } else {
+    const venueEmbed = CONFIG.venueUrl || (CONFIG.venue ? `https://maps.google.com/maps?q=${encodeURIComponent(CONFIG.venue)}&t=&z=15&ie=UTF8&iwloc=&output=embed` : null);
+    const venueNav = CONFIG.venueNavigateUrl || (CONFIG.venue ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(CONFIG.venue)}` : null);
+    
+    if (venueEmbed && mapIframe) {
+        mapIframe.src = venueEmbed;
+    }
+    if (venueNav && mapBtn) {
+        mapBtn.href = venueNav;
+    }
+    if (!venueEmbed && !venueNav) {
         const mapCard = document.querySelector('.map-card');
         if (mapCard) mapCard.style.display = 'none';
     }

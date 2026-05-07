@@ -299,6 +299,37 @@ export async function POST(req: Request) {
     timerTarget: "${rawDate}T${timerTime}",
     venue: "${safeVenue}",
     venueSubtext: "",
+    venueUrl: ${(() => {
+      const vMap = event.venue_map_link || event.venueMapLink;
+      const vName = event.venue_name || event.venueName;
+      // Build embed URL
+      let embedUrl = '';
+      if (vMap && vMap.includes('<iframe')) {
+        const m = vMap.match(/src="([^"]+)"/);
+        embedUrl = m ? m[1] : '';
+      } else if (vMap) {
+        try {
+          const urlStr = vMap.startsWith('http') ? vMap : `https://${vMap}`;
+          const url = new URL(urlStr);
+          let q = vName || '';
+          const coords = url.pathname.match(/\/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+          if (coords) q = `${coords[1]},${coords[2]}`;
+          else if (url.pathname.includes('/place/')) q = decodeURIComponent(url.pathname.split('/place/')[1].split('/')[0]);
+          else if (url.searchParams.has('q')) q = url.searchParams.get('q') || vName;
+          embedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(q)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+        } catch(e) {}
+      } else if (vName) {
+        embedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(vName)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+      }
+      return embedUrl ? JSON.stringify(embedUrl) : 'null';
+    })()},
+    venueNavigateUrl: ${(() => {
+      const vMap = event.venue_map_link || event.venueMapLink;
+      const vName = event.venue_name || event.venueName;
+      if (vMap && !vMap.includes('<iframe')) return JSON.stringify(vMap);
+      if (vName) return JSON.stringify(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(vName)}`);
+      return 'null';
+    })()},
     youtubeId: "${youtubeId}",
     invitationVideo: "${invitationVideosArray[0] || ''}",
     invitationVideos: ${JSON.stringify(invitationVideosArray)},
