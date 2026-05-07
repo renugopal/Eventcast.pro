@@ -405,27 +405,108 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMeta('twitter:image', CONFIG.thumbnail);
     }
 
-    // 4. INVITATION VIDEO OBSERVER LOGIC
+    // 4. INVITATION VIDEO SYSTEM
     const invVideo = document.getElementById('main-invitation-video');
-    if (invVideo && CONFIG.invitationVideo) {
-        invVideo.src = CONFIG.invitationVideo + (CONFIG.invitationVideo.includes('?') ? '&' : '?') + 'v=1.2';
-        invVideo.muted = true;
-        
-        let playCount = 0;
-        const MAX_LOOPS = 3;
+    const videoOverlay = document.getElementById('video-play-overlay');
+    const videoDotsContainer = document.getElementById('video-dots');
+    
+    // Resolve videos array
+    const allVideos = (CONFIG.invitationVideos && CONFIG.invitationVideos.length > 0)
+        ? CONFIG.invitationVideos
+        : (CONFIG.invitationVideo ? [CONFIG.invitationVideo] : []);
 
+    if (allVideos.length > 0 && invVideo) {
+        let currentVideoIndex = 0;
+        let loopCount = 0;
+        const MAX_LOOPS = 5;
+        let isLoopingEnabled = true;
+
+        // Initialize Poster
+        invVideo.setAttribute('poster', optimizeUrl(CONFIG.thumbnail));
+
+        function playVideoAt(index) {
+            currentVideoIndex = index;
+            const src = invVideo.querySelector('source');
+            if (src) src.setAttribute('src', optimizeUrl(allVideos[index]));
+            invVideo.load();
+            
+            // Only play if overlay is hidden (manually started or auto-played)
+            if (videoOverlay && videoOverlay.style.display === 'none') {
+                invVideo.play().catch(() => {
+                    console.log("Autoplay blocked, showing overlay");
+                    if (videoOverlay) videoOverlay.style.display = 'flex';
+                });
+            }
+            
+            // Update dots
+            if (allVideos.length > 1 && videoDotsContainer) {
+                videoDotsContainer.querySelectorAll('.vdot').forEach((dot, i) => {
+                    dot.classList.toggle('active', i === index);
+                });
+            }
+        }
+
+        // Create dots if multiple videos
+        if (allVideos.length > 1 && videoDotsContainer) {
+            videoDotsContainer.innerHTML = '';
+            allVideos.forEach((_, idx) => {
+                const dot = document.createElement('div');
+                dot.className = 'vdot' + (idx === 0 ? ' active' : '');
+                dot.onclick = () => {
+                    isLoopingEnabled = true;
+                    if (videoOverlay) videoOverlay.style.display = 'none';
+                    playVideoAt(idx);
+                };
+                videoDotsContainer.appendChild(dot);
+            });
+        }
+
+        // Handle video end
         invVideo.addEventListener('ended', () => {
-            playCount++;
-            if (playCount < MAX_LOOPS) {
-                invVideo.play().catch(e => console.log('Loop play prevented', e));
+            if (allVideos.length === 1) {
+                loopCount++;
+                if (loopCount < MAX_LOOPS && isLoopingEnabled) {
+                    invVideo.play().catch(() => {});
+                } else {
+                    stopVideoAndShowOverlay();
+                }
+            } else {
+                const next = (currentVideoIndex + 1) % allVideos.length;
+                if (next === 0) loopCount++;
+                
+                if (loopCount < MAX_LOOPS && isLoopingEnabled) {
+                    playVideoAt(next);
+                } else {
+                    stopVideoAndShowOverlay();
+                }
             }
         });
 
+        function stopVideoAndShowOverlay() {
+            isLoopingEnabled = false;
+            if (videoOverlay) videoOverlay.style.display = 'flex';
+            invVideo.pause();
+        }
+
+        function startVideoManually() {
+            isLoopingEnabled = true;
+            loopCount = 0;
+            if (videoOverlay) videoOverlay.style.display = 'none';
+            // Start from first video or current
+            playVideoAt(currentVideoIndex);
+        }
+
+        if (videoOverlay) {
+            videoOverlay.addEventListener('click', startVideoManually);
+        }
+
+        // Auto-pause when not in view
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    if (playCount < MAX_LOOPS) {
-                        invVideo.play().catch(e => console.log('Autoplay prevented', e));
+                    // Only auto-play if we haven't manually stopped or if it's the first view
+                    if (isLoopingEnabled && videoOverlay && videoOverlay.style.display === 'none') {
+                        invVideo.play().catch(() => {});
                     }
                 } else {
                     invVideo.pause();
@@ -434,6 +515,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }, { threshold: 0.5 });
 
         observer.observe(invVideo);
+
+        // Start initial video
+        playVideoAt(0);
     }
 
     // 5. ANALYTICS TRACKING
