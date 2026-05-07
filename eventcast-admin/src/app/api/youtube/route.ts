@@ -52,13 +52,32 @@ export async function POST(req: Request) {
       formattedEventDate = fd.replace(String(day), day + suffix);
     }
 
-    const displayTitle = `${groomName} ${heart} ${brideName} ${eventType} Live | ${formattedEventDate}`;
+    const isSinglePerson = !brideName || brideName.toLowerCase() === 'family';
+    const mainName = isSinglePerson ? groomName : `${groomName} & ${brideName}`;
+    const formattedEventType = eventType ? (eventType.charAt(0).toUpperCase() + eventType.slice(1)) : 'Event';
+    
+    const displayTitle = `${formattedEventType} of ${mainName} | Live Streaming`;
     
     // Webpage Short Description (sent in payload for HTML generation)
-    const webpageDesc = `Join us live and be part of this beautiful ${eventType.toLowerCase()} celebration filled with love and joy.`;
+    const webpageDesc = `Join us live and celebrate this beautiful traditional occasion filled with love, blessings, culture, and family moments.`;
+
+    const cleanHashtagEventType = formattedEventType.replace(/\s+/g, '');
+    const cleanHashtagName = groomName.replace(/\s+/g, '');
 
     // YouTube Long Description
-    const displayDescription = `Welcome to the ${eventType} Live of\n**${groomName} & ${brideName}** 💐\n\nJoin us live and be part of this beautiful ${eventType.toLowerCase()} celebration filled with love and joy.\n\nBless the couple as they begin their new journey together.\n\n📍 Venue: ${venueName}\n\nThank you for watching 🙏\n\nWatching live on: https://eventcast.pro\n\n#${groomName} #${brideName} #WeddingLive #TeluguWedding #Eventcast`;
+    const displayDescription = `✨ ${mainName} ${formattedEventType} ✨
+
+Join us live and celebrate this beautiful traditional occasion filled with love, blessings, culture, and family moments.
+
+Thank you for being part of our special day and showering your blessings on ${mainName}.
+
+📡 Live Streaming
+🎉 ${formattedEventType}${formattedEventType.toLowerCase() === 'half saree' ? ' / Langa Voni Function' : ''}
+💖 Traditional Telugu Celebration
+
+Don’t forget to Like, Share & Subscribe for more family event livestreams.
+
+#${cleanHashtagEventType} #${cleanHashtagName} #LiveStreaming #TeluguFunction`;
 
     // 1. Create Live Broadcast
     const broadcastRes = await fetch("https://youtube.googleapis.com/youtube/v3/liveBroadcasts?part=snippet,status,contentDetails", {
@@ -71,18 +90,26 @@ export async function POST(req: Request) {
           scheduledStartTime: new Date(`${eventDate}T${targetTime || '09:00'}:00+05:30`).toISOString(),
           categoryId: '22',
           tags: [
-            `${groomName} ${brideName !== 'Family' ? brideName : ''} ${eventType}`.trim(),
-            `${groomName} ${eventType} live`,
-            brideName && brideName !== 'Family' ? `${brideName} ${eventType} live` : '',
-            `Telugu ${eventType} live`,
-            `${eventType} livestream India`,
-            `Indian ${eventType} live`,
-            `South Indian ${eventType} live`,
-            `Telugu ${eventType} live stream`,
-            `traditional Telugu ${eventType}`,
-            `${eventType} ceremony live`,
-            'eventcastpro live',
-            'eventcast live'
+            mainName,
+            formattedEventType,
+            `${formattedEventType} function`,
+            formattedEventType.toLowerCase() === 'half saree' ? 'langa voni function' : '',
+            `${formattedEventType} live`,
+            `${formattedEventType} ceremony live`,
+            'telugu function live',
+            'traditional function',
+            'indian traditional ceremony',
+            'live streaming',
+            'family function live',
+            'telugu livestream',
+            `${formattedEventType} event`,
+            formattedEventType.toLowerCase() === 'half saree' ? 'pattu langa function' : '',
+            formattedEventType.toLowerCase() === 'half saree' ? 'coming of age ceremony' : '',
+            'south indian function',
+            'telugu family event',
+            'ceremony live stream',
+            'live event',
+            'youtube livestream'
           ].filter(Boolean)
         },
         status: {

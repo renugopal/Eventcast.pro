@@ -383,15 +383,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 3. SEO METADATA
-    const pageTitle = `${finalName} ${CONFIG.eventType} | Eventcast PRO`;
+    const isSinglePerson = !CONFIG.bride || CONFIG.bride.toLowerCase() === 'family';
+    const mainName = isSinglePerson ? CONFIG.groom : `${CONFIG.groom} & ${CONFIG.bride}`;
+    const formattedEventType = CONFIG.eventType ? (CONFIG.eventType.charAt(0).toUpperCase() + CONFIG.eventType.slice(1)) : 'Event';
+    
+    const pageTitle = `${formattedEventType} of ${mainName} | Live Streaming`;
+    const pageDesc = `Join us live and celebrate this beautiful traditional occasion filled with love, blessings, culture, and family moments.`;
+    
     document.title = pageTitle;
     const updateMeta = (property, content) => {
         const el = document.querySelector(`meta[property="${property}"]`) || document.querySelector(`meta[name="${property}"]`);
         if (el && content) el.setAttribute('content', content);
     };
     updateMeta('og:title', pageTitle);
-    updateMeta('og:description', `Join us live for the ${CONFIG.eventType} of ${finalName}.`);
-    updateMeta('description', `Join us live for the ${CONFIG.eventType} of ${finalName}.`);
+    updateMeta('og:description', pageDesc);
+    updateMeta('description', pageDesc);
     if (CONFIG.thumbnail) {
         updateMeta('og:image', CONFIG.thumbnail);
         updateMeta('twitter:image', CONFIG.thumbnail);

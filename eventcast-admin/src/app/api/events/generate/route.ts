@@ -160,9 +160,11 @@ export async function POST(req: Request) {
       formattedTime = `${h % 12 || 12}:${minutes} ${ampm}`;
     }
 
-    const heart = type.toLowerCase().includes('wedding') ? '❤️' : '✨';
-    const displayTitle = `${groom} ${heart} ${bride} ${type.charAt(0).toUpperCase() + type.slice(1)} | ${formattedDate}`;
-    const displayDesc = `Join us live and be part of this beautiful ${type.toLowerCase()} celebration filled with love and joy.`;
+    const isSinglePerson = !bride || bride.toLowerCase() === 'family';
+    const mainName = isSinglePerson ? groom : `${groom} & ${bride}`;
+    
+    const displayTitle = `${type.charAt(0).toUpperCase() + type.slice(1)} of ${mainName} | Live Streaming`;
+    const displayDesc = `Join us live and celebrate this beautiful traditional occasion filled with love, blessings, culture, and family moments.`;
     
     htmlContent = htmlContent.replace(/<title>.*?<\/title>/g, `<title>${displayTitle}</title>`);
     htmlContent = htmlContent.replace(/<meta property="og:title" content=".*?">/g, `<meta property="og:title" content="${displayTitle}">`);
