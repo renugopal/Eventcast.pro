@@ -19,7 +19,7 @@ export async function POST(req: Request) {
 
     const slug = `${groom.toLowerCase().replace(/\s+/g, '-')}-${bride.toLowerCase().replace(/\s+/g, '-')}-${type.toLowerCase()}`;
     const targetPath = `events/${slug}`;
-    const templatePath = event.template_id || 'wedding-template-01';
+    const templatePath = event.template_id || event.templateId || 'wedding-template-01';
 
     // 2. Setup GitHub API Config
     const githubToken = process.env.GITHUB_TOKEN;
