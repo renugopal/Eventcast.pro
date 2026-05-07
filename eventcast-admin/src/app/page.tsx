@@ -230,6 +230,12 @@ export default function AdminDashboard() {
   const extractEmbedUrl = (resolvedUrl: string): string => {
     if (!resolvedUrl) return '';
     try {
+      // If the user pasted a raw iframe, extract its src directly
+      if (resolvedUrl.includes('<iframe')) {
+        const match = resolvedUrl.match(/src="([^"]+)"/);
+        if (match) return match[1];
+      }
+
       // If it's already an embed URL, use it directly
       if (resolvedUrl.includes('/maps/embed')) return resolvedUrl;
       
@@ -250,8 +256,8 @@ export default function AdminDashboard() {
       }
       if (!query) return '';
 
-      // Use Google Maps Embed API search format (no API key required for basic embed)
-      return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&output=embed&hl=en`;
+      // Use Google Maps legacy embed format (avoids X-Frame-Options SAMEORIGIN redirect)
+      return `https://maps.google.com/maps?width=100%25&height=600&hl=en&q=${encodeURIComponent(query)}&t=&z=14&ie=UTF8&iwloc=B&output=embed`;
     } catch {
       return '';
     }
