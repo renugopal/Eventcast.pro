@@ -8,6 +8,8 @@ window.WEDDING_CONFIG = {
     timerTarget: "2026-05-08T09:30",
     venue: "B Convention Hall, Vijayawada.",
     venueSubtext: "",
+    venueUrl: "https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d956.122010077798!2d80.6281066!3d16.5519242!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a35ef0844ef6d4f%3A0x7be223ea78e33a85!2sB%20Convention%20Hall!5e0!3m2!1sen!2sin!4v1778167921754!5m2!1sen!2sin",
+    venueNavigateUrl: "https://www.google.com/maps/search/?api=1&query=B%20Convention%20Hall%2C%20Vijayawada.",
     youtubeId: "ekPgtQRjfJ8",
     invitationVideo: "https://res.cloudinary.com/df5b4aq7h/video/upload/v1778168848/events/bhavagna-naga-sai/vu4bq36xhticqnb3samo.mp4",
     invitationVideos: ["https://res.cloudinary.com/df5b4aq7h/video/upload/v1778168848/events/bhavagna-naga-sai/vu4bq36xhticqnb3samo.mp4"],
