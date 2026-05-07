@@ -265,8 +265,8 @@ export default function AdminDashboard() {
       }
       if (!query) return '';
 
-      // Use standard Google Maps embed format. (Coordinate extraction ensures precision without triggering DMS errors)
-      return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+      // Use Google Maps legacy embed format (highly compatible)
+      return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
     } catch {
       return '';
     }
