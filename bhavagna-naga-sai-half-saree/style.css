@@ -157,7 +157,8 @@ h1, h2, h3, .logo-text, .ceremony-title {
 .girl-name {
     font-family: 'Great Vibes', cursive;
     font-size: clamp(4rem, 12vw, 7rem);
-    line-height: 0.9;
+    line-height: 1.2;
+    padding: 10px 20px;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
     background: linear-gradient(135deg, var(--secondary) 0%, #B7113D 100%);
     -webkit-background-clip: text;
@@ -168,7 +169,9 @@ h1, h2, h3, .logo-text, .ceremony-title {
     font-family: 'Great Vibes', cursive;
     font-size: clamp(3rem, 9vw, 5rem);
     display: block;
-    margin-top: 10px;
+    margin-top: 0px;
+    line-height: 1.2;
+    padding: 10px 20px;
     background: linear-gradient(135deg, var(--secondary) 0%, #B7113D 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
