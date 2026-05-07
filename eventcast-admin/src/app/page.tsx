@@ -1196,7 +1196,7 @@ export default function AdminDashboard() {
                           const embedUrl = extractEmbedUrl(formData.venueMapLink);
                           const isShortLink = !embedUrl && formData.venueMapLink.includes('goo.gl');
                           return isShortLink
-                            ? <p className="mt-1 text-[10px] text-amber-600 font-bold flex items-center gap-1">⚠️ Short link — preview not available. Paste a full Maps URL for preview.</p>
+                            ? <p className="mt-1 text-[10px] text-amber-600 font-bold flex items-center gap-1">🔄 Auto-resolving short link...</p>
                             : <p className="mt-1 text-[10px] text-green-600 font-bold flex items-center gap-1"><CheckCircle2 size={12} /> Map link set — preview updated</p>;
                         })()}
                       </div>
