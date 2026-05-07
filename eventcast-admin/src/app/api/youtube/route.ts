@@ -71,19 +71,19 @@ export async function POST(req: Request) {
           scheduledStartTime: new Date(`${eventDate}T${targetTime || '09:00'}:00+05:30`).toISOString(),
           categoryId: '22',
           tags: [
-            `${groomName} ${brideName} wedding`,
-            `${groomName} wedding live`,
-            `${brideName} wedding live`,
-            'Telugu wedding live',
-            'wedding livestream India',
-            'Indian wedding live',
-            'South Indian wedding live',
-            'Telugu marriage live stream',
-            'traditional Telugu wedding',
-            'wedding ceremony live',
+            `${groomName} ${brideName !== 'Family' ? brideName : ''} ${eventType}`.trim(),
+            `${groomName} ${eventType} live`,
+            brideName && brideName !== 'Family' ? `${brideName} ${eventType} live` : '',
+            `Telugu ${eventType} live`,
+            `${eventType} livestream India`,
+            `Indian ${eventType} live`,
+            `South Indian ${eventType} live`,
+            `Telugu ${eventType} live stream`,
+            `traditional Telugu ${eventType}`,
+            `${eventType} ceremony live`,
             'eventcastpro live',
             'eventcast live'
-          ]
+          ].filter(Boolean)
         },
         status: {
           privacyStatus: privacy || 'public',
