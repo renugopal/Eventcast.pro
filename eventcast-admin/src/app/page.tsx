@@ -77,6 +77,8 @@ export default function AdminDashboard() {
   const [showPhotographerList, setShowPhotographerList] = useState(false);
   const [venueSearchQuery, setVenueSearchQuery] = useState("");
   const [isSearchingVenue, setIsSearchingVenue] = useState(false);
+  const [mapPreviewUrl, setMapPreviewUrl] = useState(""); // Resolved, working embed URL for preview
+  const [isResolvingMap, setIsResolvingMap] = useState(false);
   const [selectedBaseDesign, setSelectedBaseDesign] = useState("ec_premium_pink_v1");
   const [isEditingPhotographer, setIsEditingPhotographer] = useState(false);
   const [editingPhotographerId, setEditingPhotographerId] = useState<string | null>(null);
@@ -224,49 +226,83 @@ export default function AdminDashboard() {
     }
   }, [formData.groomName, formData.brideName, formData.celebrantName, hasManuallyEditedInitials]);
 
-  // Helper: compute embed URL from a raw Google Maps link
-  const getMapEmbedUrl = (link: string): string => {
-    if (!link) return '';
+  // Extract a working embed URL from a resolved Google Maps full URL
+  const extractEmbedUrl = (resolvedUrl: string): string => {
+    if (!resolvedUrl) return '';
     try {
-      const url = new URL(link.startsWith('http') ? link : `https://${link}`);
+      // If it's already an embed URL, use it directly
+      if (resolvedUrl.includes('/maps/embed')) return resolvedUrl;
+      
+      const url = new URL(resolvedUrl);
       let query = '';
 
       if (url.pathname.includes('/place/')) {
-        // e.g. /maps/place/Venue+Name/@lat,lng,...
         const raw = url.pathname.split('/place/')[1].split('/')[0];
         query = decodeURIComponent(raw.replace(/\+/g, ' ')).split('/@')[0].trim();
       } else if (url.pathname.includes('/search/')) {
-        // e.g. /maps/search/Venue+Name (the clean format we produce)
         const part = url.pathname.split('/search/')[1];
         if (part && part.length > 0) {
           query = decodeURIComponent(part.split('/')[0].replace(/\+/g, ' ')).trim();
         }
       }
-
-      // Fallback to query params (?q= or ?query= from Maps Platform URLs)
       if (!query) {
         query = url.searchParams.get('q') || url.searchParams.get('query') || '';
       }
-
-      // Short links (goo.gl, maps.app.goo.gl) — can't embed; return empty
       if (!query) return '';
 
-      return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+      // Use Google Maps Embed API search format (no API key required for basic embed)
+      return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&output=embed&hl=en`;
     } catch {
       return '';
     }
   };
 
-  // Search venue on Google Maps — NO API call, directly builds a /search/TERM URL
-  // that getMapEmbedUrl can reliably parse. venueName is never touched.
-  const handleVenueSearch = () => {
+  // Resolve any Maps link (including short links) → get a working embed URL
+  const resolveMapPreview = async (linkOrQuery: string, isSearchQuery = false) => {
+    if (!linkOrQuery.trim()) return;
+    setIsResolvingMap(true);
+    try {
+      // For search queries, build the URL to resolve
+      const urlToResolve = isSearchQuery
+        ? `https://www.google.com/maps/search/?q=${encodeURIComponent(linkOrQuery.trim())}`
+        : linkOrQuery;
+
+      const res = await fetch('/api/resolve-url', {
+        method: 'POST',
+        body: JSON.stringify({ url: urlToResolve })
+      });
+      const data = await res.json();
+      const resolvedUrl = data.resolvedUrl || urlToResolve;
+      const embedUrl = extractEmbedUrl(resolvedUrl);
+      setMapPreviewUrl(embedUrl);
+    } catch {
+      // Fallback: try to build an embed URL directly from the input
+      const fallback = isSearchQuery
+        ? `https://maps.google.com/maps?q=${encodeURIComponent(linkOrQuery.trim())}&output=embed&hl=en`
+        : extractEmbedUrl(linkOrQuery);
+      setMapPreviewUrl(fallback);
+    } finally {
+      setIsResolvingMap(false);
+    }
+  };
+
+  // Search venue — resolves and updates map preview, never touches venueName
+  const handleVenueSearch = async () => {
     if (!venueSearchQuery.trim()) return;
     setIsSearchingVenue(true);
-    // Use /maps/search/TERM format — clean, parseable, shareable
-    const searchLink = `https://www.google.com/maps/search/${encodeURIComponent(venueSearchQuery.trim())}`;
+    // Store a simple search link in venueMapLink (used as navigate URL on template)
+    const searchLink = `https://www.google.com/maps/search/?q=${encodeURIComponent(venueSearchQuery.trim())}`;
     setFormData(prev => ({ ...prev, venueMapLink: searchLink }));
+    await resolveMapPreview(venueSearchQuery.trim(), true);
     setIsSearchingVenue(false);
   };
+
+  // When venueMapLink changes by paste, resolve it for preview (debounced)
+  useEffect(() => {
+    if (!formData.venueMapLink) { setMapPreviewUrl(''); return; }
+    const timer = setTimeout(() => resolveMapPreview(formData.venueMapLink, false), 800);
+    return () => clearTimeout(timer);
+  }, [formData.venueMapLink]);
 
   const formatDisplayDate = (dateString: string) => {
     if (!dateString) return "Date";
@@ -1151,23 +1187,22 @@ export default function AdminDashboard() {
                       </div>
                     </div>
 
-                    {/* Map Preview — based on venueMapLink only */}
+                    {/* Map Preview — driven by mapPreviewUrl (resolved async) */}
                     <div className="bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden h-full min-h-[220px]">
-                      {formData.venueMapLink && getMapEmbedUrl(formData.venueMapLink) ? (
+                      {isResolvingMap ? (
+                        <div className="flex flex-col items-center gap-2 text-blue-500">
+                          <Loader2 size={28} className="animate-spin" />
+                          <span className="text-xs font-bold">Resolving map...</span>
+                        </div>
+                      ) : mapPreviewUrl ? (
                         <iframe
-                          key={formData.venueMapLink}
+                          key={mapPreviewUrl}
                           width="100%"
                           height="100%"
                           style={{ border: 0, minHeight: '220px' }}
                           loading="lazy"
-                          src={getMapEmbedUrl(formData.venueMapLink)}
+                          src={mapPreviewUrl}
                         />
-                      ) : formData.venueMapLink && !getMapEmbedUrl(formData.venueMapLink) ? (
-                        <div className="text-amber-400 flex flex-col items-center gap-2 p-6 text-center">
-                          <MapPin size={32} />
-                          <span className="text-xs font-bold uppercase">Short Link Detected</span>
-                          <span className="text-[10px]">Paste a full Google Maps URL<br/>or use the Search box above for preview</span>
-                        </div>
                       ) : (
                         <div className="text-slate-300 flex flex-col items-center gap-2 p-6 text-center">
                           <MapPin size={32} />
