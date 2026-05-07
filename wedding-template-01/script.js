@@ -191,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
         function playVideoAt(index) {
             currentVideoIndex = index;
             const src = invVideo.querySelector('source');
-            if (src) src.setAttribute('src', allVideos[index]);
+            if (src) src.setAttribute('src', optimizeUrl(allVideos[index]));
             invVideo.load();
             
             // Only play if in viewport or manually triggered

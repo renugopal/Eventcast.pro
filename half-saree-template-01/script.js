@@ -408,77 +408,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // 4. INVITATION VIDEO SYSTEM
     const invVideo = document.getElementById('main-invitation-video');
     const videoOverlay = document.getElementById('video-play-overlay');
-    const videoDotsContainer = document.getElementById('video-dots');
     
-    // Resolve videos array
-    const allVideos = (CONFIG.invitationVideos && CONFIG.invitationVideos.length > 0)
-        ? CONFIG.invitationVideos
-        : (CONFIG.invitationVideo ? [CONFIG.invitationVideo] : []);
-
-    if (allVideos.length > 0 && invVideo) {
-        let currentVideoIndex = 0;
+    if (invVideo && (CONFIG.invitationVideo || (CONFIG.invitationVideos && CONFIG.invitationVideos[0]))) {
         let loopCount = 0;
-        const MAX_LOOPS = 5;
+        const MAX_LOOPS = 3;
         let isLoopingEnabled = true;
+        const videoSrc = CONFIG.invitationVideo || CONFIG.invitationVideos[0];
 
-        // Initialize Poster
+        // Initialize Poster & Source
         invVideo.setAttribute('poster', optimizeUrl(CONFIG.thumbnail));
-
-        function playVideoAt(index) {
-            currentVideoIndex = index;
-            const src = invVideo.querySelector('source');
-            if (src) src.setAttribute('src', optimizeUrl(allVideos[index]));
-            invVideo.load();
-            
-            // Only play if overlay is hidden (manually started or auto-played)
-            if (videoOverlay && videoOverlay.style.display === 'none') {
-                invVideo.play().catch(() => {
-                    console.log("Autoplay blocked, showing overlay");
-                    if (videoOverlay) videoOverlay.style.display = 'flex';
-                });
-            }
-            
-            // Update dots
-            if (allVideos.length > 1 && videoDotsContainer) {
-                videoDotsContainer.querySelectorAll('.vdot').forEach((dot, i) => {
-                    dot.classList.toggle('active', i === index);
-                });
-            }
-        }
-
-        // Create dots if multiple videos
-        if (allVideos.length > 1 && videoDotsContainer) {
-            videoDotsContainer.innerHTML = '';
-            allVideos.forEach((_, idx) => {
-                const dot = document.createElement('div');
-                dot.className = 'vdot' + (idx === 0 ? ' active' : '');
-                dot.onclick = () => {
-                    isLoopingEnabled = true;
-                    if (videoOverlay) videoOverlay.style.display = 'none';
-                    playVideoAt(idx);
-                };
-                videoDotsContainer.appendChild(dot);
-            });
-        }
+        const srcTag = invVideo.querySelector('source');
+        if (srcTag) srcTag.setAttribute('src', optimizeUrl(videoSrc));
+        invVideo.load();
 
         // Handle video end
         invVideo.addEventListener('ended', () => {
-            if (allVideos.length === 1) {
-                loopCount++;
-                if (loopCount < MAX_LOOPS && isLoopingEnabled) {
-                    invVideo.play().catch(() => {});
-                } else {
-                    stopVideoAndShowOverlay();
-                }
+            loopCount++;
+            if (loopCount < MAX_LOOPS && isLoopingEnabled) {
+                invVideo.play().catch(() => {});
             } else {
-                const next = (currentVideoIndex + 1) % allVideos.length;
-                if (next === 0) loopCount++;
-                
-                if (loopCount < MAX_LOOPS && isLoopingEnabled) {
-                    playVideoAt(next);
-                } else {
-                    stopVideoAndShowOverlay();
-                }
+                stopVideoAndShowOverlay();
             }
         });
 
@@ -492,8 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
             isLoopingEnabled = true;
             loopCount = 0;
             if (videoOverlay) videoOverlay.style.display = 'none';
-            // Start from first video or current
-            playVideoAt(currentVideoIndex);
+            invVideo.play().catch(() => {});
         }
 
         if (videoOverlay) {
@@ -504,7 +452,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    // Only auto-play if we haven't manually stopped or if it's the first view
                     if (isLoopingEnabled && videoOverlay && videoOverlay.style.display === 'none') {
                         invVideo.play().catch(() => {});
                     }
@@ -515,9 +462,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }, { threshold: 0.5 });
 
         observer.observe(invVideo);
-
-        // Start initial video
-        playVideoAt(0);
     }
 
     // 5. ANALYTICS TRACKING
