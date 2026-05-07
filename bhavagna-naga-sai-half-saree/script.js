@@ -314,6 +314,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // Try playing after a short delay
         setTimeout(playVideo, 1000);
 
+        // Debug & Fallback for Loading Errors
+        invVideo.addEventListener('error', (e) => {
+            console.error("Video loading error detected:", invVideo.error);
+            // If the cache-busted URL fails, try the clean one
+            if (invVideo.src.includes('?v=')) {
+                console.log("Retrying with clean URL...");
+                invVideo.src = 'assets/invitation.mp4';
+                playVideo();
+            }
+        });
+
         // Fallback: Play on first interaction
         const triggerPlay = () => {
             playVideo();
