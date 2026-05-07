@@ -1,383 +1,91 @@
 // --- CONFIG DRIVEN LOGIC ---
-// These values should be provided by config.js
 const CONFIG = window.WEDDING_CONFIG || {
-    groom: "Sample",
-    bride: "Event",
-    date: "Saturday, January 1st",
-    time: "09:00 AM",
-    timeSubtext: "",
-    timerTarget: new Date().toISOString(),
-    venue: "Venue Name",
-    venueSubtext: "",
+    groom: "Bhavagna",
+    bride: "Naga Sai",
+    date: "May 8th 2026",
+    time: "09:45 AM",
+    timerTarget: "2026-05-08T09:30:00",
+    venue: "B Convention Hall",
     youtubeId: "",
-    invitationVideo: "",
-    thumbnail: "assets/gallery_1.png",
-    gallery: ["assets/gallery_1.png", "assets/gallery_2.png", "assets/gallery_3.png"],
-    supabaseUrl: '',
-    supabaseKey: '',
-    eventId: '',
-    eventType: 'Wedding',
-    introText: '',
-    photographer: null
+    invitationVideo: "assets/invitation.mp4",
+    thumbnail: "assets/thumbnail.png",
+    gallery: [],
+    supabaseUrl: 'https://ntjqjmuripwexwlhfrny.supabase.co',
+    supabaseKey: 'sb_publishable_vi_vz9qfKMJnEymw3WaPpg_2A6SeSWR',
+    eventId: 'bhavagna-naga-sai',
+    eventType: 'Half Saree Ceremony'
 };
 
 const WEDDING_DATE = new Date(CONFIG.timerTarget).getTime();
-
-// --- SUPABASE WISHES LOGIC ---
+const EVENT_ID = CONFIG.eventId;
 const _supabase = (CONFIG.supabaseUrl && CONFIG.supabaseKey) 
     ? supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey) 
     : null;
 
-// --- CLOUDINARY OPTIMIZATION ---
+// --- UTILS ---
 const optimizeUrl = (url) => {
     if (!url || !url.includes('cloudinary.com')) return url;
-    if (url.includes('/upload/')) {
-        return url.replace('/upload/', '/upload/f_auto,q_auto/');
-    }
-    return url;
+    return url.replace('/upload/', '/upload/f_auto,q_auto/');
 };
 
-// --- UI INJECTION ---
-document.addEventListener('DOMContentLoaded', () => {
-    // --- LOADER: Update photo & initials dynamically from CONFIG ---
-    const loaderPhoto = document.querySelector('.loader-photo img');
-    const loaderPhotoDiv = document.querySelector('.loader-photo');
-    if (CONFIG.hideLoaderPhoto) {
-        if (loaderPhotoDiv) loaderPhotoDiv.style.display = 'none';
-    } else if (loaderPhoto) {
-        if (CONFIG.loaderPhotoUrl) {
-            loaderPhoto.src = optimizeUrl(CONFIG.loaderPhotoUrl);
-            loaderPhoto.onerror = () => { loaderPhoto.style.display = 'none'; };
-        } else if (CONFIG.thumbnail) {
-            loaderPhoto.src = optimizeUrl(CONFIG.thumbnail);
-            loaderPhoto.onerror = () => { loaderPhoto.style.display = 'none'; };
-        } else if (CONFIG.gallery && CONFIG.gallery.length > 0) {
-            loaderPhoto.src = optimizeUrl(CONFIG.gallery[0]);
-            loaderPhoto.onerror = () => { loaderPhoto.style.display = 'none'; };
-        } else {
-            // No photo available — hide the photo circle
-            if (loaderPhotoDiv) loaderPhotoDiv.style.display = 'none';
-        }
-    }
-
-    // Inject names and titles
-    let initials = CONFIG.customInitials;
-    if (!initials) {
-        const groomInitial = CONFIG.groom ? CONFIG.groom[0].toUpperCase() : '';
-        const brideInitial = CONFIG.bride && CONFIG.bride !== 'Family' ? CONFIG.bride[0].toUpperCase() : '';
-        initials = groomInitial && brideInitial ? `${groomInitial} & ${brideInitial}` : (groomInitial || brideInitial);
-    }
-    document.querySelectorAll('.logo-text, .initials').forEach(el => el.innerText = initials);
-    
-    if (document.querySelector('.first-name')) document.querySelector('.first-name').innerText = CONFIG.groom || CONFIG.bride;
-    if (document.querySelector('.second-name')) document.querySelector('.second-name').innerText = CONFIG.bride && CONFIG.groom ? CONFIG.bride : "";
-
-    // Inject Intro Text — split on \n for multi-line display
-    const introEl = document.querySelector('.intro-text');
-    if (introEl) {
-        if (CONFIG.introText) {
-            const lines = CONFIG.introText.split('\n');
-            introEl.innerHTML = lines.map(line => `<span style="display:block;text-align:center;">${line}</span>`).join('');
-        }
-    }
-
-    // --- SEO & TITLE UPDATE ---
-    const pageTitle = `${CONFIG.groom} ${CONFIG.bride ? '❤️ ' + CONFIG.bride : ''} ${CONFIG.eventType} | Eventcast PRO`;
-    document.title = pageTitle;
-    const updateMeta = (property, content) => {
-        const el = document.querySelector(`meta[property="${property}"]`) || document.querySelector(`meta[name="${property}"]`);
-        if (el) el.setAttribute('content', content);
-    };
-    updateMeta('og:title', pageTitle);
-    updateMeta('og:description', `Join us live for the ${CONFIG.eventType} of ${CONFIG.groom} ${CONFIG.bride ? '& ' + CONFIG.bride : ''}.`);
-    updateMeta('description', `Join us live for the ${CONFIG.eventType} of ${CONFIG.groom} ${CONFIG.bride ? '& ' + CONFIG.bride : ''}.`);
-    if (CONFIG.thumbnail) {
-        updateMeta('og:image', CONFIG.thumbnail);
-        updateMeta('twitter:image', CONFIG.thumbnail);
-    }
-    updateMeta('og:url', window.location.href);
-
-    // --- DYNAMIC TITLES ---
-    const invTitle = document.getElementById('invitation-title');
-    if (invTitle) invTitle.innerText = `${CONFIG.eventType} Invitation`;
-    const galTitle = document.getElementById('gallery-title');
-    if (galTitle) galTitle.innerText = 'Memories';
-
-    // --- SAVE TO CALENDAR DYNAMIC LINK ---
-    const saveCalBtn = document.getElementById('save-calendar-btn');
-    if (saveCalBtn) {
-        const calTitle = encodeURIComponent(`${CONFIG.groom} ${CONFIG.bride ? '& ' + CONFIG.bride : ''} ${CONFIG.eventType}`);
-        const calDate = new Date(CONFIG.timerTarget).toISOString().replace(/-|:|\.\d\d\d/g, "");
-        const calEndDate = new Date(new Date(CONFIG.timerTarget).getTime() + 3600000).toISOString().replace(/-|:|\.\d\d\d/g, "");
-        const calDetails = encodeURIComponent(`Join us live and bless the couple: ${window.location.href}`);
-        const calLoc = encodeURIComponent(CONFIG.venue);
-        saveCalBtn.href = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${calTitle}&dates=${calDate}/${calEndDate}&details=${calDetails}&location=${calLoc}`;
-    }
-
-    // --- ANALYTICS: Track Page View ---
-    const trackPageView = async () => {
-        try {
-            const userAgent = navigator.userAgent;
-            let deviceType = 'Desktop';
-            if (/Mobi|Android/i.test(userAgent)) deviceType = 'Mobile';
-            else if (/Tablet|iPad/i.test(userAgent)) deviceType = 'Tablet';
-
-            const referrer = document.referrer.includes('whatsapp') ? 'WhatsApp' : 
-                             document.referrer.includes('instagram') ? 'Instagram' : 
-                             document.referrer.includes('facebook') ? 'Facebook' : 'Direct';
-
-            // 1. Atomically insert this visit into page_views table
-            //    (No race condition — each visit = 1 insert)
-            if (_supabase) {
-                await _supabase
-                    .from('page_views')
-                    .insert([{
-                        event_id: CONFIG.eventId,
-                        device_type: deviceType,
-                        referrer: referrer,
-                        user_agent: userAgent
-                    }]);
-
-                // 2. Count total visits for this event accurately
-                const { count } = await _supabase
-                    .from('page_views')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('event_id', CONFIG.eventId);
-
-                // 3. Update UI with accurate count
-                const viewsDisplay = document.getElementById('total-views-display');
-                if (viewsDisplay && count !== null) {
-                    viewsDisplay.innerText = count.toLocaleString();
-                }
-            }
-        } catch (e) { console.error("Analytics error:", e); }
-    };
-    trackPageView();
-    
-    // Inject Info
-    const infoItems = document.querySelectorAll('.info-text');
-    if (infoItems[0]) infoItems[0].innerText = CONFIG.date;
-    if (infoItems[1]) infoItems[1].innerText = CONFIG.time;
-    if (infoItems[2]) infoItems[2].innerText = CONFIG.venue;
-    
-    const subtexts = document.querySelectorAll('.info-subtext');
-    if (subtexts[0]) subtexts[0].innerText = CONFIG.timeSubtext || '';
-    if (subtexts[1]) subtexts[1].innerText = CONFIG.venueSubtext || '';
-
-    // Dynamic Time Label (e.g. 'Sumuhurtham' / 'Wedding' / 'Ceremony')
-    const heroInfoItems = document.querySelectorAll('.hero-info-item');
-    if (heroInfoItems[1]) {
-        const lbl = heroInfoItems[1].querySelector('.info-label');
-        if (lbl) lbl.innerText = CONFIG.timeLabel || 'Sumuhurtham';
-    }
-
-    // --- Invitation Video Section: Smart Control ---
-    const invVideo = document.getElementById('main-invitation-video');
-    const videoOverlay = document.getElementById('video-play-overlay');
-    const videoWrapper = document.getElementById('video-wrapper');
-    const videoDotsContainer = document.getElementById('video-dots');
-    const allVideos = (CONFIG.invitationVideos && CONFIG.invitationVideos.length > 0)
-        ? CONFIG.invitationVideos
-        : (CONFIG.invitationVideo ? [CONFIG.invitationVideo] : []);
-
-    if (allVideos.length > 0 && invVideo) {
-        let currentVideoIndex = 0;
-        let loopCount = 0;
-        const MAX_LOOPS = 3;
-        let isLoopingEnabled = true;
-
-        invVideo.setAttribute('poster', optimizeUrl(CONFIG.thumbnail));
-
-        function playVideoAt(index) {
-            currentVideoIndex = index;
-            const src = invVideo.querySelector('source');
-            if (src) src.setAttribute('src', allVideos[index]);
-            invVideo.load();
-            
-            // Only play if in viewport or manually triggered
-            if (videoOverlay && videoOverlay.style.display === 'none') {
-                invVideo.play().catch(() => {});
-            }
-            
-            // Update dots
-            if (allVideos.length > 1 && videoDotsContainer) {
-                videoDotsContainer.querySelectorAll('.vdot').forEach((dot, i) => {
-                    dot.style.background = i === index ? 'var(--gold)' : 'rgba(255,255,255,0.3)';
-                    dot.style.transform = i === index ? 'scale(1.4)' : 'scale(1)';
-                });
-            }
-        }
-
-        // Handle video end
-        invVideo.addEventListener('ended', () => {
-            if (allVideos.length === 1) {
-                // Single video loop logic
-                loopCount++;
-                if (loopCount < MAX_LOOPS && isLoopingEnabled) {
-                    invVideo.play().catch(() => {});
-                } else {
-                    stopVideoAndShowOverlay();
-                }
-            } else {
-                // Playlist logic
-                const next = (currentVideoIndex + 1) % allVideos.length;
-                if (next === 0) loopCount++; // Finished one full cycle
-                
-                if (loopCount < MAX_LOOPS && isLoopingEnabled) {
-                    playVideoAt(next);
-                } else {
-                    stopVideoAndShowOverlay();
-                }
-            }
-        });
-
-        function stopVideoAndShowOverlay() {
-            isLoopingEnabled = false;
-            if (videoOverlay) videoOverlay.style.display = 'flex';
-            invVideo.pause();
-        }
-
-        function startVideoManually() {
-            isLoopingEnabled = true;
-            loopCount = 0;
-            if (videoOverlay) videoOverlay.style.display = 'none';
-            invVideo.play().catch(() => {});
-        }
-
-        if (videoOverlay) {
-            videoOverlay.addEventListener('click', startVideoManually);
-        }
-
-        // --- Intersection Observer: Play only when visible ---
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting && isLoopingEnabled) {
-                    invVideo.play().catch(() => {});
-                } else {
-                    invVideo.pause();
-                }
-            });
-        }, { threshold: 0.3 });
-
-        if (videoWrapper) observer.observe(videoWrapper);
-
-        // Initial setup
-        if (allVideos.length > 1 && videoDotsContainer) {
-            videoDotsContainer.style.display = 'flex';
-            videoDotsContainer.innerHTML = allVideos.map((_, i) => `
-                <span class="vdot" style="width:10px; height:10px; border-radius:50%; display:inline-block; cursor:pointer; transition: all 0.3s; background: rgba(255,255,255,0.3);" onclick="playVideoAt_global(${i})"></span>
-            `).join('');
-            window.playVideoAt_global = (i) => {
-                isLoopingEnabled = true;
-                if (videoOverlay) videoOverlay.style.display = 'none';
-                playVideoAt(i);
-            };
-        }
-
-        playVideoAt(0);
-    } else if (invVideo) {
-        const section = document.getElementById('invitation-video');
-        if (section) section.style.display = 'none';
-    }
-
-
-    // --- Photo Gallery: hide section if no photos provided, else inject ---
-    const photoSection = document.getElementById('photo-gallery');
-    const slideshowWrapper = document.querySelector('.slideshow-wrapper');
-    const dotsContainer = document.querySelector('.ss-dots');
-    
-    // Update gallery section title
-    const galleryTitle = document.querySelector('#photo-gallery .section-title');
-    if (galleryTitle) galleryTitle.innerText = 'Memories';
-
-    if (CONFIG.gallery && CONFIG.gallery.length > 0) {
-        if (slideshowWrapper) {
-            slideshowWrapper.innerHTML = CONFIG.gallery.map((url, i) => `
-                <div class="slide ${i === 0 ? 'active' : ''}">
-                    <div class="slide-bg" style="background-image: url('${optimizeUrl(url)}');"></div>
-                    <img src="${optimizeUrl(url)}" alt="Memory ${i+1}" class="gallery-img">
-                </div>
-            `).join('');
-        }
-        
-        if (dotsContainer) {
-            dotsContainer.innerHTML = CONFIG.gallery.map((_, i) => `
-                <span class="dot ${i === 0 ? 'active' : ''}"></span>
-            `).join('');
-        }
-    } else {
-        // No photos → hide the entire gallery section
-        if (photoSection) photoSection.style.display = 'none';
-    }
-
-    // Photographer Credit
-    const logo = document.getElementById('footer-logo');
-    const name = document.getElementById('footer-studio-name');
-    const phone = document.getElementById('footer-phone');
-    const insta = document.getElementById('footer-insta');
-
-    if (CONFIG.photographer) {
-        if (logo && CONFIG.photographer.logo_url) {
-            logo.src = optimizeUrl(CONFIG.photographer.logo_url);
-            logo.style.display = 'block';
-        } else if (logo) logo.style.display = 'none';
-
-        if (name) {
-            name.innerText = CONFIG.photographer.name;
-            name.style.display = 'block';
-        }
-        
-        if (phone && CONFIG.photographer.phone_number) {
-            phone.href = `tel:${CONFIG.photographer.phone_number}`;
-            phone.querySelector('span').innerText = CONFIG.photographer.phone_number;
-            phone.style.display = 'block';
-        } else if (phone) phone.style.display = 'none';
-
-        if (insta && CONFIG.photographer.instagram_url) {
-            insta.href = CONFIG.photographer.instagram_url;
-            insta.style.display = 'block';
-        } else if (insta) insta.style.display = 'none';
-    } else {
-        // Hide all photographer specific elements but keep footer/stats
-        if (logo) logo.style.display = 'none';
-        if (name) name.style.display = 'none';
-        if (phone) phone.style.display = 'none';
-        if (insta) insta.style.display = 'none';
-    }
-});
+function escapeHTML(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
 
 // --- LOADER ---
 window.addEventListener('load', () => {
     const loader = document.getElementById('loader');
-    setTimeout(() => {
-        loader.style.opacity = '0';
+    if (loader) {
         setTimeout(() => {
-            loader.style.display = 'none';
-        }, 500);
-    }, 1200);
+            loader.style.opacity = '0';
+            setTimeout(() => {
+                loader.style.display = 'none';
+            }, 500);
+        }, 1200);
+    }
 
     startPetals();
     initScrollReveal();
     initSlideshow();
+    initWishes();
 });
 
 // --- SLIDESHOW LOGIC ---
 function initSlideshow() {
+    const slideshowContainer = document.querySelector('.slideshow-container');
+    if (!slideshowContainer) return;
+
+    // Use gallery from CONFIG if available
+    const gallery = CONFIG.gallery && CONFIG.gallery.length > 0 ? CONFIG.gallery : [CONFIG.thumbnail];
+    
+    slideshowContainer.innerHTML = gallery.map((url, idx) => `
+        <div class="slide ${idx === 0 ? 'active' : ''}">
+            <img src="${optimizeUrl(url)}" alt="Gallery ${idx + 1}">
+        </div>
+    `).join('') + `
+        <button class="ss-prev"><i class="fas fa-chevron-left"></i></button>
+        <button class="ss-next"><i class="fas fa-chevron-right"></i></button>
+        <div class="ss-dots">
+            ${gallery.map((_, idx) => `<span class="dot ${idx === 0 ? 'active' : ''}"></span>`).join('')}
+        </div>
+    `;
+
     const slides = document.querySelectorAll('.slide');
     const dots = document.querySelectorAll('.dot');
     const prev = document.querySelector('.ss-prev');
     const next = document.querySelector('.ss-next');
-    if (!slides.length) return;
-    
     let currentSlide = 0;
     let slideInterval;
 
     function showSlide(n) {
+        if (!slides.length) return;
         slides[currentSlide].classList.remove('active');
-        dots[currentSlide].classList.remove('active');
+        if (dots.length) dots[currentSlide].classList.remove('active');
         currentSlide = (n + slides.length) % slides.length;
         slides[currentSlide].classList.add('active');
-        dots[currentSlide].classList.add('active');
+        if (dots.length) dots[currentSlide].classList.add('active');
     }
 
     function nextSlide() {
@@ -385,7 +93,7 @@ function initSlideshow() {
     }
 
     function startSlideshow() {
-        slideInterval = setInterval(nextSlide, 5000);
+        if (slides.length > 1) slideInterval = setInterval(nextSlide, 5000);
     }
 
     function resetSlideshow() {
@@ -393,22 +101,9 @@ function initSlideshow() {
         startSlideshow();
     }
 
-    prev?.addEventListener('click', () => {
-        showSlide(currentSlide - 1);
-        resetSlideshow();
-    });
-
-    next?.addEventListener('click', () => {
-        showSlide(currentSlide + 1);
-        resetSlideshow();
-    });
-
-    dots.forEach((dot, index) => {
-        dot.addEventListener('click', () => {
-            showSlide(index);
-            resetSlideshow();
-        });
-    });
+    if (prev) prev.addEventListener('click', () => { showSlide(currentSlide - 1); resetSlideshow(); });
+    if (next) next.addEventListener('click', () => { showSlide(currentSlide + 1); resetSlideshow(); });
+    if (dots) dots.forEach((dot, idx) => dot.addEventListener('click', () => { showSlide(idx); resetSlideshow(); }));
 
     startSlideshow();
 }
@@ -421,11 +116,7 @@ firstScriptTag.parentNode.insertBefore(ytScriptTag, firstScriptTag);
 
 let player;
 function onYouTubeIframeAPIReady() {
-    if (!CONFIG.youtubeId) {
-        const livestreamSection = document.getElementById('livestream');
-        if (livestreamSection) livestreamSection.style.display = 'none';
-        return;
-    }
+    if (!CONFIG.youtubeId) return;
     player = new YT.Player('youtube-player', {
         height: '100%',
         width: '100%',
@@ -434,96 +125,129 @@ function onYouTubeIframeAPIReady() {
             'playsinline': 1,
             'rel': 0,
             'modestbranding': 1
-        },
-        events: {
-            'onStateChange': onPlayerStateChange
         }
     });
-}
-
-function onPlayerStateChange(event) {
-    if (event.data == YT.PlayerState.PLAYING) {
-        // Handle audio if needed
-    }
 }
 
 // --- COUNTDOWN TIMER ---
 function updateCountdown() {
     const now = new Date().getTime();
     const distance = WEDDING_DATE - now;
+    const wrapper = document.querySelector('.countdown-glass');
+    if (!wrapper) return;
 
     if (distance < 0) {
-        document.querySelector('.countdown-wrapper').innerHTML = `<h3 style="color: var(--gold); font-family: 'Cinzel', serif;">The Event is LIVE! 🎉</h3>`;
-        const liveBtn = document.getElementById('floating-live-btn');
-        if (liveBtn) liveBtn.style.display = 'flex';
-        
-        const statusBadge = document.querySelector('.status-badge');
-        if (statusBadge) statusBadge.innerHTML = `<span class="pulse"></span> LIVE NOW`;
+        wrapper.innerHTML = `<h3 style="color: var(--gold); font-family: 'Cinzel', serif; text-align: center; width: 100%;">The Ceremony is LIVE! 🎉</h3>`;
         return;
     }
 
-    const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+    const d = Math.floor(distance / (1000 * 60 * 60 * 24));
+    const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+    const s = Math.floor((distance % (1000 * 60)) / 1000);
 
     const dEl = document.getElementById('days');
     const hEl = document.getElementById('hours');
     const mEl = document.getElementById('minutes');
     const sEl = document.getElementById('seconds');
 
-    if (dEl) dEl.innerText = days.toString().padStart(2, '0');
-    if (hEl) hEl.innerText = hours.toString().padStart(2, '0');
-    if (mEl) mEl.innerText = minutes.toString().padStart(2, '0');
-    if (sEl) sEl.innerText = seconds.toString().padStart(2, '0');
+    if (dEl) dEl.innerText = d.toString().padStart(2, '0');
+    if (hEl) hEl.innerText = h.toString().padStart(2, '0');
+    if (mEl) mEl.innerText = m.toString().padStart(2, '0');
+    if (sEl) sEl.innerText = s.toString().padStart(2, '0');
 }
 
 setInterval(updateCountdown, 1000);
 updateCountdown();
 
-// --- SCROLL REVEAL ---
-function initScrollReveal() {
-    if (typeof ScrollReveal === 'undefined') return;
-    const sr = ScrollReveal({
-        origin: 'bottom',
-        distance: '40px',
-        duration: 800,
-        delay: 100,
-        reset: false,
-        viewFactor: 0.1,
-        easing: 'cubic-bezier(0.5, 0, 0, 1)'
+// --- WISHES LOGIC ---
+function initWishes() {
+    if (!_supabase || !EVENT_ID) return;
+
+    const wishesForm = document.getElementById('wishes-form');
+    const wishesList = document.getElementById('wishes-list');
+    if (!wishesForm || !wishesList) return;
+
+    const fetchWishes = async () => {
+        const { data, error } = await _supabase
+            .from('wishes')
+            .select('*')
+            .eq('event_id', EVENT_ID)
+            .order('created_at', { ascending: false });
+
+        if (!error) renderWishes(data);
+    };
+
+    const renderWishes = (wishes) => {
+        wishesList.innerHTML = wishes.length === 0 
+            ? '<p style="opacity:0.5; text-align:center; padding: 2rem;">Be the first to send blessings!</p>'
+            : wishes.map(wish => `
+                <div class="wish-item">
+                    <h4>${escapeHTML(wish.name)}</h4>
+                    <p>${escapeHTML(wish.message)}</p>
+                    <small style="opacity: 0.5; font-size: 0.7rem; display: block; text-align: right;">
+                        ${new Date(wish.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </small>
+                </div>
+            `).join('');
+    };
+
+    wishesForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('wish-name').value.trim();
+        const message = document.getElementById('wish-message').value.trim();
+        const btn = wishesForm.querySelector('button');
+
+        if (!name || !message) return;
+
+        btn.disabled = true;
+        const originalText = btn.innerHTML;
+        btn.textContent = 'Sending...';
+
+        const { error } = await _supabase
+            .from('wishes')
+            .insert([{ name, message, event_id: EVENT_ID }]);
+
+        if (error) {
+            alert('Error: ' + error.message);
+        } else {
+            wishesForm.reset();
+            btn.innerHTML = 'Thank You! ❤️';
+            setTimeout(() => { btn.innerHTML = originalText; }, 3000);
+            fetchWishes();
+        }
+        btn.disabled = false;
     });
 
-    sr.reveal('.reveal', { interval: 200 });
-    sr.reveal('.invite-header', { delay: 300, distance: '30px', origin: 'bottom' });
-    sr.reveal('.hero-wreath', { delay: 500, scale: 0.5, rotate: { z: 45 }, duration: 2500 });
-    sr.reveal('.couple-full-names span', { delay: 800, distance: '40px', origin: 'top', interval: 200 });
-    sr.reveal('.hero-info-grid', { delay: 1000, distance: '50px', scale: 0.9 });
-    sr.reveal('.countdown-wrapper', { scale: 0.8, delay: 1200 });
-    sr.reveal('.hero-actions', { delay: 1400, opacity: 0, distance: '20px' });
-    sr.reveal('.gallery-item', { interval: 150, scale: 0.85 });
-    sr.reveal('.section-title', { origin: 'left', distance: '100px' });
+    _supabase.channel(`public:wishes:${EVENT_ID}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wishes', filter: `event_id=eq.${EVENT_ID}` }, () => {
+            fetchWishes();
+        }).subscribe();
+
+    fetchWishes();
 }
 
-// --- FALLING PETALS ANIMATION ---
+// --- ANIMATIONS & VIDEO ---
+function initScrollReveal() {
+    if (typeof ScrollReveal === 'undefined') return;
+    const sr = ScrollReveal({ origin: 'bottom', distance: '40px', duration: 1200, delay: 200, reset: false });
+    sr.reveal('.fade-in', { interval: 200 });
+}
+
 function startPetals() {
     const canvas = document.getElementById('petal-canvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-
     let petalsArray = [];
-    const petalColors = ['#FADADD', '#FFF0F5', '#FFC0CB', '#E0F2F1'];
+    const petalColors = ['#D4AF37', '#E01A4F', '#FFD700', '#FFFBE6'];
 
-    function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    }
-
+    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
     window.addEventListener('resize', resize);
     resize();
 
     class Petal {
-        constructor() {
+        constructor() { this.init(); }
+        init() {
             this.x = Math.random() * canvas.width;
             this.y = Math.random() * canvas.height - canvas.height;
             this.size = Math.random() * 10 + 5;
@@ -537,10 +261,7 @@ function startPetals() {
             this.y += this.speedY;
             this.x += Math.sin(this.y / 50) * 0.5;
             this.rotation += this.rotationSpeed;
-            if (this.y > canvas.height) {
-                this.y = -20;
-                this.x = Math.random() * canvas.width;
-            }
+            if (this.y > canvas.height) this.init();
         }
         draw() {
             ctx.save();
@@ -555,176 +276,197 @@ function startPetals() {
     }
 
     for (let i = 0; i < 50; i++) petalsArray.push(new Petal());
-
     function animate() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        petalsArray.forEach(petal => {
-            petal.update();
-            petal.draw();
-        });
+        petalsArray.forEach(p => { p.update(); p.draw(); });
         requestAnimationFrame(animate);
     }
     animate();
 }
 
-// --- MULTI VIDEO SWITCHER ---
-function switchVideo(index) {
-    const allVideos = (CONFIG.invitationVideos && CONFIG.invitationVideos.length > 0)
-        ? CONFIG.invitationVideos
-        : (CONFIG.invitationVideo ? [CONFIG.invitationVideo] : []);
-    const vid = document.getElementById('main-invitation-video');
-    if (vid && allVideos[index]) {
-        const src = vid.querySelector('source');
-        if (src) src.setAttribute('src', allVideos[index]);
-        vid.load();
-        vid.play().catch(() => {});
-    }
-    // Update tab highlight
-    allVideos.forEach((_, i) => {
-        const tab = document.getElementById(`vtab-${i}`);
-        if (tab) {
-            tab.style.background = i === index ? 'var(--gold)' : 'transparent';
-            tab.style.color = i === index ? '#000' : 'var(--gold)';
-        }
-    });
-}
-
-// --- SUPABASE WISHES LOGIC ---
-// Moved to top to avoid race condition
-
-const wishesForm = document.getElementById('wishes-form');
-const wishesList = document.getElementById('wishes-list');
-const nameInput = document.getElementById('wish-name');
-const messageInput = document.getElementById('wish-message');
-
-async function fetchWishes() {
-    if (!wishesList || !_supabase) return;
-    const { data, error } = await _supabase
-        .from('wishes')
-        .select('*')
-        .eq('event_id', CONFIG.eventId)
-        .order('created_at', { ascending: false });
-
-    if (error) {
-        console.error('Error fetching wishes:', error);
-        return;
-    }
-    renderWishes(data);
-}
-
-function renderWishes(wishes) {
-    wishesList.innerHTML = '';
-    wishes.forEach(wish => {
-        const wishItem = document.createElement('div');
-        wishItem.className = 'wish-item';
-        wishItem.innerHTML = `
-            <h4>${escapeHTML(wish.name)}</h4>
-            <p>${escapeHTML(wish.message)}</p>
-            <small style="opacity: 0.5; font-size: 0.7rem; display: block; text-align: right;">
-                ${new Date(wish.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </small>
-        `;
-        wishesList.appendChild(wishItem);
-    });
-}
-
-if (wishesForm) {
-    wishesForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const name = nameInput.value.trim();
-        const message = messageInput.value.trim();
-        if (!name || !message || !_supabase) return;
-
-        const btn = wishesForm.querySelector('button');
-        const originalText = btn.innerHTML;
-        btn.disabled = true;
-        btn.textContent = 'Sending...';
-
-        const { error } = await _supabase
-            .from('wishes')
-            .insert([{ name, message, event_id: CONFIG.eventId }]);
-
-        if (error) {
-            alert('Error: ' + error.message);
-        } else {
-            wishesForm.reset();
-            btn.innerHTML = 'Thank You! ❤️';
-            setTimeout(() => {
-                btn.innerHTML = originalText;
-            }, 2000);
-        }
-        btn.disabled = false;
-    });
-}
-
-if (_supabase) {
-    _supabase.channel(`public:wishes_${CONFIG.eventId}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wishes' }, payload => {
-            fetchWishes();
-        }).subscribe();
-}
-
-function escapeHTML(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-}
-
-fetchWishes();
-
-// --- WHATSAPP SHARE LOGIC ---
-document.getElementById('whatsapp-share-btn')?.addEventListener('click', () => {
-    const shareData = {
-        title: `${CONFIG.groom} ❤️ ${CONFIG.bride} Wedding Invitation`,
-        text: `Join us live and be part of our celebration!`,
-        url: window.location.href
-    };
-    if (navigator.share) {
-        navigator.share(shareData).catch(err => console.log('Error sharing:', err));
-    } else {
-        const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareData.title + "\n" + shareData.url)}`;
-        window.open(whatsappUrl, '_blank');
-    }
-});
-
-// --- HEART SHOWER LOGIC ---
 document.addEventListener('DOMContentLoaded', () => {
-    const heartBtn = document.getElementById('heart-shower-btn');
+    // 1. INJECT TEXT & METADATA
+    const finalName = CONFIG.groom || "Celebrant";
+    const finalInitials = CONFIG.customInitials || finalName.charAt(0);
     
-    const spawnHeart = () => {
-        const heart = document.createElement('div');
-        heart.className = 'floating-heart';
-        heart.innerHTML = ['❤️', '💖', '💝', '💕', '💗'][Math.floor(Math.random() * 5)];
-        // Randomize position slightly around the button area
-        const rightPos = 25 + Math.random() * 30;
-        heart.style.right = rightPos + 'px';
-        document.body.appendChild(heart);
-        setTimeout(() => heart.remove(), 3000);
-    };
+    // Update elements
+    document.querySelectorAll('.logo-text').forEach(el => el.innerText = finalInitials);
+    document.querySelectorAll('.girl-name').forEach(el => el.innerText = finalName);
+    document.querySelectorAll('.config-date').forEach(el => el.innerText = CONFIG.date || "Date TBA");
+    document.querySelectorAll('.config-time').forEach(el => el.innerText = CONFIG.time || "Time TBA");
+    document.querySelectorAll('.config-venue-short, .config-venue-full').forEach(el => el.innerText = CONFIG.venue || "Venue TBA");
 
-    if (_supabase && CONFIG.eventId) {
-        const interactionChannel = _supabase.channel(`interactions_${CONFIG.eventId}`, {
-            config: { broadcast: { self: true } }
-        });
+    // Intro Text
+    const introEl = document.querySelector('.invite-header');
+    if (introEl) {
+        if (CONFIG.introText) {
+            introEl.innerHTML = CONFIG.introText.split('\n').join('<br>');
+        } else {
+            introEl.innerText = "Grand Celebration"; // Default for Half Saree
+        }
+    }
+
+    // Loader Photo
+    const loaderPhoto = document.querySelector('.loader-photo img');
+    const loaderPhotoDiv = document.querySelector('.loader-photo');
+    if (CONFIG.hideLoaderPhoto) {
+        if (loaderPhotoDiv) loaderPhotoDiv.style.display = 'none';
+    } else if (loaderPhoto) {
+        if (CONFIG.loaderPhotoUrl) {
+            loaderPhoto.src = optimizeUrl(CONFIG.loaderPhotoUrl);
+        } else if (CONFIG.thumbnail) {
+            loaderPhoto.src = optimizeUrl(CONFIG.thumbnail);
+        } else if (CONFIG.gallery && CONFIG.gallery.length > 0) {
+            loaderPhoto.src = optimizeUrl(CONFIG.gallery[0]);
+        } else {
+            if (loaderPhotoDiv) loaderPhotoDiv.style.display = 'none';
+        }
+        loaderPhoto.onerror = () => { if (loaderPhotoDiv) loaderPhotoDiv.style.display = 'none'; };
+    }
+
+    // Map URL
+    const mapIframe = document.getElementById('venue-iframe');
+    const mapBtn = document.getElementById('venue-nav-btn');
+    if (CONFIG.venueUrl) {
+        if (mapBtn) mapBtn.href = CONFIG.venueUrl;
+        if (mapIframe && CONFIG.venueUrl.includes('/maps/embed')) {
+            mapIframe.src = CONFIG.venueUrl;
+        } else if (mapIframe) {
+            mapIframe.style.display = 'none'; // Fallback if no embed URL provided
+        }
+    } else {
+        const mapCard = document.querySelector('.map-card');
+        if (mapCard) mapCard.style.display = 'none';
+    }
+
+    // Photographer
+    const pSection = document.getElementById('footer-section');
+    if (CONFIG.photographer) {
+        document.getElementById('footer-studio-name').innerText = CONFIG.photographer.name;
+        if (CONFIG.photographer.logo_url) {
+            const logo = document.getElementById('footer-logo');
+            logo.src = optimizeUrl(CONFIG.photographer.logo_url);
+            logo.style.display = 'block';
+        }
+        if (CONFIG.photographer.phone_number) {
+            const phone = document.getElementById('footer-phone');
+            phone.href = `tel:${CONFIG.photographer.phone_number}`;
+            phone.querySelector('span').innerText = CONFIG.photographer.phone_number;
+            phone.style.display = 'inline-block';
+        }
+        if (CONFIG.photographer.instagram_url) {
+            const insta = document.getElementById('footer-insta');
+            insta.href = CONFIG.photographer.instagram_url;
+            insta.style.display = 'inline-block';
+        }
+    } else {
+        if (pSection) pSection.style.display = 'none';
+    }
+
+    // 2. HIDE EMPTY SECTIONS
+    if (!CONFIG.invitationVideo) {
+        const vCard = document.getElementById('video-card');
+        if (vCard) vCard.style.display = 'none';
+    }
+    
+    if (!CONFIG.youtubeId) {
+        const lCard = document.getElementById('live-card');
+        if (lCard) lCard.style.display = 'none';
+    }
+
+    if (!CONFIG.gallery || CONFIG.gallery.length === 0) {
+        const gSec = document.getElementById('gallery-section');
+        if (gSec) gSec.style.display = 'none';
+    } else {
+        const gSec = document.getElementById('gallery-section');
+        if (gSec) gSec.style.display = 'block';
+    }
+
+    // 3. SEO METADATA
+    const isSinglePerson = !CONFIG.bride || CONFIG.bride.toLowerCase() === 'family';
+    const mainName = isSinglePerson ? CONFIG.groom : `${CONFIG.groom} & ${CONFIG.bride}`;
+    const formattedEventType = CONFIG.eventType ? (CONFIG.eventType.charAt(0).toUpperCase() + CONFIG.eventType.slice(1)) : 'Event';
+    
+    const pageTitle = `${formattedEventType} of ${mainName} | Live Streaming`;
+    const pageDesc = `Join us live and celebrate this beautiful traditional occasion filled with love, blessings, culture, and family moments.`;
+    
+    document.title = pageTitle;
+    const updateMeta = (property, content) => {
+        const el = document.querySelector(`meta[property="${property}"]`) || document.querySelector(`meta[name="${property}"]`);
+        if (el && content) el.setAttribute('content', content);
+    };
+    updateMeta('og:title', pageTitle);
+    updateMeta('og:description', pageDesc);
+    updateMeta('description', pageDesc);
+    if (CONFIG.thumbnail) {
+        updateMeta('og:image', CONFIG.thumbnail);
+        updateMeta('twitter:image', CONFIG.thumbnail);
+    }
+
+    // 4. INVITATION VIDEO OBSERVER LOGIC
+    const invVideo = document.getElementById('main-invitation-video');
+    if (invVideo && CONFIG.invitationVideo) {
+        invVideo.src = CONFIG.invitationVideo + (CONFIG.invitationVideo.includes('?') ? '&' : '?') + 'v=1.2';
+        invVideo.muted = true;
         
-        interactionChannel
-            .on('broadcast', { event: 'heart' }, () => {
-                spawnHeart();
-            })
-            .subscribe((status) => {
-                if (status === 'SUBSCRIBED') {
-                    console.log("Interactions sync active!");
+        let playCount = 0;
+        const MAX_LOOPS = 3;
+
+        invVideo.addEventListener('ended', () => {
+            playCount++;
+            if (playCount < MAX_LOOPS) {
+                invVideo.play().catch(e => console.log('Loop play prevented', e));
+            }
+        });
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    if (playCount < MAX_LOOPS) {
+                        invVideo.play().catch(e => console.log('Autoplay prevented', e));
+                    }
+                } else {
+                    invVideo.pause();
                 }
             });
+        }, { threshold: 0.5 });
 
-        if (heartBtn) {
-            heartBtn.addEventListener('click', () => {
-                interactionChannel.send({
-                    type: 'broadcast',
-                    event: 'heart',
-                    payload: {}
-                });
-            });
-        }
+        observer.observe(invVideo);
     }
+
+    // 5. ANALYTICS TRACKING
+    const trackPageView = async () => {
+        try {
+            const userAgent = navigator.userAgent;
+            let deviceType = 'Desktop';
+            if (/Mobi|Android/i.test(userAgent)) deviceType = 'Mobile';
+            else if (/Tablet|iPad/i.test(userAgent)) deviceType = 'Tablet';
+
+            const referrer = document.referrer.includes('whatsapp') ? 'WhatsApp' : 
+                             document.referrer.includes('instagram') ? 'Instagram' : 
+                             document.referrer.includes('facebook') ? 'Facebook' : 'Direct';
+
+            if (_supabase && EVENT_ID) {
+                await _supabase
+                    .from('page_views')
+                    .insert([{
+                        event_id: EVENT_ID,
+                        device_type: deviceType,
+                        referrer: referrer,
+                        user_agent: userAgent
+                    }]);
+
+                const { count } = await _supabase
+                    .from('page_views')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('event_id', EVENT_ID);
+
+                const viewsDisplay = document.getElementById('total-views-display');
+                if (viewsDisplay && count !== null) {
+                    viewsDisplay.innerText = count.toLocaleString();
+                }
+            }
+        } catch (e) { console.error("Analytics error:", e); }
+    };
+    trackPageView();
 });
