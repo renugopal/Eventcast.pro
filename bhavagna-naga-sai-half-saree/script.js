@@ -135,25 +135,14 @@ updateCountdown();
 function initScrollReveal() {
     const sr = ScrollReveal({
         origin: 'bottom',
-        distance: '60px',
-        duration: 1500,
+        distance: '40px',
+        duration: 1200,
         delay: 200,
         reset: false,
         easing: 'cubic-bezier(0.5, 0, 0, 1)'
     });
 
-    sr.reveal('.reveal', { interval: 200 });
-    sr.reveal('.invite-header', { delay: 300, distance: '30px', origin: 'bottom' });
-    sr.reveal('.hero-wreath', { delay: 500, scale: 0.5, rotate: { z: 45 }, duration: 2500 });
-    sr.reveal('.couple-full-names span', { delay: 800, distance: '40px', origin: 'top', interval: 200 });
-    sr.reveal('.hero-info-grid', { delay: 1000, distance: '50px', scale: 0.9 });
-    sr.reveal('.countdown-wrapper', { scale: 0.8, delay: 1200 });
-    sr.reveal('.hero-actions', { delay: 1400, opacity: 0, distance: '20px' });
-
-    // Gallery Items
-    sr.reveal('.gallery-item', { interval: 150, scale: 0.85 });
-
-    sr.reveal('.section-title', { origin: 'left', distance: '100px' });
+    sr.reveal('.fade-in', { interval: 200 });
 }
 
 // --- FALLING PETALS ANIMATION ---
@@ -162,7 +151,7 @@ function startPetals() {
     const ctx = canvas.getContext('2d');
 
     let petalsArray = [];
-    const petalColors = ['#FADADD', '#FFF0F5', '#FFC0CB', '#E0F2F1']; // Soft pink and mint
+    const petalColors = ['#D4AF37', '#E01A4F', '#FFD700', '#FFFBE6']; // Gold, Rani Pink, Yellow, Ivory
 
     function resize() {
         canvas.width = window.innerWidth;
