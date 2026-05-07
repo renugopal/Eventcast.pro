@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bhavagna Naga Sai Half Saree Ceremony Live | 8th May</title>
+    <title>{{event_title}} | Eventcast.pro</title>
     <!-- SEO Meta Tags -->
     <meta name="description" content="Join us live and be part of this beautiful half saree ceremony filled with joy.">
     <meta property="og:title" content="Bhavagna Naga Sai Half Saree Ceremony Live | 8th May">
@@ -19,9 +19,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="style.css">
-    
-    <!-- Supabase & Icons -->
+    <!-- Configuration -->
+    <script src="config.js"></script>
+    <!-- Supabase Client Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 
@@ -29,7 +32,10 @@
     <!-- Preloader -->
     <div id="loader">
         <div class="loader-content">
-            <h1 class="logo-text">BHAVAGNA</h1>
+            <div class="loader-photo">
+                <img src="assets/thumbnail.png" alt="Celebrant" onerror="this.style.display='none';">
+            </div>
+            <h1 class="logo-text">BS</h1>
             <div class="spinner"></div>
         </div>
     </div>
@@ -49,13 +55,13 @@
             <h2 class="ceremony-title">Half Saree Ceremony</h2>
             
             <div class="name-showcase">
-                <h1 class="girl-name">Bhavagna<br><span class="last-name">Naga Sai</span></h1>
+                <h1 class="girl-name">{{event_name}}</h1>
             </div>
 
             <div class="info-row">
-                <div class="info-pill"><i class="fas fa-calendar-alt"></i> 8th May 2026</div>
-                <div class="info-pill"><i class="fas fa-clock"></i> 09:45 AM</div>
-                <div class="info-pill"><i class="fas fa-map-marker-alt"></i> B Convention Hall</div>
+                <div class="info-pill"><i class="fas fa-calendar-alt"></i> {{event_date}}</div>
+                <div class="info-pill"><i class="fas fa-clock"></i> {{event_time}}</div>
+                <div class="info-pill"><i class="fas fa-map-marker-alt"></i> {{venue_name}}</div>
             </div>
 
             <div class="countdown-glass">
@@ -96,14 +102,14 @@
         <section id="interactive-split" class="fade-in">
             <div class="split-card wishes-card">
                 <h3><i class="fas fa-heart"></i> Blessings</h3>
-                <p class="subtitle">Shower your wishes for Bhavagna</p>
+                <p class="subtitle">Shower your wishes for {{event_name}}</p>
                 <form id="wishes-form">
                     <input type="text" id="wish-name" placeholder="Your Name" required>
                     <textarea id="wish-message" rows="3" placeholder="Write your blessings here..." required></textarea>
                     <button type="submit" class="btn solid-btn">Send Wishes <i class="fas fa-paper-plane"></i></button>
                 </form>
                 <div id="wishes-list" class="wishes-scroll-area">
-                    <!-- Wishes populate here -->
+                    <!-- Wishes will appear here -->
                 </div>
             </div>
 
