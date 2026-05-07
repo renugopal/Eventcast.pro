@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bhavagna Naga Sai Half Saree Ceremony Live | 8th May</title>
+    <!-- SEO Meta Tags -->
+    <meta name="description"
+        content="Join us live and be part of this beautiful half saree ceremony filled with joy.">
+    <meta property="og:title" content="Bhavagna Naga Sai Half Saree Ceremony Live | 8th May">
+    <meta property="og:description"
+        content="Join us live and be part of this beautiful half saree ceremony filled with joy.">
+    <meta property="og:image" content="https://eventcast.pro/bhavagna-naga-sai-half-saree/assets/thumbnail.png">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://eventcast.pro/bhavagna-naga-sai-half-saree/assets/thumbnail.png">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+
+    <div id="loader">
+        <div class="loader-content">
+            <h1 class="logo-text" style="font-size:2rem; letter-spacing: 2px;">BHAVAGNA</h1>
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <!-- Animated Overlays -->
+    <canvas id="petal-canvas"></canvas>
+    <div class="confetti-overlay" id="confetti-container"></div>
+
+
+
+    <a href="#chat-section" id="floating-wish-btn" class="floating-wish-btn">
+        <i class="fas fa-heart"></i> <span>Bless Couple</span>
+    </a>
+
+    <main>
+        <!-- HERO SECTION -->
+        <section id="hero" class="fade-in">
+            <div class="floral-frame tl"></div>
+            <div class="floral-frame tr"></div>
+            <div class="floral-frame bl"></div>
+            <div class="floral-frame br"></div>
+
+            <div class="hero-content">
+                <p class="invite-header">
+                    <span>Grand Celebration</span>
+                    <span>Half Saree Ceremony</span>
+                </p>
+
+                <div class="hero-wreath">
+                    <img src="wreath.webp" alt="Floral Wreath" class="wreath-img">
+                    <div class="names-overlay">
+                        <div class="initials">B</div>
+                    </div>
+                </div>
+
+                <div class="full-names-container">
+                    <h1 class="couple-full-names" style="flex-direction: column; gap: 5px;">
+                        <span class="first-name">Bhavagna</span>
+                        <span class="second-name" style="font-size:0.8em; opacity: 0.9;">Naga Sai</span>
+                    </h1>
+                </div>
+
+                <div class="hero-info-grid">
+                    <div class="hero-info-item">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span class="info-label">Date</span>
+                        <span class="info-text">Friday, May 8</span>
+                    </div>
+                    <div class="hero-info-item">
+                        <i class="fas fa-clock"></i>
+                        <span class="info-label">Muhurtham</span>
+                        <span class="info-text">09:45 AM</span>
+                        <span class="info-subtext">Live at 09:30 AM</span>
+                    </div>
+                    <div class="hero-info-item">
+                        <i class="fas fa-house-chimney"></i>
+                        <span class="info-label">Venue</span>
+                        <span class="info-text">B Convention Hall</span>
+                        <span class="info-subtext">Vijayawada</span>
+                    </div>
+                </div>
+
+                <div class="countdown-wrapper">
+                    <div id="countdown">
+                        <div class="time-box">
+                            <span id="days">--</span>
+                            <span class="label">Days</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="hours">--</span>
+                            <span class="label">Hours</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="minutes">--</span>
+                            <span class="label">Min</span>
+                        </div>
+                        <div class="time-box">
+                            <span id="seconds">--</span>
+                            <span class="label">Sec</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hero-actions">
+                    <a href="https://calendar.google.com/calendar/render?action=TEMPLATE&text=Bhavagna+Naga+Sai+Half+Saree+Ceremony&dates=20260508T040000Z/20260508T080000Z&details=Join+us+live:+https://eventcast.pro/bhavagna-naga-sai-half-saree&location=B+Convention+Hall"
+                        target="_blank" class="btn secondary-btn save-date-btn">
+                        <i class="fas fa-calendar-check"></i> Save to Calendar
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- INVITATION VIDEO SECTION -->
+        <section id="invitation-video" class="reveal">
+            <h2 class="section-title">Invitation Video</h2>
+            <div class="invitation-container">
+                <video class="invitation-video" autoplay muted playsinline loop poster="assets/thumbnail.png">
+                    <source src="assets/invitation.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </section>
+
+        <!-- LIVESTREAM SECTION -->
+        <section id="livestream" class="reveal">
+            <div class="section-header">
+                <h2 class="section-title">Live Stream</h2>
+                <div class="status-badge"><span class="pulse"></span> LIVE SOON</div>
+            </div>
+
+            <div class="video-container">
+                <div id="youtube-player"></div>
+            </div>
+        </section>
+
+
+
+
+
+        <!-- CHAT / WISHES SECTION -->
+        <section id="chat-section" class="reveal">
+            <div class="content-card">
+                <h2 class="section-title">Wishes Wall</h2>
+                <p class="section-subtitle">Send your blessings to Bhavagna</p>
+
+                <form id="wishes-form">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <input type="text" id="wish-name" placeholder="Your Name" required>
+                        </div>
+                        <div class="input-group">
+                            <textarea id="wish-message" rows="3" placeholder="Write your message here..."
+                                required></textarea>
+                        </div>
+                        <button type="submit" class="btn primary-btn">Send Message <i
+                                class="fas fa-paper-plane"></i></button>
+                    </div>
+                </form>
+
+                <div id="wishes-list" class="wishes-scroll-area">
+                    <!-- Wishes will appear here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- MAP SECTION -->
+        <section id="map-section" class="reveal">
+            <h2 class="section-title">Locate the Venue</h2>
+            <div class="map-container">
+                <iframe
+                    src="https://maps.google.com/maps?q=16.5518074,80.6282598&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                    width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+            <div class="action-buttons">
+                <a href="https://maps.app.goo.gl/2LEsADBLtywcAf6q6" target="_blank" class="btn map-btn">
+                    <i class="fas fa-location-dot"></i> Open in Google Maps
+                </a>
+            </div>
+        </section>
+
+        <!-- FOOTER & PHOTOGRAPHER -->
+        <footer>
+            <div class="photographer-section">
+                <img src="assets/ashok_logo.png" alt="ASHOK Logo" style="max-width: 150px; height: auto; margin-bottom: 15px; filter: brightness(0) invert(1);">
+                <h3 class="studio-name">ASHOK</h3>
+                <div class="contact-info">
+                    <a href="tel:9010111092"><i class="fas fa-phone"></i> 9010 111 092</a>
+                    <a href="https://www.instagram.com/wedding_studios1?igsh=dmJlMmEzaTlvcnNl&utm_source=qr"
+                        target="_blank" style="display: block; margin-top: 10px; font-size: 1.1rem; color: white;"><i class="fab fa-instagram"></i> Instagram</a>
+                </div>
+            </div>
+
+            <div class="legal">
+                <p>&copy; 2026 Powered by Eventcast.pro</p>
+            </div>
+        </footer>
+    </main>
+
+    <script src="https://unpkg.com/scrollreveal"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
