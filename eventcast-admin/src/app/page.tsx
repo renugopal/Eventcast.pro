@@ -230,40 +230,42 @@ export default function AdminDashboard() {
     try {
       const url = new URL(link.startsWith('http') ? link : `https://${link}`);
       let query = '';
+
       if (url.pathname.includes('/place/')) {
-        query = decodeURIComponent(url.pathname.split('/place/')[1].split('/')[0]);
-      } else if (url.searchParams.has('q')) {
-        query = url.searchParams.get('q') || '';
+        // e.g. /maps/place/Venue+Name/@lat,lng,...
+        const raw = url.pathname.split('/place/')[1].split('/')[0];
+        query = decodeURIComponent(raw.replace(/\+/g, ' ')).split('/@')[0].trim();
       } else if (url.pathname.includes('/search/')) {
-        query = decodeURIComponent(url.pathname.split('/search/')[1].split('/')[0]);
-      } else {
-        query = link; // fallback
+        // e.g. /maps/search/Venue+Name (the clean format we produce)
+        const part = url.pathname.split('/search/')[1];
+        if (part && part.length > 0) {
+          query = decodeURIComponent(part.split('/')[0].replace(/\+/g, ' ')).trim();
+        }
       }
+
+      // Fallback to query params (?q= or ?query= from Maps Platform URLs)
+      if (!query) {
+        query = url.searchParams.get('q') || url.searchParams.get('query') || '';
+      }
+
+      // Short links (goo.gl, maps.app.goo.gl) — can't embed; return empty
+      if (!query) return '';
+
       return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
     } catch {
-      return `https://maps.google.com/maps?q=${encodeURIComponent(link)}&output=embed`;
+      return '';
     }
   };
 
-  // Search venue on Google Maps — updates venueMapLink only, never touches venueName
-  const handleVenueSearch = async () => {
+  // Search venue on Google Maps — NO API call, directly builds a /search/TERM URL
+  // that getMapEmbedUrl can reliably parse. venueName is never touched.
+  const handleVenueSearch = () => {
     if (!venueSearchQuery.trim()) return;
     setIsSearchingVenue(true);
-    try {
-      const res = await fetch('/api/resolve-url', {
-        method: 'POST',
-        body: JSON.stringify({ url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueSearchQuery.trim())}` })
-      });
-      const data = await res.json();
-      const resolvedLink = data.resolvedUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueSearchQuery.trim())}`;
-      setFormData(prev => ({ ...prev, venueMapLink: resolvedLink }));
-    } catch {
-      // Fallback — still set a usable maps link without disturbing venueName
-      const fallbackLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueSearchQuery.trim())}`;
-      setFormData(prev => ({ ...prev, venueMapLink: fallbackLink }));
-    } finally {
-      setIsSearchingVenue(false);
-    }
+    // Use /maps/search/TERM format — clean, parseable, shareable
+    const searchLink = `https://www.google.com/maps/search/${encodeURIComponent(venueSearchQuery.trim())}`;
+    setFormData(prev => ({ ...prev, venueMapLink: searchLink }));
+    setIsSearchingVenue(false);
   };
 
   const formatDisplayDate = (dateString: string) => {
@@ -1139,15 +1141,19 @@ export default function AdminDashboard() {
                           placeholder="https://maps.app.goo.gl/... or https://www.google.com/maps/place/..."
                           className="w-full p-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-slate-700 text-sm"
                         />
-                        {formData.venueMapLink && (
-                          <p className="mt-1 text-[10px] text-green-600 font-bold flex items-center gap-1"><CheckCircle2 size={12} /> Map link set — preview updated</p>
-                        )}
+                        {formData.venueMapLink && (() => {
+                          const embedUrl = getMapEmbedUrl(formData.venueMapLink);
+                          const isShortLink = !embedUrl && formData.venueMapLink.includes('goo.gl');
+                          return isShortLink
+                            ? <p className="mt-1 text-[10px] text-amber-600 font-bold flex items-center gap-1">⚠️ Short link — preview not available. Paste a full Maps URL for preview.</p>
+                            : <p className="mt-1 text-[10px] text-green-600 font-bold flex items-center gap-1"><CheckCircle2 size={12} /> Map link set — preview updated</p>;
+                        })()}
                       </div>
                     </div>
 
                     {/* Map Preview — based on venueMapLink only */}
                     <div className="bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden h-full min-h-[220px]">
-                      {formData.venueMapLink ? (
+                      {formData.venueMapLink && getMapEmbedUrl(formData.venueMapLink) ? (
                         <iframe
                           key={formData.venueMapLink}
                           width="100%"
@@ -1156,6 +1162,12 @@ export default function AdminDashboard() {
                           loading="lazy"
                           src={getMapEmbedUrl(formData.venueMapLink)}
                         />
+                      ) : formData.venueMapLink && !getMapEmbedUrl(formData.venueMapLink) ? (
+                        <div className="text-amber-400 flex flex-col items-center gap-2 p-6 text-center">
+                          <MapPin size={32} />
+                          <span className="text-xs font-bold uppercase">Short Link Detected</span>
+                          <span className="text-[10px]">Paste a full Google Maps URL<br/>or use the Search box above for preview</span>
+                        </div>
                       ) : (
                         <div className="text-slate-300 flex flex-col items-center gap-2 p-6 text-center">
                           <MapPin size={32} />
