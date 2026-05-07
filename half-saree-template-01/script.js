@@ -285,15 +285,118 @@ function startPetals() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const invVideo = document.querySelector('.invitation-video');
-    if (invVideo) {
-        if (CONFIG.invitationVideo) {
-            invVideo.src = CONFIG.invitationVideo + (CONFIG.invitationVideo.includes('?') ? '&' : '?') + 'v=1.2';
+    // 1. INJECT TEXT & METADATA
+    const finalName = CONFIG.groom || "Celebrant";
+    const finalInitials = CONFIG.customInitials || finalName.charAt(0);
+    
+    // Update elements
+    document.querySelectorAll('.logo-text').forEach(el => el.innerText = finalInitials);
+    document.querySelectorAll('.girl-name').forEach(el => el.innerText = finalName);
+    document.querySelectorAll('.config-date').forEach(el => el.innerText = CONFIG.date || "Date TBA");
+    document.querySelectorAll('.config-time').forEach(el => el.innerText = CONFIG.time || "Time TBA");
+    document.querySelectorAll('.config-venue-short, .config-venue-full').forEach(el => el.innerText = CONFIG.venue || "Venue TBA");
+
+    // Map URL
+    const mapIframe = document.getElementById('venue-iframe');
+    const mapBtn = document.getElementById('venue-nav-btn');
+    if (CONFIG.venueUrl) {
+        if (mapBtn) mapBtn.href = CONFIG.venueUrl;
+        if (mapIframe && CONFIG.venueUrl.includes('/maps/embed')) {
+            mapIframe.src = CONFIG.venueUrl;
+        } else if (mapIframe) {
+            mapIframe.style.display = 'none'; // Fallback if no embed URL provided
         }
+    } else {
+        const mapCard = document.querySelector('.map-card');
+        if (mapCard) mapCard.style.display = 'none';
+    }
+
+    // Photographer
+    const pSection = document.getElementById('footer-section');
+    if (CONFIG.photographer) {
+        document.getElementById('footer-studio-name').innerText = CONFIG.photographer.name;
+        if (CONFIG.photographer.logo_url) {
+            const logo = document.getElementById('footer-logo');
+            logo.src = optimizeUrl(CONFIG.photographer.logo_url);
+            logo.style.display = 'block';
+        }
+        if (CONFIG.photographer.phone_number) {
+            const phone = document.getElementById('footer-phone');
+            phone.href = `tel:${CONFIG.photographer.phone_number}`;
+            phone.querySelector('span').innerText = CONFIG.photographer.phone_number;
+            phone.style.display = 'inline-block';
+        }
+        if (CONFIG.photographer.instagram_url) {
+            const insta = document.getElementById('footer-insta');
+            insta.href = CONFIG.photographer.instagram_url;
+            insta.style.display = 'inline-block';
+        }
+    } else {
+        if (pSection) pSection.style.display = 'none';
+    }
+
+    // 2. HIDE EMPTY SECTIONS
+    if (!CONFIG.invitationVideo) {
+        const vCard = document.getElementById('video-card');
+        if (vCard) vCard.style.display = 'none';
+    }
+    
+    if (!CONFIG.youtubeId) {
+        const lCard = document.getElementById('live-card');
+        if (lCard) lCard.style.display = 'none';
+    }
+
+    if (!CONFIG.gallery || CONFIG.gallery.length === 0) {
+        const gSec = document.getElementById('gallery-section');
+        if (gSec) gSec.style.display = 'none';
+    } else {
+        const gSec = document.getElementById('gallery-section');
+        if (gSec) gSec.style.display = 'block';
+    }
+
+    // 3. SEO METADATA
+    const pageTitle = `${finalName} ${CONFIG.eventType} | Eventcast PRO`;
+    document.title = pageTitle;
+    const updateMeta = (property, content) => {
+        const el = document.querySelector(`meta[property="${property}"]`) || document.querySelector(`meta[name="${property}"]`);
+        if (el && content) el.setAttribute('content', content);
+    };
+    updateMeta('og:title', pageTitle);
+    updateMeta('og:description', `Join us live for the ${CONFIG.eventType} of ${finalName}.`);
+    updateMeta('description', `Join us live for the ${CONFIG.eventType} of ${finalName}.`);
+    if (CONFIG.thumbnail) {
+        updateMeta('og:image', CONFIG.thumbnail);
+        updateMeta('twitter:image', CONFIG.thumbnail);
+    }
+
+    // 4. INVITATION VIDEO OBSERVER LOGIC
+    const invVideo = document.getElementById('main-invitation-video');
+    if (invVideo && CONFIG.invitationVideo) {
+        invVideo.src = CONFIG.invitationVideo + (CONFIG.invitationVideo.includes('?') ? '&' : '?') + 'v=1.2';
         invVideo.muted = true;
-        const playVideo = () => { invVideo.play().catch(() => {}); };
-        setTimeout(playVideo, 1000);
-        document.addEventListener('click', playVideo, { once: true });
-        document.addEventListener('scroll', playVideo, { once: true });
+        
+        let playCount = 0;
+        const MAX_LOOPS = 3;
+
+        invVideo.addEventListener('ended', () => {
+            playCount++;
+            if (playCount < MAX_LOOPS) {
+                invVideo.play().catch(e => console.log('Loop play prevented', e));
+            }
+        });
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    if (playCount < MAX_LOOPS) {
+                        invVideo.play().catch(e => console.log('Autoplay prevented', e));
+                    }
+                } else {
+                    invVideo.pause();
+                }
+            });
+        }, { threshold: 0.5 });
+
+        observer.observe(invVideo);
     }
 });
