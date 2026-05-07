@@ -998,7 +998,7 @@ export default function AdminDashboard() {
                         value={formData.customTopTitle}
                         onChange={handleInputChange}
                         rows={2}
-                        placeholder={"e.g. Somisetty & Parchuri's\nWedding Invitation"}
+                        placeholder={formData.templateId === "half-saree-template-01" ? "e.g. Grand Celebration\n(Default: Grand Celebration)" : "e.g. Somisetty & Parchuri's\nWedding Invitation"}
                         className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800 resize-none"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
@@ -1061,7 +1061,7 @@ export default function AdminDashboard() {
                         name="customInitials" 
                         value={formData.customInitials} 
                         onChange={handleInputChange} 
-                        placeholder={`e.g. A & N (Auto-generated if empty)`}
+                        placeholder={formData.templateId === "half-saree-template-01" ? "e.g. B S (Default: First letter of name)" : "e.g. A & N (Auto-generated if empty)"}
                         className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" 
                       />
                     </div>
@@ -1077,7 +1077,9 @@ export default function AdminDashboard() {
                           />
                           <div>
                             <span className="block text-sm font-bold text-slate-800">Hide Loader Photo</span>
-                            <span className="block text-xs text-slate-500">Only show initials in the center circle</span>
+                            <span className="block text-xs text-slate-500">
+                              {formData.templateId === "half-saree-template-01" ? "Only show initials (BS) in the center circle" : "Only show initials in the center circle"}
+                            </span>
                           </div>
                         </label>
                       </div>

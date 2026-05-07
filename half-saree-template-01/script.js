@@ -296,6 +296,34 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.config-time').forEach(el => el.innerText = CONFIG.time || "Time TBA");
     document.querySelectorAll('.config-venue-short, .config-venue-full').forEach(el => el.innerText = CONFIG.venue || "Venue TBA");
 
+    // Intro Text
+    const introEl = document.querySelector('.invite-header');
+    if (introEl) {
+        if (CONFIG.introText) {
+            introEl.innerHTML = CONFIG.introText.split('\n').join('<br>');
+        } else {
+            introEl.innerText = "Grand Celebration"; // Default for Half Saree
+        }
+    }
+
+    // Loader Photo
+    const loaderPhoto = document.querySelector('.loader-photo img');
+    const loaderPhotoDiv = document.querySelector('.loader-photo');
+    if (CONFIG.hideLoaderPhoto) {
+        if (loaderPhotoDiv) loaderPhotoDiv.style.display = 'none';
+    } else if (loaderPhoto) {
+        if (CONFIG.loaderPhotoUrl) {
+            loaderPhoto.src = optimizeUrl(CONFIG.loaderPhotoUrl);
+        } else if (CONFIG.thumbnail) {
+            loaderPhoto.src = optimizeUrl(CONFIG.thumbnail);
+        } else if (CONFIG.gallery && CONFIG.gallery.length > 0) {
+            loaderPhoto.src = optimizeUrl(CONFIG.gallery[0]);
+        } else {
+            if (loaderPhotoDiv) loaderPhotoDiv.style.display = 'none';
+        }
+        loaderPhoto.onerror = () => { if (loaderPhotoDiv) loaderPhotoDiv.style.display = 'none'; };
+    }
+
     // Map URL
     const mapIframe = document.getElementById('venue-iframe');
     const mapBtn = document.getElementById('venue-nav-btn');
