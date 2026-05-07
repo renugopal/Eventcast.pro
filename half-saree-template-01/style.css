@@ -78,12 +78,7 @@ h1, h2, h3, .logo-text, .ceremony-title {
     transition: opacity 0.5s ease;
 }
 
-.logo-text {
-    font-size: 2.5rem;
-    color: var(--accent);
-    letter-spacing: 4px;
-    margin-bottom: 20px;
-}
+
 
 .spinner {
     width: 50px; height: 50px;
@@ -102,17 +97,23 @@ h1, h2, h3, .logo-text, .ceremony-title {
     flex-direction: column;
     align-items: center;
     gap: 15px;
+    padding: 20px;
+    text-align: center;
 }
 
 /* Loader Photo Circle */
 .loader-photo {
-    width: 120px;
-    height: 120px;
+    width: 140px;
+    height: 140px;
     border-radius: 50%;
     overflow: hidden;
-    border: 3px solid var(--accent);
-    box-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+    border: 4px solid var(--accent);
+    box-shadow: 0 0 30px rgba(212, 175, 55, 0.3);
     flex-shrink: 0;
+    background: rgba(255,255,255,0.05);
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .loader-photo img {
@@ -120,6 +121,31 @@ h1, h2, h3, .logo-text, .ceremony-title {
     height: 100%;
     object-fit: cover;
     object-position: top center;
+}
+
+.logo-text {
+    font-size: 2.5rem;
+    color: var(--accent);
+    letter-spacing: 4px;
+    margin: 10px 0;
+    font-family: 'Cinzel', serif;
+    text-transform: uppercase;
+}
+
+/* Mobile Adjustments for Loader */
+@media (max-width: 480px) {
+    .loader-photo {
+        width: 110px;
+        height: 110px;
+    }
+    .logo-text {
+        font-size: 1.8rem;
+        letter-spacing: 2px;
+    }
+    .spinner {
+        width: 40px;
+        height: 40px;
+    }
 }
 
 /* Main Glass Container */
