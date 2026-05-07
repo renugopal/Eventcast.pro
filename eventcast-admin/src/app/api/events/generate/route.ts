@@ -226,6 +226,15 @@ export async function POST(req: Request) {
       
       htmlContent = htmlContent.replace(/src="https:\/\/(www\.)?google\.com\/maps\/embed[^"]*"/g, `src="${embedUrl}"`);
       htmlContent = htmlContent.replace(/src="https:\/\/maps\.google\.com\/maps\?q=[^"]*"/g, `src="${embedUrl}"`);
+      // Also handle empty src on venue-iframe (half-saree template pattern)
+      htmlContent = htmlContent.replace(/id="venue-iframe" src=""/, `id="venue-iframe" src="${embedUrl}"`);
+      htmlContent = htmlContent.replace(/id="venue-iframe" src=''/g, `id="venue-iframe" src="${embedUrl}"`);
+      
+      // Update venue name text
+      htmlContent = htmlContent.replace(/class="subtitle config-venue-full">[^<]*/g, `class="subtitle config-venue-full">${vName || ''}`);
+      
+      // Update navigation button href
+      htmlContent = htmlContent.replace(/id="venue-nav-btn" href="#"/, `id="venue-nav-btn" href="${navigateUrl}"`);
       
       // Update any existing maps links in the template to our new navigateUrl
       htmlContent = htmlContent.replace(/href="https:\/\/(www\.)?google\.com\/maps[^"]*"/g, `href="${navigateUrl}"`);
