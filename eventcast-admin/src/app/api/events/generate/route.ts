@@ -183,11 +183,44 @@ export async function POST(req: Request) {
     if (event.venue_map_link || event.venueMapLink || event.venue_name || event.venueName) {
       const vName = event.venue_name || event.venueName;
       const vMap = event.venue_map_link || event.venueMapLink;
-      const query = vName || vMap;
-      const embedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+      
+      let embedQuery = vName;
+      if (vMap) {
+        if (vMap.includes('<iframe')) {
+          const match = vMap.match(/src="([^"]+)"/);
+          if (match) embedQuery = null;
+        } else {
+          try {
+            const urlStr = vMap.startsWith('http') ? vMap : `https://${vMap}`;
+            const url = new URL(urlStr);
+            if (url.pathname.includes('/place/')) {
+              embedQuery = decodeURIComponent(url.pathname.split('/place/')[1].split('/')[0]);
+            } else if (url.searchParams.has('q')) {
+              embedQuery = url.searchParams.get('q') || vName;
+            } else if (url.pathname.includes('/search/')) {
+              embedQuery = decodeURIComponent(url.pathname.split('/search/')[1].split('/')[0]);
+            }
+          } catch (e) {
+            console.error("Failed to parse vMap URL for embedQuery", e);
+          }
+        }
+      }
+      
+      const query = embedQuery || vName;
+      let embedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+      
+      if (vMap && vMap.includes('<iframe')) {
+        const match = vMap.match(/src="([^"]+)"/);
+        if (match) {
+          embedUrl = match[1];
+        }
+      }
+
       const navigateUrl = vMap || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(vName || query)}`;
       
-      htmlContent = htmlContent.replace(/src="https:\/\/www\.google\.com\/maps\/embed.*?"/g, `src="${embedUrl}"`);
+      htmlContent = htmlContent.replace(/src="https:\/\/(www\.)?google\.com\/maps\/embed[^"]*"/g, `src="${embedUrl}"`);
+      htmlContent = htmlContent.replace(/src="https:\/\/maps\.google\.com\/maps\?q=[^"]*"/g, `src="${embedUrl}"`);
+      
       // Update any existing maps links in the template to our new navigateUrl
       htmlContent = htmlContent.replace(/href="https:\/\/(www\.)?google\.com\/maps[^"]*"/g, `href="${navigateUrl}"`);
       htmlContent = htmlContent.replace(/href="https:\/\/maps\.app\.goo\.gl[^"]*"/g, `href="${navigateUrl}"`);
@@ -237,15 +270,19 @@ export async function POST(req: Request) {
       return [];
     })();
 
+    const safeGroom = (dbPayload.groom_name || dbPayload.celebrant_name || '').replace(/"/g, '\\"');
+    const safeBride = (dbPayload.bride_name || 'Family').replace(/"/g, '\\"');
+    const safeVenue = (dbPayload.venue_name || '').replace(/"/g, '\\"');
+
     const configContent = `window.WEDDING_CONFIG = {
-    groom: "${dbPayload.groom_name || dbPayload.celebrant_name || ''}",
-    bride: "${dbPayload.bride_name || 'Family'}",
+    groom: "${safeGroom}",
+    bride: "${safeBride}",
     date: "${formattedDate}",
     time: "${formattedTime}",
     timeLabel: "${event.time_label || event.timeLabel || type || 'Wedding'}",
     timeSubtext: "",
     timerTarget: "${rawDate}T${timerTime}",
-    venue: "${dbPayload.venue_name || ''}",
+    venue: "${safeVenue}",
     venueSubtext: "",
     youtubeId: "${youtubeId}",
     invitationVideo: "${invitationVideosArray[0] || ''}",
