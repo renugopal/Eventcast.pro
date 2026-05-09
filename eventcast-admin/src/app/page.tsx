@@ -1016,6 +1016,7 @@ export default function AdminDashboard() {
                         <option>Reception</option>
                         <option>Birthday</option>
                         <option>Half Saree</option>
+                        <option>Dhoti Ceremony</option>
                       </select>
                     </div>
                     <div className="md:col-span-1">
@@ -1023,6 +1024,7 @@ export default function AdminDashboard() {
                       <select name="templateId" value={formData.templateId} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800 appearance-none">
                         <option value="wedding-template-01">wedding-template-01 (Premium Pink & Gold)</option>
                         <option value="half-saree-template-01">half-saree-template-01 (Premium Emerald & Gold)</option>
+                        <option value="dhoti-ceremony-template-01">dhoti-ceremony-template-01 (Royal Blue & Gold)</option>
                         <option value="wedding-template">wedding-template (Modern Sage Theme)</option>
                         <option value="wedding">wedding (Traditional Maroon)</option>
                       </select>

@@ -56,28 +56,29 @@ export async function POST(req: Request) {
     const mainName = isSinglePerson ? groomName : `${groomName} & ${brideName}`;
     const formattedEventType = eventType ? (eventType.charAt(0).toUpperCase() + eventType.slice(1)) : 'Event';
     
-    const displayTitle = `${formattedEventType} of ${mainName} | Live Streaming`;
+    const displayTitle = `${heart} ${mainName} ${formattedEventType} Live | ${formattedEventDate}`;
     
     // Webpage Short Description (sent in payload for HTML generation)
-    const webpageDesc = `Join us live and celebrate this beautiful traditional occasion filled with love, blessings, culture, and family moments.`;
+    const webpageDesc = `Join us live to celebrate this beautiful traditional occasion filled with blessings, happiness, culture, and family moments.`;
 
     const cleanHashtagEventType = formattedEventType.replace(/\s+/g, '');
     const cleanHashtagName = groomName.replace(/\s+/g, '');
 
     // YouTube Long Description
-    const displayDescription = `✨ ${mainName} ${formattedEventType} ✨
+    const displayDescription = `Welcome to the official livestream of
+${heart} ${mainName} ${formattedEventType} ${heart}
 
-Join us live and celebrate this beautiful traditional occasion filled with love, blessings, culture, and family moments.
+Join us live to celebrate this beautiful traditional occasion filled with blessings, happiness, culture, and family moments.
 
-Thank you for being part of our special day and showering your blessings on ${mainName}.
+Thank you for being part of our special day and showering your love and blessings on ${groomName}.
 
 📡 Live Streaming
-🎉 ${formattedEventType}${formattedEventType.toLowerCase() === 'half saree' ? ' / Langa Voni Function' : ''}
-💖 Traditional Telugu Celebration
+🪔 Traditional ${formattedEventType}
+💖 Telugu Family Celebration
 
-Don’t forget to Like, Share & Subscribe for more family event livestreams.
+Please Like, Share & Subscribe for more traditional event livestreams and memorable family celebrations.
 
-#${cleanHashtagEventType} #${cleanHashtagName} #LiveStreaming #TeluguFunction`;
+#${cleanHashtagEventType} #${cleanHashtagName} #LiveStreaming #TraditionalFunction #TeluguEvent`;
 
     // 1. Create Live Broadcast
     const broadcastRes = await fetch("https://youtube.googleapis.com/youtube/v3/liveBroadcasts?part=snippet,status,contentDetails", {
@@ -90,26 +91,26 @@ Don’t forget to Like, Share & Subscribe for more family event livestreams.
           scheduledStartTime: new Date(`${eventDate}T${targetTime || '09:00'}:00+05:30`).toISOString(),
           categoryId: '22',
           tags: [
-            mainName,
-            formattedEventType,
-            `${formattedEventType} function`,
-            formattedEventType.toLowerCase() === 'half saree' ? 'langa voni function' : '',
-            `${formattedEventType} live`,
-            `${formattedEventType} ceremony live`,
+            mainName.toLowerCase(),
+            formattedEventType.toLowerCase(),
+            `${formattedEventType.toLowerCase()} function`,
+            'panchakattu function',
+            `${formattedEventType.toLowerCase()} live`,
+            'traditional ceremony',
             'telugu function live',
-            'traditional function',
-            'indian traditional ceremony',
             'live streaming',
             'family function live',
-            'telugu livestream',
-            `${formattedEventType} event`,
-            formattedEventType.toLowerCase() === 'half saree' ? 'pattu langa function' : '',
-            formattedEventType.toLowerCase() === 'half saree' ? 'coming of age ceremony' : '',
-            'south indian function',
+            'south indian ceremony',
+            'traditional event',
             'telugu family event',
-            'ceremony live stream',
-            'live event',
-            'youtube livestream'
+            'indian traditional function',
+            `${formattedEventType.toLowerCase()} event live`,
+            'youtube livestream',
+            'ceremony live',
+            `${mainName.toLowerCase()} ${formattedEventType.toLowerCase()}`,
+            'cultural ceremony',
+            'live family event',
+            'traditional livestream'
           ].filter(Boolean)
         },
         status: {
