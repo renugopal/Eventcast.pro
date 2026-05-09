@@ -1520,10 +1520,10 @@ export default function AdminDashboard() {
                     </div>
                     <div className="p-4 bg-[#f0f2f5]">
                       <h4 className="text-sm font-bold text-slate-800 truncate leading-tight">
-                        {formData.groomName || formData.celebrantName || "Couple Names"} & {formData.brideName || "Family"} {formData.eventType} | {formatDisplayDate(formData.eventDate)}
+                        ✨ {formData.groomName || formData.celebrantName || "Name"} {formData.eventType} Live | {formatDisplayDate(formData.eventDate)}
                       </h4>
                       <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">
-                        Join us live for the {formData.eventType} of {formData.groomName || formData.celebrantName || "Name"} & {formData.brideName || "Family"} on {formatDisplayDate(formData.eventDate)}. Venue: {formData.venueName || "Location Name"}.
+                        Join us live to celebrate this beautiful traditional occasion filled with blessings, happiness, culture, and family moments.
                       </p>
                       <div className="text-[10px] text-slate-400 mt-2 font-mono">https://eventcast.pro/events/...</div>
                     </div>
