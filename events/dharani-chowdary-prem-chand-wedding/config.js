@@ -12,7 +12,7 @@ window.WEDDING_CONFIG = {
     venueNavigateUrl: "https://www.google.com/maps/search/?api=1&query=Addanki%20Nancharamma%20Kalyana%20Mandapam%2C%20Parchur.",
     youtubeId: "lZ2kDWOqgaM",
     invitationVideo: "https://res.cloudinary.com/df5b4aq7h/video/upload/v1778548196/events/dharani-chowdary/orndljcrbf8g61qmjgz1.mp4",
-    invitationVideos: ["https://res.cloudinary.com/df5b4aq7h/video/upload/v1778548196/events/dharani-chowdary/orndljcrbf8g61qmjgz1.mp4","https://res.cloudinary.com/df5b4aq7h/video/upload/v1778548205/events/dharani-chowdary/srdpm0vfx80jwsi6xqpn.mp4"],
+    invitationVideos: ["https://res.cloudinary.com/df5b4aq7h/video/upload/v1778548196/events/dharani-chowdary/orndljcrbf8g61qmjgz1.mp4"],
     thumbnail: "https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1778523356/events/dharani-chowdary/xkntc1ncdzhg1wl9uile.jpg",
     gallery: ["https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1778523376/events/dharani-chowdary/hik4xgry2lyibt8tol7p.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1778523378/events/dharani-chowdary/mvqplqdsj8r1ujw9o8lb.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1778523381/events/dharani-chowdary/gg9rbvs4txd5riafedvs.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1778523382/events/dharani-chowdary/y4bbhkxxbeioc90ymzm8.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1778523384/events/dharani-chowdary/bpblbgwjplks3bi4l95x.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1778523385/events/dharani-chowdary/uktlp54jgtmur5lrbpxq.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1778523386/events/dharani-chowdary/bispnvbwze0j4r3qv9fb.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1778523387/events/dharani-chowdary/vsntnnzmjhsbkv3w6xqg.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1778523388/events/dharani-chowdary/b2yt7npvvciwhc1re4lo.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1778523389/events/dharani-chowdary/m2075h1hi2wtuklodcjv.jpg","https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1778523390/events/dharani-chowdary/ubkxgkn2ayk2u14tbrcf.jpg"],
     supabaseUrl: "https://lteogzqeuuoxlekhofow.supabase.co",
@@ -20,7 +20,7 @@ window.WEDDING_CONFIG = {
     eventId: "de9d4f50-77f7-453f-8378-5d705e491f5d",
     eventType: "Wedding",
     introText: "",
-    photographer: {"id":"00ede5dc-a64d-4358-bb29-01367b7020d0","name":"Uma Studio","phone_number":"9848012345","studio_name":null,"city":"Parchur","created_at":"2026-04-26T18:41:03.827108+00:00","instagram_url":null,"phone":null,"logo_url":"https://res.cloudinary.com/df5b4aq7h/image/upload/v1777403903/nblsvxe4m1sueleugpbq.png","nickname":"Subbu Parchur"},
+    photographer: {"id":"00ede5dc-a64d-4358-bb29-01367b7020d0","name":"Uma Studio","phone_number":"94400 93952","studio_name":null,"city":"Parchur","created_at":"2026-04-26T18:41:03.827108+00:00","instagram_url":null,"phone":null,"logo_url":"https://res.cloudinary.com/df5b4aq7h/image/upload/v1777403903/nblsvxe4m1sueleugpbq.png","nickname":"Subbu Parchur"},
     customInitials: "D & P",
     hideLoaderPhoto: false,
     loaderPhotoUrl: "https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1778523246/events/dharani-chowdary/ae5utalu5jpc8uyybgxf.webp"
