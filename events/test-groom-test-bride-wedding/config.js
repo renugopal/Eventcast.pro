@@ -1,11 +1,11 @@
 window.WEDDING_CONFIG = {
     groom: "test groom",
     bride: "test bride",
-    date: "Tuesday, May 12th",
+    date: "Wednesday, May 13th",
     time: "5:00 AM",
     timeLabel: "Wedding",
     timeSubtext: "",
-    timerTarget: "2026-05-12T04:30",
+    timerTarget: "2026-05-13T04:30",
     venue: "test venue.",
     venueSubtext: "",
     venueUrl: "https://maps.google.com/maps?q=prathipati%20gardens%2C%20chilakaluripet&t=&z=15&ie=UTF8&iwloc=&output=embed",
