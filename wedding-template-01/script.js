@@ -10,6 +10,8 @@ const CONFIG = window.WEDDING_CONFIG || {
     venue: "Venue Name",
     venueSubtext: "",
     youtubeId: "",
+    restreamerUrl: "",
+    restreamerPlayer: "",
     invitationVideo: "",
     thumbnail: "assets/gallery_1.png",
     gallery: ["assets/gallery_1.png", "assets/gallery_2.png", "assets/gallery_3.png"],
@@ -31,8 +33,16 @@ const _supabase = (CONFIG.supabaseUrl && CONFIG.supabaseKey)
 // --- CLOUDINARY OPTIMIZATION ---
 const optimizeUrl = (url) => {
     if (!url || !url.includes('cloudinary.com')) return url;
+    
+    // 1. Skip optimization for videos (saves massive credits)
+    if (url.includes('/video/upload/')) return url;
+    
+    // 2. Prevent double-tagging if f_auto,q_auto already exists
+    if (url.includes('f_auto,q_auto')) return url;
+
+    // 3. Apply optimization only for images
     if (url.includes('/upload/')) {
-        return url.replace('/upload/', '/upload/f_auto,q_auto/');
+        return url.replace('/upload/', '/upload/f_auto,q_auto,w_1920,c_limit/');
     }
     return url;
 };
@@ -413,7 +423,7 @@ function initSlideshow() {
     startSlideshow();
 }
 
-// --- YOUTUBE PLAYER API ---
+// --- VIDEO PLAYER LOGIC ---
 var ytScriptTag = document.createElement('script');
 ytScriptTag.src = "https://www.youtube.com/iframe_api";
 var firstScriptTag = document.getElementsByTagName('script')[0];
@@ -421,24 +431,61 @@ firstScriptTag.parentNode.insertBefore(ytScriptTag, firstScriptTag);
 
 let player;
 function onYouTubeIframeAPIReady() {
-    if (!CONFIG.youtubeId) {
-        const livestreamSection = document.getElementById('livestream');
+    const livestreamSection = document.getElementById('livestream');
+    const playerContainer = document.getElementById('youtube-player');
+    const statusBadge = document.querySelector('.status-badge');
+
+    if (!CONFIG.youtubeId && !CONFIG.restreamerPlayer) {
         if (livestreamSection) livestreamSection.style.display = 'none';
         return;
     }
-    player = new YT.Player('youtube-player', {
-        height: '100%',
-        width: '100%',
-        videoId: CONFIG.youtubeId,
-        playerVars: {
-            'playsinline': 1,
-            'rel': 0,
-            'modestbranding': 1
-        },
-        events: {
-            'onStateChange': onPlayerStateChange
+
+    // 1. Check if we have a Restreamer Player (High Quality Choice)
+    if (CONFIG.restreamerPlayer) {
+        console.log("Using Restreamer High Quality Player...");
+        if (playerContainer) {
+            playerContainer.innerHTML = `
+                <iframe 
+                    src="${CONFIG.restreamerPlayer}&autoplay=true&mute=false&controlbar=true" 
+                    width="100%" 
+                    height="100%" 
+                    style="border:none;" 
+                    allowfullscreen 
+                    allow="autoplay; fullscreen">
+                </iframe>
+            `;
+            // Add a small YouTube Link button below for viewers who prefer YouTube
+            if (CONFIG.youtubeId) {
+                const ytLink = document.createElement('div');
+                ytLink.style.textAlign = 'center';
+                ytLink.style.marginTop = '15px';
+                ytLink.innerHTML = `
+                    <a href="https://youtube.com/watch?v=${CONFIG.youtubeId}" target="_blank" class="btn secondary-btn" style="font-size: 0.8rem; padding: 8px 15px;">
+                        <i class="fab fa-youtube"></i> Watch on YouTube (Alternate)
+                    </a>
+                `;
+                livestreamSection.appendChild(ytLink);
+            }
         }
-    });
+        return; // Skip standard YouTube player setup
+    }
+
+    // 2. Fallback to standard YouTube Player API
+    if (CONFIG.youtubeId) {
+        player = new YT.Player('youtube-player', {
+            height: '100%',
+            width: '100%',
+            videoId: CONFIG.youtubeId,
+            playerVars: {
+                'playsinline': 1,
+                'rel': 0,
+                'modestbranding': 1
+            },
+            events: {
+                'onStateChange': onPlayerStateChange
+            }
+        });
+    }
 }
 
 function onPlayerStateChange(event) {

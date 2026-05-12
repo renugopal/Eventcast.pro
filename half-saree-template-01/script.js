@@ -7,6 +7,8 @@ const CONFIG = window.WEDDING_CONFIG || {
     timerTarget: "2026-05-08T09:30:00",
     venue: "B Convention Hall",
     youtubeId: "",
+    restreamerUrl: "",
+    restreamerPlayer: "",
     invitationVideo: "assets/invitation.mp4",
     thumbnail: "assets/thumbnail.png",
     gallery: [],
@@ -25,7 +27,18 @@ const _supabase = (CONFIG.supabaseUrl && CONFIG.supabaseKey)
 // --- UTILS ---
 const optimizeUrl = (url) => {
     if (!url || !url.includes('cloudinary.com')) return url;
-    return url.replace('/upload/', '/upload/f_auto,q_auto/');
+    
+    // 1. Skip optimization for videos (saves massive credits)
+    if (url.includes('/video/upload/')) return url;
+    
+    // 2. Prevent double-tagging if f_auto,q_auto already exists
+    if (url.includes('f_auto,q_auto')) return url;
+
+    // 3. Apply optimization only for images
+    if (url.includes('/upload/')) {
+        return url.replace('/upload/', '/upload/f_auto,q_auto,w_1920,c_limit/');
+    }
+    return url;
 };
 
 function escapeHTML(str) {
@@ -108,7 +121,7 @@ function initSlideshow() {
     startSlideshow();
 }
 
-// --- YOUTUBE PLAYER API ---
+// --- VIDEO PLAYER LOGIC ---
 var ytScriptTag = document.createElement('script');
 ytScriptTag.src = "https://www.youtube.com/iframe_api";
 var firstScriptTag = document.getElementsByTagName('script')[0];
@@ -116,17 +129,57 @@ firstScriptTag.parentNode.insertBefore(ytScriptTag, firstScriptTag);
 
 let player;
 function onYouTubeIframeAPIReady() {
-    if (!CONFIG.youtubeId) return;
-    player = new YT.Player('youtube-player', {
-        height: '100%',
-        width: '100%',
-        videoId: CONFIG.youtubeId,
-        playerVars: {
-            'playsinline': 1,
-            'rel': 0,
-            'modestbranding': 1
+    const livestreamSection = document.getElementById('live-card');
+    const playerContainer = document.getElementById('youtube-player');
+
+    if (!CONFIG.youtubeId && !CONFIG.restreamerPlayer) {
+        const liveSection = document.getElementById('live-card');
+        if (liveSection) liveSection.style.display = 'none';
+        return;
+    }
+
+    // 1. Check for Restreamer Player
+    if (CONFIG.restreamerPlayer) {
+        if (playerContainer) {
+            playerContainer.innerHTML = `
+                <iframe 
+                    src="${CONFIG.restreamerPlayer}&autoplay=true&mute=false&controlbar=true" 
+                    width="100%" 
+                    height="100%" 
+                    style="border:none; min-height: 250px;" 
+                    allowfullscreen 
+                    allow="autoplay; fullscreen">
+                </iframe>
+            `;
+            // Add YouTube Link if present
+            if (CONFIG.youtubeId) {
+                const ytLink = document.createElement('div');
+                ytLink.style.textAlign = 'center';
+                ytLink.style.marginTop = '15px';
+                ytLink.innerHTML = `
+                    <a href="https://youtube.com/watch?v=${CONFIG.youtubeId}" target="_blank" class="btn outline-btn" style="font-size: 0.7rem; padding: 5px 12px; display: inline-block;">
+                        <i class="fab fa-youtube"></i> Watch on YouTube
+                    </a>
+                `;
+                livestreamSection.appendChild(ytLink);
+            }
         }
-    });
+        return;
+    }
+
+    // 2. YouTube Fallback
+    if (CONFIG.youtubeId) {
+        player = new YT.Player('youtube-player', {
+            height: '100%',
+            width: '100%',
+            videoId: CONFIG.youtubeId,
+            playerVars: {
+                'playsinline': 1,
+                'rel': 0,
+                'modestbranding': 1
+            }
+        });
+    }
 }
 
 // --- COUNTDOWN TIMER ---

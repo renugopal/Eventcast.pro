@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { RestreamerClient } from '@/lib/restreamer';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -79,7 +80,10 @@ export async function POST(req: Request) {
       custom_initials: event.custom_initials || event.customInitials || null,
       hide_loader_photo: event.hide_loader_photo ?? event.hideLoaderPhoto ?? false,
       loader_photo_url: event.loader_photo_url || event.loaderPhotoUrl || null,
-      ...(event.notes ? { notes: event.notes } : {})
+      ...(event.notes ? { notes: event.notes } : {}),
+      // NEW: Restreamer Details for the Table
+      restreamer_ingest_url: `rtmp://34.100.142.25/live`,
+      restreamer_stream_key: slug
     };
 
     if (event.isEditing && event.editingId) {
@@ -97,6 +101,25 @@ export async function POST(req: Request) {
       eventId = dbData[0].id;
     }
     // -------------------------------------------
+
+    // --- NEW: Restreamer Automation ---
+    let restreamerData = null;
+    try {
+      const restreamer = new RestreamerClient({
+        url: process.env.RESTREAMER_URL || 'https://media.eventcast.pro',
+        username: process.env.RESTREAMER_USERNAME || 'admin',
+        password: process.env.RESTREAMER_PASSWORD
+      });
+      
+      const youtubeKey = event.youtube_stream_key || event.youtubeStreamKey;
+      restreamerData = await restreamer.setupChannel(slug, youtubeKey);
+      
+      console.log("Restreamer setup successful:", restreamerData);
+    } catch (rsError) {
+      console.error("Restreamer Setup Failed:", rsError);
+      // We don't throw here to ensure the site is still generated even if media server is down
+    }
+    // ----------------------------------
 
     console.log(`Generating site for ${slug} via GitHub API...`);
 
@@ -334,6 +357,8 @@ export async function POST(req: Request) {
       return 'null';
     })()},
     youtubeId: "${youtubeId}",
+    restreamerUrl: "${restreamerData?.hlsUrl || ''}",
+    restreamerPlayer: "${restreamerData?.playerUrl || ''}",
     invitationVideo: "${invitationVideosArray[0] || ''}",
     invitationVideos: ${JSON.stringify(invitationVideosArray)},
     thumbnail: "${thumbnailUrl}",
@@ -405,7 +430,8 @@ export async function POST(req: Request) {
       success: true, 
       url: `https://eventcast.pro/events/${slug}`, 
       slug: slug,
-      id: eventId
+      id: eventId,
+      restreamer: restreamerData
     });
 
   } catch (error: any) {

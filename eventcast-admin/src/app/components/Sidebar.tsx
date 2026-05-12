@@ -3,6 +3,8 @@
 import React from "react";
 import { PlusCircle, List, Settings, BarChart3, Image as ImageIcon, LogOut, Layout, Users, Home, Monitor, ChevronLeft, ChevronRight, X } from "lucide-react";
 
+import { SystemPulse } from "./SystemPulse";
+
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -88,6 +90,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         <div className="mt-auto p-6 space-y-4">
+          {(!isCollapsed || isMobileOpen) && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+               <SystemPulse />
+            </div>
+          )}
+          
           <button 
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="hidden md:flex w-full items-center gap-3 px-4 py-2 rounded-xl text-xs font-black text-slate-400 hover:bg-slate-50 hover:text-slate-800 transition-all border border-transparent hover:border-slate-100"

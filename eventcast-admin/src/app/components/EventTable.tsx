@@ -14,6 +14,14 @@ interface EventTableProps {
   deleteMultipleEvents: (ids: string[]) => void;
 }
 
+const adminOptimize = (url: string, width = 150) => {
+  if (!url || !url.includes('cloudinary.com')) return url;
+  if (url.includes('f_auto,q_auto')) {
+    return url.replace('f_auto,q_auto', `f_auto,q_auto,w_${width},c_fill`);
+  }
+  return url.replace('/upload/', `/upload/f_auto,q_auto,w_${width},c_fill/`);
+};
+
 export const EventTable: React.FC<EventTableProps> = ({
   events,
   wishes,
@@ -370,7 +378,7 @@ export const EventTable: React.FC<EventTableProps> = ({
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0">
                             {event.thumbnail_url ? (
-                              <img src={event.thumbnail_url} className="w-full h-full object-cover" alt="Thumb" />
+                              <img src={adminOptimize(event.thumbnail_url, 150)} className="w-full h-full object-cover" alt="Thumb" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-slate-300"><AlertCircle size={20} /></div>
                             )}
@@ -419,7 +427,7 @@ export const EventTable: React.FC<EventTableProps> = ({
                         {event.photographers?.name ? (
                           <div className="flex items-center gap-1.5 mt-1">
                             {event.photographers.logo_url ? (
-                              <img src={event.photographers.logo_url} className="w-5 h-5 object-contain rounded" alt="" />
+                              <img src={adminOptimize(event.photographers.logo_url, 100)} className="w-5 h-5 object-contain rounded" alt="" />
                             ) : (
                               <div className="w-5 h-5 bg-blue-100 text-blue-600 rounded text-[8px] font-black flex items-center justify-center">
                                 {(event.photographers.name || '?')[0].toUpperCase()}
@@ -435,21 +443,23 @@ export const EventTable: React.FC<EventTableProps> = ({
                         )}
                       </td>
                     <td className={`${getPadding()}`}>
-                      {event.youtube_stream_key ? (
-                        <div className="flex flex-col gap-1.5 items-start">
-                          <div className="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded border border-slate-200">
-                            <code className="text-[10px] font-mono text-slate-700">{event.youtube_stream_key}</code>
-                            <button onClick={() => { navigator.clipboard.writeText(event.youtube_stream_key); alert("Copied!"); }} className="text-slate-400 hover:text-blue-500"><Copy size={12}/></button>
+                      <div className="flex flex-col gap-2 items-start">
+                        {/* OBS / Restreamer Ingest */}
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[8px] font-black text-blue-500 uppercase tracking-tighter">OBS Stream Key</span>
+                          <div className="flex items-center gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-100">
+                            <code className="text-[10px] font-mono text-blue-700">{event.restreamer_stream_key || event.slug}</code>
+                            <button onClick={() => { navigator.clipboard.writeText(event.restreamer_stream_key || event.slug); alert("OBS Key Copied!"); }} className="text-blue-400 hover:text-blue-600"><Copy size={12}/></button>
                           </div>
-                          {event.vod_link && (
-                            <a href={event.vod_link} target="_blank" className="flex items-center gap-1 text-[10px] text-red-600 font-bold uppercase bg-red-50 px-2 py-0.5 rounded-full hover:bg-red-100 transition-colors border border-red-100">
-                              <Play size={10} /> Live Link
-                            </a>
-                          )}
                         </div>
-                      ) : (
-                        <span className="text-[10px] text-slate-400 font-medium bg-slate-50 px-2 py-1 rounded border border-slate-100">No Stream</span>
-                      )}
+                        
+                        {/* YouTube Link */}
+                        {event.vod_link && (
+                          <a href={event.vod_link} target="_blank" className="flex items-center gap-1 text-[10px] text-red-600 font-bold uppercase bg-red-50 px-2 py-0.5 rounded-full hover:bg-red-100 transition-colors border border-red-100">
+                            <Play size={10} /> YouTube Link
+                          </a>
+                        )}
+                      </div>
                     </td>
                     <td className={`${getPadding()} text-center`}>
                        <span className="font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-bold">{event.view_count || 0}</span>
