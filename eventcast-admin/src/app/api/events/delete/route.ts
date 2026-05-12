@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { RestreamerClient } from '@/lib/restreamer';
 
 export const runtime = 'edge';
+
+// Use admin client if available (bypasses RLS)
+const db = supabaseAdmin || supabase;
 
 // Helper for Cloudinary Signature using Web Crypto API
 async function generateCloudinarySignature(params: Record<string, string>, apiSecret: string) {
@@ -21,7 +24,7 @@ export async function POST(req: Request) {
     const { id } = await req.json();
 
     // 1. Fetch Event Details from Supabase
-    const { data: event, error: fetchError } = await supabase
+    const { data: event, error: fetchError } = await db
       .from('events')
       .select('*')
       .eq('id', id)
@@ -31,7 +34,7 @@ export async function POST(req: Request) {
 
     const slug = event.slug;
 
-    // 2. Restreamer Cleanup (NEW)
+    // 2. Restreamer Cleanup
     try {
       const restreamer = new RestreamerClient({
         url: process.env.RESTREAMER_URL || 'https://media.eventcast.pro',
@@ -144,8 +147,9 @@ export async function POST(req: Request) {
       console.error("GitHub cleanup failed:", gitErr);
     }
 
-    // 6. FINALLY: Delete from Supabase
-    await supabase.from('events').delete().eq('id', id);
+    // 6. FINALLY: Delete from Supabase (using Admin)
+    const { error: deleteError } = await db.from('events').delete().eq('id', id);
+    if (deleteError) throw new Error(`Supabase Deletion Error: ${deleteError.message}`);
 
     return NextResponse.json({ success: true, message: "Deleted successfully" });
 
