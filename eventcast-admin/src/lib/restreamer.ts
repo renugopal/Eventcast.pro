@@ -113,4 +113,23 @@ export class RestreamerClient {
       playerUrl: `${this.url}/ui/player.html?query=memfs/${slug}.m3u8`
     };
   }
+
+  /**
+   * Delete a channel (process) from Restreamer
+   */
+  async deleteChannel(slug: string) {
+    console.log(`Deleting Restreamer channel for ${slug}...`);
+    try {
+      const res = await fetch(`${this.url}/api/v1/process/${slug}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': this.auth
+        }
+      });
+      return res.ok;
+    } catch (err) {
+      console.error("Restreamer deletion failed:", err);
+      return false;
+    }
+  }
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { RestreamerClient } from '@/lib/restreamer';
 
 export const runtime = 'edge';
 
@@ -28,13 +29,24 @@ export async function POST(req: Request) {
 
     if (fetchError || !event) throw new Error("Event not found.");
 
-    // 2. Delete from YouTube (via Edge fetch)
+    const slug = event.slug;
+
+    // 2. Restreamer Cleanup (NEW)
+    try {
+      const restreamer = new RestreamerClient({
+        url: process.env.RESTREAMER_URL || 'https://media.eventcast.pro',
+        username: process.env.RESTREAMER_USERNAME || 'admin',
+        password: process.env.RESTREAMER_PASSWORD
+      });
+      await restreamer.deleteChannel(slug);
+    } catch (rsErr) {
+      console.error("Restreamer cleanup failed:", rsErr);
+    }
+
+    // 3. YouTube Deletion
     const broadcastId = event.youtube_broadcast_id || (event.vod_link ? event.vod_link.split('/').pop()?.split('v=')?.pop()?.split('&')[0] : null);
-    
     if (broadcastId) {
       try {
-        
-        // Refresh Token
         const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -46,130 +58,99 @@ export async function POST(req: Request) {
           }),
         });
         const tokenData = await tokenRes.json();
-        
-        if (tokenData.access_token && broadcastId) {
+        if (tokenData.access_token) {
           await fetch(`https://youtube.googleapis.com/youtube/v3/liveBroadcasts?id=${broadcastId}`, {
             method: "DELETE",
             headers: { "Authorization": `Bearer ${tokenData.access_token}` }
           });
-          console.log("YouTube event deleted.");
         }
       } catch (ytErr) {
         console.error("YouTube deletion failed:", ytErr);
       }
     }
 
-    // 3. Delete from Cloudinary (via REST API)
-    const assetsToDelete: string[] = [];
-    if (event.thumbnail_url) assetsToDelete.push(getPublicId(event.thumbnail_url));
-    if (event.invitation_video_url) assetsToDelete.push(getPublicId(event.invitation_video_url));
-    if (event.gallery_urls) {
-      event.gallery_urls.forEach((url: string) => assetsToDelete.push(getPublicId(url)));
-    }
-
-    const validAssets = assetsToDelete.filter(id => id);
-    if (validAssets.length > 0) {
-      try {
+    // 4. Cloudinary Deletion
+    try {
+      const assetsToDelete: string[] = [];
+      if (event.thumbnail_url) assetsToDelete.push(getPublicId(event.thumbnail_url));
+      if (event.invitation_video_url) assetsToDelete.push(getPublicId(event.invitation_video_url));
+      if (event.gallery_urls) {
+        event.gallery_urls.forEach((url: string) => assetsToDelete.push(getPublicId(url)));
+      }
+      const validAssets = assetsToDelete.filter(id => id);
+      if (validAssets.length > 0) {
         const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
         const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY!;
         const apiSecret = process.env.CLOUDINARY_API_SECRET!;
         const timestamp = Math.round(new Date().getTime() / 1000).toString();
-
-        // Delete Images
         const images = validAssets.filter(id => !id.includes('video'));
         if (images.length > 0) {
           const params = { public_ids: images.join(','), timestamp };
           const signature = await generateCloudinarySignature(params, apiSecret);
-          
           const formData = new URLSearchParams();
           formData.append('public_ids', images.join(','));
           formData.append('timestamp', timestamp);
           formData.append('api_key', apiKey);
           formData.append('signature', signature);
-          
           await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: formData
           });
         }
-      } catch (cldErr) {
-        console.error("Cloudinary deletion failed:", cldErr);
       }
+    } catch (cldErr) {
+      console.error("Cloudinary cleanup failed:", cldErr);
     }
 
-    // 4. Delete Physical Folder from GitHub API
-    const slug = `${(event.groom_name || event.celebrant_name).toLowerCase().replace(/\\s+/g, '-')}-${(event.bride_name || 'family').toLowerCase().replace(/\\s+/g, '-')}-${event.event_type.toLowerCase()}`;
-    const targetPath = `events/${slug}`;
-    const githubToken = process.env.GITHUB_TOKEN;
-    const owner = 'renugopal';
-    const repo = 'Eventcast.pro';
-    const branch = 'main';
-
-    if (githubToken) {
-      try {
-        const headers = {
-          'Authorization': `Bearer ${githubToken}`,
-          'Accept': 'application/vnd.github.v3+json'
-        };
-
+    // 5. GitHub Folder Deletion
+    try {
+      const githubToken = process.env.GITHUB_TOKEN;
+      const owner = 'renugopal';
+      const repo = 'Eventcast.pro';
+      const branch = 'main';
+      const targetPath = `events/${slug}`;
+      if (githubToken) {
+        const headers = { 'Authorization': `Bearer ${githubToken}`, 'Accept': 'application/vnd.github.v3+json' };
         const refRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`, { headers });
         const refData = await refRes.json();
         const latestCommitSha = refData.object.sha;
-
         const commitRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/commits/${latestCommitSha}`, { headers });
         const commitData = await commitRes.json();
-        const baseTreeSha = commitData.tree.sha;
-
         const treeRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`, { headers });
         const treeData = await treeRes.json();
-
-        // Create a new tree excluding the deleted folder
         const newTree = treeData.tree
           .filter((item: any) => !item.path.startsWith(`${targetPath}/`) && item.type === 'blob')
-          .map((item: any) => ({
-            path: item.path,
-            mode: item.mode,
-            type: item.type,
-            sha: item.sha
-          }));
-
+          .map((item: any) => ({ path: item.path, mode: item.mode, type: item.type, sha: item.sha }));
         const createTreeRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees`, {
           method: 'POST',
           headers,
           body: JSON.stringify({ tree: newTree })
         });
         const createTreeData = await createTreeRes.json();
-
         const createCommitRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/commits`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({
-            message: `Automated Cleanup: Deleted ${slug}`,
-            tree: createTreeData.sha,
-            parents: [latestCommitSha]
-          })
+          body: JSON.stringify({ message: `Automated Cleanup: Deleted ${slug}`, tree: createTreeData.sha, parents: [latestCommitSha] })
         });
         const createCommitData = await createCommitRes.json();
-
         await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`, {
           method: 'PATCH',
           headers,
           body: JSON.stringify({ sha: createCommitData.sha, force: false })
         });
-
-        console.log("GitHub folder deleted successfully.");
-      } catch (gitErr) {
-        console.error("GitHub deletion failed:", gitErr);
       }
+    } catch (gitErr) {
+      console.error("GitHub cleanup failed:", gitErr);
     }
 
-    // 5. Delete from Supabase
+    // 6. FINALLY: Delete from Supabase
     await supabase.from('events').delete().eq('id', id);
 
-    return NextResponse.json({ success: true, message: "Everything deleted successfully!" });
+    return NextResponse.json({ success: true, message: "Deleted successfully" });
 
   } catch (error: any) {
+    console.error("Delete Endpoint Error:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
