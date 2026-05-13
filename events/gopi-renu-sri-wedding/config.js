@@ -11,6 +11,8 @@ window.WEDDING_CONFIG = {
     venueUrl: "https://maps.google.com/maps?q=parvathi%20parameswara%20kalyana%20mandapam%2C%20nadendla&t=&z=15&ie=UTF8&iwloc=&output=embed",
     venueNavigateUrl: "https://www.google.com/maps/search/?q=parvathi%20parameswara%20kalyana%20mandapam%2C%20nadendla",
     youtubeId: "0-tWZlrSrFo",
+    restreamerUrl: "https://media.eventcast.pro/memfs/gopi-renu-sri-wedding.m3u8",
+    restreamerPlayer: "https://media.eventcast.pro/ui/player.html?query=memfs/gopi-renu-sri-wedding.m3u8",
     invitationVideo: "https://res.cloudinary.com/df5b4aq7h/video/upload/v1778521144/events/gopi/bp6tmhghmetw5kdbjtgf.mp4",
     invitationVideos: ["https://res.cloudinary.com/df5b4aq7h/video/upload/v1778521144/events/gopi/bp6tmhghmetw5kdbjtgf.mp4"],
     thumbnail: "https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1778521137/events/gopi/btyx5whixgxkmtandvei.jpg",

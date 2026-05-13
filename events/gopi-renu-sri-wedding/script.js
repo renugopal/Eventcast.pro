@@ -10,6 +10,8 @@ const CONFIG = window.WEDDING_CONFIG || {
     venue: "Venue Name",
     venueSubtext: "",
     youtubeId: "",
+    restreamerUrl: "",
+    restreamerPlayer: "",
     invitationVideo: "",
     thumbnail: "assets/gallery_1.png",
     gallery: ["assets/gallery_1.png", "assets/gallery_2.png", "assets/gallery_3.png"],
@@ -31,8 +33,16 @@ const _supabase = (CONFIG.supabaseUrl && CONFIG.supabaseKey)
 // --- CLOUDINARY OPTIMIZATION ---
 const optimizeUrl = (url) => {
     if (!url || !url.includes('cloudinary.com')) return url;
+    
+    // 1. Skip optimization for videos (saves massive credits)
+    if (url.includes('/video/upload/')) return url;
+    
+    // 2. Prevent double-tagging if f_auto,q_auto already exists
+    if (url.includes('f_auto,q_auto')) return url;
+
+    // 3. Apply optimization only for images
     if (url.includes('/upload/')) {
-        return url.replace('/upload/', '/upload/f_auto,q_auto/');
+        return url.replace('/upload/', '/upload/f_auto,q_auto,w_1920,c_limit/');
     }
     return url;
 };
@@ -413,7 +423,7 @@ function initSlideshow() {
     startSlideshow();
 }
 
-// --- YOUTUBE PLAYER API ---
+// --- VIDEO PLAYER LOGIC ---
 var ytScriptTag = document.createElement('script');
 ytScriptTag.src = "https://www.youtube.com/iframe_api";
 var firstScriptTag = document.getElementsByTagName('script')[0];
@@ -421,24 +431,161 @@ firstScriptTag.parentNode.insertBefore(ytScriptTag, firstScriptTag);
 
 let player;
 function onYouTubeIframeAPIReady() {
-    if (!CONFIG.youtubeId) {
-        const livestreamSection = document.getElementById('livestream');
+    const livestreamSection = document.getElementById('livestream');
+    const playerContainer = document.getElementById('youtube-player');
+    const statusBadge = document.querySelector('.status-badge');
+
+    if (!CONFIG.youtubeId && !CONFIG.restreamerPlayer) {
         if (livestreamSection) livestreamSection.style.display = 'none';
         return;
     }
-    player = new YT.Player('youtube-player', {
-        height: '100%',
-        width: '100%',
-        videoId: CONFIG.youtubeId,
-        playerVars: {
-            'playsinline': 1,
-            'rel': 0,
-            'modestbranding': 1
-        },
-        events: {
-            'onStateChange': onPlayerStateChange
+
+    // 1. Check if we have a Restreamer Player (High Quality Choice)
+    if (CONFIG.restreamerUrl) {
+        console.log("Using Native HLS Player for Restreamer...");
+        if (playerContainer) {
+            playerContainer.innerHTML = `
+                <div class="plyr-container" style="position:relative; width:100%; height:100%; border-radius:12px; overflow:hidden;">
+                    <video id="hls-video" controls width="100%" height="100%" playsinline></video>
+                    <div id="hls-loader" class="hls-loader-container" style="position:absolute; top:0; left:0; right:0; bottom:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:10;">
+                        <i class="fas fa-spinner fa-spin" style="font-size:3rem; margin-bottom:15px;"></i>
+                        <p style="font-family:'Playfair Display', serif; letter-spacing:2px; text-transform:uppercase;">Waiting for Stream to Start...</p>
+                    </div>
+                </div>
+            `;
+            
+            // Add an attractive YouTube Link button below
+            if (CONFIG.youtubeId) {
+                const ytLink = document.createElement('div');
+                ytLink.style.textAlign = 'center';
+                ytLink.innerHTML = `
+                    <a href="https://youtube.com/watch?v=${CONFIG.youtubeId}" target="_blank" class="btn primary-btn youtube-fallback-btn" style="display:inline-flex; align-items:center; justify-content:center; gap:10px; margin-top:25px; background: linear-gradient(135deg, #e52d27 0%, #b31217 100%); color: white; border: none; min-width: 200px;">
+                        <i class="fab fa-youtube" style="font-size:1.3rem;"></i> Watch on YouTube
+                    </a>
+                `;
+                livestreamSection.appendChild(ytLink);
+            }
+
+            // Initialize elements and state variables
+            const video = document.getElementById('hls-video');
+            const loader = document.getElementById('hls-loader');
+            let isPlaying = false;
+            let hls;
+            let player;
+
+            // Update status badge if stream is live
+            const updateStatus = (isLive) => {
+                if (statusBadge) {
+                    if (isLive) {
+                        statusBadge.innerHTML = '● LIVE NOW';
+                        statusBadge.classList.add('live-glow');
+                    } else {
+                        statusBadge.innerHTML = '● LIVE SOON';
+                        statusBadge.classList.remove('live-glow');
+                    }
+                }
+            };
+
+            const tryLoadStream = () => {
+                if (isPlaying) return;
+                
+                fetch(CONFIG.restreamerUrl, { method: 'HEAD', cache: 'no-store' })
+                    .then(res => {
+                        if (res.ok) {
+                            // --- STREAM IS LIVE ---
+                            console.log("Stream detected! Initializing player...");
+                            if (loader) loader.style.display = 'none';
+                            isPlaying = true;
+                            updateStatus(true);
+                            
+                            if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+                                hls = new Hls({ 
+                                    capLevelToPlayerSize: true, 
+                                    maxBufferLength: 30,
+                                    liveSyncDuration: 3,
+                                    liveMaxLatencyDuration: 10
+                                });
+                                hls.loadSource(CONFIG.restreamerUrl);
+                                hls.attachMedia(video);
+                                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                                    if (typeof Plyr !== 'undefined') {
+                                        player = new Plyr(video, {
+                                            controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
+                                            settings: ['quality'],
+                                            tooltips: { controls: true, seek: true }
+                                        });
+                                    }
+                                    video.play().catch(e => console.log("Autoplay prevented:", e));
+                                });
+
+                                // Handle Stream Ending (Fallback to VOD)
+                                hls.on(Hls.Events.ERROR, function(event, data) {
+                                    if (data.fatal) {
+                                        console.warn("Stream interrupted, switching to VOD if available...");
+                                        isPlaying = false;
+                                        hls.destroy();
+                                        
+                                        if (CONFIG.youtubeId) {
+                                            setTimeout(() => {
+                                                if (playerContainer) {
+                                                    playerContainer.innerHTML = '<div id="youtube-player"></div>';
+                                                    setupYouTubeVOD();
+                                                }
+                                            }, 2000);
+                                        } else {
+                                            if (loader) loader.style.display = 'flex';
+                                            setTimeout(tryLoadStream, 5000);
+                                        }
+                                    }
+                                });
+                            } else if (video && video.canPlayType('application/vnd.apple.mpegurl')) {
+                                video.src = CONFIG.restreamerUrl;
+                                video.addEventListener('loadedmetadata', function() {
+                                    video.play().catch(e => console.log("Autoplay prevented:", e));
+                                });
+                            }
+                        } else {
+                            setTimeout(tryLoadStream, 5000);
+                        }
+                    })
+                    .catch(() => {
+                        setTimeout(tryLoadStream, 5000);
+                    });
+            };
+
+            const setupYouTubeVOD = () => {
+                new YT.Player('youtube-player', {
+                    height: '100%', width: '100%', videoId: CONFIG.youtubeId,
+                    playerVars: { 'playsinline': 1, 'rel': 0, 'modestbranding': 1 },
+                    events: {
+                        'onReady': () => {
+                            if (statusBadge) statusBadge.innerHTML = '● WATCH RECORDING';
+                        }
+                    }
+                });
+            };
+            
+            tryLoadStream();
         }
-    });
+        return; 
+    }
+
+    // 2. Fallback to standard YouTube Player API
+    if (CONFIG.youtubeId) {
+        player = new YT.Player('youtube-player', {
+            height: '100%',
+            width: '100%',
+            videoId: CONFIG.youtubeId,
+            playerVars: {
+                'playsinline': 1,
+                'rel': 0,
+                'modestbranding': 1
+            },
+            events: {
+                'onStateChange': onPlayerStateChange
+            }
+        });
+    }
 }
 
 function onPlayerStateChange(event) {
