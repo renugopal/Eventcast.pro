@@ -501,9 +501,12 @@ function onYouTubeIframeAPIReady() {
                             if (typeof Hls !== 'undefined' && Hls.isSupported()) {
                                 hls = new Hls({ 
                                     capLevelToPlayerSize: true, 
-                                    maxBufferLength: 30,
-                                    liveSyncDuration: 3,
-                                    liveMaxLatencyDuration: 10
+                                    maxBufferLength: 60, // Increased buffer
+                                    maxMaxBufferLength: 600,
+                                    liveSyncDurationCount: 5, // Wait for 5 segments instead of 3
+                                    liveMaxLatencyDurationCount: 15,
+                                    enableWorker: true,
+                                    lowLatencyMode: false // Stability over low latency
                                 });
                                 hls.loadSource(CONFIG.restreamerUrl);
                                 hls.attachMedia(video);
