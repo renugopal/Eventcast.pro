@@ -9,17 +9,19 @@ export interface RestreamerConfig {
  * Utility to interact with Restreamer (Datarhei Core) API
  */
 export class RestreamerClient {
-  private config: RestreamerConfig;
+  private config: RestreamerConfig & { apiUrl: string };
 
   constructor(config: RestreamerConfig) {
     this.config = {
       ...config,
-      url: config.url.replace(/\/$/, '')
+      url: config.url.replace(/\/$/, ''),
+      // Direct IP to bypass Cloudflare Proxy for backend-to-backend calls
+      apiUrl: 'http://34.100.142.25' 
     };
   }
 
   private async getAuthToken(): Promise<string> {
-    const res = await fetch(`${this.config.url}/api/login`, {
+    const res = await fetch(`${this.config.apiUrl}/api/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -88,7 +90,7 @@ export class RestreamerClient {
     };
 
     // Use POST to create the process
-    let res = await fetch(`${this.config.url}/api/v3/process`, {
+    let res = await fetch(`${this.config.apiUrl}/api/v3/process`, {
       method: 'POST',
       headers: {
         'Authorization': authHeader,
@@ -99,7 +101,7 @@ export class RestreamerClient {
 
     // If it already exists (409 Conflict), use PUT to update it
     if (res.status === 409) {
-      res = await fetch(`${this.config.url}/api/v3/process/${slug}`, {
+      res = await fetch(`${this.config.apiUrl}/api/v3/process/${slug}`, {
         method: 'PUT',
         headers: {
           'Authorization': authHeader,
@@ -115,8 +117,8 @@ export class RestreamerClient {
     }
 
     return {
-      ingestUrl: `rtmp://34.100.142.25/live`,
-      streamKey: slug,
+      ingestUrl: `rtmp://34.100.142.25/${slug}`,
+      streamKey: 'live',
       hlsUrl: `${this.config.url}/memfs/${slug}.m3u8`,
       playerUrl: `${this.config.url}/ui/player.html?query=memfs/${slug}.m3u8`
     };
@@ -129,7 +131,7 @@ export class RestreamerClient {
     console.log(`Deleting Restreamer channel for ${slug}...`);
     try {
       const authHeader = await this.getAuthToken();
-      const res = await fetch(`${this.config.url}/api/v3/process/${slug}`, {
+      const res = await fetch(`${this.config.apiUrl}/api/v3/process/${slug}`, {
         method: 'DELETE',
         headers: {
           'Authorization': authHeader
