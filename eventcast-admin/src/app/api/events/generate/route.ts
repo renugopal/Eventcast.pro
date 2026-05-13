@@ -81,9 +81,10 @@ export async function POST(req: Request) {
       hide_loader_photo: event.hide_loader_photo ?? event.hideLoaderPhoto ?? false,
       loader_photo_url: event.loader_photo_url || event.loaderPhotoUrl || null,
       ...(event.notes ? { notes: event.notes } : {}),
-      // NEW: Restreamer Details for the Table
-      restreamer_ingest_url: `rtmp://34.100.142.25/live`,
-      restreamer_stream_key: slug
+      // Restreamer Details for the Table (Server app='/', token='live')
+      // OBS: Server URL = rtmp://34.100.142.25/{slug}, Stream Key = live
+      restreamer_ingest_url: `rtmp://34.100.142.25/${slug}`,
+      restreamer_stream_key: 'live'
     };
 
     if (event.isEditing && event.editingId) {

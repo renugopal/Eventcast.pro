@@ -81,7 +81,7 @@ export class RestreamerClient {
       input: [
         {
           "id": "0",
-          "address": `{rtmp,name=live/${slug}}`,
+          "address": `{rtmp,name=${slug}}`,
           "options": ["-fflags", "+genpts"]
         }
       ],
