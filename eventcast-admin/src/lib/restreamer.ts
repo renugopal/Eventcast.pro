@@ -98,8 +98,20 @@ export class RestreamerClient {
       body: JSON.stringify(processPayload)
     });
 
-    // If it already exists (409 Conflict), use PUT to update it
+    // Check if it already exists (409 Conflict, or 400 with specific message in V3)
+    let shouldUpdate = false;
+    let errText = '';
+    
     if (res.status === 409) {
+      shouldUpdate = true;
+    } else if (res.status === 400) {
+      errText = await res.text();
+      if (errText.includes("process already exists")) {
+        shouldUpdate = true;
+      }
+    }
+
+    if (shouldUpdate) {
       res = await fetch(`${this.config.url}/api/v3/process/${slug}`, {
         method: 'PUT',
         headers: {
@@ -108,11 +120,13 @@ export class RestreamerClient {
         },
         body: JSON.stringify(processPayload)
       });
+    } else if (!res.ok && res.status !== 400) {
+      // If it wasn't a 400 that we already parsed, parse it now
+      errText = await res.text();
     }
 
     if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Restreamer Process Error: ${err}`);
+      throw new Error(`Restreamer Process Error: ${errText}`);
     }
 
     return {
