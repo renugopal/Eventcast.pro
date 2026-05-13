@@ -52,7 +52,7 @@ export class RestreamerClient {
     const outputs = [
       {
         "id": "hls",
-        "address": `memfs://${slug}.m3u8`,
+        "address": "{memfs}/{processid}.m3u8",
         "options": [
           "-c:v", "copy", 
           "-c:a", "aac", "-b:a", "128k", "-ar", "44100", 
@@ -80,22 +80,34 @@ export class RestreamerClient {
       input: [
         {
           "id": "0",
-          "address": `rtmp://0.0.0.0/live/${slug}`,
+          "address": `{rtmp,name=${slug}}`,
           "options": ["-fflags", "+genpts"]
         }
       ],
       output: outputs
     };
 
-    // Use PUT to create or update the process on the V3 API
-    const res = await fetch(`${this.config.url}/api/v3/process/${slug}`, {
-      method: 'PUT',
+    // Use POST to create the process
+    let res = await fetch(`${this.config.url}/api/v3/process`, {
+      method: 'POST',
       headers: {
         'Authorization': authHeader,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(processPayload)
     });
+
+    // If it already exists (409 Conflict), use PUT to update it
+    if (res.status === 409) {
+      res = await fetch(`${this.config.url}/api/v3/process/${slug}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(processPayload)
+      });
+    }
 
     if (!res.ok) {
       const err = await res.text();

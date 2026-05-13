@@ -115,8 +115,11 @@ export async function POST(req: Request) {
       restreamerData = await restreamer.setupChannel(slug, youtubeKey);
       
       console.log("Restreamer setup successful:", restreamerData);
-    } catch (rsError) {
+    } catch (rsError: any) {
       console.error("Restreamer Setup Failed:", rsError);
+      // Save the error to the database for debugging
+      const errorMsg = "Restreamer Error: " + (rsError.message || String(rsError));
+      await supabase.from('events').update({ notes: errorMsg }).eq('id', eventId);
       // We don't throw here to ensure the site is still generated even if media server is down
     }
     // ----------------------------------
