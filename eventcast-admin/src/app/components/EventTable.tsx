@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy, Search, Download, QrCode, MessageCircle, Link as LinkIcon, CopyPlus, StickyNote, X } from "lucide-react";
+import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy, Search, Download, QrCode, MessageCircle, Link as LinkIcon, CopyPlus, StickyNote, X, Eye } from "lucide-react";
 
 interface EventTableProps {
   events: any[];
@@ -38,6 +38,7 @@ export const EventTable: React.FC<EventTableProps> = ({
   const [tableDensity, setTableDensity] = useState<"compact" | "standard" | "spacious">("standard");
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [openQrEventId, setOpenQrEventId] = useState<string | null>(null);
+  const [previewStream, setPreviewStream] = useState<any | null>(null);
   const [columnWidths, setColumnWidths] = useState<{ [key: string]: number }>({
     select: 40,
     identity: 280,
@@ -443,22 +444,49 @@ export const EventTable: React.FC<EventTableProps> = ({
                         )}
                       </td>
                     <td className={`${getPadding()}`}>
-                      <div className="flex flex-col gap-2 items-start">
-                        {/* OBS / Restreamer Ingest */}
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[8px] font-black text-blue-500 uppercase tracking-tighter">OBS Stream Key</span>
-                          <div className="flex items-center gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-100">
-                            <code className="text-[10px] font-mono text-blue-700">{event.restreamer_stream_key || event.slug}</code>
-                            <button onClick={() => { navigator.clipboard.writeText(event.restreamer_stream_key || event.slug); alert("OBS Key Copied!"); }} className="text-blue-400 hover:text-blue-600"><Copy size={12}/></button>
+                      <div className="flex flex-col gap-3 items-start min-w-[200px]">
+                        {/* Private Server (Restreamer) */}
+                        <div className="w-full space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[8px] font-black text-blue-600 uppercase tracking-tighter">Private Server (OBS)</span>
+                            {event.restreamer_url && (
+                              <button 
+                                onClick={() => setPreviewStream(event)}
+                                className="text-[8px] font-black text-blue-500 hover:text-blue-700 flex items-center gap-1 bg-blue-50 px-1 rounded"
+                              >
+                                <Eye size={8} /> Preview
+                              </button>
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-1 bg-blue-50/50 p-1.5 rounded-lg border border-blue-100/50">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[9px] text-slate-400 font-mono truncate max-w-[120px]">{event.restreamer_ingest_url || `rtmp://34.100.142.25/${event.slug}`}</span>
+                              <button onClick={() => { navigator.clipboard.writeText(event.restreamer_ingest_url || `rtmp://34.100.142.25/${event.slug}`); alert("RTMP URL Copied!"); }} className="text-blue-400 hover:text-blue-600"><Copy size={10}/></button>
+                            </div>
+                            <div className="flex items-center justify-between gap-2 border-t border-blue-100/50 pt-1">
+                              <span className="text-[10px] font-mono font-bold text-blue-700">{event.restreamer_stream_key || 'live'}</span>
+                              <button onClick={() => { navigator.clipboard.writeText(event.restreamer_stream_key || 'live'); alert("Stream Key Copied!"); }} className="text-blue-400 hover:text-blue-600"><Copy size={10}/></button>
+                            </div>
                           </div>
                         </div>
                         
-                        {/* YouTube Link */}
-                        {event.vod_link && (
-                          <a href={event.vod_link} target="_blank" className="flex items-center gap-1 text-[10px] text-red-600 font-bold uppercase bg-red-50 px-2 py-0.5 rounded-full hover:bg-red-100 transition-colors border border-red-100">
-                            <Play size={10} /> YouTube Link
-                          </a>
-                        )}
+                        {/* YouTube Details */}
+                        <div className="w-full space-y-1">
+                          <span className="text-[8px] font-black text-red-600 uppercase tracking-tighter">YouTube Stream</span>
+                          <div className="flex flex-col gap-1 bg-red-50/30 p-1.5 rounded-lg border border-red-100/30">
+                            {event.youtube_stream_key && (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[9px] font-mono text-red-700 truncate max-w-[120px]">{event.youtube_stream_key}</span>
+                                <button onClick={() => { navigator.clipboard.writeText(event.youtube_stream_key); alert("YouTube Key Copied!"); }} className="text-red-400 hover:text-red-600"><Copy size={10}/></button>
+                              </div>
+                            )}
+                            {event.vod_link && (
+                              <a href={event.vod_link} target="_blank" className="flex items-center justify-center gap-1 text-[9px] text-red-600 font-bold uppercase bg-white py-0.5 rounded border border-red-100 hover:bg-red-50 transition-colors">
+                                <ExternalLink size={8} /> Watch Live
+                              </a>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     <td className={`${getPadding()} text-center`}>
@@ -602,6 +630,110 @@ export const EventTable: React.FC<EventTableProps> = ({
         </table>
       </div>
     </div>
-  </div>
-);
+      {/* Stream Preview Modal */}
+      {previewStream && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-3xl rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-6 border-b border-slate-100">
+              <div>
+                <h3 className="text-xl font-black text-slate-800">Live Stream Monitor</h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{previewStream.groom_name} & {previewStream.bride_name}</p>
+              </div>
+              <button 
+                onClick={() => setPreviewStream(null)}
+                className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                <X size={24} className="text-slate-400" />
+              </button>
+            </div>
+            
+            <div className="aspect-video bg-black relative">
+              <video 
+                id="admin-preview-video"
+                controls 
+                autoPlay 
+                className="w-full h-full"
+                playsInline
+              />
+              <div id="admin-preview-loader" className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white z-10">
+                <RefreshCw size={40} className="animate-spin text-blue-500 mb-4" />
+                <p className="text-xs font-black uppercase tracking-widest animate-pulse">Connecting to Media Server...</p>
+              </div>
+              
+              {/* HLS Loading Script */}
+              <script dangerouslySetInnerHTML={{ __html: `
+                (function() {
+                  const video = document.getElementById('admin-preview-video');
+                  const loader = document.getElementById('admin-preview-loader');
+                  const url = "${previewStream.restreamer_url}";
+                  
+                  if (!window.Hls) {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdn.jsdelivr.net/npm/hls.js@latest';
+                    script.onload = initHls;
+                    document.head.appendChild(script);
+                  } else {
+                    initHls();
+                  }
+                  
+                  function initHls() {
+                    if (Hls.isSupported()) {
+                      const hls = new Hls();
+                      hls.loadSource(url);
+                      hls.attachMedia(video);
+                      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        loader.style.display = 'none';
+                        video.play();
+                      });
+                      hls.on(Hls.Events.ERROR, (event, data) => {
+                        if (data.fatal) {
+                          console.log("HLS Error:", data);
+                          // Keep loader visible or show error
+                        }
+                      });
+                    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                      video.src = url;
+                      video.addEventListener('loadedmetadata', () => {
+                        loader.style.display = 'none';
+                        video.play();
+                      });
+                    }
+                  }
+                })();
+              `}} />
+            </div>
+            
+            <div className="p-6 bg-slate-50 flex flex-col md:flex-row gap-4 items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="px-3 py-1 bg-green-500 text-white text-[10px] font-black rounded-full animate-pulse uppercase">
+                  Active Process
+                </div>
+                <div className="text-[11px] font-mono text-slate-500 bg-white px-3 py-1 rounded-lg border border-slate-200">
+                  {previewStream.slug}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => {
+                    navigator.clipboard.writeText(previewStream.restreamer_ingest_url);
+                    alert("RTMP Ingest URL Copied!");
+                  }}
+                  className="px-4 py-2 bg-white text-slate-700 text-xs font-black rounded-xl border border-slate-200 hover:bg-slate-50 transition-all flex items-center gap-2"
+                >
+                  <Copy size={14} /> RTMP URL
+                </button>
+                <a 
+                  href={`https://${previewStream.slug}.eventcast.pro`}
+                  target="_blank"
+                  className="px-6 py-2 bg-blue-600 text-white text-xs font-black rounded-xl hover:bg-blue-700 transition-all shadow-md shadow-blue-200 flex items-center gap-2"
+                >
+                  <ExternalLink size={14} /> View Page
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
