@@ -466,6 +466,13 @@ function onYouTubeIframeAPIReady() {
                 livestreamSection.appendChild(ytLink);
             }
 
+            // Initialize elements and state variables
+            const video = document.getElementById('hls-video');
+            const loader = document.getElementById('hls-loader');
+            let isPlaying = false;
+            let hls;
+            let player;
+
             // Update status badge if stream is live
             const updateStatus = (isLive) => {
                 if (statusBadge) {
@@ -486,11 +493,11 @@ function onYouTubeIframeAPIReady() {
                     .then(res => {
                         if (res.ok) {
                             // Stream is live!
-                            loader.style.display = 'none';
+                            if (loader) loader.style.display = 'none';
                             isPlaying = true;
                             updateStatus(true);
                             
-                            if (Hls.isSupported()) {
+                            if (typeof Hls !== 'undefined' && Hls.isSupported()) {
                                 hls = new Hls({ capLevelToPlayerSize: true, maxBufferLength: 30 });
                                 hls.loadSource(CONFIG.restreamerUrl);
                                 hls.attachMedia(video);
@@ -505,7 +512,7 @@ function onYouTubeIframeAPIReady() {
                                     });
                                     video.play().catch(e => console.log("Autoplay prevented:", e));
                                 });
-                            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                            } else if (video && video.canPlayType('application/vnd.apple.mpegurl')) {
                                 video.src = CONFIG.restreamerUrl;
                                 player = new Plyr(video, {
                                     controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen']
