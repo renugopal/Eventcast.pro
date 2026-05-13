@@ -441,31 +441,80 @@ function onYouTubeIframeAPIReady() {
     }
 
     // 1. Check if we have a Restreamer Player (High Quality Choice)
-    if (CONFIG.restreamerPlayer) {
-        console.log("Using Restreamer High Quality Player...");
+    if (CONFIG.restreamerUrl) {
+        console.log("Using Native HLS Player for Restreamer...");
         if (playerContainer) {
             playerContainer.innerHTML = `
-                <iframe 
-                    src="${CONFIG.restreamerPlayer}&autoplay=true&mute=false&controlbar=true" 
-                    width="100%" 
-                    height="100%" 
-                    style="border:none;" 
-                    allowfullscreen 
-                    allow="autoplay; fullscreen">
-                </iframe>
+                <div style="position:relative; width:100%; height:100%; background:#000; border-radius:12px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.3);">
+                    <video id="hls-video" controls width="100%" height="100%" playsinline style="object-fit:cover;"></video>
+                    <div id="hls-loader" style="position:absolute; top:0; left:0; right:0; bottom:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(0,0,0,0.8); color:#fff; z-index:10;">
+                        <i class="fas fa-spinner fa-spin" style="font-size:3rem; color:var(--primary-color); margin-bottom:15px;"></i>
+                        <p style="font-family:var(--font-heading); letter-spacing:2px; text-transform:uppercase;">Waiting for Stream to Start...</p>
+                    </div>
+                </div>
             `;
-            // Add a small YouTube Link button below for viewers who prefer YouTube
+            
+            // Add an attractive YouTube Link button below
             if (CONFIG.youtubeId) {
                 const ytLink = document.createElement('div');
                 ytLink.style.textAlign = 'center';
-                ytLink.style.marginTop = '15px';
                 ytLink.innerHTML = `
-                    <a href="https://youtube.com/watch?v=${CONFIG.youtubeId}" target="_blank" class="btn secondary-btn" style="font-size: 0.8rem; padding: 8px 15px;">
-                        <i class="fab fa-youtube"></i> Watch on YouTube (Alternate)
+                    <a href="https://youtube.com/watch?v=${CONFIG.youtubeId}" target="_blank" class="btn primary-btn" style="display:inline-flex; align-items:center; justify-content:center; gap:10px; margin-top:25px; box-shadow: 0 4px 15px rgba(211, 47, 47, 0.4); background: linear-gradient(135deg, #e52d27 0%, #b31217 100%); color: white; border: none; min-width: 200px;">
+                        <i class="fab fa-youtube" style="font-size:1.3rem;"></i> Watch on YouTube
                     </a>
                 `;
                 livestreamSection.appendChild(ytLink);
             }
+
+            // Load HLS.js dynamically
+            const hlsScript = document.createElement('script');
+            hlsScript.src = "https://cdn.jsdelivr.net/npm/hls.js@latest";
+            hlsScript.onload = () => {
+                const video = document.getElementById('hls-video');
+                const loader = document.getElementById('hls-loader');
+                
+                let isPlaying = false;
+
+                const tryLoadStream = () => {
+                    if (isPlaying) return;
+                    
+                    fetch(CONFIG.restreamerUrl, { method: 'HEAD', cache: 'no-store' })
+                        .then(res => {
+                            if (res.ok) {
+                                // Stream is live!
+                                loader.style.display = 'none';
+                                isPlaying = true;
+                                
+                                if (Hls.isSupported()) {
+                                    const hls = new Hls({
+                                        capLevelToPlayerSize: true,
+                                        maxBufferLength: 30
+                                    });
+                                    hls.loadSource(CONFIG.restreamerUrl);
+                                    hls.attachMedia(video);
+                                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                                        video.play().catch(e => console.log("Autoplay prevented:", e));
+                                    });
+                                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                                    video.src = CONFIG.restreamerUrl;
+                                    video.addEventListener('loadedmetadata', function() {
+                                        video.play().catch(e => console.log("Autoplay prevented:", e));
+                                    });
+                                }
+                            } else {
+                                // Keep polling
+                                setTimeout(tryLoadStream, 5000);
+                            }
+                        })
+                        .catch(() => {
+                            // Keep polling on error
+                            setTimeout(tryLoadStream, 5000);
+                        });
+                };
+                
+                tryLoadStream();
+            };
+            document.body.appendChild(hlsScript);
         }
         return; // Skip standard YouTube player setup
     }
