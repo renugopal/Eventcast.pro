@@ -11,6 +11,8 @@ window.WEDDING_CONFIG = {
     venueUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3835.851407376101!2d80.26917937596865!3d15.969134384695957!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a4a6799d4775c91%3A0x841865c94b069f2b!2sAddankamma%20Kalyana%20Mandapam!5e0!3m2!1sen!2sin!4v1778523340303!5m2!1sen!2sin",
     venueNavigateUrl: "https://www.google.com/maps/search/?api=1&query=Addanki%20Nancharamma%20Kalyana%20Mandapam%2C%20Parchur.",
     youtubeId: "lZ2kDWOqgaM",
+    restreamerUrl: "https://media.eventcast.pro/memfs/dharani-chowdary-prem-chand-wedding.m3u8",
+    restreamerPlayer: "https://media.eventcast.pro/ui/player.html?query=memfs/dharani-chowdary-prem-chand-wedding.m3u8",
     invitationVideo: "https://res.cloudinary.com/df5b4aq7h/video/upload/v1778548196/events/dharani-chowdary/orndljcrbf8g61qmjgz1.mp4",
     invitationVideos: ["https://res.cloudinary.com/df5b4aq7h/video/upload/v1778548196/events/dharani-chowdary/orndljcrbf8g61qmjgz1.mp4"],
     thumbnail: "https://res.cloudinary.com/df5b4aq7h/image/upload/f_auto,q_auto/v1778523356/events/dharani-chowdary/xkntc1ncdzhg1wl9uile.jpg",
