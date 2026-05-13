@@ -14,7 +14,9 @@ export class RestreamerClient {
 
   constructor(config: RestreamerConfig) {
     this.url = config.url.replace(/\/$/, '');
-    this.auth = 'Basic ' + Buffer.from(`${config.username}:${config.password || ''}`).toString('base64');
+    // Using btoa for Edge Runtime compatibility (Buffer is Node-only)
+    const credentials = `${config.username}:${config.password || ''}`;
+    this.auth = 'Basic ' + btoa(credentials);
   }
 
   /**
