@@ -9,14 +9,35 @@ export interface RestreamerConfig {
  * Utility to interact with Restreamer (Datarhei Core) API
  */
 export class RestreamerClient {
-  private url: string;
-  private auth: string;
+  private config: RestreamerConfig;
 
   constructor(config: RestreamerConfig) {
-    this.url = config.url.replace(/\/$/, '');
-    // Using btoa for Edge Runtime compatibility (Buffer is Node-only)
-    const credentials = `${config.username}:${config.password || ''}`;
-    this.auth = 'Basic ' + btoa(credentials);
+    this.config = {
+      ...config,
+      url: config.url.replace(/\/$/, '')
+    };
+  }
+
+  private async getAuthToken(): Promise<string> {
+    const res = await fetch(`${this.config.url}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: this.config.username,
+        password: this.config.password || ''
+      })
+    });
+
+    if (!res.ok) {
+      throw new Error(`Restreamer Login Failed: ${res.statusText}`);
+    }
+
+    const data = await res.json();
+    if (!data.access_token) {
+      throw new Error("Restreamer Login Failed: No access token received");
+    }
+
+    return `Bearer ${data.access_token}`;
   }
 
   /**
@@ -25,9 +46,9 @@ export class RestreamerClient {
    */
   async setupChannel(slug: string, youtubeKey?: string) {
     console.log(`Setting up Restreamer channel for ${slug}...`);
+    const authHeader = await this.getAuthToken();
 
     // 1. Create/Update the main process (Ingest -> HLS)
-    // We use RTMP ingest by default for stability as discussed with user
     const processPayload = {
       id: slug,
       type: "ffmpeg",
@@ -46,7 +67,7 @@ export class RestreamerClient {
           "address": `memfs://${slug}.m3u8`,
           "options": [
             "-c:v", "copy", 
-            "-c:a", "aac", "-b:a", "128k", "-ar", "44100", // Audio transcoding for stability
+            "-c:a", "aac", "-b:a", "128k", "-ar", "44100", 
             "-f", "hls", 
             "-hls_time", "2", 
             "-hls_list_size", "10", 
@@ -56,16 +77,16 @@ export class RestreamerClient {
       ]
     };
 
-    const res = await fetch(`${this.url}/api/v1/process`, {
+    const res = await fetch(`${this.config.url}/api/v1/process`, {
       method: 'POST',
       headers: {
-        'Authorization': this.auth,
+        'Authorization': authHeader,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(processPayload)
     });
 
-    if (!res.ok && res.status !== 409) { // 409 means it already exists, which is fine
+    if (!res.ok && res.status !== 409) { // 409 means it already exists
       const err = await res.json();
       throw new Error(`Restreamer Process Error: ${JSON.stringify(err)}`);
     }
@@ -93,10 +114,10 @@ export class RestreamerClient {
         ]
       };
 
-      const pubRes = await fetch(`${this.url}/api/v1/process/${slug}/publication`, {
+      const pubRes = await fetch(`${this.config.url}/api/v1/process/${slug}/publication`, {
         method: 'POST',
         headers: {
-          'Authorization': this.auth,
+          'Authorization': authHeader,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(pubPayload)
@@ -111,8 +132,8 @@ export class RestreamerClient {
     return {
       ingestUrl: `rtmp://34.100.142.25/live`,
       streamKey: slug,
-      hlsUrl: `${this.url}/memfs/${slug}.m3u8`,
-      playerUrl: `${this.url}/ui/player.html?query=memfs/${slug}.m3u8`
+      hlsUrl: `${this.config.url}/memfs/${slug}.m3u8`,
+      playerUrl: `${this.config.url}/ui/player.html?query=memfs/${slug}.m3u8`
     };
   }
 
@@ -122,10 +143,11 @@ export class RestreamerClient {
   async deleteChannel(slug: string) {
     console.log(`Deleting Restreamer channel for ${slug}...`);
     try {
-      const res = await fetch(`${this.url}/api/v1/process/${slug}`, {
+      const authHeader = await this.getAuthToken();
+      const res = await fetch(`${this.config.url}/api/v1/process/${slug}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': this.auth
+          'Authorization': authHeader
         }
       });
       return res.ok;
