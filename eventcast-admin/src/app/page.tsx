@@ -68,7 +68,10 @@ export default function AdminDashboard() {
     customInitials: "",
     hideLoaderPhoto: false,
     loaderPhotoUrl: "",
-    notes: ""
+    notes: "",
+    youtube_broadcast_id: "",
+    youtube_stream_key: "",
+    youtube_url: ""
   });
 
   const [hasManuallyEditedInitials, setHasManuallyEditedInitials] = useState(false);
@@ -541,9 +544,9 @@ export default function AdminDashboard() {
         galleryUrls: formData.galleryUrls.split('\n').filter(url => url.trim()),
         baseDesign: selectedBaseDesign,
         vodLink: youtubeDetails?.youtubeUrl || formData.vodLink,
-        youtube_broadcast_id: youtubeDetails?.broadcastId,
-        youtube_stream_key: youtubeDetails?.streamKey,
-        youtube_url: youtubeDetails?.youtubeUrl
+        youtube_broadcast_id: youtubeDetails?.broadcastId || formData.youtube_broadcast_id,
+        youtube_stream_key: youtubeDetails?.streamKey || formData.youtube_stream_key,
+        youtube_url: youtubeDetails?.youtubeUrl || formData.youtube_url
       };
 
       const res = await fetch('/api/events/generate', {
@@ -653,7 +656,10 @@ export default function AdminDashboard() {
       customInitials: event.custom_initials || "",
       hideLoaderPhoto: event.hide_loader_photo || false,
       loaderPhotoUrl: event.loader_photo_url || "",
-      notes: event.notes || ""
+      notes: event.notes || "",
+      youtube_broadcast_id: event.youtube_broadcast_id || "",
+      youtube_stream_key: event.youtube_stream_key || "",
+      youtube_url: event.youtube_url || ""
     });
     // Always set true when editing so auto-fill doesn't wipe existing values
     setHasManuallyEditedInitials(true);
