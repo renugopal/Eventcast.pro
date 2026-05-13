@@ -48,37 +48,48 @@ export class RestreamerClient {
     console.log(`Setting up Restreamer channel for ${slug}...`);
     const authHeader = await this.getAuthToken();
 
-    // 1. Create/Update the main process (Ingest -> HLS)
+    // 1. Build outputs array
+    const outputs = [
+      {
+        "id": "hls",
+        "address": `memfs://${slug}.m3u8`,
+        "options": [
+          "-c:v", "copy", 
+          "-c:a", "aac", "-b:a", "128k", "-ar", "44100", 
+          "-f", "hls", 
+          "-hls_time", "2", 
+          "-hls_list_size", "10", 
+          "-hls_flags", "delete_segments+independent_segments"
+        ]
+      }
+    ];
+
+    if (youtubeKey) {
+      outputs.push({
+        "id": "youtube",
+        "address": `rtmp://a.rtmp.youtube.com/live2/${youtubeKey}`,
+        "options": ["-c:v", "copy", "-c:a", "copy", "-f", "flv"]
+      });
+    }
+
+    // 2. Create/Update the main process (Ingest -> Outputs)
     const processPayload = {
       id: slug,
-      type: "ffmpeg",
       autostart: true,
       reconnect: true,
-      config: [
+      input: [
         {
-          "id": "input",
-          "type": "input",
+          "id": "0",
           "address": `rtmp://0.0.0.0/live/${slug}`,
           "options": ["-fflags", "+genpts"]
-        },
-        {
-          "id": "output_hls",
-          "type": "output",
-          "address": `memfs://${slug}.m3u8`,
-          "options": [
-            "-c:v", "copy", 
-            "-c:a", "aac", "-b:a", "128k", "-ar", "44100", 
-            "-f", "hls", 
-            "-hls_time", "2", 
-            "-hls_list_size", "10", 
-            "-hls_flags", "delete_segments+independent_segments"
-          ]
         }
-      ]
+      ],
+      output: outputs
     };
 
-    const res = await fetch(`${this.config.url}/api/v1/process`, {
-      method: 'POST',
+    // Use PUT to create or update the process on the V3 API
+    const res = await fetch(`${this.config.url}/api/v3/process/${slug}`, {
+      method: 'PUT',
       headers: {
         'Authorization': authHeader,
         'Content-Type': 'application/json'
@@ -86,47 +97,9 @@ export class RestreamerClient {
       body: JSON.stringify(processPayload)
     });
 
-    if (!res.ok && res.status !== 409) { // 409 means it already exists
-      const err = await res.json();
-      throw new Error(`Restreamer Process Error: ${JSON.stringify(err)}`);
-    }
-
-    // 2. If YouTube key is provided, add the YouTube Publication
-    if (youtubeKey) {
-      console.log(`Adding YouTube publication for ${slug}...`);
-      const pubPayload = {
-        id: "youtube",
-        type: "ffmpeg",
-        autostart: true,
-        reconnect: true,
-        config: [
-          {
-            "id": "input",
-            "type": "input",
-            "address": `memfs://${slug}.m3u8`
-          },
-          {
-            "id": "output_rtmp",
-            "type": "output",
-            "address": `rtmp://a.rtmp.youtube.com/live2/${youtubeKey}`,
-            "options": ["-c:v", "copy", "-c:a", "copy", "-f", "flv"]
-          }
-        ]
-      };
-
-      const pubRes = await fetch(`${this.config.url}/api/v1/process/${slug}/publication`, {
-        method: 'POST',
-        headers: {
-          'Authorization': authHeader,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(pubPayload)
-      });
-
-      if (!pubRes.ok && pubRes.status !== 409) {
-        const err = await pubRes.json();
-        console.error("Restreamer Publication Error:", err);
-      }
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Restreamer Process Error: ${err}`);
     }
 
     return {
@@ -144,7 +117,7 @@ export class RestreamerClient {
     console.log(`Deleting Restreamer channel for ${slug}...`);
     try {
       const authHeader = await this.getAuthToken();
-      const res = await fetch(`${this.config.url}/api/v1/process/${slug}`, {
+      const res = await fetch(`${this.config.url}/api/v3/process/${slug}`, {
         method: 'DELETE',
         headers: {
           'Authorization': authHeader
