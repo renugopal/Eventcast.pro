@@ -33,6 +33,34 @@ export const EventTable: React.FC<EventTableProps> = ({
   deleteMultipleEvents
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [togglingYoutube, setTogglingYoutube] = useState<Record<string, boolean>>({});
+
+  const toggleYoutubeRelay = async (event: any, enabled: boolean) => {
+    setTogglingYoutube(prev => ({ ...prev, [event.id]: true }));
+    try {
+      const response = await fetch('/api/media/toggle-youtube', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          slug: event.slug, 
+          enabled: enabled, 
+          eventId: event.id 
+        }),
+      });
+      if (response.ok) {
+        alert(`YouTube Relay ${enabled ? 'Started' : 'Stopped'} Successfully!`);
+        fetchEvents();
+      }
+    } finally {
+      setTogglingYoutube(prev => {
+        const next = { ...prev };
+        delete next[event.id];
+        return next;
+      });
+    }
+  };
+
   const [filterType, setFilterType] = useState("All");
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
   const [tableDensity, setTableDensity] = useState<"compact" | "standard" | "spacious">("standard");
@@ -472,7 +500,30 @@ export const EventTable: React.FC<EventTableProps> = ({
                         
                         {/* YouTube Details */}
                         <div className="w-full space-y-1">
-                          <span className="text-[8px] font-black text-red-600 uppercase tracking-tighter">YouTube Stream</span>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[8px] font-black text-red-600 uppercase tracking-tighter">YouTube Relay</span>
+                            {event.youtube_stream_key && (
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-[8px] font-black ${togglingYoutube[event.id] ? 'text-slate-400' : 'text-slate-500'}`}>
+                                  {togglingYoutube[event.id] ? 'UPDATING...' : 'RELAY'}
+                                </span>
+                                <button
+                                  onClick={() => toggleYoutubeRelay(event, true)}
+                                  className={`w-6 h-3 rounded-full relative transition-colors ${togglingYoutube[event.id] ? 'bg-slate-100' : 'bg-red-500'}`}
+                                  title="Click to Refresh/Enable YouTube Relay"
+                                >
+                                  <div className="absolute right-0.5 top-0.5 w-2 h-2 bg-white rounded-full shadow-sm" />
+                                </button>
+                                <button
+                                  onClick={() => toggleYoutubeRelay(event, false)}
+                                  className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600 transition-colors"
+                                  title="Stop YouTube Stream"
+                                >
+                                  <X size={10} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
                           <div className="flex flex-col gap-1 bg-red-50/30 p-1.5 rounded-lg border border-red-100/30">
                             {event.youtube_stream_key && (
                               <div className="flex items-center justify-between gap-2">

@@ -156,4 +156,50 @@ export class RestreamerClient {
       return false;
     }
   }
+
+  /**
+   * Toggle a specific output (e.g., youtube) for a process
+   */
+  async toggleOutput(slug: string, outputId: string, enabled: boolean, outputConfig?: any) {
+    try {
+      const authHeader = await this.getAuthToken();
+      
+      // 1. Get current process config
+      const getRes = await fetch(`${this.config.url}/api/v3/process/${slug}`, {
+        headers: { 'Authorization': authHeader }
+      });
+      
+      if (!getRes.ok) throw new Error("Could not find process");
+      const process = await getRes.json();
+      
+      let outputs = [...(process.config.output || [])];
+      
+      if (enabled) {
+        // Add if not already there
+        if (!outputs.find((o: any) => o.id === outputId)) {
+          if (!outputConfig) throw new Error("Output config required to enable");
+          outputs.push(outputConfig);
+        }
+      } else {
+        // Remove the output
+        outputs = outputs.filter((o: any) => o.id !== outputId);
+      }
+      
+      // 2. Update process with new output array
+      const updatedConfig = { ...process.config, output: outputs };
+      const putRes = await fetch(`${this.config.url}/api/v3/process/${slug}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updatedConfig)
+      });
+      
+      return putRes.ok;
+    } catch (err) {
+      console.error(`Failed to toggle output ${outputId} for ${slug}:`, err);
+      return false;
+    }
+  }
 }
