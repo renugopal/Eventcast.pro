@@ -82,8 +82,8 @@ export async function POST(req: Request) {
       loader_photo_url: event.loader_photo_url || event.loaderPhotoUrl || null,
       ...(event.notes ? { notes: event.notes } : {}),
       // NEW: Restreamer Details for the Table
-      restreamer_ingest_url: `rtmp://34.100.142.25/${slug}`,
-      restreamer_stream_key: 'live'
+      restreamer_ingest_url: `rtmp://34.100.142.25/live`,
+      restreamer_stream_key: slug
     };
 
     if (event.isEditing && event.editingId) {
