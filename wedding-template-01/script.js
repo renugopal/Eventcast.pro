@@ -492,31 +492,54 @@ function onYouTubeIframeAPIReady() {
                 fetch(CONFIG.restreamerUrl, { method: 'HEAD', cache: 'no-store' })
                     .then(res => {
                         if (res.ok) {
-                            // Stream is live!
+                            // --- STREAM IS LIVE ---
+                            console.log("Stream detected! Initializing player...");
                             if (loader) loader.style.display = 'none';
                             isPlaying = true;
                             updateStatus(true);
                             
                             if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-                                hls = new Hls({ capLevelToPlayerSize: true, maxBufferLength: 30 });
+                                hls = new Hls({ 
+                                    capLevelToPlayerSize: true, 
+                                    maxBufferLength: 30,
+                                    liveSyncDuration: 3,
+                                    liveMaxLatencyDuration: 10
+                                });
                                 hls.loadSource(CONFIG.restreamerUrl);
                                 hls.attachMedia(video);
                                 hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                                    // Initialize Plyr after HLS is ready
-                                    player = new Plyr(video, {
-                                        controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
-                                        settings: ['quality', 'speed'],
-                                        quality: { default: 1080, options: [1080, 720, 576, 480, 360] },
-                                        tooltips: { controls: true, seek: true },
-                                        i18n: { play: 'Play Live', pause: 'Pause Live' }
-                                    });
+                                    if (typeof Plyr !== 'undefined') {
+                                        player = new Plyr(video, {
+                                            controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
+                                            settings: ['quality'],
+                                            tooltips: { controls: true, seek: true }
+                                        });
+                                    }
                                     video.play().catch(e => console.log("Autoplay prevented:", e));
+                                });
+
+                                // Handle Stream Ending (Fallback to VOD)
+                                hls.on(Hls.Events.ERROR, function(event, data) {
+                                    if (data.fatal) {
+                                        console.warn("Stream interrupted, switching to VOD if available...");
+                                        isPlaying = false;
+                                        hls.destroy();
+                                        
+                                        if (CONFIG.youtubeId) {
+                                            setTimeout(() => {
+                                                if (playerContainer) {
+                                                    playerContainer.innerHTML = '<div id="youtube-player"></div>';
+                                                    setupYouTubeVOD();
+                                                }
+                                            }, 2000);
+                                        } else {
+                                            if (loader) loader.style.display = 'flex';
+                                            setTimeout(tryLoadStream, 5000);
+                                        }
+                                    }
                                 });
                             } else if (video && video.canPlayType('application/vnd.apple.mpegurl')) {
                                 video.src = CONFIG.restreamerUrl;
-                                player = new Plyr(video, {
-                                    controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen']
-                                });
                                 video.addEventListener('loadedmetadata', function() {
                                     video.play().catch(e => console.log("Autoplay prevented:", e));
                                 });
@@ -529,10 +552,22 @@ function onYouTubeIframeAPIReady() {
                         setTimeout(tryLoadStream, 5000);
                     });
             };
+
+            const setupYouTubeVOD = () => {
+                new YT.Player('youtube-player', {
+                    height: '100%', width: '100%', videoId: CONFIG.youtubeId,
+                    playerVars: { 'playsinline': 1, 'rel': 0, 'modestbranding': 1 },
+                    events: {
+                        'onReady': () => {
+                            if (statusBadge) statusBadge.innerHTML = '● WATCH RECORDING';
+                        }
+                    }
+                });
+            };
             
             tryLoadStream();
         }
-        return; // Skip standard YouTube player setup
+        return; 
     }
 
     // 2. Fallback to standard YouTube Player API
