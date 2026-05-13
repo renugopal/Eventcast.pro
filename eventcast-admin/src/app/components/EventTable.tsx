@@ -35,6 +35,26 @@ export const EventTable: React.FC<EventTableProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [togglingYoutube, setTogglingYoutube] = useState<Record<string, boolean>>({});
+  const [restartingServer, setRestartingServer] = useState<Record<string, boolean>>({});
+
+  const handleRestartServer = async (slug: string, eventId: string) => {
+    setRestartingServer(prev => ({ ...prev, [eventId]: true }));
+    try {
+      const res = await fetch('/api/media/restart-channel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug })
+      });
+      if (res.ok) alert("Server process restarted successfully!");
+      else alert("Failed to restart server.");
+    } finally {
+      setRestartingServer(prev => {
+        const next = { ...prev };
+        delete next[eventId];
+        return next;
+      });
+    }
+  };
 
   const toggleYoutubeRelay = async (event: any, enabled: boolean) => {
     setTogglingYoutube(prev => ({ ...prev, [event.id]: true }));
@@ -485,6 +505,17 @@ export const EventTable: React.FC<EventTableProps> = ({
                                 <Eye size={8} /> Preview
                               </button>
                             )}
+                            <button 
+                              onClick={() => handleRestartServer(event.slug, event.id)}
+                              disabled={restartingServer[event.id]}
+                              className={`text-[8px] font-black flex items-center gap-1 px-1 rounded transition-colors ${
+                                restartingServer[event.id] ? 'bg-slate-100 text-slate-400' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'
+                              }`}
+                              title="Force Restart Media Process"
+                            >
+                              <RefreshCw size={8} className={restartingServer[event.id] ? 'animate-spin' : ''} />
+                              {restartingServer[event.id] ? 'RESTARTING...' : 'RESTART'}
+                            </button>
                           </div>
                           <div className="flex flex-col gap-1 bg-blue-50/50 p-1.5 rounded-lg border border-blue-100/50">
                             <div className="flex items-center justify-between gap-2">

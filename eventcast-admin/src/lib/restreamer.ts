@@ -138,6 +138,29 @@ export class RestreamerClient {
   }
 
   /**
+   * Restart a channel (process) completely
+   */
+  async restartChannel(slug: string) {
+    console.log(`Restarting Restreamer channel for ${slug}...`);
+    try {
+      const authHeader = await this.getAuthToken();
+      // Send a signal to restart the process
+      const res = await fetch(`${this.config.url}/api/v3/process/${slug}/command`, {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ command: 'restart' })
+      });
+      return res.ok;
+    } catch (err) {
+      console.error("Restreamer restart failed:", err);
+      return false;
+    }
+  }
+
+  /**
    * Delete a channel (process) from Restreamer
    */
   async deleteChannel(slug: string) {
