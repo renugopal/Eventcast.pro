@@ -58,9 +58,10 @@ export class RestreamerClient {
           "-c:v", "copy", 
           "-c:a", "aac", "-b:a", "128k", "-ar", "44100", 
           "-f", "hls", 
-          "-hls_time", "2", 
-          "-hls_list_size", "10", 
-          "-hls_flags", "delete_segments+independent_segments"
+          "-hls_time", "4", 
+          "-hls_list_size", "0", 
+          "-hls_playlist_type", "event",
+          "-hls_flags", "independent_segments"
         ]
       }
     ];
