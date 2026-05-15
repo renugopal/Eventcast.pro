@@ -53,7 +53,7 @@ export class RestreamerClient {
     const outputs = [
       {
         "id": "hls",
-        "address": "{memfs}/{processid}.m3u8",
+        "address": "{data}/{processid}.m3u8",
         "options": [
           "-c:v", "copy", 
           "-c:a", "aac", "-b:a", "128k", "-ar", "44100", 
@@ -75,10 +75,19 @@ export class RestreamerClient {
     }
 
     // 2. Create/Update the main process (Ingest -> Outputs)
+    // We add metadata to make it visible in the Restreamer UI
     const processPayload = {
       id: slug,
       autostart: true,
       reconnect: true,
+      metadata: {
+        "restreamer-ui": {
+          "channel": {
+            "id": slug,
+            "name": slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+          }
+        }
+      },
       input: [
         {
           "id": "0",
@@ -133,8 +142,8 @@ export class RestreamerClient {
     return {
       ingestUrl: `rtmp://34.100.142.25/${slug}`,
       streamKey: 'live',
-      hlsUrl: `${this.config.url}/memfs/${slug}.m3u8`,
-      playerUrl: `${this.config.url}/ui/player.html?query=memfs/${slug}.m3u8`
+      hlsUrl: `${this.config.url}/data/${slug}.m3u8`,
+      playerUrl: `${this.config.url}/ui/player.html?query=data/${slug}.m3u8`
     };
   }
 
