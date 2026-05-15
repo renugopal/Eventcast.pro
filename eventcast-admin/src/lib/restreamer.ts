@@ -235,4 +235,24 @@ export class RestreamerClient {
       return false;
     }
   }
+
+  /**
+   * Get all active processes
+   */
+  async getAllProcesses() {
+    try {
+      const authHeader = await this.getAuthToken();
+      const res = await fetch(`${this.config.url}/api/v3/process`, {
+        headers: { 'Authorization': authHeader }
+      });
+      
+      if (!res.ok) throw new Error("Failed to fetch processes");
+      
+      const processes = await res.json();
+      return processes;
+    } catch (err) {
+      console.error("Restreamer get all processes failed:", err);
+      return [];
+    }
+  }
 }

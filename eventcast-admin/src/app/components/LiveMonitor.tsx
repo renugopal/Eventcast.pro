@@ -16,9 +16,43 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
     return () => clearInterval(timer);
   }, []);
 
+  const [activeStreams, setActiveStreams] = useState<any[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    const fetchLiveStatus = async () => {
+      try {
+        setIsRefreshing(true);
+        const res = await fetch('/api/media/live-status');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.activeProcesses) {
+            // Find our matching DB events for the active streams
+            const mappedStreams = data.activeProcesses.map((process: any) => {
+              const matchedEvent = events.find(e => e.slug === process.id);
+              return {
+                ...process,
+                eventData: matchedEvent || null
+              };
+            });
+            setActiveStreams(mappedStreams);
+          }
+        }
+      } catch (err) {
+        console.error("Live monitor fetch error:", err);
+      } finally {
+        setIsRefreshing(false);
+      }
+    };
+
+    fetchLiveStatus();
+    const statusInterval = setInterval(fetchLiveStatus, 15000); // Check every 15s
+
+    return () => clearInterval(statusInterval);
+  }, [events]);
+
   const today = new Date().toISOString().split('T')[0];
-  const liveEvents = events.filter(e => e.youtube_status === 'live' || e.youtube_status === 'active');
-  const upcomingToday = events.filter(e => e.event_date === today && e.youtube_status !== 'live' && e.youtube_status !== 'completed');
+  const upcomingToday = events.filter(e => e.event_date === today);
 
   const todayWishes = wishes.filter(w => new Date(w.created_at).toISOString().split('T')[0] === today);
 
@@ -57,30 +91,46 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
               <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse" /> Active Broadcasts
             </h3>
             <div className="space-y-4">
-              {liveEvents.length === 0 ? (
+              {activeStreams.length === 0 ? (
                 <div className="h-40 flex items-center justify-center text-slate-500 flex-col gap-2">
                   <Play size={32} className="opacity-50" />
                   <p className="font-bold">No active livestreams currently.</p>
                 </div>
               ) : (
-                liveEvents.map(event => (
-                  <div key={event.id} className="bg-slate-800 p-6 rounded-2xl border border-red-500/30 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="px-2 py-0.5 bg-red-500/20 text-red-400 text-[10px] font-black uppercase rounded border border-red-500/30 mb-2 inline-block tracking-widest">
-                          🔴 LIVE NOW
+                activeStreams.map(stream => {
+                  const event = stream.eventData;
+                  const isRunning = stream.state === 'running';
+                  
+                  return (
+                    <div key={stream.id} className="bg-slate-800 p-6 rounded-2xl border border-red-500/30 relative overflow-hidden group">
+                      {isRunning && <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />}
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className={`px-2 py-0.5 text-[10px] font-black uppercase rounded border mb-2 inline-block tracking-widest ${isRunning ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>
+                            {isRunning ? '🔴 LIVE NOW' : '🟡 CONNECTING'}
+                          </div>
+                          {event ? (
+                            <>
+                              <h4 className="text-2xl font-black text-white tracking-tight">{event.groom_name || event.celebrant_name} & {event.bride_name || 'Family'}</h4>
+                              <p className="text-sm font-bold text-slate-400 mt-1">{event.venue_name} • {event.event_type}</p>
+                            </>
+                          ) : (
+                            <h4 className="text-xl font-black text-white tracking-tight">{stream.id} (Unlinked)</h4>
+                          )}
                         </div>
-                        <h4 className="text-2xl font-black text-white tracking-tight">{event.groom_name || event.celebrant_name} & {event.bride_name || 'Family'}</h4>
-                        <p className="text-sm font-bold text-slate-400 mt-1">{event.venue_name} • {event.event_type}</p>
-                      </div>
-                      <div className="text-right">
-                         <div className="font-mono text-xl font-black text-white">{event.view_count || 0}</div>
-                         <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Current Views</div>
+                        <div className="text-right flex flex-col items-end gap-2">
+                           <div className="flex items-center gap-2">
+                             <div className="font-mono text-xl font-black text-white">{event?.view_count || 0}</div>
+                             <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Views</div>
+                           </div>
+                           <div className="text-[10px] bg-slate-700/50 px-2 py-1 rounded text-slate-300 font-mono">
+                             Up: {Math.floor((stream.uptime || 0) / 60)}m
+                           </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
