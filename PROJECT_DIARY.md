@@ -4,6 +4,37 @@ This diary is a detailed record of the evolution of Eventcast Pro. It documents 
 
 ---
 
+## 🏛️ Session 3: Admin Dashboard Hardening & Operational Tools
+**Date: May 4 - May 11, 2026**
+
+### 🔍 Context
+The goal was to make the admin dashboard fully mobile-responsive and secure the underlying data structure before scaling.
+
+### 🗣️ Our Discussion
+We discussed the best way to utilize Google Cloud credits for future AI features while maintaining a secure Supabase backend. We also planned for a photographer management system to handle credits and branding automatically.
+
+### 🛠️ What we did & Why
+1. **Mobile Responsiveness**: Transformed the admin panel into a fully responsive interface.
+   - *Why?* To allow event management on-the-go via smartphones.
+2. **Security Hardening**: Implemented `robots.txt` for admin exclusion and Supabase Row-Level Security (RLS).
+   - *Why?* To prevent sensitive admin data from appearing in Google searches.
+3. **Internal Tools**: Added collapsible sidebars, peak hour charts, and internal event notes.
+
+---
+
+## 🏛️ Session 4: Template Automation & Initial Launch
+**Date: April 23 - May 2, 2026**
+
+### 🔍 Context
+Launching the first set of automated wedding templates (Bhargav Upanayanam & Vamsi Wedding).
+
+### 🛠️ What we did & Why
+1. **Media Reliability**: Fixed invitation video auto-play issues across mobile browsers.
+2. **Social Previews**: Configured Open Graph (OG) metadata for high-quality image previews on WhatsApp/Twitter.
+3. **SEO Integration**: Standardized semantic HTML across all generated landing pages.
+
+---
+
 ## 🏛️ Session 1: The "Live-to-VOD" Challenge & YouTube Relay
 **Date: May 13-14, 2026**
 

@@ -21,6 +21,17 @@ This document provides a concise summary of completed and pending tasks.
 ### Admin Dashboard
 - [x] Fixed YouTube metadata persistence during "Edit & Save".
 - [x] Added YouTube Relay status indicators in EventTable.
+- [x] Implemented Mobile-Responsive Admin Dashboard.
+- [x] Secured backend with Supabase Row-Level Security (RLS).
+- [x] Added `robots.txt` to prevent admin panel indexing.
+- [x] Implemented Operational Analytics (Peak Hours chart).
+- [x] Added Photographer Management & Branding system.
+- [x] Integrated System Sentinel health monitoring.
+
+### Template Features
+- [x] Automated video auto-play for invitation videos.
+- [x] Implemented Open Graph (OG) metadata for social sharing.
+- [x] Standardized SEO semantic HTML for all templates.
 
 ---
 
