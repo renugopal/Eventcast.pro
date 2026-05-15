@@ -9,7 +9,7 @@ export default function ClientPortal() {
   const { slug } = useParams();
   const [event, setEvent] = useState<any>(null);
   const [wishes, setWishes] = useState<any[]>([]);
-  const [analytics, setAnalytics] = useState<any>({ totalViews: 0, rawViews: [] });
+  const [analytics, setAnalytics] = useState<{ totalViews: number }>({ totalViews: 0 });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -33,18 +33,13 @@ export default function ClientPortal() {
         
         if (wishesData) setWishes(wishesData);
 
-        // Fetch Analytics
-        const { data: viewsData } = await supabase
+        // Fetch view count only — no raw rows needed for the portal display
+        const { count: viewCount } = await supabase
           .from('page_views')
-          .select('*')
+          .select('*', { count: 'exact', head: true })
           .eq('event_id', eventData.id);
 
-        if (viewsData) {
-          setAnalytics({
-            totalViews: viewsData.length,
-            rawViews: viewsData
-          });
-        }
+        setAnalytics({ totalViews: viewCount ?? 0 });
       }
       setIsLoading(false);
     }

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
-import { Users, Smartphone, Globe, Monitor, Clock, Activity, MapPin, Eye, TrendingUp, ChevronLeft } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Users, Smartphone, Globe, Monitor, Clock, Activity, MapPin, Eye, TrendingUp, ChevronLeft, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 interface AnalyticsDashboardProps {
   analyticsData: any[];
@@ -9,6 +10,8 @@ interface AnalyticsDashboardProps {
 
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analyticsData }) => {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [rawViews, setRawViews] = useState<any[]>([]);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   const totalViews = analyticsData.reduce((acc, curr) => acc + (curr.view_count || 0), 0);
   const avgViews = analyticsData.length > 0 ? Math.round(totalViews / analyticsData.length) : 0;
@@ -16,9 +19,22 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
 
   const selectedEvent = analyticsData.find(e => e.id === selectedEventId);
 
+  // Lazy-load raw rows only for the selected event (single-event fetch, not thousands of rows)
+  useEffect(() => {
+    if (!selectedEventId) { setRawViews([]); return; }
+    setIsLoadingDetail(true);
+    supabase
+      .from('page_views')
+      .select('created_at, referrer, device_type, user_agent')
+      .eq('event_id', selectedEventId)
+      .then(({ data }) => {
+        setRawViews(data || []);
+        setIsLoadingDetail(false);
+      });
+  }, [selectedEventId]);
+
   // Detailed Analytics View
   if (selectedEvent) {
-    const rawViews = selectedEvent.raw_views || [];
     
     // Group by hour
     const viewsByHour: Record<string, number> = {};
@@ -50,6 +66,14 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
       else if (type === 'Tablet') devices.Tablet++;
       else devices.Desktop++;
     });
+
+    if (isLoadingDetail) {
+      return (
+        <div className="max-w-7xl mx-auto flex items-center justify-center py-32">
+          <Loader2 className="animate-spin text-blue-500" size={40} />
+        </div>
+      );
+    }
 
     return (
       <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-300">

@@ -112,12 +112,19 @@ export default function AdminDashboard() {
     fetchAnalytics();
     fetchPhotographers();
 
-    // Real-time listener for page views (Instantly update Dashboard counts!)
+    // Real-time listener: increment the affected event's count in-place
+    // instead of re-fetching all rows from the DB on every single INSERT.
     const viewsChannel = supabase
       .channel('realtime-views')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'page_views' }, () => {
-        console.log("New view detected! Updating analytics...");
-        fetchAnalytics();
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'page_views' }, (payload) => {
+        const eventId = payload.new?.event_id;
+        if (!eventId) return;
+        setAnalyticsData(prev => prev.map(e =>
+          e.id === eventId ? { ...e, view_count: (e.view_count || 0) + 1 } : e
+        ));
+        setEvents(prev => prev.map(e =>
+          e.id === eventId ? { ...e, view_count: (e.view_count || 0) + 1 } : e
+        ));
       })
       .subscribe();
 
@@ -143,11 +150,11 @@ export default function AdminDashboard() {
   async function fetchEvents() {
     setIsLoadingEvents(true);
     const { data: eventsData, error } = await supabase.from('events').select('*, photographers(name)').order('created_at', { ascending: false });
-    const { data: viewsData } = await supabase.from('page_views').select('event_id');
+    const { data: viewCountRows } = await supabase.rpc('get_event_view_counts');
     
     if (eventsData) {
-      const viewCounts = (viewsData || []).reduce((acc: any, v: any) => {
-        acc[v.event_id] = (acc[v.event_id] || 0) + 1;
+      const viewCounts = (viewCountRows || []).reduce((acc: any, row: any) => {
+        acc[row.event_id] = row.view_count;
         return acc;
       }, {});
 
@@ -183,34 +190,30 @@ export default function AdminDashboard() {
   }
 
   async function fetchAnalytics() {
-    // Use page_views count per event (accurate, no race condition)
+    // Single aggregate query — no raw rows shipped to the client
     const { data: eventsData } = await supabase
       .from('events')
       .select('id, groom_name, celebrant_name, bride_name, event_type, slug, event_date')
       .order('created_at', { ascending: false });
-    
-    const { data: viewsData } = await supabase
-      .from('page_views')
-      .select('*')
-      .range(0, 10000); // Fetch up to 10,000 recent views for analytics
-    
+
+    const { data: viewCountRows } = await supabase.rpc('get_event_view_counts');
+
     if (eventsData) {
-      const viewCounts = (viewsData || []).reduce((acc: any, v: any) => {
-        acc[v.event_id] = (acc[v.event_id] || 0) + 1;
+      const countMap = (viewCountRows || []).reduce((acc: any, row: any) => {
+        acc[row.event_id] = row.view_count;
         return acc;
       }, {});
-      
+
       const newAnalytics = eventsData.map((e: any) => ({
         ...e,
-        view_count: viewCounts[e.id] || 0,
-        raw_views: (viewsData || []).filter((v: any) => v.event_id === e.id)
+        view_count: countMap[e.id] || 0,
       }));
       setAnalyticsData(newAnalytics);
-      
-      // Keep EventTable in sync by updating the main events state as well
+
+      // Keep EventTable in sync
       setEvents(prev => prev.map(e => ({
         ...e,
-        view_count: viewCounts[e.id] || 0
+        view_count: countMap[e.id] || 0,
       })));
     }
   }
