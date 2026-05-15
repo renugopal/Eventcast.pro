@@ -38,6 +38,8 @@ This document provides a concise summary of completed and pending tasks.
 - [x] Automated video auto-play for invitation videos.
 - [x] Implemented Open Graph (OG) metadata for social sharing.
 - [x] Standardized SEO semantic HTML for all templates.
+- [x] **Live Viewer Count (Premium)**: Integrated Supabase Realtime Presence across all templates (with auto-hide and tab-visibility logic).
+- [x] **Telugu Localization (Premium)**: Added a premium frosted-glass language toggle (EN | తె) with localStorage memory and Noto Sans Telugu typography.
 - [x] **Wedding Template-01 Rules**: 
     - [x] Anytime-Start polling logic.
     - [x] Automated YouTube VOD Fallback.

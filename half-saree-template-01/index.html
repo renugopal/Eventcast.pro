@@ -16,7 +16,7 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@400;700&family=Inter:wght@300;400;500;600&family=Noto+Sans+Telugu:wght@400;600;700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="style.css">
     <!-- Configuration -->
@@ -66,14 +66,14 @@
             </div>
 
             <div class="countdown-glass">
-                <div class="time-box"><span id="days">--</span><small>Days</small></div>
-                <div class="time-box"><span id="hours">--</span><small>Hours</small></div>
-                <div class="time-box"><span id="minutes">--</span><small>Min</small></div>
-                <div class="time-box"><span id="seconds">--</span><small>Sec</small></div>
+                <div class="time-box"><span id="days">--</span><small data-i18n="days">Days</small></div>
+                <div class="time-box"><span id="hours">--</span><small data-i18n="hours">Hours</small></div>
+                <div class="time-box"><span id="minutes">--</span><small data-i18n="min">Min</small></div>
+                <div class="time-box"><span id="seconds">--</span><small data-i18n="sec">Sec</small></div>
             </div>
             
             <a href="#livestream" class="btn primary-btn pulse-btn">
-                <i class="fas fa-video"></i> Join Live Stream
+                <i class="fas fa-video"></i><span data-i18n="join_live"> Join Live Stream</span>
             </a>
         </section>
 
@@ -82,7 +82,7 @@
         <!-- MEDIA GRID SECTION -->
         <section id="media-grid" class="fade-in">
             <div id="video-card" class="media-card video-card">
-                <h3><i class="fas fa-film"></i> Invitation Video</h3>
+                <h3><i class="fas fa-film"></i><span data-i18n="invitation_video"> Invitation Video</span></h3>
                 <div class="video-wrapper" id="video-wrapper">
                     <video id="main-invitation-video" class="invitation-video" muted playsinline poster="assets/thumbnail.png">
                         <source src="" type="video/mp4">
@@ -91,19 +91,19 @@
                     <!-- Video Controls Overlay -->
                     <div id="video-play-overlay" class="video-overlay">
                         <div class="play-circle"><i class="fas fa-play"></i></div>
-                        <span>Watch Invitation</span>
+                        <span data-i18n="watch_invitation">Watch Invitation</span>
                     </div>
                 </div>
             </div>
             
             <div id="live-card" class="media-card live-card">
                 <div class="live-header">
-                    <h3><i class="fab fa-youtube"></i> Live Stream</h3>
+                    <h3><i class="fab fa-youtube"></i><span data-i18n="live_stream"> Live Stream</span></h3>
                     <div class="live-header-badges">
                         <span class="live-badge"><span class="pulse"></span> LIVE SOON</span>
                         <div id="live-viewer-badge" class="live-viewer-badge" style="display:none;">
                             <span class="lvc-dot"></span>
-                            <span class="lvc-number">0</span>&nbsp;Watching Now
+                            <span class="lvc-number">0</span><span data-i18n="watching_now"> Watching Now</span>
                         </div>
                     </div>
                 </div>
@@ -118,7 +118,7 @@
         <!-- PHOTO GALLERY SECTION -->
         <section id="gallery-section" class="fade-in" style="display: none; margin-top: 30px;">
             <div class="media-card" style="width: 100%;">
-                <h3><i class="fas fa-images"></i> Beautiful Memories</h3>
+                <h3><i class="fas fa-images"></i><span data-i18n="beautiful_memories"> Beautiful Memories</span></h3>
                 <div class="slideshow-container" style="position: relative; overflow: hidden; border-radius: 15px; margin-top: 15px; background: rgba(0,0,0,0.05); min-height: 250px;">
                     <!-- JS will inject slides here -->
                 </div>
@@ -130,12 +130,12 @@
         <!-- INTERACTIVE SPLIT SECTION -->
         <section id="interactive-split" class="fade-in">
             <div class="split-card wishes-card">
-                <h3><i class="fas fa-heart"></i> Blessings</h3>
+                <h3><i class="fas fa-heart"></i><span data-i18n="blessings"> Blessings</span></h3>
                 <p class="subtitle">Shower your wishes for {{event_name}}</p>
                 <form id="wishes-form">
-                    <input type="text" id="wish-name" placeholder="Your Name" required>
-                    <textarea id="wish-message" rows="3" placeholder="Write your blessings here..." required></textarea>
-                    <button type="submit" class="btn solid-btn">Send Wishes <i class="fas fa-paper-plane"></i></button>
+                    <input type="text" id="wish-name" placeholder="Your Name" data-i18n="name_placeholder" required>
+                    <textarea id="wish-message" rows="3" placeholder="Write your blessings here..." data-i18n="blessings_placeholder" required></textarea>
+                    <button type="submit" class="btn solid-btn"><span data-i18n="send_wishes">Send Wishes </span><i class="fas fa-paper-plane"></i></button>
                 </form>
                 <div id="wishes-list" class="wishes-scroll-area">
                     <!-- Wishes will appear here -->
@@ -143,13 +143,13 @@
             </div>
 
             <div class="split-card map-card">
-                <h3><i class="fas fa-location-dot"></i> Venue</h3>
+                <h3><i class="fas fa-location-dot"></i><span data-i18n="venue"> Venue</span></h3>
                 <p class="subtitle config-venue-full">B Convention Hall, Vijayawada</p>
                 <div class="map-wrapper" id="map-wrapper">
                     <iframe id="venue-iframe" src="" width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
                 </div>
                 <a href="#" id="venue-nav-btn" target="_blank" class="btn outline-btn mt-15">
-                    <i class="fas fa-map"></i> Open in Google Maps
+                    <i class="fas fa-map"></i><span data-i18n="open_maps"> Open in Google Maps</span>
                 </a>
             </div>
         </section>
@@ -163,7 +163,7 @@
                     <a href="#" class="p-phone" id="footer-phone" style="display:none;"><i class="fas fa-phone"></i> <span></span></a>
                     <a href="#" class="p-insta" id="footer-insta" target="_blank" style="display:none;"><i class="fab fa-instagram"></i> Instagram</a>
                     <div class="public-stats" style="margin-top: 20px; font-size: 0.8rem; color: rgba(0,0,0,0.5); border-top: 1px solid rgba(212, 175, 55, 0.3); padding-top: 15px;">
-                        <i class="fas fa-eye"></i> <span id="total-views-display">--</span> People visited this page
+                        <i class="fas fa-eye"></i> <span id="total-views-display">--</span><span data-i18n="people_visited"> People visited this page</span>
                     </div>
                 </div>
             </div>
@@ -172,5 +172,13 @@
     </main>
 
     <script src="script.js"></script>
+
+    <!-- Language Toggle Button -->
+    <button id="lang-toggle-btn" class="lang-toggle-btn" aria-label="Toggle Language">
+        <i class="fas fa-globe"></i>
+        <span id="lang-label-en" class="lang-active">EN</span>
+        <span class="lang-sep">|</span>
+        <span id="lang-label-te">తె</span>
+    </button>
 </body>
 </html>

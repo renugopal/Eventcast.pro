@@ -19,7 +19,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&family=Noto+Sans+Telugu:wght@400;600;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <!-- Configuration -->
@@ -50,7 +50,7 @@
 
 
     <a href="#livestream" id="floating-live-btn" class="floating-wish-btn" style="display: none;">
-        <span class="live-dot"></span> <i class="fas fa-video"></i> <span>Watch Live</span>
+        <span class="live-dot"></span> <i class="fas fa-video"></i> <span data-i18n="watch_live">Watch Live</span>
     </a>
 
     <main>
@@ -105,29 +105,29 @@
                     <div id="countdown">
                         <div class="time-box">
                             <span id="days">--</span>
-                            <span class="label">Days</span>
+                            <span class="label" data-i18n="days">Days</span>
                         </div>
                         <div class="time-box">
                             <span id="hours">--</span>
-                            <span class="label">Hours</span>
+                            <span class="label" data-i18n="hours">Hours</span>
                         </div>
                         <div class="time-box">
                             <span id="minutes">--</span>
-                            <span class="label">Min</span>
+                            <span class="label" data-i18n="min">Min</span>
                         </div>
                         <div class="time-box">
                             <span id="seconds">--</span>
-                            <span class="label">Sec</span>
+                            <span class="label" data-i18n="sec">Sec</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="hero-actions">
                     <a href="#" id="save-calendar-btn" target="_blank" class="btn secondary-btn save-date-btn">
-                        <i class="fas fa-calendar-check"></i> Save to Calendar
+                        <i class="fas fa-calendar-check"></i><span data-i18n="save_calendar"> Save to Calendar</span>
                     </a>
                     <button id="whatsapp-share-btn" class="btn primary-btn whatsapp-btn">
-                        <i class="fab fa-whatsapp"></i> Share on WhatsApp
+                        <i class="fab fa-whatsapp"></i><span data-i18n="share_whatsapp"> Share on WhatsApp</span>
                     </button>
                 </div>
             </div>
@@ -156,12 +156,12 @@
         <!-- LIVESTREAM SECTION -->
         <section id="livestream" class="reveal">
             <div class="section-header">
-                <h2 class="section-title">Live Stream</h2>
+                <h2 class="section-title" data-i18n="live_stream">Live Stream</h2>
                 <div class="livestream-badges">
                     <div class="status-badge"><span class="pulse"></span> LIVE SOON</div>
                     <div id="live-viewer-badge" class="live-viewer-badge" style="display:none;">
                         <span class="lvc-dot"></span>
-                        <span class="lvc-number">0</span>&nbsp;Watching Now
+                        <span class="lvc-number">0</span><span data-i18n="watching_now"> Watching Now</span>
                     </div>
                 </div>
             </div>
@@ -173,7 +173,7 @@
 
         <!-- PHOTO GALLERY SLIDESHOW SECTION -->
         <section id="photo-gallery" class="reveal">
-            <h2 class="section-title" id="gallery-title">Memories</h2>
+            <h2 class="section-title" id="gallery-title" data-i18n="memories">Memories</h2>
             <div class="slideshow-container">
                 <div class="slideshow-wrapper">
                     <div class="slide active">
@@ -213,19 +213,19 @@
         <!-- CHAT / WISHES SECTION -->
         <section id="chat-section" class="reveal">
             <div class="content-card">
-                <h2 class="section-title">Wishes Wall</h2>
-                <p class="section-subtitle">Send your blessings to the happy couple</p>
+                <h2 class="section-title" data-i18n="wishes_wall">Wishes Wall</h2>
+                <p class="section-subtitle" data-i18n="wishes_subtitle">Send your blessings to the happy couple</p>
 
                 <form id="wishes-form">
                     <div class="form-grid">
                         <div class="input-group">
-                            <input type="text" id="wish-name" placeholder="Your Name" required>
+                            <input type="text" id="wish-name" placeholder="Your Name" data-i18n="name_placeholder" required>
                         </div>
                         <div class="input-group">
                             <textarea id="wish-message" rows="3" placeholder="Write your message here..."
-                                required></textarea>
+                                data-i18n="message_placeholder" required></textarea>
                         </div>
-                        <button type="submit" class="btn primary-btn">Send Message <i
+                        <button type="submit" class="btn primary-btn"><span data-i18n="send_message">Send Message</span> <i
                                 class="fas fa-paper-plane"></i></button>
                     </div>
                 </form>
@@ -238,7 +238,7 @@
 
         <!-- MAP SECTION -->
         <section id="map-section" class="reveal">
-            <h2 class="section-title">Locate the Venue</h2>
+            <h2 class="section-title" data-i18n="locate_venue">Locate the Venue</h2>
             <div class="map-container">
                 <iframe
                     src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1917.0467720586541!2d80.14708175416443!3d16.06063485008458!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a4a63adef6520c9%3A0x458efdaf0f2c3d7c!2sSri%20Prasannanjaneyavari%20Kalyanamandapam!5e0!3m2!1sen!2sin!4v1776448044250!5m2!1sen!2sin"
@@ -247,7 +247,7 @@
             </div>
             <div class="action-buttons">
                 <a href="https://maps.app.goo.gl/h3vr859mEzQZXaEL7" target="_blank" class="btn map-btn">
-                    <i class="fas fa-location-dot"></i> Open in Google Maps
+                    <i class="fas fa-location-dot"></i><span data-i18n="open_maps"> Open in Google Maps</span>
                 </a>
             </div>
         </section>
@@ -261,7 +261,7 @@
                     <a href="#" class="p-phone" id="footer-phone"><i class="fas fa-phone"></i> <span></span></a>
                     <a href="#" class="p-insta" id="footer-insta" target="_blank"><i class="fab fa-instagram"></i> Instagram</a>
                     <div class="public-stats" style="margin-top: 20px; font-size: 0.8rem; color: rgba(255,255,255,0.5); border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
-                        <i class="fas fa-eye"></i> <span id="total-views-display">--</span> People visited this page
+                        <i class="fas fa-eye"></i> <span id="total-views-display">--</span><span data-i18n="people_visited"> People visited this page</span>
                     </div>
                 </div>
             </div>
@@ -281,6 +281,14 @@
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
     <script src="script.js"></script>
+
+    <!-- Language Toggle Button -->
+    <button id="lang-toggle-btn" class="lang-toggle-btn" aria-label="Toggle Language">
+        <i class="fas fa-globe"></i>
+        <span id="lang-label-en" class="lang-active">EN</span>
+        <span class="lang-sep">|</span>
+        <span id="lang-label-te">తె</span>
+    </button>
 </body>
 
 </html>

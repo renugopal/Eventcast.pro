@@ -805,3 +805,58 @@ footer {
     60%  { box-shadow: 0 0 0 7px rgba(255, 51, 51, 0); }
     100% { box-shadow: 0 0 0 0 rgba(255, 51, 51, 0); }
 }
+
+/* ============================================================
+   LANGUAGE TOGGLE BUTTON
+   ============================================================ */
+.lang-toggle-btn {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(0, 0, 0, 0.52);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 6px 13px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.25s ease, transform 0.2s ease, box-shadow 0.25s ease;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.22);
+    text-transform: uppercase;
+    font-family: inherit;
+    line-height: 1;
+    user-select: none;
+}
+
+.lang-toggle-btn:hover {
+    background: rgba(0, 0, 0, 0.72);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+}
+
+.lang-toggle-btn:active {
+    transform: scale(0.96);
+}
+
+.lang-toggle-btn .lang-active {
+    color: var(--gold, #D4AF37);
+}
+
+.lang-toggle-btn .lang-sep {
+    opacity: 0.35;
+    font-weight: 300;
+}
+
+/* Telugu font for translated elements */
+body.lang-te [data-i18n] {
+    font-family: 'Noto Sans Telugu', sans-serif;
+    letter-spacing: 0;
+}
