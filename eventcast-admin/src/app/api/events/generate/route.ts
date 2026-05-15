@@ -141,14 +141,30 @@ export async function POST(req: Request) {
     const commitData = await commitRes.json();
     const baseTreeSha = commitData.tree.sha;
 
-    // 4. Fetch the entire tree recursively to find template files
-    const treeRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`, { headers });
-    const treeData = await treeRes.json();
-    
-    const templateFiles = treeData.tree.filter((item: any) => item.path.startsWith(`${templatePath}/`) && item.type === 'blob');
-    
+    // 4. Fetch template files directly via Contents API — avoids a full recursive repo scan
+    //    (a ?recursive=1 tree fetch grows with every event added and will exceed GitHub limits)
+    const contentsRes = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/contents/${templatePath}?ref=${branch}`,
+      { headers }
+    );
+    const contentsData = await contentsRes.json();
+
+    if (!contentsRes.ok || !Array.isArray(contentsData)) {
+      throw new Error(`Template directory '${templatePath}' not found: ${JSON.stringify(contentsData)}`);
+    }
+
+    // Normalise to the shape expected by the tree-building loop: { path, mode, type, sha }
+    const templateFiles = contentsData
+      .filter((item: any) => item.type === 'file')
+      .map((item: any) => ({
+        path: `${templatePath}/${item.name}`,
+        mode: '100644',
+        type: 'blob',
+        sha: item.sha,
+      }));
+
     if (templateFiles.length === 0) {
-      throw new Error(`Template directory ${templatePath} not found in repository.`);
+      throw new Error(`Template directory '${templatePath}' contains no files.`);
     }
 
     // 5. Fetch index.html content to modify it

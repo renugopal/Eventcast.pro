@@ -12,17 +12,17 @@
 *   **Issue:** Fetches up to 10,000 raw page_view rows client-side and aggregates in JavaScript on every analytics tab open.
 *   **Fix Required:** Replace with a Supabase aggregate query: `SELECT event_id, COUNT(*) FROM page_views GROUP BY event_id`. Single DB round-trip, zero client processing.
 
-**Area: GitHub — Recursive Tree Fetch**
+**Area: GitHub — Recursive Tree Fetch** ✅ COMPLETED
 *   **Issue:** generate and delete fetch the entire repository tree recursively.
-*   **Fix Required:** Use the file-level Contents API or targeted fetches.
+*   **Fix Applied (May 16):** `/api/events/generate` now uses `GET /repos/.../contents/{templatePath}` (Contents API) to list only the 3 template files — zero full-tree scans. O(template_files) not O(repo_size).
 
 **Area: Restreamer — Auth Token per Call**
 *   **Issue:** Full HTTP login to the Restreamer API on every single method call.
 *   **Fix Required:** Cache the token with a TTL.
 
-**Area: Bulk Delete — GitHub Rate Limit**
+**Area: Bulk Delete — GitHub Rate Limit** ✅ COMPLETED
 *   **Issue:** deleteMultipleEvents() fires all delete operations simultaneously.
-*   **Fix Required:** Process GitHub operations sequentially or in small batches.
+*   **Fix Applied (May 16):** `/api/events/delete` now deletes via targeted `sha:null` entries on `base_tree` (POST body has 3-4 entries, never the full repo). `deleteMultipleEvents()` in `page.tsx` now batches deletions sequentially in groups of 2, preventing GitHub API 429s.
 
 **Area: Realtime Subscription — fetchAnalytics() on INSERT**
 *   **Issue:** The realtime channel calls `fetchAnalytics()` on every single page_views INSERT, causing full DB reloads during live events.

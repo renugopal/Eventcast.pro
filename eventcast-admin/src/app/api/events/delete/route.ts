@@ -102,41 +102,108 @@ export async function POST(req: Request) {
     }
 
     // 4. GitHub Folder Deletion
+    //    Strategy: use Contents API to list only the target event folder's files, then
+    //    create a new tree with base_tree (inheriting the full repo unchanged) and mark
+    //    each event file for removal with sha:null.  Never fetches the full recursive tree.
     try {
       const githubToken = process.env.GITHUB_TOKEN;
       const owner = 'renugopal';
       const repo = 'Eventcast.pro';
       const branch = 'main';
       const targetPath = `events/${slug}`;
+
       if (githubToken) {
-        const headers = { 'Authorization': `Bearer ${githubToken}`, 'Accept': 'application/vnd.github.v3+json' };
-        const refRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`, { headers });
+        const headers = {
+          'Authorization': `Bearer ${githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+          'User-Agent': 'Eventcast-Admin',
+        };
+
+        // Step A: get latest commit SHA and its root tree SHA
+        const refRes = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`,
+          { headers }
+        );
         const refData = await refRes.json();
-        const latestCommitSha = refData.object.sha;
-        const commitRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/commits/${latestCommitSha}`, { headers });
+        if (!refRes.ok) throw new Error(`GitHub ref fetch failed: ${JSON.stringify(refData)}`);
+        const latestCommitSha: string = refData.object.sha;
+
+        const commitRes = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/git/commits/${latestCommitSha}`,
+          { headers }
+        );
         const commitData = await commitRes.json();
-        const treeRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`, { headers });
-        const treeData = await treeRes.json();
-        const newTree = treeData.tree
-          .filter((item: any) => !item.path.startsWith(`${targetPath}/`) && item.type === 'blob')
-          .map((item: any) => ({ path: item.path, mode: item.mode, type: item.type, sha: item.sha }));
-        const createTreeRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ tree: newTree })
-        });
-        const createTreeData = await createTreeRes.json();
-        const createCommitRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/commits`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ message: `Automated Cleanup: Deleted ${slug}`, tree: createTreeData.sha, parents: [latestCommitSha] })
-        });
-        const createCommitData = await createCommitRes.json();
-        await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`, {
-          method: 'PATCH',
-          headers,
-          body: JSON.stringify({ sha: createCommitData.sha, force: false })
-        });
+        if (!commitRes.ok) throw new Error(`GitHub commit fetch failed: ${JSON.stringify(commitData)}`);
+        const rootTreeSha: string = commitData.tree.sha;
+
+        // Step B: list only the files inside events/{slug}/ using the Contents API
+        //         This is O(files_in_event) — typically 3 files — not O(repo_size)
+        const contentsRes = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/contents/${targetPath}?ref=${branch}`,
+          { headers }
+        );
+
+        if (contentsRes.status === 404) {
+          // Folder never existed on GitHub (e.g. event was created but publishing failed)
+          console.warn(`GitHub: folder ${targetPath} not found — skipping tree update`);
+        } else {
+          const contentsData = await contentsRes.json();
+          if (!contentsRes.ok) throw new Error(`GitHub contents fetch failed: ${JSON.stringify(contentsData)}`);
+
+          // Step C: build deletion entries — sha:null removes the file from the tree
+          const deletionEntries = (contentsData as any[])
+            .filter((item: any) => item.type === 'file')
+            .map((item: any) => ({
+              path: `${targetPath}/${item.name}`,
+              mode: '100644' as const,
+              type: 'blob' as const,
+              sha: null,
+            }));
+
+          if (deletionEntries.length > 0) {
+            // Step D: create a new tree that inherits everything via base_tree,
+            //         then removes only the event's files — POST body is tiny (3-4 entries)
+            const createTreeRes = await fetch(
+              `https://api.github.com/repos/${owner}/${repo}/git/trees`,
+              {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ base_tree: rootTreeSha, tree: deletionEntries }),
+              }
+            );
+            const createTreeData = await createTreeRes.json();
+            if (!createTreeRes.ok) throw new Error(`GitHub tree creation failed: ${JSON.stringify(createTreeData)}`);
+
+            // Step E: create commit
+            const createCommitRes = await fetch(
+              `https://api.github.com/repos/${owner}/${repo}/git/commits`,
+              {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                  message: `Automated Cleanup: Deleted ${slug}`,
+                  tree: createTreeData.sha,
+                  parents: [latestCommitSha],
+                }),
+              }
+            );
+            const createCommitData = await createCommitRes.json();
+            if (!createCommitRes.ok) throw new Error(`GitHub commit creation failed: ${JSON.stringify(createCommitData)}`);
+
+            // Step F: fast-forward the branch ref
+            const updateRefRes = await fetch(
+              `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`,
+              {
+                method: 'PATCH',
+                headers,
+                body: JSON.stringify({ sha: createCommitData.sha, force: false }),
+              }
+            );
+            const updateRefData = await updateRefRes.json();
+            if (!updateRefRes.ok) throw new Error(`GitHub ref update failed: ${JSON.stringify(updateRefData)}`);
+          }
+        }
       }
     } catch (gitErr) {
       console.error("GitHub cleanup failed:", gitErr);

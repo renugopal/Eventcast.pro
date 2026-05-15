@@ -53,6 +53,8 @@ This document provides a concise summary of completed and pending tasks.
 ### High Priority
 - [ ] White Labeling: Custom Live Control Center in Admin Dashboard (Replace Restreamer UI).
 - [ ] AI Thumbnails: Auto-generate event thumbnails using Vertex AI.
+- [x] **GitHub Rate Limit — Recursive Tree Fetch (generate)**: `/api/events/generate` now uses the GitHub Contents API (`GET /repos/.../contents/{templatePath}`) instead of `?recursive=1` to locate template files. Response is O(template_files) not O(repo_size). Safe at 1000+ events.
+- [x] **GitHub Rate Limit — Bulk Delete**: `/api/events/delete` now lists only the target event folder's files via the Contents API and removes them by sending `sha:null` entries against `base_tree`. Single targeted commit; never re-lists the full repo. `deleteMultipleEvents()` in the admin panel now processes deletions in sequential batches of 2 (instead of a single `Promise.all`) to avoid 429 responses on the GitHub API.
 - [x] **Stream Health Monitor**: Cron route `/api/cron/stream-health-monitor` built. Polls Restreamer for bitrate/state per live event window. Alerts via Supabase `stream_alerts` table + optional WhatsApp (CallMeBot). Enable WhatsApp by adding `ALERT_WHATSAPP_PHONE` + `ALERT_WHATSAPP_APIKEY` to `.env.local`.
 - [x] **Event Deletion**: Purge VOD/HLS media files from Restreamer `data/` filesystem on event delete (`deleteChannelFiles` added to `RestreamerClient`, wired into `/api/events/delete`).
 

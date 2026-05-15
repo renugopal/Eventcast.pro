@@ -749,14 +749,24 @@ export default function AdminDashboard() {
 
   async function deleteMultipleEvents(ids: string[]) {
     setIsLoadingEvents(true);
+    // Process in small sequential batches to avoid saturating the GitHub API.
+    // Each delete makes ~5 GitHub API calls; firing 10+ simultaneously risks 429s.
+    const BATCH_SIZE = 2;
+    const results: { success: boolean; error?: string }[] = [];
     try {
-      const results = await Promise.all(ids.map(id =>
-        authFetch('/api/events/delete', {
-          method: 'POST',
-          body: JSON.stringify({ id }),
-        }).then(res => res.json())
-      ));
-      
+      for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+        const batch = ids.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(
+          batch.map(id =>
+            authFetch('/api/events/delete', {
+              method: 'POST',
+              body: JSON.stringify({ id }),
+            }).then(res => res.json())
+          )
+        );
+        results.push(...batchResults);
+      }
+
       const failed = results.filter(r => !r.success);
       if (failed.length > 0) {
         alert(`${failed.length} events failed to delete. ${results.length - failed.length} succeeded.`);
