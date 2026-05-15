@@ -196,10 +196,18 @@ export default function AdminDashboard() {
         acc[v.event_id] = (acc[v.event_id] || 0) + 1;
         return acc;
       }, {});
-      setAnalyticsData(eventsData.map((e: any) => ({
+      
+      const newAnalytics = eventsData.map((e: any) => ({
         ...e,
         view_count: viewCounts[e.id] || 0,
         raw_views: (viewsData || []).filter((v: any) => v.event_id === e.id)
+      }));
+      setAnalyticsData(newAnalytics);
+      
+      // Keep EventTable in sync by updating the main events state as well
+      setEvents(prev => prev.map(e => ({
+        ...e,
+        view_count: viewCounts[e.id] || 0
       })));
     }
   }
