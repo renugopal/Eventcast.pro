@@ -163,6 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { console.error("Analytics error:", e); }
     };
     trackPageView();
+    initLiveViewerCount();
     
     // Inject Info
     const infoItems = document.querySelectorAll('.info-text');
@@ -821,6 +822,54 @@ function escapeHTML(str) {
 }
 
 fetchWishes();
+
+// --- LIVE VIEWER COUNT (Supabase Realtime Presence) ---
+function initLiveViewerCount() {
+    if (!_supabase || !CONFIG.eventId) return;
+
+    // Each tab gets its own unique key so every open window = 1 viewer
+    const presenceKey = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2);
+
+    const channel = _supabase.channel(`presence:event:${CONFIG.eventId}`, {
+        config: { presence: { key: presenceKey } }
+    });
+
+    const badge = document.getElementById('live-viewer-badge');
+    const numEl = badge ? badge.querySelector('.lvc-number') : null;
+
+    function updateBadge(count) {
+        if (!badge) return;
+        // Only show badge when 2+ people are watching (hides on solo preview)
+        if (count < 2) {
+            badge.style.display = 'none';
+        } else {
+            badge.style.display = 'inline-flex';
+            if (numEl) numEl.textContent = count;
+        }
+    }
+
+    channel
+        .on('presence', { event: 'sync' }, () => {
+            const count = Object.keys(channel.presenceState()).length;
+            updateBadge(count);
+        })
+        .subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                await channel.track({ joined_at: new Date().toISOString() });
+            }
+        });
+
+    // Pause presence tracking when tab is hidden (prevents ghost counts)
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            channel.untrack();
+        } else {
+            channel.track({ joined_at: new Date().toISOString() });
+        }
+    });
+}
 
 // --- WHATSAPP SHARE LOGIC ---
 document.getElementById('whatsapp-share-btn')?.addEventListener('click', () => {
