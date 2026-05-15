@@ -5,6 +5,21 @@ export interface RestreamerConfig {
   password?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Module-level token cache — shared across all RestreamerClient instances
+// within the same Edge worker isolate.  Key: `${url}::${username}`.
+// Restreamer (Datarhei Core) tokens last ~1 hour; we refresh at 55 min to
+// avoid using a token that is about to expire mid-flight.
+// ---------------------------------------------------------------------------
+const TOKEN_TTL_MS = 55 * 60 * 1_000; // 55 minutes
+
+interface CachedToken {
+  value: string;   // "Bearer <jwt>"
+  expiresAt: number; // Date.now() + TTL
+}
+
+const _tokenCache = new Map<string, CachedToken>();
+
 /**
  * Health snapshot for a single Restreamer process.
  * Returned by getProcessHealth() — used by the stream health monitor cron.
@@ -34,7 +49,28 @@ export class RestreamerClient {
     };
   }
 
-  private async getAuthToken(): Promise<string> {
+  /** Cache key scoped to this server+user so multiple configs never collide. */
+  private get _cacheKey(): string {
+    return `${this.config.url}::${this.config.username}`;
+  }
+
+  /**
+   * Returns a valid Bearer token, hitting /api/login only when the cache is
+   * empty or within 5 minutes of expiry.  All callers within the same Edge
+   * worker isolate share the cached value across requests and cron runs.
+   *
+   * Pass `force = true` to bypass the cache (e.g. after receiving a 401).
+   */
+  private async getAuthToken(force = false): Promise<string> {
+    const key = this._cacheKey;
+    const now = Date.now();
+    const cached = _tokenCache.get(key);
+
+    if (!force && cached && cached.expiresAt > now) {
+      return cached.value;
+    }
+
+    // Cache miss, expired, or forced refresh — perform a real login
     const res = await fetch(`${this.config.url}/api/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -54,7 +90,17 @@ export class RestreamerClient {
       throw new Error("Restreamer Login Failed: No access token received");
     }
 
-    return `Bearer ${data.access_token}`;
+    const token = `Bearer ${data.access_token}`;
+    _tokenCache.set(key, { value: token, expiresAt: now + TOKEN_TTL_MS });
+    return token;
+  }
+
+  /**
+   * Evict the cached token for this server.  Call this when a downstream
+   * request returns HTTP 401 so the next getAuthToken() fetches a fresh one.
+   */
+  private invalidateToken(): void {
+    _tokenCache.delete(this._cacheKey);
   }
 
   /**
@@ -170,15 +216,12 @@ export class RestreamerClient {
     console.log(`Restarting Restreamer channel for ${slug}...`);
     try {
       const authHeader = await this.getAuthToken();
-      // Send a signal to restart the process
       const res = await fetch(`${this.config.url}/api/v3/process/${slug}/command`, {
         method: 'POST',
-        headers: {
-          'Authorization': authHeader,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: 'restart' })
       });
+      if (res.status === 401) { this.invalidateToken(); }
       return res.ok;
     } catch (err) {
       console.error("Restreamer restart failed:", err);
@@ -195,10 +238,9 @@ export class RestreamerClient {
       const authHeader = await this.getAuthToken();
       const res = await fetch(`${this.config.url}/api/v3/process/${slug}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': authHeader
-        }
+        headers: { 'Authorization': authHeader }
       });
+      if (res.status === 401) { this.invalidateToken(); }
       return res.ok;
     } catch (err) {
       console.error("Restreamer deletion failed:", err);
@@ -313,6 +355,7 @@ export class RestreamerClient {
         headers: { 'Authorization': authHeader }
       });
 
+      if (res.status === 401) { this.invalidateToken(); return null; }
       if (res.status === 404) return null; // Channel was never created for this event
 
       if (!res.ok) {
@@ -344,11 +387,11 @@ export class RestreamerClient {
       const res = await fetch(`${this.config.url}/api/v3/process`, {
         headers: { 'Authorization': authHeader }
       });
-      
+
+      if (res.status === 401) { this.invalidateToken(); return []; }
       if (!res.ok) throw new Error("Failed to fetch processes");
-      
-      const processes = await res.json();
-      return processes;
+
+      return await res.json();
     } catch (err) {
       console.error("Restreamer get all processes failed:", err);
       return [];

@@ -16,9 +16,9 @@
 *   **Issue:** generate and delete fetch the entire repository tree recursively.
 *   **Fix Applied (May 16):** `/api/events/generate` now uses `GET /repos/.../contents/{templatePath}` (Contents API) to list only the 3 template files — zero full-tree scans. O(template_files) not O(repo_size).
 
-**Area: Restreamer — Auth Token per Call**
+**Area: Restreamer — Auth Token per Call** ✅ COMPLETED
 *   **Issue:** Full HTTP login to the Restreamer API on every single method call.
-*   **Fix Required:** Cache the token with a TTL.
+*   **Fix Applied (May 16):** `restreamer.ts` now holds a module-level `_tokenCache` (Map keyed by `url::username`) with a 55-minute TTL. `getAuthToken()` returns the cached token on every call within the window — a single login per 55-minute window regardless of how many cron ticks or dashboard actions fire. On HTTP 401, `invalidateToken()` evicts the entry so the next call forces a fresh login automatically.
 
 **Area: Bulk Delete — GitHub Rate Limit** ✅ COMPLETED
 *   **Issue:** deleteMultipleEvents() fires all delete operations simultaneously.
