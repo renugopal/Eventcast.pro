@@ -9,7 +9,8 @@ This document provides a concise summary of completed and pending tasks.
 - [x] Standardized RTMP ingest: `rtmp://34.100.142.25/{slug}`.
 - [x] Implemented YouTube Auto-VOD Fallback.
 - [x] Added Independent YouTube Relay Toggle.
-- [x] Enabled Full Stream VOD recording on private server.
+- [x] Enabled Full Stream VOD recording on persistent storage ({data}).
+- [x] Integrated Restreamer UI Metadata for dashboard visibility.
 - [x] Optimized HLS buffering for high-bitrate streams.
 - [x] Added "Force Restart" button for media processes.
 - [x] **Smart UI Logic**:
