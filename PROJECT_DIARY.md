@@ -24,17 +24,6 @@ We discussed the best way to utilize Google Cloud credits for future AI features
 
 ## 🏛️ Session 4: Template Automation & Initial Launch
 **Date: April 23 - May 2, 2026**
-
-### 🔍 Context
-Launching the first set of automated wedding templates (Bhargav Upanayanam & Vamsi Wedding).
-
-### 🛠️ What we did & Why
-1. **Media Reliability**: Fixed invitation video auto-play issues across mobile browsers.
-2. **Social Previews**: Configured Open Graph (OG) metadata for high-quality image previews on WhatsApp/Twitter.
-3. **SEO Integration**: Standardized semantic HTML across all generated landing pages.
-
----
-
 ## 🏛️ Session 1: The "Live-to-VOD" Challenge & YouTube Relay
 **Date: May 13-14, 2026**
 
@@ -80,6 +69,25 @@ We looked at the screenshot and realized the CSS "Intrinsic Ratio" (16:9) was wo
 - **AI Thumbnail Engine**: We want to use Vertex AI to look at the groom/bride names and event type to generate a stunning, artistic thumbnail automatically.
 - **System Sentinel**: An AI-driven health check that will alert us if the server CPU is too high or if a stream is lagging.
 - **Multi-Camera Logic**: Designing a way for users to switch between a "Main Stage" and "Entrance" camera within the same player.
+
+---
+
+## 🏗️ Wedding Template-01: Technical Architecture & Rules
+**Date: May 15, 2026**
+
+### 🔍 Context
+We standardized the logic for `wedding-template-01` to ensure it's not just a design, but a robust streaming application.
+
+### 🛠️ Core Rules & Logic Implemented
+1. **Anytime-Start Logic**: 
+   - *Rule*: The player polls the server every 2s. If an RTMP signal is detected from OBS (even before the scheduled time), the player initializes immediately.
+   - *Rationale*: To handle early starts or pre-wedding rituals without user intervention.
+2. **Auto-VOD Fallback**:
+   - *Rule*: If the HLS stream returns a 404 or ends, the player switches to the embedded YouTube VOD after a 5s delay.
+   - *Rationale*: Guaranteed content delivery; the user never sees a "dead" player.
+3. **Stability over Latency**:
+   - *Rule*: High buffer settings (60s max) in Hls.js to handle mobile network jitter.
+   - *Rationale*: Prevents the frequent pause/play cycles that irritate wedding viewers.
 
 ---
 *This diary is a living document. We add to it as we build, ensuring no detail is ever lost.*

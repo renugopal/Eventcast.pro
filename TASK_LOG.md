@@ -32,6 +32,11 @@ This document provides a concise summary of completed and pending tasks.
 - [x] Automated video auto-play for invitation videos.
 - [x] Implemented Open Graph (OG) metadata for social sharing.
 - [x] Standardized SEO semantic HTML for all templates.
+- [x] **Wedding Template-01 Rules**: 
+    - [x] Anytime-Start polling logic.
+    - [x] Automated YouTube VOD Fallback.
+    - [x] Stability-first Hls.js configuration.
+    - [x] Real-time Wishes Wall integration.
 
 ---
 
