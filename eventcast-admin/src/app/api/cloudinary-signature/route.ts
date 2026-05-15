@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth';
 
 export const runtime = 'edge';
 
@@ -14,6 +15,9 @@ async function generateCloudinarySignature(params: Record<string, string>, apiSe
 }
 
 export async function POST(req: Request) {
+  const auth = await requireAdmin(req);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const { timestamp, upload_preset } = await req.json();
     

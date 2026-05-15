@@ -10,7 +10,11 @@ interface PhotographerManagementProps {
   deletePhotographer: (id: string) => void;
   onEdit: (pg: any) => void;
   isEditing: boolean;
+  /** Populated by the parent when editing an existing record; null when adding a new one. */
+  editingPhotographer?: any | null;
 }
+
+const EMPTY_FIELDS = { nickname: '', name: '', phone: '', city: '', instagram_url: '', logo_url: '' };
 
 export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
   photographers,
@@ -18,9 +22,31 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
   addPhotographer,
   deletePhotographer,
   onEdit,
-  isEditing
+  isEditing,
+  editingPhotographer,
 }) => {
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [fields, setFields] = React.useState(EMPTY_FIELDS);
+
+  // Populate controlled form fields whenever the parent passes a different record to edit
+  React.useEffect(() => {
+    if (editingPhotographer) {
+      setFields({
+        nickname: editingPhotographer.nickname || '',
+        name: editingPhotographer.name || '',
+        phone: editingPhotographer.phone_number || '',
+        city: editingPhotographer.city || '',
+        instagram_url: editingPhotographer.instagram_url || '',
+        logo_url: editingPhotographer.logo_url || '',
+      });
+    } else {
+      setFields(EMPTY_FIELDS);
+    }
+  }, [editingPhotographer]);
+
+  const handleField = (key: keyof typeof EMPTY_FIELDS) =>
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      setFields(prev => ({ ...prev, [key]: e.target.value }));
 
   const filtered = photographers.filter(p => {
     const q = searchQuery.toLowerCase();
@@ -50,6 +76,8 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
             <input
               type="text"
               name="nickname"
+              value={fields.nickname}
+              onChange={handleField('nickname')}
               className="w-full p-4 bg-blue-50 border border-blue-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800"
               placeholder="e.g. Ashok SSV"
             />
@@ -63,6 +91,8 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
             <input
               type="text"
               name="name"
+              value={fields.name}
+              onChange={handleField('name')}
               className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800"
               placeholder="e.g. SSV Photography"
             />
@@ -74,6 +104,8 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
             <input
               type="text"
               name="phone"
+              value={fields.phone}
+              onChange={handleField('phone')}
               className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800"
               placeholder="+91 98765 43210"
             />
@@ -85,6 +117,8 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
             <input
               type="text"
               name="city"
+              value={fields.city}
+              onChange={handleField('city')}
               className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800"
               placeholder="e.g. Hyderabad"
             />
@@ -96,6 +130,8 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
             <input
               type="text"
               name="instagram_url"
+              value={fields.instagram_url}
+              onChange={handleField('instagram_url')}
               className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium text-slate-600"
               placeholder="https://instagram.com/..."
             />
@@ -108,7 +144,8 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
               <input
                 type="text"
                 name="logo_url"
-                id="photographer_logo_url"
+                value={fields.logo_url}
+                onChange={handleField('logo_url')}
                 className="flex-1 p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium text-slate-600"
                 placeholder="Paste URL or Upload →"
               />
@@ -126,38 +163,32 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
                 accept="image/*"
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
-                  if (file) {
-                    const btn = e.target.previousElementSibling as HTMLButtonElement;
-                    const input = document.getElementById('photographer_logo_url') as HTMLInputElement;
-                    const preview = document.getElementById('p_logo_preview') as HTMLImageElement;
-                    btn.innerText = "Uploading...";
-
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'eventcast_gallery');
-
-                    const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, {
-                      method: 'POST',
-                      body: formData
-                    });
-                    const data = await res.json();
-                    if (data.secure_url) {
-                      input.value = data.secure_url;
-                      if (preview) {
-                        preview.src = data.secure_url;
-                        preview.classList.remove('hidden');
-                      }
-                      btn.innerText = "DONE!";
-                    } else {
-                      btn.innerText = "FAILED";
-                    }
+                  if (!file) return;
+                  const btn = e.target.previousElementSibling as HTMLButtonElement;
+                  btn.innerText = 'Uploading...';
+                  const fd = new FormData();
+                  fd.append('file', file);
+                  fd.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'eventcast_gallery');
+                  const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, {
+                    method: 'POST',
+                    body: fd,
+                  });
+                  const data = await res.json();
+                  if (data.secure_url) {
+                    // Update React state — not the DOM
+                    setFields(prev => ({ ...prev, logo_url: data.secure_url }));
+                    btn.innerText = 'DONE!';
+                  } else {
+                    btn.innerText = 'FAILED';
                   }
                 }}
               />
             </div>
-            <div className="mt-2">
-              <img id="p_logo_preview" src="" alt="Logo Preview" className="h-12 object-contain rounded-lg hidden border border-slate-100 p-1" />
-            </div>
+            {fields.logo_url && (
+              <div className="mt-2">
+                <img src={fields.logo_url} alt="Logo Preview" className="h-12 object-contain rounded-lg border border-slate-100 p-1" />
+              </div>
+            )}
           </div>
 
           {/* Submit */}

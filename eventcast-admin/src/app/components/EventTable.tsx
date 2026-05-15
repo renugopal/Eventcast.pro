@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy, Search, Download, QrCode, MessageCircle, Link as LinkIcon, CopyPlus, StickyNote, X, Eye } from "lucide-react";
+import { authFetch } from "@/lib/client-auth";
 
 interface EventTableProps {
   events: any[];
@@ -40,10 +41,9 @@ export const EventTable: React.FC<EventTableProps> = ({
   const handleRestartServer = async (slug: string, eventId: string) => {
     setRestartingServer(prev => ({ ...prev, [eventId]: true }));
     try {
-      const res = await fetch('/api/media/restart-channel', {
+      const res = await authFetch('/api/media/restart-channel', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug })
+        body: JSON.stringify({ slug }),
       });
       if (res.ok) alert("Server process restarted successfully!");
       else alert("Failed to restart server.");
@@ -59,14 +59,9 @@ export const EventTable: React.FC<EventTableProps> = ({
   const toggleYoutubeRelay = async (event: any, enabled: boolean) => {
     setTogglingYoutube(prev => ({ ...prev, [event.id]: true }));
     try {
-      const response = await fetch('/api/media/toggle-youtube', {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          slug: event.slug, 
-          enabled: enabled, 
-          eventId: event.id 
-        }),
+      const response = await authFetch('/api/media/toggle-youtube', {
+        method: 'POST',
+        body: JSON.stringify({ slug: event.slug, enabled, eventId: event.id }),
       });
       if (response.ok) {
         alert(`YouTube Relay ${enabled ? 'Started' : 'Stopped'} Successfully!`);
@@ -581,15 +576,9 @@ export const EventTable: React.FC<EventTableProps> = ({
                              onClick={async () => {
                                const heart = (event.event_type || '').toLowerCase().includes('wedding') ? '❤️' : '✨';
                                const baseTitle = `${event.groom_name || event.celebrant_name} ${heart} ${event.bride_name || 'Family'} ${event.event_type} Live | ${formatDisplayDate(event.event_date)}`;
-                               const res = await fetch('/api/youtube/toggle-live', {
+                               const res = await authFetch('/api/youtube/toggle-live', {
                                  method: 'POST',
-                                 headers: { 'Content-Type': 'application/json' },
-                                 body: JSON.stringify({ 
-                                   eventId: event.id,
-                                   broadcastId: event.youtube_broadcast_id, 
-                                   title: baseTitle, 
-                                   isLive: true 
-                                 })
+                                 body: JSON.stringify({ eventId: event.id, broadcastId: event.youtube_broadcast_id, title: baseTitle, isLive: true }),
                                });
                                if (res.ok) alert("🔴 Event is now LIVE!");
                              }}
@@ -601,15 +590,9 @@ export const EventTable: React.FC<EventTableProps> = ({
                              onClick={async () => {
                                const heart = (event.event_type || '').toLowerCase().includes('wedding') ? '❤️' : '✨';
                                const baseTitle = `${event.groom_name || event.celebrant_name} ${heart} ${event.bride_name || 'Family'} ${event.event_type} Live | ${formatDisplayDate(event.event_date)}`;
-                               const res = await fetch('/api/youtube/toggle-live', {
+                               const res = await authFetch('/api/youtube/toggle-live', {
                                  method: 'POST',
-                                 headers: { 'Content-Type': 'application/json' },
-                                 body: JSON.stringify({ 
-                                   eventId: event.id,
-                                   broadcastId: event.youtube_broadcast_id, 
-                                   title: baseTitle, 
-                                   isLive: false 
-                                 })
+                                 body: JSON.stringify({ eventId: event.id, broadcastId: event.youtube_broadcast_id, title: baseTitle, isLive: false }),
                                });
                                if (res.ok) alert("✅ Live Ended");
                              }}

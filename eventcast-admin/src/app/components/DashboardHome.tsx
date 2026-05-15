@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Activity, Calendar, Eye, Heart, Play, Clock, ChevronRight } from "lucide-react";
+import { authFetch } from "@/lib/client-auth";
 
 interface DashboardHomeProps {
   events: any[];
@@ -17,7 +18,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ events, wishes, an
     // Fetch live streams to get accurate active count
     const fetchLive = async () => {
       try {
-        const res = await fetch('/api/media/live-status');
+        const res = await authFetch('/api/media/live-status');
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.activeProcesses) {

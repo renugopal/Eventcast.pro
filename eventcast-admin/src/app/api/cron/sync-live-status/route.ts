@@ -38,7 +38,15 @@ export async function GET(req: Request) {
         grant_type: "refresh_token",
       }),
     });
-    const { access_token: accessToken } = await tokenRes.json();
+    if (!tokenRes.ok) {
+      const errText = await tokenRes.text();
+      throw new Error(`Google token refresh failed (${tokenRes.status}): ${errText}`);
+    }
+    const tokenData = await tokenRes.json();
+    const accessToken: string | undefined = tokenData.access_token;
+    if (!accessToken) {
+      throw new Error('Google token refresh succeeded but returned no access_token');
+    }
 
     for (const event of events) {
       try {

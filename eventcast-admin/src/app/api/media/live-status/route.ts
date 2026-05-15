@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import { RestreamerClient } from '@/lib/restreamer';
+import { requireAdmin } from '@/lib/auth';
 
 export const runtime = 'edge';
 
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = await requireAdmin(req);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const restreamer = new RestreamerClient({
       url: process.env.RESTREAMER_URL || 'https://media.eventcast.pro',

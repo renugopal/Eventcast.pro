@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { RestreamerClient } from '@/lib/restreamer';
+import { requireAdmin } from '@/lib/auth';
 
 export const runtime = 'edge';
 
@@ -20,6 +21,9 @@ async function generateCloudinarySignature(params: Record<string, string>, apiSe
 }
 
 export async function POST(req: Request) {
+  const auth = await requireAdmin(req);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const { id } = await req.json();
 
@@ -53,34 +57,45 @@ export async function POST(req: Request) {
     }
 
     // 3. Cloudinary Deletion
+    // Track images and videos separately by their source field — never infer from public_id string
     try {
-      const assetsToDelete: string[] = [];
-      if (event.thumbnail_url) assetsToDelete.push(getPublicId(event.thumbnail_url));
-      if (event.invitation_video_url) assetsToDelete.push(getPublicId(event.invitation_video_url));
+      const imagePublicIds: string[] = [];
+      const videoPublicIds: string[] = [];
+
+      if (event.thumbnail_url) imagePublicIds.push(getPublicId(event.thumbnail_url));
+      // invitation_video_url is always a video resource in Cloudinary
+      if (event.invitation_video_url) videoPublicIds.push(getPublicId(event.invitation_video_url));
+      // gallery_urls are always image resources
       if (event.gallery_urls) {
-        event.gallery_urls.forEach((url: string) => assetsToDelete.push(getPublicId(url)));
+        event.gallery_urls.forEach((url: string) => imagePublicIds.push(getPublicId(url)));
       }
-      const validAssets = assetsToDelete.filter(id => id);
-      if (validAssets.length > 0) {
+
+      const validImages = imagePublicIds.filter(id => id);
+      const validVideos = videoPublicIds.filter(id => id);
+
+      if (validImages.length > 0 || validVideos.length > 0) {
         const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
         const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY!;
         const apiSecret = process.env.CLOUDINARY_API_SECRET!;
         const timestamp = Math.round(new Date().getTime() / 1000).toString();
-        const images = validAssets.filter(id => !id.includes('video'));
-        if (images.length > 0) {
-          const params = { public_ids: images.join(','), timestamp };
+
+        const cloudinaryDelete = async (publicIds: string[], resourceType: 'image' | 'video') => {
+          const params = { public_ids: publicIds.join(','), timestamp };
           const signature = await generateCloudinarySignature(params, apiSecret);
-          const formData = new URLSearchParams();
-          formData.append('public_ids', images.join(','));
-          formData.append('timestamp', timestamp);
-          formData.append('api_key', apiKey);
-          formData.append('signature', signature);
-          await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`, {
+          const body = new URLSearchParams();
+          body.append('public_ids', publicIds.join(','));
+          body.append('timestamp', timestamp);
+          body.append('api_key', apiKey);
+          body.append('signature', signature);
+          await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/destroy`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formData
+            body,
           });
-        }
+        };
+
+        if (validImages.length > 0) await cloudinaryDelete(validImages, 'image');
+        if (validVideos.length > 0) await cloudinaryDelete(validVideos, 'video');
       }
     } catch (cldErr) {
       console.error("Cloudinary cleanup failed:", cldErr);

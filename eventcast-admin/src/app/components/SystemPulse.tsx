@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Activity, ShieldAlert, Zap, CheckCircle2, Info } from "lucide-react";
+import { authFetch } from "@/lib/client-auth";
 
 export const SystemPulse = () => {
   const [data, setData] = useState<any>(null);
@@ -9,7 +10,7 @@ export const SystemPulse = () => {
 
   const fetchStatus = async () => {
     try {
-      const res = await fetch('/api/system/intelligence');
+      const res = await authFetch('/api/system/intelligence');
       const json = await res.json();
       if (json.success) setData(json);
     } catch (e) { console.error(e); }

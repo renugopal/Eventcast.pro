@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Monitor, Clock, Play, Heart, AlertTriangle, Radio } from "lucide-react";
+import { authFetch } from "@/lib/client-auth";
 
 interface LiveMonitorProps {
   events: any[];
@@ -23,7 +24,7 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
     const fetchLiveStatus = async () => {
       try {
         setIsRefreshing(true);
-        const res = await fetch('/api/media/live-status');
+        const res = await authFetch('/api/media/live-status');
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.activeProcesses) {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { RestreamerClient } from '@/lib/restreamer';
 import { createClient } from '@supabase/supabase-js';
+import { requireAdmin } from '@/lib/auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -10,6 +11,9 @@ const supabase = createClient(
 export const runtime = 'edge';
 
 export async function POST(req: Request) {
+  const auth = await requireAdmin(req);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const { slug, enabled, eventId } = await req.json();
 

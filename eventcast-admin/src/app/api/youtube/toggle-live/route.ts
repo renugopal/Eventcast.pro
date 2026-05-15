@@ -1,7 +1,11 @@
 export const runtime = 'edge';
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth';
 
 export async function POST(req: Request) {
+  const auth = await requireAdmin(req);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const { eventId, broadcastId, title, isLive } = await req.json();
 

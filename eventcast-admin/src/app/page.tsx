@@ -8,6 +8,7 @@ import {
   Loader2, Link as LinkIcon, X, Layout, Users, Menu
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { authFetch, AuthError } from "@/lib/client-auth";
 
 // Sub-components
 import { Sidebar } from "./components/Sidebar";
@@ -71,7 +72,8 @@ export default function AdminDashboard() {
     notes: "",
     youtube_broadcast_id: "",
     youtube_stream_key: "",
-    youtube_url: ""
+    youtube_url: "",
+    slug: "",  // populated when editing; used to organise uploads into the correct Cloudinary folder
   });
 
   const [hasManuallyEditedInitials, setHasManuallyEditedInitials] = useState(false);
@@ -85,6 +87,7 @@ export default function AdminDashboard() {
   const [selectedBaseDesign, setSelectedBaseDesign] = useState("ec_premium_pink_v1");
   const [isEditingPhotographer, setIsEditingPhotographer] = useState(false);
   const [editingPhotographerId, setEditingPhotographerId] = useState<string | null>(null);
+  const [editingPhotographerData, setEditingPhotographerData] = useState<any | null>(null);
 
   const thumbInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -293,9 +296,9 @@ export default function AdminDashboard() {
         ? `https://www.google.com/maps/search/?q=${encodeURIComponent(linkOrQuery.trim())}`
         : linkOrQuery;
 
-      const res = await fetch('/api/resolve-url', {
+      const res = await authFetch('/api/resolve-url', {
         method: 'POST',
-        body: JSON.stringify({ url: urlToResolve })
+        body: JSON.stringify({ url: urlToResolve }),
       });
       const data = await res.json();
       const resolvedUrl = data.resolvedUrl || urlToResolve;
@@ -521,20 +524,19 @@ export default function AdminDashboard() {
       let youtubeDetails = null;
       if (!isEditing && formData.youtubePrivacy !== 'none') {
         try {
-          const ytRes = await fetch('/api/youtube', {
+          const ytRes = await authFetch('/api/youtube', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               groomName: formData.groomName,
               brideName: formData.brideName,
               celebrantName: formData.celebrantName,
               eventType: formData.eventType,
               eventDate: formData.eventDate,
-              targetTime: formData.timerTargetTime || formData.eventTime, // Live Start Time first, fallback to muhurtham
+              targetTime: formData.timerTargetTime || formData.eventTime,
               venueName: formData.venueName,
               thumbnailUrl: finalThumbnailUrl,
-              privacy: formData.youtubePrivacy
-            })
+              privacy: formData.youtubePrivacy,
+            }),
           });
           const ytData = await ytRes.json();
           if (ytData.success) {
@@ -557,10 +559,9 @@ export default function AdminDashboard() {
         youtube_url: youtubeDetails?.youtubeUrl || formData.youtube_url
       };
 
-      const res = await fetch('/api/events/generate', {
+      const res = await authFetch('/api/events/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...payload, isEditing, editingId })
+        body: JSON.stringify({ ...payload, isEditing, editingId }),
       });
 
       const data = await res.json();
@@ -574,6 +575,7 @@ export default function AdminDashboard() {
       resetForm();
       fetchEvents();
     } catch (err: any) {
+      if (err instanceof AuthError) { router.push('/login'); return; }
       const errorMsg = err.message.includes("base_design") || err.message.includes("notes")
         ? "Database Error: Please run the SQL command to add 'base_design' and 'notes' columns to your 'events' table in Supabase."
         : err.message;
@@ -609,7 +611,8 @@ export default function AdminDashboard() {
       customInitials: "",
       hideLoaderPhoto: false,
       loaderPhotoUrl: "",
-      notes: ""
+      notes: "",
+      slug: "",
     });
     setHasManuallyEditedInitials(false);
     setSelectedPhotographer(null);
@@ -619,7 +622,7 @@ export default function AdminDashboard() {
     const issues = [];
     
     // 1. Critical Checks
-    if (!formData.groom_name && !formData.celebrant_name) issues.push({ type: 'error', text: 'Main name (Groom/Celebrant) is missing!' });
+    if (!formData.groomName && !formData.celebrantName) issues.push({ type: 'error', text: 'Main name (Groom/Celebrant) is missing!' });
     if (!formData.eventDate) issues.push({ type: 'error', text: 'Event date is not set!' });
     if (!formData.thumbnailUrl) issues.push({ type: 'warning', text: 'No thumbnail uploaded. Social sharing will look basic.' });
     if (!formData.venueMapLink) issues.push({ type: 'warning', text: 'Google Maps link is missing. Guests might find it hard to navigate.' });
@@ -667,7 +670,8 @@ export default function AdminDashboard() {
       notes: event.notes || "",
       youtube_broadcast_id: event.youtube_broadcast_id || "",
       youtube_stream_key: event.youtube_stream_key || "",
-      youtube_url: event.youtube_url || ""
+      youtube_url: event.youtube_url || "",
+      slug: event.slug || "",
     });
     // Always set true when editing so auto-fill doesn't wipe existing values
     setHasManuallyEditedInitials(true);
@@ -719,10 +723,9 @@ export default function AdminDashboard() {
     if (!confirm("Are you sure?")) return;
     setIsLoadingEvents(true);
     try {
-      const res = await fetch('/api/events/delete', {
+      const res = await authFetch('/api/events/delete', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
+        body: JSON.stringify({ id }),
       });
       
       const data = await res.json();
@@ -733,6 +736,7 @@ export default function AdminDashboard() {
       alert("✅ Event and all related data deleted successfully!");
       fetchEvents();
     } catch (err: any) {
+      if (err instanceof AuthError) { router.push('/login'); return; }
       console.error("Delete error:", err);
       alert(`❌ Delete failed: ${err.message}`);
     } finally {
@@ -743,11 +747,10 @@ export default function AdminDashboard() {
   async function deleteMultipleEvents(ids: string[]) {
     setIsLoadingEvents(true);
     try {
-      const results = await Promise.all(ids.map(id => 
-        fetch('/api/events/delete', {
+      const results = await Promise.all(ids.map(id =>
+        authFetch('/api/events/delete', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id })
+          body: JSON.stringify({ id }),
         }).then(res => res.json())
       ));
       
@@ -797,6 +800,7 @@ export default function AdminDashboard() {
       e.target.reset();
       setIsEditingPhotographer(false);
       setEditingPhotographerId(null);
+      setEditingPhotographerData(null);
       fetchPhotographers();
     } catch (error: any) {
       console.error("Photographer Action Error:", error);
@@ -809,15 +813,8 @@ export default function AdminDashboard() {
   const handleEditPhotographer = (pg: any) => {
     setIsEditingPhotographer(true);
     setEditingPhotographerId(pg.id);
-    // Manually fill form fields
-    const form = document.querySelector('form') as HTMLFormElement; // Note: This might need more specific selector if multiple forms
-    if (form) {
-      (form.elements.namedItem('name') as HTMLInputElement).value = pg.name || "";
-      (form.elements.namedItem('phone') as HTMLInputElement).value = pg.phone_number || "";
-      (form.elements.namedItem('city') as HTMLInputElement).value = pg.city || "";
-      (form.elements.namedItem('logo_url') as HTMLInputElement).value = pg.logo_url || "";
-      (form.elements.namedItem('instagram_url') as HTMLInputElement).value = pg.instagram_url || "";
-    }
+    // Pass data to the controlled form via state — no DOM manipulation needed
+    setEditingPhotographerData(pg);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -1681,6 +1678,7 @@ export default function AdminDashboard() {
             deletePhotographer={deletePhotographer}
             onEdit={handleEditPhotographer}
             isEditing={isEditingPhotographer}
+            editingPhotographer={editingPhotographerData}
           />
         )}
         </main>

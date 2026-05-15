@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth';
 
 export const runtime = 'edge';
 
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = await requireAdmin(req);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
@@ -12,8 +16,8 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Missing Cloudinary Credentials" });
     }
 
-    // Base64 encode for Basic Auth
-    const auth = Buffer.from(`${apiKey}:${apiSecret}`).toString('base64');
+    // btoa() is available in Edge Runtime; Buffer.from() is Node.js-only and throws in V8 isolates
+    const auth = btoa(`${apiKey}:${apiSecret}`);
 
     // Fetch Usage from Cloudinary
     const cloudinaryRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/usage`, {
