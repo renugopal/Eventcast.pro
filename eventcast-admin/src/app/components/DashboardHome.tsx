@@ -11,9 +11,28 @@ interface DashboardHomeProps {
 }
 
 export const DashboardHome: React.FC<DashboardHomeProps> = ({ events, wishes, analyticsData, setActiveTab }) => {
+  const [activeEventsCount, setActiveEventsCount] = React.useState(0);
+
+  React.useEffect(() => {
+    // Fetch live streams to get accurate active count
+    const fetchLive = async () => {
+      try {
+        const res = await fetch('/api/media/live-status');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.activeProcesses) {
+            setActiveEventsCount(data.activeProcesses.filter((p: any) => p.state === 'running').length);
+          }
+        }
+      } catch (err) {}
+    };
+    fetchLive();
+    const timer = setInterval(fetchLive, 30000); // update every 30s
+    return () => clearInterval(timer);
+  }, []);
+
   // Stats
   const totalEvents = events.length;
-  const activeEvents = events.filter(e => e.youtube_status === 'live' || e.youtube_status === 'active').length;
   const totalViews = analyticsData.reduce((sum, e) => sum + (e.view_count || 0), 0);
   const totalWishes = wishes.length;
 
@@ -58,7 +77,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ events, wishes, an
             </div>
             <div>
               <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Active Livestreams</p>
-              <h3 className="text-2xl font-black text-slate-800 leading-none mt-1">{activeEvents}</h3>
+              <h3 className="text-2xl font-black text-slate-800 leading-none mt-1">{activeEventsCount}</h3>
             </div>
           </div>
         </div>
