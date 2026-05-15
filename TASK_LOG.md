@@ -12,6 +12,11 @@ This document provides a concise summary of completed and pending tasks.
 - [x] Enabled Full Stream VOD recording on private server.
 - [x] Optimized HLS buffering for high-bitrate streams.
 - [x] Added "Force Restart" button for media processes.
+- [x] **Smart UI Logic**:
+    - [x] Dynamic section visibility (Hide if empty).
+    - [x] Auto-pause video/slideshow on scroll.
+- [x] **Resource Guard**:
+    - [x] Cloudinary credit monitoring & alerting.
 
 ### UI & UX
 - [x] Fixed video player bottom gap/alignment issue.

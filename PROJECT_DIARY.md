@@ -90,5 +90,24 @@ We standardized the logic for `wedding-template-01` to ensure it's not just a de
    - *Rationale*: Prevents the frequent pause/play cycles that irritate wedding viewers.
 
 ---
+
+## 🧠 Template Intelligence & Resource Management
+**Date: May 15, 2026**
+
+### 🔍 Context
+We implemented "Smart Rules" to ensure the templates are efficient, resource-friendly, and maintain a polished look regardless of the data provided.
+
+### 🛠️ Core Intelligence Rules
+1. **Dynamic Visibility Logic**: 
+   - *Rule*: Sections like 'Invitation Video' or 'Photo Gallery' must automatically hide if no data is provided. They re-appear instantly once data is added in the admin panel.
+   - *Rationale*: Prevents broken or empty layouts, ensuring a premium feel at all times.
+2. **Smart Focus Playback**:
+   - *Rule*: Videos and slideshows only play when in the user's viewport. If a user scrolls away, these elements must auto-pause.
+   - *Rationale*: Massive bandwidth savings and better performance on mobile devices.
+3. **Cloudinary Credit Sentinel**:
+   - *Rule*: Actively monitor Cloudinary usage and provide early warnings before credits are exhausted.
+   - *Rationale*: To prevent sudden image loading failures during high-traffic live events.
+
+---
 *This diary is a living document. We add to it as we build, ensuring no detail is ever lost.*
 
