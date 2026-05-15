@@ -51,8 +51,8 @@ This document provides a concise summary of completed and pending tasks.
 ### High Priority
 - [ ] White Labeling: Custom Live Control Center in Admin Dashboard (Replace Restreamer UI).
 - [ ] AI Thumbnails: Auto-generate event thumbnails using Vertex AI.
-- [ ] **Stream Health Monitor**: Automated alerts for lag or drops.
-- [ ] **Event Deletion**: Finalize cleanup of media server files when event is deleted.
+- [x] **Stream Health Monitor**: Cron route `/api/cron/stream-health-monitor` built. Polls Restreamer for bitrate/state per live event window. Alerts via Supabase `stream_alerts` table + optional WhatsApp (CallMeBot). Enable WhatsApp by adding `ALERT_WHATSAPP_PHONE` + `ALERT_WHATSAPP_APIKEY` to `.env.local`.
+- [x] **Event Deletion**: Purge VOD/HLS media files from Restreamer `data/` filesystem on event delete (`deleteChannelFiles` added to `RestreamerClient`, wired into `/api/events/delete`).
 
 ### Planned Features
 - [ ] **Multi-Camera Support**: Internal switching between streams.

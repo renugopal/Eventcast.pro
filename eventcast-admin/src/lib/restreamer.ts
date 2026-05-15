@@ -6,6 +6,22 @@ export interface RestreamerConfig {
 }
 
 /**
+ * Health snapshot for a single Restreamer process.
+ * Returned by getProcessHealth() — used by the stream health monitor cron.
+ */
+export interface StreamHealth {
+  slug: string;
+  /** Datarhei Core process state: 'running' | 'idle' | 'failed' | 'stopped' | 'finished' */
+  state: string;
+  /** Current input bitrate in kbps (0 when no encoder is connected) */
+  bitrateKbps: number;
+  /** How long the process has been alive, in seconds */
+  runtimeSeconds: number;
+  /** Input frames per second (0 when no signal) */
+  fps: number;
+}
+
+/**
  * Utility to interact with Restreamer (Datarhei Core) API
  */
 export class RestreamerClient {
@@ -191,6 +207,55 @@ export class RestreamerClient {
   }
 
   /**
+   * Delete all VOD/HLS media files for a channel from the data filesystem.
+   * The media server stores files as: {slug}.m3u8, {slug}0000.ts, {slug}0001.ts, ...
+   * This must be called AFTER deleteChannel() to clean up persistent storage.
+   */
+  async deleteChannelFiles(slug: string): Promise<{ deleted: number; errors: number }> {
+    console.log(`Deleting media files for channel: ${slug}...`);
+    const authHeader = await this.getAuthToken();
+
+    // 1. List all files in the data filesystem
+    const listRes = await fetch(`${this.config.url}/api/v3/fs/data`, {
+      headers: { 'Authorization': authHeader }
+    });
+
+    if (!listRes.ok) {
+      throw new Error(`Failed to list data filesystem: ${listRes.status} ${listRes.statusText}`);
+    }
+
+    const files: Array<{ name: string }> = await listRes.json();
+
+    // 2. Filter to files that belong to this event slug (m3u8 playlist + all .ts segments)
+    const targetFiles = files.filter(f => f.name.startsWith(slug));
+
+    if (targetFiles.length === 0) {
+      console.log(`No media files found for slug: ${slug}`);
+      return { deleted: 0, errors: 0 };
+    }
+
+    console.log(`Found ${targetFiles.length} media files to delete for slug: ${slug}`);
+
+    // 3. Delete all matching files concurrently — allSettled so one failure doesn't block others
+    const results = await Promise.allSettled(
+      targetFiles.map(file =>
+        fetch(`${this.config.url}/api/v3/fs/data/${encodeURIComponent(file.name)}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': authHeader }
+        })
+      )
+    );
+
+    const deleted = results.filter(
+      r => r.status === 'fulfilled' && (r.value as Response).ok
+    ).length;
+    const errors = results.length - deleted;
+
+    console.log(`Media cleanup complete for ${slug}: ${deleted} deleted, ${errors} errors`);
+    return { deleted, errors };
+  }
+
+  /**
    * Toggle a specific output (e.g., youtube) for a process
    */
   async toggleOutput(slug: string, outputId: string, enabled: boolean, outputConfig?: any) {
@@ -233,6 +298,40 @@ export class RestreamerClient {
     } catch (err) {
       console.error(`Failed to toggle output ${outputId} for ${slug}:`, err);
       return false;
+    }
+  }
+
+  /**
+   * Fetch live health metrics for a single process (state, bitrate, fps, uptime).
+   * Returns null if the process does not exist on the media server.
+   * Uses the Datarhei Core /api/v3/process/{id}/state endpoint.
+   */
+  async getProcessHealth(slug: string): Promise<StreamHealth | null> {
+    try {
+      const authHeader = await this.getAuthToken();
+      const res = await fetch(`${this.config.url}/api/v3/process/${slug}/state`, {
+        headers: { 'Authorization': authHeader }
+      });
+
+      if (res.status === 404) return null; // Channel was never created for this event
+
+      if (!res.ok) {
+        throw new Error(`State fetch failed: ${res.status} ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      const inputProgress = data.progress?.input?.[0];
+
+      return {
+        slug,
+        state: data.state ?? 'unknown',
+        bitrateKbps: inputProgress?.bitrate_kbit ?? 0,
+        runtimeSeconds: data.runtime_seconds ?? inputProgress?.time ?? 0,
+        fps: inputProgress?.fps ?? 0,
+      };
+    } catch (err) {
+      console.error(`getProcessHealth failed for ${slug}:`, err);
+      return null;
     }
   }
 

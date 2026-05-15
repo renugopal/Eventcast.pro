@@ -34,45 +34,25 @@ export async function POST(req: Request) {
 
     const slug = event.slug;
 
-    // 2. Restreamer Cleanup
+    // 2. Restreamer Cleanup: delete process config AND all VOD/HLS media files from disk
     try {
       const restreamer = new RestreamerClient({
         url: process.env.RESTREAMER_URL || 'https://media.eventcast.pro',
         username: process.env.RESTREAMER_USERNAME || 'admin',
         password: process.env.RESTREAMER_PASSWORD
       });
+      // Step A: remove the process (stops any active stream and removes config)
       await restreamer.deleteChannel(slug);
+      // Step B: purge persisted VOD files from the data filesystem
+      //         Without this, .m3u8 + .ts segment files accumulate on the media server disk
+      const { deleted, errors } = await restreamer.deleteChannelFiles(slug);
+      console.log(`VOD cleanup for ${slug}: ${deleted} files removed, ${errors} errors`);
     } catch (rsErr) {
-      console.error("Restreamer cleanup failed:", rsErr);
+      // Non-fatal: log the error but continue — Supabase/GitHub/Cloudinary deletion must still proceed
+      console.error(`Restreamer cleanup failed for ${slug}:`, rsErr);
     }
 
-    // 3. YouTube Deletion
-    const broadcastId = event.youtube_broadcast_id || (event.vod_link ? event.vod_link.split('/').pop()?.split('v=')?.pop()?.split('&')[0] : null);
-    if (broadcastId) {
-      try {
-        const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({
-            client_id: process.env.GOOGLE_CLIENT_ID!,
-            client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-            refresh_token: process.env.GOOGLE_REFRESH_TOKEN!,
-            grant_type: "refresh_token",
-          }),
-        });
-        const tokenData = await tokenRes.json();
-        if (tokenData.access_token) {
-          await fetch(`https://youtube.googleapis.com/youtube/v3/liveBroadcasts?id=${broadcastId}`, {
-            method: "DELETE",
-            headers: { "Authorization": `Bearer ${tokenData.access_token}` }
-          });
-        }
-      } catch (ytErr) {
-        console.error("YouTube deletion failed:", ytErr);
-      }
-    }
-
-    // 4. Cloudinary Deletion
+    // 3. Cloudinary Deletion
     try {
       const assetsToDelete: string[] = [];
       if (event.thumbnail_url) assetsToDelete.push(getPublicId(event.thumbnail_url));
@@ -106,7 +86,7 @@ export async function POST(req: Request) {
       console.error("Cloudinary cleanup failed:", cldErr);
     }
 
-    // 5. GitHub Folder Deletion
+    // 4. GitHub Folder Deletion
     try {
       const githubToken = process.env.GITHUB_TOKEN;
       const owner = 'renugopal';
@@ -147,7 +127,7 @@ export async function POST(req: Request) {
       console.error("GitHub cleanup failed:", gitErr);
     }
 
-    // 6. FINALLY: Delete from Supabase (using Admin)
+    // 5. FINALLY: Delete from Supabase (using Admin)
     const { error: deleteError } = await db.from('events').delete().eq('id', id);
     if (deleteError) throw new Error(`Supabase Deletion Error: ${deleteError.message}`);
 
