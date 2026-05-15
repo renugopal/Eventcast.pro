@@ -252,7 +252,9 @@ export async function POST(req: Request) {
         }
       }
 
-      const navigateUrl = vMap || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(vName || query)}`;
+      const navigateUrl = (vMap && !vMap.includes('<iframe')) 
+        ? vMap 
+        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(vName || query)}`;
       
       htmlContent = htmlContent.replace(/src="https:\/\/(www\.)?google\.com\/maps\/embed[^"]*"/g, `src="${embedUrl}"`);
       htmlContent = htmlContent.replace(/src="https:\/\/maps\.google\.com\/maps\?q=[^"]*"/g, `src="${embedUrl}"`);

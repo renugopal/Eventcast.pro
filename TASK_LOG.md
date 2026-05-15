@@ -49,7 +49,8 @@ This document provides a concise summary of completed and pending tasks.
 ## 🛠️ Ongoing / Pending Tasks
 
 ### High Priority
-- [ ] **AI Thumbnail Generation**: Integration with Vertex AI.
+- [ ] White Labeling: Custom Live Control Center in Admin Dashboard (Replace Restreamer UI).
+- [ ] AI Thumbnails: Auto-generate event thumbnails using Vertex AI.
 - [ ] **Stream Health Monitor**: Automated alerts for lag or drops.
 - [ ] **Event Deletion**: Finalize cleanup of media server files when event is deleted.
 
