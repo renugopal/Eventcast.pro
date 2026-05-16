@@ -1,31 +1,43 @@
 /**
- * /api/r2-upload
- * Receives a video file from the admin panel and uploads it to Cloudflare R2.
- * Uses the S3-compatible API with AWS Signature V4.
- * Videos → R2 (Zero Egress Fees)
- * Images → Cloudinary (handled in page.tsx)
+ * /api/r2-upload  — Edge Runtime (Cloudflare Pages compatible)
+ * Uploads videos to Cloudflare R2 using AWS Signature V4 via Web Crypto API.
+ * Node.js `crypto` module is NOT used — only Web Crypto (available in Edge).
  */
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createHmac, createHash } from 'crypto';
 
-// ─── AWS Sig V4 Helpers ───────────────────────────────────────────────────────
+// ─── Web Crypto AWS Sig V4 Helpers ────────────────────────────────────────────
 
-function sha256Hex(data: Buffer | string): string {
-  return createHash('sha256').update(data).digest('hex');
+async function sha256Hex(data: ArrayBuffer | Uint8Array | string): Promise<string> {
+  const buffer = typeof data === 'string' ? new TextEncoder().encode(data) : data;
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
-function hmacSha256(key: Buffer | string, data: string): Buffer {
-  return createHmac('sha256', key).update(data, 'utf8').digest();
+async function hmacSha256Raw(keyData: ArrayBuffer, message: string): Promise<ArrayBuffer> {
+  const key = await crypto.subtle.importKey(
+    'raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  return crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
 }
 
-function getSigningKey(secretKey: string, dateStamp: string, region: string, service: string): Buffer {
-  const kDate    = hmacSha256('AWS4' + secretKey, dateStamp);
-  const kRegion  = hmacSha256(kDate, region);
-  const kService = hmacSha256(kRegion, service);
-  const kSigning = hmacSha256(kService, 'aws4_request');
-  return kSigning;
+async function getSigningKeyBuf(
+  secretKey: string, dateStamp: string, region: string, service: string
+): Promise<ArrayBuffer> {
+  const enc = new TextEncoder();
+  const kDate    = await hmacSha256Raw(enc.encode('AWS4' + secretKey), dateStamp);
+  const kRegion  = await hmacSha256Raw(kDate, region);
+  const kService = await hmacSha256Raw(kRegion, service);
+  return hmacSha256Raw(kService, 'aws4_request');
+}
+
+function bufToHex(buf: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buf))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 // ─── Main Handler ─────────────────────────────────────────────────────────────
@@ -33,29 +45,31 @@ function getSigningKey(secretKey: string, dateStamp: string, region: string, ser
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
-    const file = formData.get('file') as File | null;
-    const folder = (formData.get('folder') as string) || 'events';
+    const file     = formData.get('file') as File | null;
+    const folder   = (formData.get('folder') as string) || 'events';
 
     if (!file) {
       return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
     }
 
-    const accountId  = process.env.R2_ACCOUNT_ID!;
-    const accessKey  = process.env.R2_ACCESS_KEY_ID!;
-    const secretKey  = process.env.R2_SECRET_ACCESS_KEY!;
-    const bucketName = process.env.R2_BUCKET_NAME!;
-    const endpoint   = process.env.R2_S3_ENDPOINT!; // https://<accountId>.r2.cloudflarestorage.com
+    const accessKey    = process.env.R2_ACCESS_KEY_ID!;
+    const secretKey    = process.env.R2_SECRET_ACCESS_KEY!;
+    const bucketName   = process.env.R2_BUCKET_NAME!;
+    const endpoint     = process.env.R2_S3_ENDPOINT!;
+    const r2PublicBase = process.env.R2_PUBLIC_URL || 'https://pub-fa013cc979d8410e9d307bd2c9e6ecf2.r2.dev';
 
-    if (!accountId || !accessKey || !secretKey || !bucketName || !endpoint) {
-      return NextResponse.json({ success: false, error: 'R2 environment variables not configured' }, { status: 500 });
+    if (!accessKey || !secretKey || !bucketName || !endpoint) {
+      return NextResponse.json(
+        { success: false, error: 'R2 environment variables not configured' },
+        { status: 500 }
+      );
     }
 
-    // Build a clean object key: events/<folder>/<timestamp>-<filename>
+    // Build object key: events/<folder>/<timestamp>-<filename>
     const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const objectKey = `${folder}/${Date.now()}-${safeFileName}`;
+    const objectKey    = `${folder}/${Date.now()}-${safeFileName}`;
 
-    // Read file bytes
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    const fileBuffer  = await file.arrayBuffer();
     const contentType = file.type || 'video/mp4';
 
     // ── AWS Sig V4 ────────────────────────────────────────────────────────────
@@ -63,11 +77,11 @@ export async function POST(req: NextRequest) {
     const service = 's3';
     const host    = new URL(endpoint).host;
 
-    const now         = new Date();
-    const amzDate     = now.toISOString().replace(/[:-]|\.\d{3}/g, '').slice(0, 15) + 'Z'; // YYYYMMDDTHHmmssZ
-    const dateStamp   = amzDate.slice(0, 8); // YYYYMMDD
+    const now       = new Date();
+    const amzDate   = now.toISOString().replace(/[:-]|\.\d{3}/g, '').slice(0, 15) + 'Z';
+    const dateStamp = amzDate.slice(0, 8);
 
-    const payloadHash = sha256Hex(fileBuffer);
+    const payloadHash  = await sha256Hex(fileBuffer);
     const canonicalUri = `/${bucketName}/${objectKey}`;
 
     const canonicalHeaders =
@@ -92,11 +106,17 @@ export async function POST(req: NextRequest) {
       'AWS4-HMAC-SHA256',
       amzDate,
       credentialScope,
-      sha256Hex(canonicalRequest),
+      await sha256Hex(new TextEncoder().encode(canonicalRequest)),
     ].join('\n');
 
-    const signingKey = getSigningKey(secretKey, dateStamp, region, service);
-    const signature  = hmacSha256(signingKey, stringToSign).toString('hex');
+    const signingKeyBuf = await getSigningKeyBuf(secretKey, dateStamp, region, service);
+    const signingKey    = await crypto.subtle.importKey(
+      'raw', signingKeyBuf, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+    );
+    const signatureBuf = await crypto.subtle.sign(
+      'HMAC', signingKey, new TextEncoder().encode(stringToSign)
+    );
+    const signature = bufToHex(signatureBuf);
 
     const authHeader =
       `AWS4-HMAC-SHA256 Credential=${accessKey}/${credentialScope}, ` +
@@ -109,26 +129,26 @@ export async function POST(req: NextRequest) {
     const r2Res = await fetch(uploadUrl, {
       method: 'PUT',
       headers: {
-        'Content-Type':        contentType,
-        'x-amz-date':          amzDate,
-        'x-amz-content-sha256': payloadHash,
-        'Authorization':        authHeader,
+        'Content-Type':          contentType,
+        'x-amz-date':            amzDate,
+        'x-amz-content-sha256':  payloadHash,
+        'Authorization':         authHeader,
       },
+      // @ts-ignore — duplex required for streaming body in some runtimes
       body: fileBuffer,
     });
 
     if (!r2Res.ok) {
       const errText = await r2Res.text();
       console.error('R2 upload error:', r2Res.status, errText);
-      return NextResponse.json({ success: false, error: `R2 upload failed: ${r2Res.status}` }, { status: 500 });
+      return NextResponse.json(
+        { success: false, error: `R2 upload failed: ${r2Res.status} — ${errText}` },
+        { status: 500 }
+      );
     }
 
-    // ── Build public URL ──────────────────────────────────────────────────────
-    // Uses the R2 Public Development URL (enabled in Cloudflare R2 bucket settings).
-    // Future: replace with cdn.eventcast.pro custom domain for branded URLs.
-    const r2PublicBase = process.env.R2_PUBLIC_URL || `https://pub-fa013cc979d8410e9d307bd2c9e6ecf2.r2.dev`;
+    // ── Return public URL ─────────────────────────────────────────────────────
     const publicUrl = `${r2PublicBase}/${objectKey}`;
-
     return NextResponse.json({ success: true, url: publicUrl, key: objectKey });
 
   } catch (err: any) {
