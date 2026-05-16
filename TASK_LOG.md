@@ -51,7 +51,7 @@ This document provides a concise summary of completed and pending tasks.
 ## 🛠️ Ongoing / Pending Tasks
 
 ### High Priority
-- [ ] White Labeling: Custom Live Control Center in Admin Dashboard (Replace Restreamer UI).
+- [x] **White Labeling**: Custom Live Control Center in Admin Dashboard (Replaced Restreamer UI with premium glassmorphism StreamCards, built-in HLS preview, and direct API controls).
 - [ ] AI Thumbnails: Auto-generate event thumbnails using Vertex AI.
 - [x] **Restreamer Token Cache**: `RestreamerClient.getAuthToken()` now caches the Bearer token at module level (key: `url::username`) with a 55-minute TTL. All 7 methods share the same token within an Edge worker isolate — reduces `/api/login` calls from N-per-cron-tick to 1-per-55-min. `invalidateToken()` auto-evicts on HTTP 401 so stale tokens self-heal without a worker restart.
 - [x] **GitHub Rate Limit — Recursive Tree Fetch (generate)**: `/api/events/generate` now uses the GitHub Contents API (`GET /repos/.../contents/{templatePath}`) instead of `?recursive=1` to locate template files. Response is O(template_files) not O(repo_size). Safe at 1000+ events.
