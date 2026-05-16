@@ -415,6 +415,8 @@ const StreamCard: React.FC<StreamCardProps> = ({ stream, event }) => {
 
 // ─── Main LiveMonitor ─────────────────────────────────────────────────────────
 
+type SystemStatus = 'initializing' | 'online' | 'degraded' | 'offline';
+
 interface LiveMonitorProps {
   events: any[];
   wishes: any[];
@@ -425,6 +427,7 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
   const [activeStreams, setActiveStreams] = useState<any[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [systemStatus, setSystemStatus] = useState<SystemStatus>('initializing');
 
   // Tick the clock every second
   useEffect(() => {
@@ -445,10 +448,15 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
           }));
           setActiveStreams(mapped);
           setLastUpdated(new Date());
+          setSystemStatus('online');
+        } else {
+          setSystemStatus('degraded');
         }
+      } else {
+        setSystemStatus('offline');
       }
-    } catch (err) {
-      console.error("LiveMonitor fetch error:", err);
+    } catch {
+      setSystemStatus('offline');
     } finally {
       setIsRefreshing(false);
     }
@@ -500,10 +508,30 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
               Live Control Center
             </h2>
             <div className="flex items-center gap-3 mt-0.5">
-              <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-emerald-400">
-                <Radio size={10} className="animate-pulse" />
-                System Online
-              </span>
+              {systemStatus === 'initializing' && (
+                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                  <Radio size={10} className="animate-pulse" />
+                  Connecting…
+                </span>
+              )}
+              {systemStatus === 'online' && (
+                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-emerald-400">
+                  <Radio size={10} className="animate-pulse" />
+                  System Online
+                </span>
+              )}
+              {systemStatus === 'degraded' && (
+                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-amber-400">
+                  <Radio size={10} className="animate-pulse" />
+                  Degraded
+                </span>
+              )}
+              {systemStatus === 'offline' && (
+                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-red-400">
+                  <WifiOff size={10} />
+                  Media Server Offline
+                </span>
+              )}
               {liveCount > 0 && (
                 <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-red-400">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.8)]" />

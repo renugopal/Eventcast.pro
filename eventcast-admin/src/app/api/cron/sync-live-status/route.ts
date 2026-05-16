@@ -5,10 +5,10 @@ export const runtime = 'edge';
 
 export async function GET(req: Request) {
   try {
-    // 1. Security Check (Optional but recommended)
+    // 1. Security Check — fail closed: 401 if CRON_SECRET is unset or secret mismatches
     const { searchParams } = new URL(req.url);
     const secret = searchParams.get('secret');
-    if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+    if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

@@ -19,25 +19,30 @@ export async function POST(req: Request) {
         grant_type: "refresh_token",
       }),
     });
+    if (!tokenRes.ok) {
+      const errText = await tokenRes.text();
+      throw new Error(`Google OAuth token refresh failed (${tokenRes.status}): ${errText}`);
+    }
     const tokenData = await tokenRes.json();
-    const accessToken = tokenData.access_token;
+    const accessToken: string | undefined = tokenData.access_token;
+    if (!accessToken) {
+      throw new Error('Google OAuth token refresh succeeded but returned no access_token');
+    }
 
     const newTitle = isLive ? `🔴 LIVE NOW | ${title}` : title.replace('🔴 LIVE NOW | ', '');
 
-    // 2. Update Broadcast Title
+    // 2. Update Broadcast Title — only set scheduledStartTime when going live,
+    //    not when toggling off (resetting it to "now" would corrupt the broadcast timeline)
+    const snippet: Record<string, string> = { title: newTitle };
+    if (isLive) snippet.scheduledStartTime = new Date().toISOString();
+
     const updateRes = await fetch("https://youtube.googleapis.com/youtube/v3/liveBroadcasts?part=snippet", {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        id: broadcastId,
-        snippet: {
-          title: newTitle,
-          scheduledStartTime: new Date().toISOString(), // Keep it current
-        },
-      }),
+      body: JSON.stringify({ id: broadcastId, snippet }),
     });
 
     const data = await updateRes.json();
