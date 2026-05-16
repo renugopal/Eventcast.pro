@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Monitor, Clock, RefreshCw, Heart, Radio,
-  RotateCcw, Youtube, Activity, Zap, Signal,
+  RotateCcw, Play, Activity, Zap, Signal,
   Tv, WifiOff,
 } from "lucide-react";
 import { authFetch } from "@/lib/client-auth";
@@ -172,7 +172,7 @@ const YouTubeToggle: React.FC<YouTubeToggleProps> = ({
     {loading ? (
       <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
     ) : (
-      <Youtube size={12} />
+      <Play size={12} />
     )}
     <span>YouTube</span>
     <div
