@@ -1008,7 +1008,14 @@ export default function AdminDashboard() {
   });
 
   return (
-    <div className="flex min-h-screen bg-[#07070d] font-sans text-white selection:bg-blue-500/30 selection:text-blue-200 md:overflow-hidden">
+    <div className="flex min-h-screen bg-[#030307] font-sans text-white selection:bg-blue-500/30 selection:text-blue-200 md:overflow-hidden relative">
+      
+      {/* Universal Ambient Glows */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0" aria-hidden>
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/[0.03] rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/[0.03] rounded-full blur-[120px]" />
+      </div>
+
       <Sidebar 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
@@ -1019,27 +1026,30 @@ export default function AdminDashboard() {
         setIsMobileOpen={setIsMobileMenuOpen}
       />
 
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden relative z-10">
         {/* Mobile Header */}
-        <header className="md:hidden border-b border-white/[0.06] p-4 flex items-center justify-between sticky top-0 z-30" style={{ background: "#0d0d17" }}>
-          <div className="flex items-center gap-3">
+        <header className="md:hidden border-b border-white/[0.08] p-5 flex items-center justify-between sticky top-0 z-30 backdrop-blur-xl bg-white/[0.02]">
+          <div className="flex items-center gap-4">
             <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center text-white"
+              className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20"
               style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)" }}
             >
-              <Layout size={15} />
+              <Layout size={18} />
             </div>
-            <h1 className="font-black text-white tracking-wider text-[15px] leading-none">EVENTCAST</h1>
+            <div>
+              <h1 className="font-black text-white tracking-tighter text-lg leading-none">EVENTCAST</h1>
+              <p className="text-[9px] font-black tracking-[0.2em] text-blue-500 uppercase mt-1">ADMIN CONTROL</p>
+            </div>
           </div>
           <button 
-            className="p-2 text-white/40 hover:text-white bg-white/[0.06] hover:bg-white/10 rounded-xl transition-colors"
+            className="w-10 h-10 flex items-center justify-center text-white/40 hover:text-white bg-white/[0.05] border border-white/[0.08] rounded-2xl transition-all"
             onClick={() => setIsMobileMenuOpen(true)}
           >
-            <Menu size={22} />
+            <Menu size={20} />
           </button>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto w-full">
+        <main className="flex-1 p-6 sm:p-8 md:p-12 overflow-y-auto w-full custom-scrollbar">
         {activeTab === "home" && (
           <DashboardHome 
             events={events} 
@@ -1050,78 +1060,110 @@ export default function AdminDashboard() {
         )}
         {activeTab === "monitor" && <LiveMonitor events={events} wishes={wishes} />}
         {activeTab === "create" && (
-          <div className="max-w-5xl mx-auto pb-20">
+          <div className="max-w-5xl mx-auto pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {submitStatus && (
-              <div className={`mb-6 p-4 rounded-xl flex items-center gap-3 ${submitStatus.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
-                {submitStatus.type === 'success' ? <CheckCircle2 className="text-green-500" /> : <AlertCircle className="text-red-500" />}
-                <p className="font-medium">{submitStatus.message}</p>
+              <div className={`mb-10 p-6 rounded-[2rem] flex items-center gap-4 backdrop-blur-xl border ${submitStatus.type === 'success' ? 'bg-green-500/10 text-green-400 border-green-500/20 shadow-lg shadow-green-500/5' : 'bg-red-500/10 text-red-400 border-red-500/20 shadow-lg shadow-red-500/5'}`}>
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${submitStatus.type === 'success' ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
+                  {submitStatus.type === 'success' ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
+                </div>
+                <div>
+                  <p className="text-sm font-black uppercase tracking-widest">{submitStatus.type === 'success' ? 'Protocol Success' : 'System Alert'}</p>
+                  <p className="text-xs font-bold opacity-70 mt-0.5">{submitStatus.message}</p>
+                </div>
+                <button onClick={() => setSubmitStatus(null)} className="ml-auto w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all">
+                   <X size={16} />
+                </button>
               </div>
             )}
 
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 md:p-10">
-              <form onSubmit={handleSubmit} className="space-y-12">
+            <div 
+              className="rounded-[3rem] border p-8 md:p-12 backdrop-blur-2xl shadow-2xl relative overflow-hidden"
+              style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)" }}
+            >
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/[0.03] blur-[100px] -z-10" />
+              
+              <form onSubmit={handleSubmit} className="space-y-16">
                 {/* 1. Identity Section */}
                 <section>
-                  <h3 className="text-lg font-black text-slate-800 border-b border-slate-100 pb-4 mb-8 flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center"><Calendar size={18} /></div>
-                    Event Identity
-                  </h3>
+                  <div className="flex items-center gap-4 mb-10">
+                    <div className="w-12 h-12 bg-blue-500/10 text-blue-400 rounded-2xl flex items-center justify-center border border-blue-500/20 shadow-lg shadow-blue-500/5">
+                      <Calendar size={22} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-white tracking-tight">Event Identity</h3>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Core Telemetry & Metadata</p>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div className="md:col-span-1">
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
-                        Intro Text (Press Enter for 2nd line)
-                      </label>
+                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Intro Script (Double Line)</label>
                       <textarea
                         name="customTopTitle"
                         value={formData.customTopTitle}
                         onChange={handleInputChange}
                         rows={2}
-                        placeholder={formData.templateId === "half-saree-template-01" ? "e.g. Grand Celebration\n(Default: Grand Celebration)" : "e.g. Somisetty & Parchuri's\nWedding Invitation"}
-                        className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800 resize-none"
+                        placeholder={formData.templateId === "half-saree-template-01" ? "Grand Celebration" : "Wedding Invitation"}
+                        className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base resize-none placeholder:text-white/10"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
-                            e.stopPropagation(); // Prevent form submit
-                            // Allow default textarea newline behavior
+                            e.stopPropagation();
                           }
                         }}
                       />
                     </div>
                     <div className="md:col-span-1">
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Event Type</label>
-                      <select name="eventType" value={formData.eventType} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800 appearance-none">
-                        <option>Wedding</option>
-                        <option>Engagement</option>
-                        <option>Reception</option>
-                        <option>Birthday</option>
-                        <option>Half Saree</option>
-                        <option>Dhoti Ceremony</option>
-                      </select>
+                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Mission Type</label>
+                      <div className="relative group">
+                        <select 
+                          name="eventType" 
+                          value={formData.eventType} 
+                          onChange={handleInputChange} 
+                          className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base appearance-none cursor-pointer group-hover:border-white/20"
+                        >
+                          <option className="bg-[#0d0d17]">Wedding</option>
+                          <option className="bg-[#0d0d17]">Engagement</option>
+                          <option className="bg-[#0d0d17]">Reception</option>
+                          <option className="bg-[#0d0d17]">Birthday</option>
+                          <option className="bg-[#0d0d17]">Half Saree</option>
+                          <option className="bg-[#0d0d17]">Dhoti Ceremony</option>
+                        </select>
+                        <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 rotate-90 text-white/20 pointer-events-none" size={20} />
+                      </div>
                     </div>
                     <div className="md:col-span-1">
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Visual Template</label>
-                      <select name="templateId" value={formData.templateId} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800 appearance-none">
-                        <option value="wedding-template-01">wedding-template-01 (Premium Pink & Gold)</option>
-                        <option value="half-saree-template-01">half-saree-template-01 (Premium Emerald & Gold)</option>
-                        <option value="dhoti-ceremony-template-01">dhoti-ceremony-template-01 (Royal Blue & Gold)</option>
-                        <option value="wedding-template">wedding-template (Modern Sage Theme)</option>
-                        <option value="wedding">wedding (Traditional Maroon)</option>
-                      </select>
+                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Visual Matrix</label>
+                      <div className="relative group">
+                        <select 
+                          name="templateId" 
+                          value={formData.templateId} 
+                          onChange={handleInputChange} 
+                          className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-sm appearance-none cursor-pointer group-hover:border-white/20"
+                        >
+                          <option value="wedding-template-01" className="bg-[#0d0d17]">Wedding: Pink & Gold</option>
+                          <option value="half-saree-template-01" className="bg-[#0d0d17]">Half Saree: Emerald</option>
+                          <option value="dhoti-ceremony-template-01" className="bg-[#0d0d17]">Dhoti: Royal Blue</option>
+                          <option value="wedding-template" className="bg-[#0d0d17]">Modern Sage</option>
+                          <option value="wedding" className="bg-[#0d0d17]">Traditional Maroon</option>
+                        </select>
+                        <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 rotate-90 text-white/20 pointer-events-none" size={20} />
+                      </div>
                     </div>
                     {(formData.eventType === "Wedding" || formData.eventType === "Engagement" || formData.eventType === "Reception") ? (
                       <>
                         <div className="md:col-span-1">
-                          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Groom Name</label>
-                          <input type="text" name="groomName" value={formData.groomName} onChange={handleInputChange} required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
+                          <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Primary Node (Groom)</label>
+                          <input type="text" name="groomName" value={formData.groomName} onChange={handleInputChange} required className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" placeholder="Alpha Name" />
                         </div>
                         <div className="md:col-span-2">
-                          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Bride Name</label>
-                          <input type="text" name="brideName" value={formData.brideName} onChange={handleInputChange} required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
+                          <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Secondary Node (Bride)</label>
+                          <input type="text" name="brideName" value={formData.brideName} onChange={handleInputChange} required className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" placeholder="Beta Name" />
                         </div>
                       </>
                     ) : (
                       <div className="md:col-span-3">
-                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Celebrant Name</label>
-                        <input type="text" name="celebrantName" value={formData.celebrantName} onChange={handleInputChange} required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
+                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Celebrant Identity</label>
+                        <input type="text" name="celebrantName" value={formData.celebrantName} onChange={handleInputChange} required className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" placeholder="Target Name" />
                       </div>
                     )}
                   </div>
@@ -1129,59 +1171,67 @@ export default function AdminDashboard() {
 
                 {/* 1.5. Loader & Branding */}
                 <section>
-                  <h3 className="text-lg font-black text-slate-800 border-b border-slate-100 pb-4 mb-8 flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center"><Layout size={18} /></div>
-                    Loader & Branding
-                  </h3>
+                  <div className="flex items-center gap-4 mb-10">
+                    <div className="w-12 h-12 bg-purple-500/10 text-purple-400 rounded-2xl flex items-center justify-center border border-purple-500/20 shadow-lg shadow-purple-500/5">
+                      <Layout size={22} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-white tracking-tight">Branding & Loader</h3>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Initialization Visuals</p>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Custom Initials (Optional)</label>
+                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Custom Initials</label>
                       <input 
                         type="text" 
                         name="customInitials" 
                         value={formData.customInitials} 
                         onChange={handleInputChange} 
-                        placeholder={formData.templateId === "half-saree-template-01" ? "e.g. B S (Default: First letter of name)" : "e.g. A & N (Auto-generated if empty)"}
-                        className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" 
+                        placeholder="e.g. A & N"
+                        className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10 uppercase" 
                       />
                     </div>
                     <div className="flex flex-col justify-center">
-                      <div className="flex items-center mb-4">
-                        <label className="flex items-center gap-3 cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            name="hideLoaderPhoto" 
-                            checked={formData.hideLoaderPhoto} 
-                            onChange={handleInputChange} 
-                            className="w-5 h-5 rounded text-blue-600" 
-                          />
+                      <div className="flex items-center mb-6">
+                        <label className="flex items-center gap-4 cursor-pointer group">
+                          <div className="relative">
+                            <input 
+                              type="checkbox" 
+                              name="hideLoaderPhoto" 
+                              checked={formData.hideLoaderPhoto} 
+                              onChange={handleInputChange} 
+                              className="peer sr-only" 
+                            />
+                            <div className="w-12 h-6 bg-white/10 rounded-full border border-white/10 transition-all peer-checked:bg-blue-600"></div>
+                            <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-6"></div>
+                          </div>
                           <div>
-                            <span className="block text-sm font-bold text-slate-800">Hide Loader Photo</span>
-                            <span className="block text-xs text-slate-500">
-                              {formData.templateId === "half-saree-template-01" ? "Only show initials (BS) in the center circle" : "Only show initials in the center circle"}
-                            </span>
+                            <span className="block text-sm font-black text-white group-hover:text-blue-400 transition-colors uppercase tracking-widest">Hide Loader Photo</span>
+                            <span className="block text-[10px] font-bold text-white/30 uppercase mt-1">Initials-Only Centric View</span>
                           </div>
                         </label>
                       </div>
                       
                       {!formData.hideLoaderPhoto && (
-                        <div>
-                          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Manual Loader Photo (Optional)</label>
+                        <div className="animate-in fade-in zoom-in-95 duration-500">
+                          <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Manual Loader Uplink</label>
                           <div className="relative group">
                             <input
                               type="text"
                               name="loaderPhotoUrl"
                               value={formData.loaderPhotoUrl}
                               onChange={handleInputChange}
-                              placeholder="Leave empty to auto-use Thumbnail/Gallery"
-                              className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all pr-12 text-sm"
+                              placeholder="Auto-fetch active if empty"
+                              className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-sm pr-16 placeholder:text-white/10"
                             />
                             <button
                               type="button"
                               onClick={() => loaderPhotoInputRef.current?.click()}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-blue-500/20 text-blue-400 rounded-xl hover:bg-blue-500 hover:text-white transition-all shadow-lg border border-blue-500/20"
                             >
-                              {isUploading === 'loaderPhoto' ? <Loader2 size={16} className="animate-spin" /> : <UploadCloud size={16} />}
+                              {isUploading === 'loaderPhoto' ? <Loader2 size={18} className="animate-spin" /> : <UploadCloud size={18} />}
                             </button>
                             <input
                               type="file"
@@ -1192,8 +1242,8 @@ export default function AdminDashboard() {
                             />
                           </div>
                           {formData.loaderPhotoUrl && (
-                            <div className="mt-2 text-xs text-green-600 font-bold flex items-center gap-1">
-                              <CheckCircle2 size={14} /> Custom loader photo uploaded
+                            <div className="mt-3 text-[9px] text-green-400 font-black uppercase tracking-widest flex items-center gap-2">
+                              <CheckCircle2 size={12} /> Custom payload synchronization complete
                             </div>
                           )}
                         </div>
@@ -1202,110 +1252,126 @@ export default function AdminDashboard() {
                   </div>
                 </section>
 
-                {/* 2. Schedule Section */}
+                {/* 2. Chronology Section */}
                 <section>
-                  <h3 className="text-lg font-black text-slate-800 border-b border-slate-100 pb-4 mb-8 flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center"><Clock size={18} /></div>
-                    Timing & Schedule
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div>
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Event Date</label>
-                      <input type="date" name="eventDate" value={formData.eventDate} onChange={handleInputChange} required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
+                  <div className="flex items-center gap-4 mb-10">
+                    <div className="w-12 h-12 bg-pink-500/10 text-pink-400 rounded-2xl flex items-center justify-center border border-pink-500/20 shadow-lg shadow-pink-500/5">
+                      <Clock size={22} />
                     </div>
                     <div>
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
-                        {formData.eventType === "Reception" ? "Reception Time" : formData.eventType === "Wedding" || formData.eventType === "Engagement" ? "Sumuhurtham Time" : "Ceremony Time"}
+                      <h3 className="text-xl font-black text-white tracking-tight">Temporal Coordinates</h3>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Schedule & Countdowns</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                    <div className="md:col-span-1">
+                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Event Date</label>
+                      <input type="date" name="eventDate" value={formData.eventDate} onChange={handleInputChange} required className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base [color-scheme:dark] cursor-pointer" />
+                    </div>
+                    <div className="md:col-span-1">
+                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Display Time</label>
+                      <input type="text" name="eventTime" value={formData.eventTime} onChange={handleInputChange} placeholder="e.g. 10:30 AM onwards" className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" />
+                    </div>
+                    <div className="md:col-span-1">
+                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Timer Target (24h)</label>
+                      <input type="time" name="timerTargetTime" value={formData.timerTargetTime} onChange={handleInputChange} className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base [color-scheme:dark] cursor-pointer" />
+                    </div>
+                    <div className="md:col-span-1 flex items-center pt-8">
+                      <label className="flex items-center gap-4 cursor-pointer group">
+                        <div className="relative">
+                          <input type="checkbox" name="showTimer" checked={formData.showTimer} onChange={handleInputChange} className="peer sr-only" />
+                          <div className="w-12 h-6 bg-white/10 rounded-full border border-white/10 transition-all peer-checked:bg-pink-600"></div>
+                          <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-6"></div>
+                        </div>
+                        <span className="text-[11px] font-black text-white uppercase tracking-widest group-hover:text-pink-400 transition-colors">Broadcast Live Timer</span>
                       </label>
-                      <input type="time" name="eventTime" value={formData.eventTime} onChange={handleInputChange} required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Live Start Time</label>
-                      <input type="time" name="timerTargetTime" value={formData.timerTargetTime} onChange={handleInputChange} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
                     </div>
                   </div>
                 </section>
 
-                {/* 3. Venue Details */}
+                {/* 3. Navigation Section */}
                 <section>
-                  <h3 className="text-lg font-black text-slate-800 border-b border-slate-100 pb-4 mb-8 flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center"><MapPin size={18} /></div>
-                    Venue & Location
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                      {/* Venue Name — purely for display text on the wedding page */}
-                      <div>
-                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Venue Name / Address <span className="text-slate-300 normal-case font-medium">(displayed on page)</span></label>
-                        <textarea name="venueName" value={formData.venueName} onChange={handleInputChange} rows={2} required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800 resize-none" />
-                      </div>
+                  <div className="flex items-center gap-4 mb-10">
+                    <div className="w-12 h-12 bg-green-500/10 text-green-400 rounded-2xl flex items-center justify-center border border-green-500/20 shadow-lg shadow-green-500/5">
+                      <MapPin size={22} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-white tracking-tight">Geospatial Routing</h3>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Venue Intelligence & Mapping</p>
+                    </div>
+                  </div>
 
-                      {/* Search box — find venue on Maps, updates venueMapLink only */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                    <div className="space-y-8">
                       <div>
-                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Search on Google Maps <span className="text-blue-400 normal-case font-medium">(updates map preview)</span></label>
-                        <div className="flex gap-2">
+                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Venue Descriptor</label>
+                        <div className="flex gap-3">
                           <input
                             type="text"
                             value={venueSearchQuery}
                             onChange={e => setVenueSearchQuery(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleVenueSearch(); } }}
-                            placeholder="e.g. Sri Prasannanjaneya Kalyanamandapam..."
-                            className="flex-1 p-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-slate-700 text-sm"
+                            placeholder="Search venue or location..."
+                            className="flex-1 p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10"
                           />
                           <button
                             type="button"
                             onClick={handleVenueSearch}
                             disabled={isSearchingVenue || !venueSearchQuery.trim()}
-                            className="px-4 py-3 bg-blue-600 text-white rounded-2xl font-bold text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+                            className="px-6 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 transition-all disabled:opacity-30 flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95"
                           >
-                            {isSearchingVenue ? <Loader2 size={16} className="animate-spin" /> : <MapPin size={16} />}
-                            {isSearchingVenue ? '...' : 'Search'}
+                            {isSearchingVenue ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
+                            {isSearchingVenue ? '' : 'UPLINK'}
                           </button>
                         </div>
                       </div>
 
-                      {/* Direct Maps link paste — for sharing link (navigate button) */}
                       <div>
-                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Google Maps Link <span className="text-slate-300 normal-case font-medium">(paste direct link)</span></label>
+                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Google Maps Satellite Link</label>
                         <input
                           type="text"
                           name="venueMapLink"
                           value={formData.venueMapLink}
                           onChange={handleInputChange}
-                          placeholder="https://maps.app.goo.gl/... or https://www.google.com/maps/place/..."
-                          className="w-full p-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-slate-700 text-sm"
+                          placeholder="Paste direct maps URL..."
+                          className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-sm placeholder:text-white/10"
                         />
-                        {formData.venueMapLink && (() => {
-                          const embedUrl = extractEmbedUrl(formData.venueMapLink);
-                          const isShortLink = !embedUrl && formData.venueMapLink.includes('goo.gl');
-                          return isShortLink
-                            ? <p className="mt-1 text-[10px] text-amber-600 font-bold flex items-center gap-1">🔄 Auto-resolving short link...</p>
-                            : <p className="mt-1 text-[10px] text-green-600 font-bold flex items-center gap-1"><CheckCircle2 size={12} /> Map link set — preview updated</p>;
-                        })()}
+                        {formData.venueMapLink && (
+                          <div className="mt-3">
+                             {extractEmbedUrl(formData.venueMapLink) ? (
+                               <p className="text-[9px] text-green-400 font-black uppercase tracking-widest flex items-center gap-2"><CheckCircle2 size={12} /> Coordinate synchronization optimal</p>
+                             ) : formData.venueMapLink.includes('goo.gl') ? (
+                               <p className="text-[9px] text-amber-400 font-black uppercase tracking-widest flex items-center gap-2 animate-pulse">🔄 Initializing short-link resolution...</p>
+                             ) : null}
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    {/* Map Preview — driven by mapPreviewUrl (resolved async) */}
-                    <div className="bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden h-full min-h-[220px]">
+                    <div className="bg-white/[0.02] rounded-[2.5rem] border border-white/[0.08] flex items-center justify-center overflow-hidden h-full min-h-[280px] relative shadow-2xl group">
                       {isResolvingMap ? (
-                        <div className="flex flex-col items-center gap-2 text-blue-500">
-                          <Loader2 size={28} className="animate-spin" />
-                          <span className="text-xs font-bold">Resolving map...</span>
+                        <div className="flex flex-col items-center gap-4 text-blue-400">
+                          <Loader2 size={32} className="animate-spin" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">Resolving Satellite Data...</span>
                         </div>
                       ) : mapPreviewUrl ? (
                         <iframe
                           key={mapPreviewUrl}
                           width="100%"
                           height="100%"
-                          style={{ border: 0, minHeight: '220px' }}
+                          className="grayscale contrast-125 opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700"
+                          style={{ border: 0, minHeight: '280px' }}
                           loading="lazy"
                           src={mapPreviewUrl}
                         />
                       ) : (
-                        <div className="text-slate-300 flex flex-col items-center gap-2 p-6 text-center">
-                          <MapPin size={32} />
-                          <span className="text-xs font-bold uppercase">Map Preview</span>
-                          <span className="text-[10px] text-slate-300">Search a venue above or paste a Maps link</span>
+                        <div className="text-white/10 flex flex-col items-center gap-4 p-8 text-center">
+                          <div className="w-16 h-16 rounded-full bg-white/[0.02] border border-white/[0.05] flex items-center justify-center mb-2">
+                             <MapPin size={32} />
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-[0.4em]">Visual Telemetry Offline</span>
+                          <span className="text-[9px] font-bold text-white/5 uppercase tracking-widest">Initialize venue uplink for preview</span>
                         </div>
                       )}
                     </div>
@@ -1314,315 +1380,361 @@ export default function AdminDashboard() {
 
                 {/* 4. Media & Cloudinary */}
                 <section>
-                  <h3 className="text-lg font-black text-slate-800 border-b border-slate-100 pb-4 mb-8 flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center"><UploadCloud size={18} /></div>
-                    Media & Assets
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="flex items-center gap-4 mb-10">
+                    <div className="w-12 h-12 bg-blue-500/10 text-blue-400 rounded-2xl flex items-center justify-center border border-blue-500/20 shadow-lg shadow-blue-500/5">
+                      <UploadCloud size={22} />
+                    </div>
                     <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">SEO Thumbnail</label>
-                        <div className="flex items-center gap-2">
-                           <input type="checkbox" id="autoThumb" checked={formData.autoGenerateThumbnail} onChange={(e) => setFormData(prev => ({ ...prev, autoGenerateThumbnail: e.target.checked }))} className="rounded text-blue-600" />
-                           <label htmlFor="autoThumb" className="text-[10px] font-bold text-blue-600 uppercase cursor-pointer">Auto-Design</label>
+                      <h3 className="text-xl font-black text-white tracking-tight">Media & Assets</h3>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Satellite Uplink & Storage</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="space-y-8">
+                      <div>
+                        <div className="flex justify-between items-center mb-3">
+                          <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Primary Thumbnail (SEO)</label>
+                          <label className="flex items-center gap-2 cursor-pointer group">
+                             <input type="checkbox" id="autoThumb" checked={formData.autoGenerateThumbnail} onChange={(e) => setFormData(prev => ({ ...prev, autoGenerateThumbnail: e.target.checked }))} className="peer sr-only" />
+                             <div className="w-8 h-4 bg-white/10 rounded-full border border-white/10 transition-all peer-checked:bg-blue-600 relative">
+                               <div className="absolute left-0.5 top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-all peer-checked:translate-x-4"></div>
+                             </div>
+                             <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest group-hover:text-white transition-colors">Auto-Design AI</span>
+                          </label>
                         </div>
-                      </div>
-                      <div className="relative group">
-                        <input
-                          type="text"
-                          name="thumbnailUrl"
-                          value={formData.thumbnailUrl}
-                          onChange={handleInputChange}
-                          placeholder="Paste thumbnail image URL here..."
-                          className="w-full bg-white/50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400 pr-12"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => thumbInputRef.current?.click()}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-                        >
-                          <UploadCloud size={18} />
-                        </button>
-                        <input type="file" ref={thumbInputRef} hidden accept="image/*" onChange={(e) => uploadToCloudinary(e.target.files, 'thumbnail')} />
-                      </div>
-                      {formData.thumbnailUrl && (
-                        <div className="mt-4 space-y-3">
-                          <div className="p-2 bg-slate-50 border border-slate-100 rounded-2xl">
-                            <img src={formData.thumbnailUrl} alt="Thumbnail Preview" className="w-full h-32 object-cover rounded-xl" />
-                          </div>
-                          {/* ✨ Names on Photo Designer */}
-                          {formData.thumbnailUrl.includes('cloudinary.com') && (formData.groomName || formData.celebrantName) && (
-                            <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-3">
-                              <p className="text-xs font-black text-amber-800 uppercase tracking-widest flex items-center gap-2">
-                                ✨ Add Names to Your Photo
-                              </p>
-                              <div className="grid grid-cols-2 gap-2">
-                                {[['classic_white','☁️ Classic White'], ['golden','✨ Golden'], ['dark_shadow','🖤 Dark Text'], ['minimal','🤍 Minimal']].map(([val, label]) => (
-                                  <button key={val} type="button"
-                                    onClick={() => setThumbOverlayStyle(val as any)}
-                                    className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all ${
-                                      thumbOverlayStyle === val
-                                        ? 'bg-amber-600 text-white border-amber-600 shadow-md'
-                                        : 'bg-white text-amber-700 border-amber-200 hover:border-amber-400'
-                                    }`}
-                                  >{label}</button>
-                                ))}
-                              </div>
-                              <button type="button" onClick={generateThumbWithNames}
-                                className="w-full py-2.5 bg-amber-600 text-white rounded-xl text-sm font-black hover:bg-amber-700 transition-colors flex items-center justify-center gap-2"
-                              >
-                                🪄 Generate Preview
-                              </button>
-                              {thumbOverlayPreview && (
-                                <div className="space-y-2">
-                                  <img src={thumbOverlayPreview} alt="Name Overlay Preview" className="w-full rounded-xl border-2 border-amber-300 shadow-md" />
-                                  <button type="button"
-                                    onClick={() => { setFormData(prev => ({ ...prev, thumbnailUrl: thumbOverlayPreview })); setThumbOverlayPreview(''); }}
-                                    className="w-full py-2 bg-green-600 text-white rounded-xl text-xs font-black hover:bg-green-700 transition-colors"
-                                  >
-                                    ✅ Use This as Thumbnail
-                                  </button>
+                        <div className="relative group">
+                          <input
+                            type="text"
+                            name="thumbnailUrl"
+                            value={formData.thumbnailUrl}
+                            onChange={handleInputChange}
+                            placeholder="Payload URL..."
+                            className="w-full bg-white/[0.03] border border-white/[0.08] rounded-2xl px-5 py-5 text-white focus:ring-2 focus:ring-blue-500/50 outline-none transition-all placeholder:text-white/10 pr-16 font-black text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => thumbInputRef.current?.click()}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-blue-600 text-white rounded-xl hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center"
+                          >
+                            <UploadCloud size={18} />
+                          </button>
+                          <input type="file" ref={thumbInputRef} hidden accept="image/*" onChange={(e) => uploadToCloudinary(e.target.files, 'thumbnail')} />
+                        </div>
+
+                        {formData.thumbnailUrl && (
+                          <div className="mt-6 space-y-6 animate-in fade-in zoom-in-95 duration-700">
+                            <div className="p-2 bg-white/[0.02] border border-white/[0.08] rounded-[2rem] overflow-hidden shadow-2xl group relative">
+                              <img src={formData.thumbnailUrl} alt="Thumbnail Preview" className="w-full h-48 object-cover rounded-[1.75rem] group-hover:scale-110 transition-transform duration-700 opacity-80 group-hover:opacity-100" />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+                            </div>
+
+                            {/* ✨ Names on Photo Designer */}
+                            {formData.thumbnailUrl.includes('cloudinary.com') && (formData.groomName || formData.celebrantName) && (
+                              <div className="p-8 bg-blue-500/5 border border-blue-500/20 rounded-[2.5rem] space-y-6 shadow-2xl relative overflow-hidden backdrop-blur-md">
+                                <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none"><Zap size={80} /></div>
+                                <h4 className="text-xs font-black text-blue-400 uppercase tracking-[0.2em] flex items-center gap-3">
+                                  <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shadow-[0_0_8px_rgba(96,165,250,1)]" />
+                                  Overlay Synthesis Engine
+                                </h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                  {[
+                                    ['classic_white','☁️ Classic'], 
+                                    ['golden','✨ Golden'], 
+                                    ['dark_shadow','🖤 Stealth'], 
+                                    ['minimal','🤍 Minimal']
+                                  ].map(([val, label]) => (
+                                    <button key={val} type="button"
+                                      onClick={() => setThumbOverlayStyle(val as any)}
+                                      className={`py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border transition-all ${
+                                        thumbOverlayStyle === val
+                                          ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-600/30'
+                                          : 'bg-white/[0.03] text-white/40 border-white/[0.08] hover:border-blue-500/40 hover:text-white'
+                                      }`}
+                                    >{label}</button>
+                                  ))}
                                 </div>
-                              )}
+                                <button type="button" onClick={generateThumbWithNames}
+                                  className="w-full py-4 bg-white/10 hover:bg-white text-white hover:text-black rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 border border-white/10"
+                                >
+                                  <Zap size={16} /> Synthesize Preview
+                                </button>
+                                
+                                {thumbOverlayPreview && (
+                                  <div className="space-y-4 animate-in fade-in zoom-in-95 duration-500">
+                                    <div className="relative rounded-[1.5rem] overflow-hidden border-2 border-blue-500/30 shadow-2xl">
+                                       <img src={thumbOverlayPreview} alt="Synthesis Preview" className="w-full" />
+                                       <div className="absolute top-3 right-3 px-3 py-1 bg-blue-600 text-white text-[8px] font-black uppercase rounded-full">PREVIEW</div>
+                                    </div>
+                                    <button type="button"
+                                      onClick={() => { setFormData(prev => ({ ...prev, thumbnailUrl: thumbOverlayPreview })); setThumbOverlayPreview(''); }}
+                                      className="w-full py-4 bg-green-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-green-500 transition-all shadow-lg shadow-green-600/20"
+                                    >
+                                      ✅ Deploy to Production
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-8">
+                        <div>
+                          <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">
+                            Cinematic Uplink (MP4)
+                          </label>
+                          <textarea
+                            name="invitationVideoUrls"
+                            value={formData.invitationVideoUrls}
+                            onChange={handleInputChange}
+                            rows={2}
+                            className="w-full p-5 bg-white/[0.02] border border-white/[0.08] rounded-2xl font-mono text-[10px] mb-4 text-white/20 outline-none focus:ring-0 transition-all cursor-default resize-none"
+                            placeholder="Satellite streams pending..."
+                            readOnly
+                          />
+                          <button
+                            type="button"
+                            onClick={() => videoInputRef.current?.click()}
+                            className="w-full flex items-center justify-center gap-3 py-5 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-500 font-black uppercase tracking-[0.2em] text-xs transition-all shadow-lg shadow-indigo-600/20 active:scale-[0.98]"
+                          >
+                            {isUploading === 'video' ? <Loader2 className="animate-spin" size={18} /> : <Film size={18} />}
+                            {isUploading === 'video' ? 'Uploading Stream...' : 'Initialize Video Uplink'}
+                          </button>
+                          <input type="file" ref={videoInputRef} hidden multiple accept="video/*" onChange={(e) => uploadToCloudinary(e.target.files, 'video')} />
+                          
+                          {formData.invitationVideoUrls && (
+                            <div className="mt-6 grid grid-cols-3 gap-3 animate-in fade-in duration-700">
+                              {formData.invitationVideoUrls.split('\n').filter(u => u.trim()).map((url, idx) => (
+                                <div key={idx} className="relative group rounded-2xl overflow-hidden border border-white/[0.08] bg-white/[0.02] shadow-xl aspect-square">
+                                  <video src={url.trim()} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-500" muted playsInline />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent pointer-events-none flex items-end p-3">
+                                    <span className="text-white font-black text-[8px] uppercase tracking-widest">STREAM {idx + 1}</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const urls = formData.invitationVideoUrls.split('\n').filter(u => u.trim());
+                                      urls.splice(idx, 1);
+                                      setFormData(prev => ({ ...prev, invitationVideoUrls: urls.join('\n') }));
+                                    }}
+                                    className="absolute top-2 right-2 w-7 h-7 bg-red-600 text-white rounded-xl text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-lg"
+                                  >✕</button>
+                                </div>
+                              ))}
                             </div>
                           )}
                         </div>
-                      )}
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
-                        Invitation Videos (MP4) <span className="normal-case font-normal text-slate-400">— upload 1, 2 or 3 videos</span>
-                      </label>
-                      <textarea
-                        name="invitationVideoUrls"
-                        value={formData.invitationVideoUrls}
-                        onChange={handleInputChange}
-                        rows={2}
-                        className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-mono text-xs mb-2 text-slate-600 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                        placeholder="Video URLs will appear here after upload (one per line)..."
-                        readOnly
-                      />
-                      <button
-                        type="button"
-                        onClick={() => videoInputRef.current?.click()}
-                        className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 font-bold transition-colors"
-                      >
-                        {isUploading === 'video' ? <Loader2 className="animate-spin" size={18} /> : <Film size={18} />}
-                        Upload Invitation Video(s)
+                    {/* Gallery Upload */}
+                    <div className="md:col-span-2 space-y-6">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Bulk Assets Matrix (Photo Gallery)</label>
+                        {formData.galleryUrls && (
+                          <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
+                            {formData.galleryUrls.split('\n').filter(u => u.trim()).length} Nodes Online
+                          </span>
+                        )}
+                      </div>
+                      <textarea name="galleryUrls" value={formData.galleryUrls} onChange={handleInputChange} rows={3} className="w-full p-5 bg-white/[0.02] border border-white/[0.08] rounded-2xl font-mono text-[10px] text-white/20 outline-none focus:ring-0 transition-all resize-none" placeholder="Asset identifiers will appear here..." />
+                      <button type="button" onClick={() => galleryInputRef.current?.click()} className="w-full flex items-center justify-center gap-3 py-6 bg-white/[0.05] hover:bg-white text-white hover:text-black rounded-[2rem] font-black uppercase tracking-[0.3em] text-sm transition-all border border-white/[0.08] shadow-2xl active:scale-[0.99] group">
+                        {isUploading === 'gallery' ? <Loader2 className="animate-spin" size={20} /> : <ImageIcon size={20} className="group-hover:scale-110 transition-transform" />}
+                        {isUploading === 'gallery' ? 'Uplinking Assets...' : 'Synchronize Bulk Media'}
                       </button>
-                      <input type="file" ref={videoInputRef} hidden multiple accept="video/*" onChange={(e) => uploadToCloudinary(e.target.files, 'video')} />
-                      {formData.invitationVideoUrls && (
-                        <div className="mt-3 grid grid-cols-3 gap-2">
-                          {formData.invitationVideoUrls.split('\n').filter(u => u.trim()).map((url, idx) => (
-                            <div key={idx} className="relative group">
-                              <video src={url.trim()} className="w-full h-24 object-cover rounded-xl border border-slate-200 bg-slate-100" muted playsInline />
-                              <div className="absolute inset-0 bg-black/30 flex items-center justify-center rounded-xl">
-                                <span className="text-white font-black text-xs">Video {idx + 1}</span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const urls = formData.invitationVideoUrls.split('\n').filter(u => u.trim());
-                                  urls.splice(idx, 1);
-                                  setFormData(prev => ({ ...prev, invitationVideoUrls: urls.join('\n') }));
-                                }}
-                                className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                              >✕</button>
+                      <input type="file" ref={galleryInputRef} hidden multiple accept="image/*" onChange={(e) => uploadToCloudinary(e.target.files, 'gallery')} />
+                      
+                      {formData.galleryUrls && (
+                        <div className="mt-8 grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3 p-6 bg-white/[0.01] border border-white/[0.05] rounded-[2.5rem] animate-in fade-in duration-1000">
+                          {formData.galleryUrls.split('\n').filter(url => url.trim()).map((url, idx) => (
+                            <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden border border-white/[0.1] bg-white/[0.05] shadow-lg">
+                               <img src={url.trim()} alt={`Asset ${idx + 1}`} className="w-full h-full object-cover opacity-50 group-hover:opacity-100 transition-all duration-500 group-hover:scale-110" />
+                               <div className="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                             </div>
                           ))}
                         </div>
                       )}
                     </div>
-
-                    {/* Gallery Upload */}
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Photo Gallery (Bulk Upload)</label>
-                      <textarea name="galleryUrls" value={formData.galleryUrls} onChange={handleInputChange} rows={3} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-mono text-xs mb-2 text-slate-600 outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="URLs will appear here after upload..." />
-                      <button type="button" onClick={() => galleryInputRef.current?.click()} className="w-full flex items-center justify-center gap-2 py-4 bg-slate-800 text-white rounded-2xl hover:bg-slate-900 font-bold transition-colors">
-                        {isUploading === 'gallery' ? <Loader2 className="animate-spin" size={18} /> : <ImageIcon size={18} />}
-                        Select Multiple Gallery Photos
-                      </button>
-                      <input type="file" ref={galleryInputRef} hidden multiple accept="image/*" onChange={(e) => uploadToCloudinary(e.target.files, 'gallery')} />
-                      {formData.galleryUrls && (
-                        <div className="mt-4 grid grid-cols-4 sm:grid-cols-6 gap-2 p-4 bg-slate-50 border border-slate-100 rounded-2xl">
-                          {formData.galleryUrls.split('\n').filter(url => url.trim()).map((url, idx) => (
-                            <img key={idx} src={url.trim()} alt={`Gallery Preview ${idx + 1}`} className="w-full aspect-square object-cover rounded-lg border border-slate-200" />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    
-                    {formData.autoGenerateThumbnail && (
-                      <div className="md:col-span-2 bg-blue-50/50 p-6 rounded-2xl border border-blue-100 mt-2">
-                        <label className="block text-sm font-black text-blue-800 mb-4 flex items-center gap-2">
-                          <ImageIcon size={18} /> Choose Your Base Design
-                        </label>
-                        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-                          {baseDesigns.map((design) => (
-                            <button
-                              key={design.id}
-                              type="button"
-                              onClick={() => setSelectedBaseDesign(design.id)}
-                              className={`flex-shrink-0 w-36 group relative rounded-xl overflow-hidden border-4 transition-all ${
-                                selectedBaseDesign === design.id ? 'border-blue-500 shadow-md scale-105' : 'border-transparent hover:border-blue-200'
-                              }`}
-                            >
-                              <img 
-                                src={`https://res.cloudinary.com/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload/w_300,h_180,c_fill,f_auto,q_auto/${design.id}.jpg`} 
-                                alt={design.name}
-                                className="w-full h-24 object-cover"
-                              />
-                              <div className={`absolute bottom-0 inset-x-0 p-1.5 text-[9px] font-black tracking-wider text-center uppercase ${
-                                selectedBaseDesign === design.id ? 'bg-blue-500 text-white' : 'bg-black/60 text-white backdrop-blur-sm'
-                              }`}>
-                                {design.name}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                        <button type="button" onClick={handleGenerateThumbnailPreview} className="mt-4 w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
-                          <ImageIcon size={18} /> Generate Thumbnail Preview
-                        </button>
-                        <p className="text-[10px] text-blue-600 font-medium mt-3 text-center">Click the button above to render the names and see the preview below!</p>
-                      </div>
-                    )}
                   </div>
                 </section>
 
-                {/* 5. YouTube & Credits */}
+                {/* 5. Logistics Section */}
                 <section>
-                  <h3 className="text-lg font-black text-slate-800 border-b border-slate-100 pb-4 mb-8 flex items-center gap-3">
-                    <div className="w-8 h-8 bg-red-50 text-red-600 rounded-lg flex items-center justify-center"><Play size={18} /></div>
-                    YouTube & Production
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="flex items-center gap-4 mb-10">
+                    <div className="w-12 h-12 bg-amber-500/10 text-amber-400 rounded-2xl flex items-center justify-center border border-amber-500/20 shadow-lg shadow-amber-500/5">
+                      <Shield size={22} />
+                    </div>
                     <div>
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">YouTube Privacy</label>
-                      <div className="flex gap-4">
-                        {['public', 'unlisted'].map((p) => (
-                          <button key={p} type="button" onClick={() => setFormData(prev => ({ ...prev, youtubePrivacy: p }))} className={`flex-1 p-4 rounded-2xl border-2 font-bold transition-all ${formData.youtubePrivacy === p ? 'border-red-500 bg-red-50 text-red-600' : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-slate-200'}`}>
-                            {p.charAt(0).toUpperCase() + p.slice(1)}
+                      <h3 className="text-xl font-black text-white tracking-tight">Security & Routing</h3>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Network Permissions & Access</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div>
+                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-4">Encryption & Privacy Protocol</label>
+                      <div className="flex flex-col gap-3">
+                        {['Public (Visible Everywhere)', 'Unlisted (Link Only)', 'Private (Admin Only)'].map((status) => (
+                          <button 
+                            key={status} 
+                            type="button" 
+                            onClick={() => setFormData(prev => ({ ...prev, privacyStatus: status }))} 
+                            className={`p-5 rounded-2xl border-2 font-black uppercase tracking-widest text-[11px] transition-all text-left flex items-center justify-between group ${formData.privacyStatus === status ? 'border-blue-500 bg-blue-500/10 text-white shadow-lg shadow-blue-500/10' : 'border-white/[0.08] bg-white/[0.02] text-white/20 hover:border-white/20 hover:text-white/60'}`}
+                          >
+                            {status}
+                            <div className={`w-2 h-2 rounded-full transition-all ${formData.privacyStatus === status ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,1)] scale-125' : 'bg-white/10'}`} />
                           </button>
                         ))}
                       </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Photography Details</label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          placeholder="Search by nickname, studio, phone, city..."
-                          value={selectedPhotographer ? `${selectedPhotographer.nickname ? selectedPhotographer.nickname + ' — ' : ''}${selectedPhotographer.name || ''}` : photographerSearchQuery}
-                          onChange={(e) => { setPhotographerSearchQuery(e.target.value); setSelectedPhotographer(null); setShowPhotographerList(true); }}
-                          onFocus={() => setShowPhotographerList(true)}
-                          className="w-full p-4 pl-12 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800"
-                        />
-                        <Search className="absolute left-4 top-4 text-slate-400" size={20} />
-                        {selectedPhotographer && (
-                          <button type="button" onClick={() => { setSelectedPhotographer(null); setPhotographerSearchQuery(''); }} className="absolute right-4 top-4 text-slate-400 hover:text-red-500">
-                            ✕
-                          </button>
-                        )}
-                        {showPhotographerList && photographerSearchQuery && !selectedPhotographer && (
-                          <div className="absolute z-20 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl max-h-64 overflow-y-auto">
-                            {filteredPhotographers.length === 0 ? (
-                              <div className="p-4 text-center text-slate-400 text-sm">No results found</div>
-                            ) : filteredPhotographers.map(p => (
-                              <button key={p.id} type="button" onClick={() => { setSelectedPhotographer(p); setShowPhotographerList(false); }} className="w-full p-4 hover:bg-blue-50 text-left border-b border-slate-50 transition-colors">
-                                <div className="flex items-center gap-3">
-                                  {p.logo_url ? (
-                                    <img src={p.logo_url} className="w-10 h-10 object-contain rounded-lg border border-slate-100 p-1 bg-white" alt={p.name} />
-                                  ) : (
-                                    <div className="w-10 h-10 bg-blue-600 text-white rounded-lg flex items-center justify-center font-black text-sm">
-                                      {(p.nickname || p.name || '?')[0].toUpperCase()}
+                    
+                    <div className="space-y-8">
+                      <div>
+                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Broadcaster Visibility</label>
+                        <div className="flex gap-4">
+                          {['public', 'unlisted'].map((p) => (
+                            <button key={p} type="button" onClick={() => setFormData(prev => ({ ...prev, youtubePrivacy: p }))} className={`flex-1 p-5 rounded-2xl border-2 font-black uppercase tracking-[0.2em] text-[11px] transition-all ${formData.youtubePrivacy === p ? 'border-red-500 bg-red-500/10 text-white shadow-lg shadow-red-500/10' : 'border-white/[0.08] bg-white/[0.02] text-white/20 hover:border-white/20 hover:text-white/60'}`}>
+                              {p}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Photographer Credit Assignment</label>
+                        <div className="relative group">
+                          <input
+                            type="text"
+                            placeholder="Query by name, studio, or phone..."
+                            value={selectedPhotographer ? (selectedPhotographer.nickname || selectedPhotographer.name) : photographerSearchQuery}
+                            onChange={(e) => { setPhotographerSearchQuery(e.target.value); setSelectedPhotographer(null); setShowPhotographerList(true); }}
+                            onFocus={() => setShowPhotographerList(true)}
+                            className="w-full p-5 pl-14 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10"
+                          />
+                          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20" size={20} />
+                          {selectedPhotographer && (
+                            <button type="button" onClick={() => { setSelectedPhotographer(null); setPhotographerSearchQuery(''); }} className="absolute right-5 top-1/2 -translate-y-1/2 text-white/20 hover:text-red-500 transition-colors">
+                              <X size={18} />
+                            </button>
+                          )}
+                          
+                          {showPhotographerList && photographerSearchQuery && !selectedPhotographer && (
+                            <div className="absolute z-50 w-full mt-3 bg-[#11111a] border border-white/10 rounded-[2rem] shadow-2xl max-h-72 overflow-y-auto backdrop-blur-3xl animate-in fade-in zoom-in-95 duration-300 custom-scrollbar">
+                              {filteredPhotographers.length === 0 ? (
+                                <div className="p-8 text-center text-white/20 text-[10px] font-black uppercase tracking-widest">No matching nodes found</div>
+                              ) : filteredPhotographers.map(p => (
+                                <button key={p.id} type="button" onClick={() => { setSelectedPhotographer(p); setShowPhotographerList(false); }} className="w-full p-5 hover:bg-white/[0.05] text-left border-b border-white/[0.03] transition-all group">
+                                  <div className="flex items-center gap-5">
+                                    <div className="w-12 h-12 rounded-2xl overflow-hidden border border-white/10 bg-white/5 flex items-center justify-center p-1 group-hover:scale-105 transition-transform">
+                                      {p.logo_url ? (
+                                        <img src={p.logo_url} className="w-full h-full object-contain" alt="" />
+                                      ) : (
+                                        <div className="text-blue-400 font-black text-lg">{(p.nickname || p.name || '?')[0].toUpperCase()}</div>
+                                      )}
                                     </div>
-                                  )}
-                                  <div>
-                                    {p.nickname && <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">{p.nickname}</p>}
-                                    <p className="font-bold text-slate-800 text-sm">{p.name || <span className="italic text-slate-400">No studio name</span>}</p>
-                                    <p className="text-[10px] text-slate-400">{[p.phone_number, p.city].filter(Boolean).join(' • ')}</p>
+                                    <div>
+                                      <p className="text-sm font-black text-white group-hover:text-blue-400 transition-colors tracking-tight">{p.name || 'Unknown Studio'}</p>
+                                      <p className="text-[10px] text-white/20 font-bold uppercase tracking-widest mt-1">{p.city || 'Remote'}</p>
+                                    </div>
                                   </div>
-                                </div>
-                              </button>
-                            ))}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        {selectedPhotographer && (
+                          <div className="mt-4 p-4 bg-blue-500/5 rounded-2xl border border-blue-500/20 flex items-center justify-between animate-in slide-in-from-top-2 duration-500">
+                            <div className="flex items-center gap-4">
+                               <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 font-black">
+                                 {selectedPhotographer.logo_url ? <img src={selectedPhotographer.logo_url} className="w-full h-full object-contain p-1" /> : (selectedPhotographer.nickname || selectedPhotographer.name)[0]}
+                               </div>
+                               <div>
+                                 <p className="text-xs font-black text-white uppercase tracking-widest">{selectedPhotographer.name}</p>
+                                 <p className="text-[9px] text-blue-400 font-black uppercase tracking-widest mt-0.5">{selectedPhotographer.phone_number || 'No Phone'}</p>
+                               </div>
+                            </div>
+                            <span className="px-3 py-1 bg-blue-500 text-white text-[8px] font-black uppercase rounded-full shadow-lg shadow-blue-500/20">CREDITED</span>
                           </div>
                         )}
                       </div>
-                      {selectedPhotographer && (
-                        <div className="mt-2 p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-center gap-3">
-                          {selectedPhotographer.logo_url && <img src={selectedPhotographer.logo_url} className="w-8 h-8 object-contain rounded" alt="" />}
-                          <div>
-                            <p className="text-xs font-black text-blue-800">{selectedPhotographer.name || 'Photographer'}</p>
-                            <p className="text-[10px] text-blue-500">{[selectedPhotographer.phone_number, selectedPhotographer.city].filter(Boolean).join(' • ')}</p>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </section>
 
                 {/* 6. Internal Metadata */}
                 <section>
-                  <h3 className="text-lg font-black text-slate-800 border-b border-slate-100 pb-4 mb-8 flex items-center gap-3">
-                    <div className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center"><Layout size={18} /></div>
-                    Internal Metadata
-                  </h3>
-                  <div>
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Internal Event Notes</label>
+                  <div className="flex items-center gap-4 mb-10">
+                    <div className="w-12 h-12 bg-white/10 text-white rounded-2xl flex items-center justify-center border border-white/20 shadow-lg">
+                      <Layout size={22} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-white tracking-tight">Internal Core</h3>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Private Infrastructure Notes</p>
+                    </div>
+                  </div>
+                  <div className="relative group">
                     <textarea 
-                      placeholder="Add private notes for the team (e.g. 'Customer requested extra focus on group photos', 'Payment pending', etc.)"
+                      placeholder="Input private operational telemetry, payment status, or specific deployment instructions..."
                       value={formData.notes}
                       onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800 h-32 resize-none"
+                      className="w-full p-6 bg-white/[0.03] border border-white/[0.08] rounded-[2rem] outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-bold text-white text-base h-40 resize-none placeholder:text-white/10 custom-scrollbar"
                     />
+                    <div className="absolute bottom-6 right-6 text-[9px] font-black text-white/10 uppercase tracking-widest pointer-events-none">SECURE PRIVATE STORAGE</div>
                   </div>
                 </section>
 
                 {/* SEO & Social Preview Section */}
-                <section className="bg-slate-50 rounded-3xl p-8 border border-slate-100">
-                  <h3 className="text-sm font-black text-slate-800 mb-6 flex items-center gap-2">
-                    <Search size={18} className="text-blue-500" /> WhatsApp & Social Share Preview
+                <section className="bg-blue-600/[0.03] rounded-[3rem] p-10 border border-white/[0.05] relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-32 h-32 bg-blue-600/10 blur-[80px] -z-10" />
+                  <h3 className="text-[10px] font-black text-white/40 uppercase tracking-[0.4em] mb-10 flex items-center gap-4">
+                    <Search size={18} className="text-blue-500" /> WhatsApp & Social Uplink Preview
                   </h3>
                   
-                  <div className="max-w-[350px] mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="aspect-video bg-slate-100 relative overflow-hidden">
+                  <div className="max-w-[400px] mx-auto bg-[#1a1a24] rounded-[2.5rem] shadow-2xl border border-white/[0.08] overflow-hidden group">
+                    <div className="aspect-video bg-white/[0.02] relative overflow-hidden border-b border-white/[0.08]">
                       {formData.thumbnailUrl ? (
-                        <img src={formData.thumbnailUrl} className="w-full h-full object-cover" alt="Preview" />
+                        <img src={formData.thumbnailUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" alt="Preview" />
                       ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-2">
-                          <ImageIcon size={32} strokeWidth={1} />
-                          <span className="text-[10px] font-bold uppercase tracking-widest">No Thumbnail</span>
+                        <div className="w-full h-full flex flex-col items-center justify-center text-white/10 gap-4">
+                          <ImageIcon size={48} strokeWidth={1} className="animate-pulse" />
+                          <span className="text-[10px] font-black uppercase tracking-[0.3em]">Payload Missing</span>
                         </div>
                       )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
                     </div>
-                    <div className="p-4 bg-[#f0f2f5]">
-                      <h4 className="text-sm font-bold text-slate-800 truncate leading-tight">
-                        ✨ {formData.groomName || formData.celebrantName || "Name"} {formData.eventType} Live | {formatDisplayDate(formData.eventDate)}
+                    <div className="p-8 bg-white/[0.01]">
+                      <h4 className="text-base font-black text-white truncate leading-tight tracking-tight">
+                        ✨ {formData.groomName || formData.celebrantName || "TARGET"} {formData.eventType} Live
                       </h4>
-                      <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                      <p className="text-[11px] text-white/40 font-medium line-clamp-2 mt-3 leading-relaxed">
                         Join us live to celebrate this beautiful traditional occasion filled with blessings, happiness, culture, and family moments.
                       </p>
-                      <div className="text-[10px] text-slate-400 mt-2 font-mono">https://eventcast.pro/events/...</div>
+                      <div className="mt-6 pt-6 border-t border-white/[0.05] flex items-center justify-between">
+                         <div className="text-[9px] text-blue-500 font-black uppercase tracking-widest">eventcast.pro</div>
+                         <div className="text-[9px] text-white/20 font-black uppercase tracking-widest">{formatDisplayDate(formData.eventDate)}</div>
+                      </div>
                     </div>
                   </div>
-                  <p className="text-[10px] text-slate-400 text-center mt-4 font-bold tracking-widest uppercase">
-                    * This is how the link will look when shared *
+                  <p className="text-[9px] text-white/10 text-center mt-10 font-black tracking-[0.3em] uppercase">
+                    * Visual representation of link distribution metadata *
                   </p>
                 </section>
 
-                 <div className="pt-10 flex flex-col gap-4">
-                  <div className="flex gap-4">
-                    <button type="button" onClick={runHealthCheck} className="flex-1 py-4 bg-slate-100 text-slate-700 rounded-2xl font-black hover:bg-slate-200 transition-all flex items-center justify-center gap-2">
-                      <Search size={20} /> Check Readiness
+                 <div className="pt-16 flex flex-col gap-6">
+                  <div className="flex gap-6">
+                    <button type="button" onClick={runHealthCheck} className="flex-1 py-6 bg-white/[0.03] text-white hover:bg-white/[0.06] rounded-[2rem] font-black uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3 border border-white/[0.08] active:scale-95 text-xs shadow-xl">
+                      <Search size={20} /> Readiness Scan
                     </button>
-                    <button type="submit" disabled={isSubmitting || !!isUploading} className="flex-[2] py-5 bg-blue-600 text-white rounded-2xl font-black text-xl shadow-2xl shadow-blue-200 hover:bg-blue-700 transition-all disabled:bg-slate-300 transform active:scale-[0.98]">
-                      {isSubmitting ? (isEditing ? "Updating Event..." : "Creating Event...") : (isEditing ? "💾 Save & Update Event" : "🚀 Create Event")}
+                    <button type="submit" disabled={isSubmitting || !!isUploading} className="flex-[2] py-6 bg-blue-600 text-white rounded-[2rem] font-black uppercase tracking-[0.4em] text-sm shadow-[0_20px_50px_-10px_rgba(59,130,246,0.5)] hover:bg-blue-500 transition-all disabled:opacity-30 transform active:scale-[0.98] flex items-center justify-center gap-4 group">
+                      {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <Zap size={20} className="group-hover:rotate-12 transition-transform" />}
+                      {isSubmitting ? (isEditing ? "Synchronizing..." : "Initializing...") : (isEditing ? "Deploy Updates" : "Launch Mission")}
                     </button>
                   </div>
                   {isEditing && (
-                    <button type="button" onClick={resetForm} className="w-full mt-4 py-3 text-slate-400 font-bold hover:text-slate-600 transition-colors">
-                      Cancel Editing
+                    <button type="button" onClick={resetForm} className="w-full py-4 text-white/20 font-black uppercase tracking-[0.4em] hover:text-red-500 transition-all text-[10px] bg-red-500/5 rounded-2xl border border-red-500/0 hover:border-red-500/20">
+                      Abort Operation
                     </button>
                   )}
                 </div>
@@ -1648,91 +1760,138 @@ export default function AdminDashboard() {
         {activeTab === "analytics" && <AnalyticsDashboard analyticsData={analyticsData} />}
         {activeTab === "assets" && <AssetLibrary assetLibrary={assetLibrary} getVideoThumbnail={getVideoThumbnail} setSelectedAsset={setSelectedAsset} />}
         {activeTab === "settings" && (
-          <div className="max-w-4xl mx-auto space-y-8">
-            <div className="bg-white p-6 md:p-10 rounded-3xl shadow-sm border border-slate-200">
-              <h2 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3">
-                <Settings size={28} className="text-blue-600" /> Account Security
+          <div className="max-w-4xl mx-auto space-y-12 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div 
+              className="p-8 md:p-12 rounded-[3rem] border backdrop-blur-2xl shadow-2xl relative overflow-hidden"
+              style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)" }}
+            >
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/[0.03] blur-[100px] -z-10" />
+              <h2 className="text-2xl font-black text-white mb-10 flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-500/10 text-blue-400 rounded-2xl flex items-center justify-center border border-blue-500/20 shadow-lg shadow-blue-500/5">
+                  <Shield size={24} />
+                </div>
+                <div>
+                  <span className="block text-xl tracking-tight">Account Security</span>
+                  <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Infrastructure Access Control</span>
+                </div>
               </h2>
-              <div className="mb-6 p-4 bg-blue-50 rounded-2xl border border-blue-100 text-blue-700 text-xs font-bold">
-                🔐 Sessions: Supabase keeps you logged in using a secure refresh token (stored in browser). Your session is valid until you explicitly sign out or change password. After changing password, all other devices will be signed out automatically.
+
+              <div className="mb-10 p-6 bg-blue-500/5 rounded-2xl border border-blue-500/10 text-blue-400 text-[11px] font-black uppercase tracking-widest leading-relaxed flex items-start gap-4">
+                <Zap size={18} className="flex-shrink-0 mt-0.5" />
+                <p>Sessions: Identity persistence is maintained via encrypted refresh tokens. Modifying credentials will force a global broadcast logout across all active nodes.</p>
               </div>
-              <form onSubmit={handlePasswordUpdate} className="space-y-6">
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Current Password <span className="text-red-500">*</span></label>
-                  <input type="password" name="currentPassword" required placeholder="Enter your current password to verify identity" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
+
+              <form onSubmit={handlePasswordUpdate} className="space-y-8">
+                <div className="grid grid-cols-1 gap-8">
+                  <div>
+                    <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Authentication Baseline (Current)</label>
+                    <input type="password" name="currentPassword" required placeholder="Verification required" className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">New Protocol (8+ Chars)</label>
+                      <input type="password" name="newPassword" required minLength={8} placeholder="Entropy minimum 8" className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Protocol Confirmation</label>
+                      <input type="password" name="confirmPassword" required placeholder="Repeat new protocol" className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">New Password</label>
-                  <input type="password" name="newPassword" required minLength={8} placeholder="Minimum 8 characters" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
-                </div>
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Confirm New Password</label>
-                  <input type="password" name="confirmPassword" required className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800" />
-                </div>
-                <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all disabled:bg-slate-300">
-                  {isSubmitting ? "Verifying & Updating..." : "🔒 Change Password (Signs Out Other Devices)"}
+                <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase tracking-[0.4em] text-sm shadow-[0_20px_50px_-10px_rgba(59,130,246,0.5)] hover:bg-blue-500 transition-all disabled:opacity-30 transform active:scale-[0.98] flex items-center justify-center gap-4 group mt-4">
+                  {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <Shield size={20} className="group-hover:rotate-12 transition-transform" />}
+                  {isSubmitting ? "UPDATING SECURITY CORE..." : "INITIALIZE CREDENTIAL ROTATION"}
                 </button>
               </form>
             </div>
 
-            <div className="bg-white p-6 md:p-10 rounded-3xl shadow-sm border border-slate-200">
-              <h3 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3">
-                <Layout size={24} className="text-blue-600" /> Default Event Settings
-              </h3>
-              <p className="text-slate-500 text-sm mb-8 font-medium">Set your preferred defaults for every new event you create.</p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Default Template</label>
-                  <select 
-                    id="defaultTemplate"
-                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800"
-                    defaultValue={typeof window !== 'undefined' ? localStorage.getItem('defaultTemplate') || 'wedding-template-01' : 'wedding-template-01'}
-                    onChange={(e) => localStorage.setItem('defaultTemplate', e.target.value)}
-                  >
-                    <option value="wedding-template-01">Wedding Template v1</option>
-                    <option value="half-saree-template-01">Half Saree Premium Template</option>
-                  </select>
+            <div 
+              className="p-8 md:p-12 rounded-[3rem] border backdrop-blur-2xl shadow-2xl relative overflow-hidden"
+              style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)" }}
+            >
+              <div className="absolute top-0 left-0 w-64 h-64 bg-purple-600/[0.03] blur-[100px] -z-10" />
+              <h3 className="text-xl font-black text-white mb-10 flex items-center gap-4">
+                <div className="w-12 h-12 bg-purple-500/10 text-purple-400 rounded-2xl flex items-center justify-center border border-purple-500/20 shadow-lg shadow-purple-500/5">
+                  <Layout size={24} />
                 </div>
                 <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Default YouTube Privacy</label>
-                  <select 
-                    id="defaultYoutubePrivacy"
-                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800"
-                    defaultValue={typeof window !== 'undefined' ? localStorage.getItem('defaultYoutubePrivacy') || 'public' : 'public'}
-                    onChange={(e) => localStorage.setItem('defaultYoutubePrivacy', e.target.value)}
-                  >
-                    <option value="public">Public (Everyone)</option>
-                    <option value="unlisted">Unlisted (Link Only)</option>
-                  </select>
+                  <span className="block text-xl tracking-tight">Mission Defaults</span>
+                  <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Global Preference Matrix</span>
+                </div>
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <div>
+                  <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Baseline Template</label>
+                  <div className="relative group">
+                    <select 
+                      id="defaultTemplate"
+                      className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-sm appearance-none cursor-pointer group-hover:border-white/20"
+                      defaultValue={typeof window !== 'undefined' ? localStorage.getItem('defaultTemplate') || 'wedding-template-01' : 'wedding-template-01'}
+                      onChange={(e) => localStorage.setItem('defaultTemplate', e.target.value)}
+                    >
+                      <option value="wedding-template-01" className="bg-[#0d0d17]">Wedding: Pink & Gold</option>
+                      <option value="half-saree-template-01" className="bg-[#0d0d17]">Half Saree: Emerald</option>
+                      <option value="dhoti-ceremony-template-01" className="bg-[#0d0d17]">Dhoti: Royal Blue</option>
+                    </select>
+                    <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 rotate-90 text-white/20 pointer-events-none" size={20} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Broadcaster Privacy</label>
+                  <div className="relative group">
+                    <select 
+                      id="defaultYoutubePrivacy"
+                      className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-sm appearance-none cursor-pointer group-hover:border-white/20"
+                      defaultValue={typeof window !== 'undefined' ? localStorage.getItem('defaultYoutubePrivacy') || 'public' : 'public'}
+                      onChange={(e) => localStorage.setItem('defaultYoutubePrivacy', e.target.value)}
+                    >
+                      <option value="public" className="bg-[#0d0d17]">Public (Everyone)</option>
+                      <option value="unlisted" className="bg-[#0d0d17]">Unlisted (Link Only)</option>
+                    </select>
+                    <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 rotate-90 text-white/20 pointer-events-none" size={20} />
+                  </div>
                 </div>
               </div>
-              <div className="mt-8 p-4 bg-blue-50 rounded-2xl border border-blue-100 text-blue-700 text-xs font-bold">
-                ✨ These settings will be automatically applied whenever you open the "Create Event" form.
+              <div className="mt-10 p-6 bg-white/[0.02] rounded-2xl border border-white/[0.05] text-white/40 text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-4">
+                <CheckCircle2 size={16} className="text-green-500" /> Preferences synchronized with local cache storage
               </div>
             </div>
 
-            <div className="bg-slate-900 p-6 md:p-10 rounded-3xl shadow-xl text-white">
-              <h3 className="text-xl font-black mb-4 flex items-center gap-2">
-                <Users size={24} className="text-blue-400" /> Team Management
+            <div 
+              className="p-8 md:p-12 rounded-[3rem] border backdrop-blur-2xl shadow-2xl relative overflow-hidden"
+              style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)" }}
+            >
+              <div className="absolute bottom-0 right-0 w-64 h-64 bg-green-600/[0.03] blur-[100px] -z-10" />
+              <h3 className="text-xl font-black text-white mb-10 flex items-center gap-4">
+                <div className="w-12 h-12 bg-green-500/10 text-green-400 rounded-2xl flex items-center justify-center border border-green-500/20 shadow-lg shadow-green-500/5">
+                  <Users size={24} />
+                </div>
+                <div>
+                  <span className="block text-xl tracking-tight">Team Intelligence</span>
+                  <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Personnel & Access Management</span>
+                </div>
               </h3>
-              <p className="text-slate-400 text-sm mb-6 font-medium">Manage who has access to your Eventcast PRO dashboard.</p>
+              
               <div className="space-y-4">
-                <div className="p-4 bg-slate-800 rounded-2xl border border-slate-700 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center font-black">
+                <div className="p-6 bg-white/[0.03] rounded-3xl border border-white/[0.08] flex items-center justify-between group hover:bg-white/[0.05] transition-all">
+                  <div className="flex items-center gap-5">
+                    <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg shadow-blue-600/20 group-hover:scale-105 transition-transform">
                       {user?.email?.charAt(0).toUpperCase() || "A"}
                     </div>
                     <div>
-                      <p className="font-bold">{user?.email || "Super Admin"}</p>
-                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Owner / Super Admin</p>
+                      <p className="font-black text-white tracking-tight">{user?.email || "Super Admin"}</p>
+                      <p className="text-[10px] text-blue-500 font-black uppercase tracking-widest mt-1">Mission Control / Owner</p>
                     </div>
                   </div>
-                  <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-[10px] font-black uppercase">Active</span>
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,1)]" />
+                    <span className="text-[10px] font-black text-green-400 uppercase tracking-[0.2em]">Live Node</span>
+                  </div>
                 </div>
               </div>
-              <button className="mt-6 text-sm font-bold text-blue-400 hover:text-blue-300 flex items-center gap-2">
-                <PlusCircle size={16} /> Add New Collaborator (Coming Soon)
+              <button className="mt-10 px-6 py-4 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3 border border-white/5 transition-all">
+                <PlusCircle size={18} /> Add New Node (Coming Soon)
               </button>
             </div>
           </div>
@@ -1755,49 +1914,66 @@ export default function AdminDashboard() {
 
       {/* Health Check Modal */}
       {showHealthCheck && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-md rounded-3xl overflow-hidden shadow-2xl">
-            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-500">
+          <div 
+            className="w-full max-w-lg rounded-[3rem] border shadow-2xl overflow-hidden relative animate-in zoom-in-95 duration-500"
+            style={{ background: "rgba(13,13,23,0.95)", borderColor: "rgba(255,255,255,0.08)" }}
+          >
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500" />
+            
+            <div className="p-10 border-b border-white/[0.08] flex items-center justify-between relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 blur-[60px] -z-10" />
               <div>
-                <h3 className="text-xl font-black text-slate-800">Ready to Launch?</h3>
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Event Health Report</p>
+                <h3 className="text-2xl font-black text-white tracking-tight">Mission Readiness</h3>
+                <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.4em] mt-1.5">System Health Scan Report</p>
               </div>
-              <button onClick={() => setShowHealthCheck(false)} className="p-2 hover:bg-white rounded-full text-slate-400 hover:text-red-500 transition-colors">
+              <button onClick={() => setShowHealthCheck(false)} className="w-12 h-12 flex items-center justify-center bg-white/5 hover:bg-red-500 text-white/40 hover:text-white rounded-2xl transition-all border border-white/5">
                 <X size={24} />
               </button>
             </div>
-            <div className="p-8 space-y-4 max-h-[400px] overflow-y-auto">
+            
+            <div className="p-10 space-y-5 max-h-[450px] overflow-y-auto custom-scrollbar">
               {healthResults.length === 0 ? (
-                <div className="text-center py-10">
-                  <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
-                    <CheckCircle2 size={40} />
+                <div className="text-center py-16 animate-in zoom-in-90 duration-700">
+                  <div className="w-24 h-24 bg-green-500/10 text-green-400 rounded-full flex items-center justify-center mx-auto mb-8 border border-green-500/20 shadow-[0_0_50px_-10px_rgba(34,197,94,0.3)]">
+                    <CheckCircle2 size={48} className="animate-pulse" />
                   </div>
-                  <h4 className="text-lg font-black text-slate-800">Perfect Score!</h4>
-                  <p className="text-slate-500 text-sm font-medium">Everything looks amazing. You are ready to go live.</p>
+                  <h4 className="text-2xl font-black text-white tracking-tight">All Systems Optimal</h4>
+                  <p className="text-white/30 text-[11px] font-black uppercase tracking-[0.2em] mt-3">Ready for High-Priority Deployment</p>
                 </div>
               ) : (
-                healthResults.map((issue, idx) => (
-                  <div key={idx} className={`p-4 rounded-2xl flex items-start gap-4 border-l-4 ${
-                    issue.type === 'error' ? 'bg-red-50 border-red-500 text-red-700' : 
-                    issue.type === 'warning' ? 'bg-amber-50 border-amber-500 text-amber-700' : 
-                    'bg-blue-50 border-blue-500 text-blue-700'
-                  }`}>
-                    <div className="mt-0.5">
-                      {issue.type === 'error' ? <AlertCircle size={18} /> : 
-                       issue.type === 'warning' ? <AlertTriangle size={18} /> : 
-                       <CheckCircle2 size={18} />}
+                <div className="space-y-4">
+                  {healthResults.map((issue, idx) => (
+                    <div key={idx} className={`p-6 rounded-3xl flex items-start gap-5 border transition-all animate-in slide-in-from-bottom-2 duration-500 ${
+                      issue.type === 'error' ? 'bg-red-500/5 border-red-500/20 text-red-400' : 
+                      issue.type === 'warning' ? 'bg-amber-500/5 border-amber-500/20 text-amber-400' : 
+                      'bg-blue-500/5 border-blue-500/20 text-blue-400'
+                    }`} style={{ animationDelay: `${idx * 100}ms` }}>
+                      <div className={`mt-1 w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                        issue.type === 'error' ? 'bg-red-500/10' : 
+                        issue.type === 'warning' ? 'bg-amber-500/10' : 
+                        'bg-blue-500/10'
+                      }`}>
+                        {issue.type === 'error' ? <AlertCircle size={22} /> : 
+                         issue.type === 'warning' ? <AlertTriangle size={22} /> : 
+                         <CheckCircle2 size={22} />}
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 mb-1">{issue.type}</p>
+                        <p className="text-sm font-black tracking-tight leading-relaxed">{issue.text}</p>
+                      </div>
                     </div>
-                    <p className="text-sm font-bold">{issue.text}</p>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </div>
-            <div className="p-8 bg-slate-50 border-t border-slate-100">
+            
+            <div className="p-10 border-t border-white/[0.08] bg-white/[0.01]">
               <button 
                 onClick={() => setShowHealthCheck(false)} 
-                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all"
+                className="w-full py-5 bg-white text-black hover:bg-blue-500 hover:text-white rounded-3xl font-black uppercase tracking-[0.4em] text-sm transition-all shadow-xl active:scale-95"
               >
-                Got it, let's fix these
+                ACKNOWLEDGEMENT COMPLETE
               </button>
             </div>
           </div>

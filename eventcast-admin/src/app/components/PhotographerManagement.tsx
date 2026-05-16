@@ -59,102 +59,111 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
   });
 
   return (
-    <div className="max-w-6xl mx-auto space-y-12">
+  return (
+    <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* --- ADD / EDIT FORM --- */}
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 md:p-10">
-        <h2 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3">
-          <UserPlus size={28} className="text-blue-600" />
-          {isEditing ? "Modify Photographer Details" : "Register New Photographer"}
+      <div 
+        className="rounded-[2.5rem] border p-8 md:p-12 backdrop-blur-2xl shadow-2xl relative overflow-hidden"
+        style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)" }}
+      >
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/[0.03] blur-[100px] -z-10" />
+        
+        <h2 className="text-2xl font-black text-white mb-10 flex items-center gap-4">
+          <div className="w-12 h-12 bg-blue-500/10 text-blue-400 rounded-2xl flex items-center justify-center border border-blue-500/20 shadow-lg shadow-blue-500/5">
+            <UserPlus size={24} />
+          </div>
+          <div>
+            <span className="block text-xl tracking-tight">{isEditing ? "Modify Personnel Record" : "Register Partner System"}</span>
+            <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Satellite Network Enrollment</span>
+          </div>
         </h2>
-        <form onSubmit={addPhotographer} className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
+        <form onSubmit={addPhotographer} className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Nickname — internal only */}
           <div className="md:col-span-1">
-            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
-              Nickname <span className="normal-case font-normal text-blue-400">(internal only — not shown on page)</span>
-            </label>
+            <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Internal Identifier</label>
             <input
               type="text"
               name="nickname"
               value={fields.nickname}
               onChange={handleField('nickname')}
-              className="w-full p-4 bg-blue-50 border border-blue-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800"
-              placeholder="e.g. Ashok SSV"
+              className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white placeholder:text-white/10"
+              placeholder="Private Node ID"
             />
           </div>
 
           {/* Studio Name */}
           <div className="md:col-span-2">
-            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
-              Studio Name <span className="normal-case font-normal text-slate-400">(shown on page)</span>
-            </label>
+            <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Public Alias (Studio Name)</label>
             <input
               type="text"
               name="name"
               value={fields.name}
               onChange={handleField('name')}
-              className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800"
-              placeholder="e.g. SSV Photography"
+              className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white placeholder:text-white/10"
+              placeholder="Brand System Name"
             />
           </div>
 
           {/* Phone */}
           <div>
-            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Contact Phone</label>
+            <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Telemetry Uplink (Phone)</label>
             <input
               type="text"
               name="phone"
               value={fields.phone}
               onChange={handleField('phone')}
-              className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800"
-              placeholder="+91 98765 43210"
+              className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white placeholder:text-white/10"
+              placeholder="Communication Line"
             />
           </div>
 
           {/* City */}
           <div>
-            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">City / Location</label>
+            <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Geographic Sector (City)</label>
             <input
               type="text"
               name="city"
               value={fields.city}
               onChange={handleField('city')}
-              className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-slate-800"
-              placeholder="e.g. Hyderabad"
+              className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white placeholder:text-white/10"
+              placeholder="Location Matrix"
             />
           </div>
 
           {/* Instagram */}
           <div>
-            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Instagram Link</label>
-            <input
-              type="text"
-              name="instagram_url"
-              value={fields.instagram_url}
-              onChange={handleField('instagram_url')}
-              className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium text-slate-600"
-              placeholder="https://instagram.com/..."
-            />
+            <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Portfolio Sync (IG)</label>
+            <div className="relative">
+              <input
+                type="text"
+                name="instagram_url"
+                value={fields.instagram_url}
+                onChange={handleField('instagram_url')}
+                className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-pink-500/30 transition-all font-black text-white/60 placeholder:text-white/10"
+                placeholder="Social Data Link"
+              />
+            </div>
           </div>
 
           {/* Logo Upload */}
           <div className="md:col-span-2">
-            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Logo</label>
-            <div className="flex gap-3">
+            <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Brand Visual Identity (Logo)</label>
+            <div className="flex gap-4">
               <input
                 type="text"
                 name="logo_url"
                 value={fields.logo_url}
                 onChange={handleField('logo_url')}
-                className="flex-1 p-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium text-slate-600"
-                placeholder="Paste URL or Upload →"
+                className="flex-1 p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white/60 text-sm placeholder:text-white/10"
+                placeholder="Direct Asset URL..."
               />
               <button
                 type="button"
                 onClick={() => (document.getElementById('p_logo_file') as HTMLInputElement)?.click()}
-                className="px-6 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-bold text-xs uppercase tracking-widest border border-slate-200 transition-all flex items-center gap-2"
+                className="px-8 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center gap-3 shadow-lg shadow-blue-600/20 active:scale-95 border border-blue-500/20"
               >
-                <LinkIcon size={16} /> Upload
+                <LinkIcon size={16} /> Uplink
               </button>
               <input
                 type="file"
@@ -165,7 +174,8 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
                   const file = e.target.files?.[0];
                   if (!file) return;
                   const btn = e.target.previousElementSibling as HTMLButtonElement;
-                  btn.innerText = 'Uploading...';
+                  const originalHtml = btn.innerHTML;
+                  btn.innerText = 'UPLOADING...';
                   const fd = new FormData();
                   fd.append('file', file);
                   fd.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'eventcast_gallery');
@@ -175,115 +185,153 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
                   });
                   const data = await res.json();
                   if (data.secure_url) {
-                    // Update React state — not the DOM
                     setFields(prev => ({ ...prev, logo_url: data.secure_url }));
-                    btn.innerText = 'DONE!';
+                    btn.innerText = 'SUCCESS';
+                    setTimeout(() => btn.innerHTML = originalHtml, 2000);
                   } else {
                     btn.innerText = 'FAILED';
+                    setTimeout(() => btn.innerHTML = originalHtml, 2000);
                   }
                 }}
               />
             </div>
             {fields.logo_url && (
-              <div className="mt-2">
-                <img src={fields.logo_url} alt="Logo Preview" className="h-12 object-contain rounded-lg border border-slate-100 p-1" />
+              <div className="mt-6 flex items-center gap-4 p-4 bg-white/[0.02] rounded-[1.5rem] border border-white/[0.08] animate-in zoom-in-95 duration-500">
+                <div className="w-14 h-14 rounded-xl bg-white flex items-center justify-center p-2.5 border border-white/10 shadow-2xl">
+                  <img src={fields.logo_url} alt="Logo Preview" className="w-full h-full object-contain" />
+                </div>
+                <div>
+                   <p className="text-[10px] font-black text-green-400 uppercase tracking-widest">Asset Synchronization Complete</p>
+                   <p className="text-[9px] text-white/20 font-bold uppercase mt-1">Branding vector active</p>
+                </div>
               </div>
             )}
           </div>
 
           {/* Submit */}
-          <div className="md:col-span-3 pt-4">
+          <div className="md:col-span-3 pt-10">
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`w-full py-4 ${isEditing ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-2xl font-black shadow-xl transition-all disabled:bg-slate-300`}
+              className={`w-full py-6 rounded-[2rem] font-black text-sm uppercase tracking-[0.4em] shadow-2xl transition-all duration-500 transform active:scale-[0.98] disabled:opacity-30 flex items-center justify-center gap-4 border ${
+                isEditing 
+                  ? 'bg-amber-600 text-white border-amber-500/20 shadow-amber-600/20 hover:bg-amber-500' 
+                  : 'bg-blue-600 text-white border-blue-500/20 shadow-blue-600/30 hover:bg-blue-500'
+              }`}
             >
-              {isSubmitting ? "Processing..." : (isEditing ? "Update Photographer Record" : "Add to Credits System")}
+              {isSubmitting ? (
+                <><RefreshCw size={20} className="animate-spin" /> SYNCHRONIZING SYSTEM...</>
+              ) : (
+                <>
+                  <Zap size={20} />
+                  {isEditing ? "SAVE RECORD UPDATES" : "INITIALIZE PARTNER ENROLLMENT"}
+                </>
+              )}
             </button>
           </div>
         </form>
       </div>
 
       {/* --- PHOTOGRAPHER LIST WITH SEARCH --- */}
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 md:p-10">
-        <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
-          <Search size={24} className="text-blue-600" /> Professional Partners
-          <span className="ml-auto text-sm font-normal text-slate-400">{photographers.length} registered</span>
-        </h3>
+      <div 
+        className="rounded-[3rem] border p-8 md:p-12 backdrop-blur-2xl shadow-2xl relative overflow-hidden"
+        style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)" }}
+      >
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 mb-12 relative z-10">
+          <div>
+            <h3 className="text-2xl font-black text-white flex items-center gap-4 tracking-tight">
+              <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center border border-green-500/20 shadow-lg shadow-green-500/5">
+                <Users size={24} className="text-green-400" />
+              </div>
+              Verified Partners
+            </h3>
+            <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em] mt-3">
+              ACTIVE NETWORK NODES: <span className="text-white/60">{photographers.length} SYSTEMS ONLINE</span>
+            </p>
+          </div>
 
-        {/* Search Bar */}
-        <div className="relative mb-8">
-          <input
-            type="text"
-            placeholder="Search by nickname, studio name, phone, or city..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full p-4 pl-12 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-800"
-          />
-          <Search className="absolute left-4 top-4 text-slate-400" size={20} />
+          <div className="relative w-full lg:w-[450px] group">
+            <input
+              type="text"
+              placeholder="Query by alias, sector or telemetry..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full p-5 pl-14 bg-white/[0.03] border border-white/[0.08] rounded-[2rem] outline-none focus:ring-2 focus:ring-green-500/50 font-black text-white placeholder:text-white/10 transition-all"
+            />
+            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-green-400 transition-colors" size={22} />
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {(searchQuery ? filtered : photographers).map(p => (
-            <div key={p.id} className="p-6 bg-slate-50 rounded-2xl hover:bg-white hover:shadow-xl hover:shadow-slate-100 transition-all border border-transparent hover:border-slate-100 group">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="w-14 h-14 rounded-2xl overflow-hidden bg-white border border-slate-100 shadow-sm flex-shrink-0 group-hover:scale-105 transition-transform">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {(searchQuery ? filtered : photographers).map((p, idx) => (
+            <div key={p.id} className="p-8 bg-white/[0.01] rounded-[2.5rem] border border-white/[0.05] hover:border-blue-500/20 hover:bg-white/[0.03] transition-all duration-500 group shadow-xl relative overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-700" style={{ animationDelay: `${idx * 50}ms` }}>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/[0.01] blur-3xl -z-10 group-hover:bg-blue-600/[0.03] transition-all" />
+              
+              <div className="flex items-start gap-6 mb-8">
+                <div className="w-20 h-20 rounded-[1.5rem] overflow-hidden bg-white flex-shrink-0 group-hover:scale-105 transition-all duration-700 shadow-2xl p-3 border border-white/10">
                   {p.logo_url ? (
-                    <img src={p.logo_url} className="w-full h-full object-contain p-2" alt={p.name} />
+                    <img src={p.logo_url} className="w-full h-full object-contain" alt={p.name} />
                   ) : (
-                    <div className="w-full h-full bg-blue-600 text-white flex items-center justify-center font-black text-xl">
+                    <div className="w-full h-full bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-black text-3xl shadow-inner">
                       {(p.nickname || p.name || "?").substring(0, 1).toUpperCase()}
                     </div>
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  {/* Nickname badge - internal only */}
+                <div className="flex-1 min-w-0 pt-2">
                   {p.nickname && (
-                    <div className="flex items-center gap-1 mb-1">
-                      <Tag size={10} className="text-blue-400" />
-                      <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">{p.nickname}</span>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">{p.nickname}</span>
                     </div>
                   )}
-                  <p className="font-black text-slate-800 truncate leading-tight">{p.name || <span className="text-slate-400 italic">No studio name</span>}</p>
+                  <p className="font-black text-white text-xl truncate tracking-tight leading-none">{p.name || <span className="text-white/10 italic">Undefined Alias</span>}</p>
                 </div>
               </div>
 
-              {/* Details */}
-              <div className="space-y-1 mb-4">
+              {/* Details Matrix */}
+              <div className="space-y-4 mb-10">
                 {p.phone_number && (
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <Phone size={11} /> <span>{p.phone_number}</span>
+                  <div className="flex items-center gap-4 text-[11px] font-black text-white/40 bg-white/[0.02] p-4 rounded-2xl border border-white/[0.05] group-hover:border-white/10 transition-colors">
+                    <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center"><Phone size={14} className="text-white/20" /></div>
+                    <span className="tracking-widest">{p.phone_number}</span>
                   </div>
                 )}
                 {p.city && (
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <MapPin size={11} /> <span>{p.city}</span>
+                  <div className="flex items-center gap-4 text-[11px] font-black text-white/40 bg-white/[0.02] p-4 rounded-2xl border border-white/[0.05] group-hover:border-white/10 transition-colors">
+                    <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center"><MapPin size={14} className="text-white/20" /></div>
+                    <span className="tracking-widest uppercase">{p.city}</span>
                   </div>
                 )}
                 {p.instagram_url && (
-                  <div className="flex items-center gap-2 text-xs text-blue-500">
-                    <LinkIcon size={11} />
-                    <a href={p.instagram_url} target="_blank" className="truncate hover:underline">Instagram</a>
-                  </div>
+                  <a href={p.instagram_url} target="_blank" className="flex items-center gap-4 text-[11px] font-black text-blue-400 bg-blue-500/5 p-4 rounded-2xl border border-blue-500/10 hover:bg-blue-500/10 transition-all">
+                    <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center"><LinkIcon size={14} className="text-blue-400" /></div>
+                    <span className="truncate uppercase tracking-widest">Digital Portfolio</span>
+                  </a>
                 )}
               </div>
 
-              {/* Actions */}
-              <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
-                <button onClick={() => onEdit(p)} className="flex-1 py-2 bg-white rounded-xl text-slate-600 hover:text-orange-600 hover:bg-orange-50 shadow-sm transition-colors text-xs font-bold flex items-center justify-center gap-1">
-                  <Edit size={13} /> Edit
+              {/* System Actions */}
+              <div className="flex items-center gap-4 pt-6 border-t border-white/[0.05]">
+                <button 
+                  onClick={() => onEdit(p)} 
+                  className="flex-1 py-3 bg-white/5 rounded-2xl text-white/40 hover:text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/20 border border-white/5 shadow-sm transition-all text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 active:scale-95"
+                >
+                  <Edit size={16} /> Mod
                 </button>
-                <button onClick={() => deletePhotographer(p.id)} className="flex-1 py-2 bg-white rounded-xl text-slate-600 hover:text-red-600 hover:bg-red-50 shadow-sm transition-colors text-xs font-bold flex items-center justify-center gap-1">
-                  <Trash2 size={13} /> Delete
+                <button 
+                  onClick={() => deletePhotographer(p.id)} 
+                  className="flex-1 py-3 bg-white/5 rounded-2xl text-white/40 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/20 border border-white/5 shadow-sm transition-all text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 active:scale-95"
+                >
+                  <Trash2 size={16} /> Wipe
                 </button>
               </div>
             </div>
           ))}
+          
           {searchQuery && filtered.length === 0 && (
-            <div className="md:col-span-3 text-center py-12 text-slate-400">
-              <Search size={32} className="mx-auto mb-3 opacity-30" />
-              <p className="font-bold">No results for "{searchQuery}"</p>
-              <p className="text-sm">Try searching by nickname, phone, or city</p>
+            <div className="lg:col-span-3 text-center py-24 bg-white/[0.01] rounded-[3rem] border border-dashed border-white/10 animate-in zoom-in-95 duration-700">
+              <Search size={64} className="mx-auto mb-6 text-white/5" />
+              <p className="font-black text-white/20 uppercase tracking-[0.4em] text-sm">No matching systems found in sector</p>
+              <button onClick={() => setSearchQuery('')} className="mt-6 text-[10px] font-black text-blue-500 uppercase tracking-widest hover:text-blue-400 transition-colors">Reset Query Filter</button>
             </div>
           )}
         </div>

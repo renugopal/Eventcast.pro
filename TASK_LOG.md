@@ -18,6 +18,11 @@ This document provides a concise summary of completed and pending tasks.
     - [x] Auto-pause video/slideshow on scroll.
 - [x] **Resource Guard**:
     - [x] Cloudinary credit monitoring & alerting.
+- [x] **Media Infrastructure (Zero Cost)**: 
+    - [x] Implemented **Cloudflare R2** for video hosting (0$ egress fees).
+    - [x] Switched to **Eager Transformations** for Cloudinary images (credits saved at upload).
+    - [x] Implemented **True Lazy Loading** for videos (no bytes downloaded until scroll).
+
 
 ### UI & UX
 - [x] Fixed video player bottom gap/alignment issue.
@@ -33,6 +38,11 @@ This document provides a concise summary of completed and pending tasks.
 - [x] Implemented Operational Analytics (Peak Hours chart).
 - [x] Added Photographer Management & Branding system.
 - [x] Integrated System Sentinel health monitoring.
+- [x] **Admin UI Overhaul (Phase 1)**:
+    - [x] Redesigned Sidebar and Navigation (Premium Dark theme).
+    - [x] Overhauled Dashboard Home with glassmorphism and real-time Supabase metrics.
+    - [x] Fixed global layout font (Geist) and entrance animations.
+
 
 ### Template Features
 - [x] Automated video auto-play for invitation videos.
@@ -58,11 +68,19 @@ This document provides a concise summary of completed and pending tasks.
 - [x] **GitHub Rate Limit — Bulk Delete**: `/api/events/delete` now lists only the target event folder's files via the Contents API and removes them by sending `sha:null` entries against `base_tree`. Single targeted commit; never re-lists the full repo. `deleteMultipleEvents()` in the admin panel now processes deletions in sequential batches of 2 (instead of a single `Promise.all`) to avoid 429 responses on the GitHub API.
 - [x] **Stream Health Monitor**: Cron route `/api/cron/stream-health-monitor` built. Polls Restreamer for bitrate/state per live event window. Alerts via Supabase `stream_alerts` table + optional WhatsApp (CallMeBot). Enable WhatsApp by adding `ALERT_WHATSAPP_PHONE` + `ALERT_WHATSAPP_APIKEY` to `.env.local`.
 - [x] **Event Deletion**: Purge VOD/HLS media files from Restreamer `data/` filesystem on event delete (`deleteChannelFiles` added to `RestreamerClient`, wired into `/api/events/delete`).
+- [x] **Admin UI Phase 2**: Overhaul "All Events", "Photographers", "Analytics", and "Live Monitor" tabs into the dark glassmorphism theme.
+- [ ] **Cloudflare Caching Strategy**: Implement Cloudflare proxy caching for HLS streams to reduce GCP egress costs by 90%+.
+- [ ] **Automated Cloudflare R2 VOD Archiving**: Build automation to move completed recordings (10-30GB) from media server to R2 after stream ends and update Supabase VOD links.
+- [ ] **Private Infrastructure Migration**: Setup high-end i9 physical server with Cloudflare Tunnels (Argo) to replace expensive cloud VMs.
+
 
 ### Planned Features
 - [ ] **Multi-Camera Support**: Internal switching between streams.
 - [ ] **Smart TV Casting**: AirPlay and Chromecast integration.
-- [ ] **Viewer Analytics**: Peak viewer charts and geo-data.
+- [ ] **Interactive Geo-Location Analytics**: Implement a real-time world map in the admin dashboard showing viewer distribution.
+- [ ] **Wishes Moderation System**: Add a "Control Room" for admins to approve/reject messages before they go live.
+- [ ] **PWA Support**: Make event landing pages installable as mobile apps for better retention.
+- [ ] **IP & Anti-Theft Protection**: Implement JS code obfuscation, Cloudflare CORS/Hotlink protection, and basic UI blockers (disable right-click/F12) on public templates.
 
 ---
 *Status: Active Development*

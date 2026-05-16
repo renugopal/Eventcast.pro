@@ -197,6 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let loopCount = 0;
         const MAX_LOOPS = 3;
         let isLoopingEnabled = true;
+        let videoSourceLoaded = false; // true once the browser has been told to fetch any bytes
 
         invVideo.setAttribute('poster', optimizeUrl(CONFIG.thumbnail));
 
@@ -204,13 +205,16 @@ document.addEventListener('DOMContentLoaded', () => {
             currentVideoIndex = index;
             const src = invVideo.querySelector('source');
             if (src) src.setAttribute('src', optimizeUrl(allVideos[index]));
-            invVideo.load();
-            
-            // Only play if in viewport or manually triggered
-            if (videoOverlay && videoOverlay.style.display === 'none') {
-                invVideo.play().catch(() => {});
+
+            // Only call load()/play() after the source has been initialised by the
+            // IntersectionObserver or a manual user tap — never on initial page load.
+            if (videoSourceLoaded) {
+                invVideo.load();
+                if (videoOverlay && videoOverlay.style.display === 'none') {
+                    invVideo.play().catch(() => {});
+                }
             }
-            
+
             // Update dots
             if (allVideos.length > 1 && videoDotsContainer) {
                 videoDotsContainer.querySelectorAll('.vdot').forEach((dot, i) => {
@@ -253,6 +257,12 @@ document.addEventListener('DOMContentLoaded', () => {
             isLoopingEnabled = true;
             loopCount = 0;
             if (videoOverlay) videoOverlay.style.display = 'none';
+            if (!videoSourceLoaded) {
+                videoSourceLoaded = true;
+                const src = invVideo.querySelector('source');
+                if (src) src.setAttribute('src', optimizeUrl(allVideos[currentVideoIndex]));
+                invVideo.load();
+            }
             invVideo.play().catch(() => {});
         }
 
@@ -260,10 +270,17 @@ document.addEventListener('DOMContentLoaded', () => {
             videoOverlay.addEventListener('click', startVideoManually);
         }
 
-        // --- Intersection Observer: Play only when visible ---
+        // --- Intersection Observer: Lazy-load + play only when visible ---
+        // Zero bytes are downloaded until the video wrapper crosses the threshold.
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting && isLoopingEnabled) {
+                    if (!videoSourceLoaded) {
+                        videoSourceLoaded = true;
+                        const src = invVideo.querySelector('source');
+                        if (src) src.setAttribute('src', optimizeUrl(allVideos[currentVideoIndex]));
+                        invVideo.load(); // First network request for video bytes happens here
+                    }
                     invVideo.play().catch(() => {});
                 } else {
                     invVideo.pause();
@@ -286,7 +303,8 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
-        playVideoAt(0);
+        // currentVideoIndex is already 0. Source is lazy-loaded on first viewport
+        // intersection or user tap — no load() call here prevents background download.
     } else if (invVideo) {
         const section = document.getElementById('invitation-video');
         if (section) section.style.display = 'none';

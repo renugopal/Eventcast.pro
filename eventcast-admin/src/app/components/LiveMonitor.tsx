@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Monitor, Clock, RefreshCw, Heart, Radio,
   RotateCcw, Play, Activity, Zap, Signal,
-  Tv, WifiOff,
+  Tv, WifiOff, MapPin,
 } from "lucide-react";
 import { authFetch } from "@/lib/client-auth";
 
@@ -486,92 +486,94 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
   }).length;
 
   return (
-    <div className="min-h-[800px] bg-[#07070d] text-slate-100 rounded-3xl overflow-hidden relative">
+    <div className="min-h-[900px] text-slate-100 rounded-[3.5rem] overflow-hidden relative border backdrop-blur-3xl shadow-2xl" style={{ background: "rgba(255,255,255,0.01)", borderColor: "rgba(255,255,255,0.08)" }}>
 
       {/* Ambient glow orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
-        <div className="absolute -top-40 -left-40 w-80 h-80 bg-red-600/[0.04] rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -right-40 w-80 h-80 bg-blue-600/[0.04] rounded-full blur-3xl" />
+        <div className="absolute -top-40 -left-40 w-[30rem] h-[30rem] bg-red-600/[0.04] rounded-full blur-[150px]" />
+        <div className="absolute -bottom-40 -right-40 w-[30rem] h-[30rem] bg-blue-600/[0.04] rounded-full blur-[150px]" />
         {liveCount > 0 && (
-          <div className="absolute top-1/3 right-1/3 w-64 h-64 bg-red-500/[0.03] rounded-full blur-3xl animate-pulse" />
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[40rem] h-[40rem] bg-red-500/[0.02] rounded-full blur-[120px] animate-pulse" />
         )}
       </div>
 
       {/* ── Top Bar ───────────────────────────────────── */}
-      <div className="relative z-10 flex items-center justify-between px-8 py-5 border-b border-white/[0.05]">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
-            <Monitor size={20} className="text-red-400" />
+      <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between px-12 py-10 border-b border-white/[0.06] gap-10 bg-white/[0.02]">
+        <div className="flex items-center gap-8">
+          <div className="w-16 h-16 rounded-[1.5rem] bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0 shadow-2xl shadow-red-500/10 group">
+            <Monitor size={32} className="text-red-500 group-hover:scale-110 transition-transform duration-500" />
           </div>
           <div>
-            <h2 className="text-lg font-black tracking-tight text-white">
-              Live Control Center
+            <h2 className="text-3xl font-black tracking-tighter text-white">
+              Mission <span className="text-red-500">Control</span> Hub
             </h2>
-            <div className="flex items-center gap-3 mt-0.5">
+            <div className="flex items-center gap-5 mt-2.5">
               {systemStatus === 'initializing' && (
-                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                  <Radio size={10} className="animate-pulse" />
-                  Connecting…
+                <span className="flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.3em] text-white/20">
+                  <div className="w-2 h-2 rounded-full bg-white/20 animate-pulse" />
+                  Calibrating Satellite Link…
                 </span>
               )}
               {systemStatus === 'online' && (
-                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-emerald-400">
-                  <Radio size={10} className="animate-pulse" />
-                  System Online
+                <span className="flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400 bg-emerald-500/10 px-4 py-1.5 rounded-full border border-emerald-500/20 shadow-lg shadow-emerald-500/5">
+                  <Radio size={12} className="animate-pulse" />
+                  Telemetry: NOMINAL
                 </span>
               )}
               {systemStatus === 'degraded' && (
-                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-amber-400">
-                  <Radio size={10} className="animate-pulse" />
-                  Degraded
+                <span className="flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.3em] text-amber-400 bg-amber-500/10 px-4 py-1.5 rounded-full border border-amber-500/20">
+                  <Radio size={12} className="animate-pulse" />
+                  Link Degradation Detected
                 </span>
               )}
               {systemStatus === 'offline' && (
-                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-red-400">
-                  <WifiOff size={10} />
-                  Media Server Offline
+                <span className="flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.3em] text-red-400 bg-red-500/10 px-4 py-1.5 rounded-full border border-red-500/20">
+                  <WifiOff size={12} />
+                  Mainframe Connection Lost
                 </span>
               )}
               {liveCount > 0 && (
-                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-red-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
-                  {liveCount} Live Now
-                </span>
+                <div className="flex items-center gap-3 bg-red-500/10 px-4 py-1.5 rounded-full border border-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.1)]">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_12px_rgba(239,68,68,1)]" />
+                  <span className="text-[10px] font-black text-red-500 uppercase tracking-[0.3em]">{liveCount} BROADCASTS LIVE</span>
+                </div>
               )}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-12">
           {lastUpdated && (
             <button
               onClick={fetchLiveStatus}
               disabled={isRefreshing}
-              className="flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-slate-300 transition-colors"
+              className="group flex items-center gap-4 text-[10px] font-black text-white/30 hover:text-white transition-all bg-white/[0.03] px-6 py-3 rounded-2xl border border-white/5 hover:border-blue-500/40 active:scale-95"
             >
               <RefreshCw
-                size={11}
-                className={isRefreshing ? "animate-spin text-blue-400" : ""}
+                size={16}
+                className={isRefreshing ? "animate-spin text-blue-400" : "group-hover:rotate-180 transition-transform duration-1000"}
               />
-              <span className="font-mono">
-                {lastUpdated.toLocaleTimeString("en-US", {
+              <span className="font-mono tracking-widest uppercase">
+                SYNC {lastUpdated.toLocaleTimeString("en-US", {
                   hour: "2-digit",
                   minute: "2-digit",
                   second: "2-digit",
+                  hour12: false
                 })}
               </span>
             </button>
           )}
 
           <div className="text-right">
-            <div className="text-3xl font-black font-mono tracking-tighter text-white tabular-nums">
+            <div className="text-5xl font-black font-mono tracking-tighter text-white tabular-nums drop-shadow-2xl leading-none">
               {currentTime.toLocaleTimeString("en-US", {
                 hour: "2-digit",
                 minute: "2-digit",
                 second: "2-digit",
+                hour12: false
               })}
             </div>
-            <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-0.5">
+            <div className="text-[10px] font-black text-white/20 uppercase tracking-[0.4em] mt-3">
               {currentTime.toLocaleDateString("en-US", {
                 weekday: "long",
                 month: "short",
@@ -583,41 +585,46 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
       </div>
 
       {/* ── Main Grid ─────────────────────────────────── */}
-      <div className="relative z-10 p-8 grid grid-cols-1 xl:grid-cols-4 gap-8">
+      <div className="relative z-10 p-12 grid grid-cols-1 xl:grid-cols-4 gap-12">
 
         {/* Left column: streams + upcoming */}
-        <div className="xl:col-span-3 space-y-8">
+        <div className="xl:col-span-3 space-y-16">
 
           {/* Active Broadcasts */}
           <section>
-            <div className="flex items-center gap-2.5 mb-5">
-              {activeStreams.length > 0 && (
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.7)]" />
-              )}
-              <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">
-                Active Broadcasts
-              </h3>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/[0.04] text-slate-500 border border-white/[0.05]">
-                {activeStreams.length}
-              </span>
+            <div className="flex items-center justify-between mb-10">
+              <div className="flex items-center gap-5">
+                <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-white/30">
+                  Global Sector Monitor
+                </h3>
+                <div className="h-px w-20 bg-white/[0.06]" />
+                <span className="text-[11px] font-black text-white/10 tabular-nums uppercase tracking-widest">
+                  {activeStreams.length} ACTIVE NODES
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]" />
+                <span className="text-[10px] font-black text-emerald-500/40 uppercase tracking-[0.3em]">Scalability Optimized</span>
+              </div>
             </div>
 
             {activeStreams.length === 0 ? (
-              <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] py-16 flex flex-col items-center justify-center gap-3">
-                <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/[0.05] flex items-center justify-center">
-                  <Signal size={24} className="text-slate-700" />
+              <div className="rounded-[3.5rem] border border-white/[0.05] bg-white/[0.015] py-32 flex flex-col items-center justify-center gap-8 backdrop-blur-3xl shadow-inner relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-b from-blue-500/[0.01] to-transparent" />
+                <div className="w-24 h-24 rounded-[2.5rem] bg-white/[0.03] border border-white/[0.06] flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:border-blue-500/30 transition-all duration-700 relative z-10">
+                  <Signal size={40} className="text-white/5 group-hover:text-blue-500/40 transition-colors" />
                 </div>
-                <div className="text-center">
-                  <p className="text-sm font-black text-slate-600">
-                    No Active Broadcasts
+                <div className="text-center relative z-10">
+                  <p className="text-2xl font-black text-white/20 tracking-tight">
+                    Listening for Broadcast Signals
                   </p>
-                  <p className="text-xs text-slate-700 mt-1">
-                    Streams will appear here when events go live
+                  <p className="text-[10px] font-black text-white/10 uppercase tracking-[0.4em] mt-3">
+                    Awaiting Ingest Authorization From Remote Nodes
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                 {activeStreams.map((stream) => (
                   <StreamCard
                     key={stream.id}
@@ -631,35 +638,43 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
 
           {/* Upcoming Today */}
           {upcomingToday.length > 0 && (
-            <section>
-              <div className="flex items-center gap-2.5 mb-4">
-                <Clock size={13} className="text-blue-400" />
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">
-                  Upcoming Today
-                </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                  {upcomingToday.length}
-                </span>
+            <section className="animate-in slide-in-from-bottom-6 duration-1000 delay-300">
+              <div className="flex items-center gap-5 mb-10">
+                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shadow-lg shadow-blue-500/5">
+                  <Clock size={24} className="text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-[0.3em] text-white/30">
+                    Deployment Queue
+                  </h3>
+                  <p className="text-[10px] font-black text-white/10 mt-1 uppercase tracking-[0.4em]">Chronological Schedule: {upcomingToday.length} Expected Units</p>
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {upcomingToday.map((event) => (
                   <div
                     key={event.id}
-                    className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] transition-colors"
+                    className="flex items-center justify-between p-8 rounded-[2rem] bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.05] hover:border-blue-500/40 transition-all duration-500 shadow-2xl group relative overflow-hidden"
                   >
-                    <div className="min-w-0 mr-4">
-                      <h4 className="font-black text-sm text-white leading-tight truncate">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-600/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="min-w-0 mr-8 relative z-10">
+                      <h4 className="font-black text-xl text-white tracking-tight group-hover:text-blue-400 transition-all duration-500">
                         {event.groom_name || event.celebrant_name}
-                        {event.bride_name ? ` & ${event.bride_name}` : ""}
+                        {event.bride_name && event.bride_name.toLowerCase() !== 'family' && (
+                          <span className="text-white/40 font-medium"> & {event.bride_name}</span>
+                        )}
                       </h4>
-                      <p className="text-[11px] text-slate-600 mt-0.5 truncate">
-                        {event.event_type}
-                        {event.venue_name ? ` • ${event.venue_name}` : ""}
-                      </p>
+                      <div className="flex items-center gap-4 mt-3">
+                         <span className="text-[9px] font-black text-blue-500/60 uppercase tracking-[0.2em] bg-blue-500/10 px-3 py-1 rounded-lg border border-blue-500/20">{event.event_type}</span>
+                         {event.venue_name && <span className="text-[10px] font-black text-white/20 uppercase tracking-widest truncate max-w-[200px] flex items-center gap-2"><MapPin size={12} /> {event.venue_name}</span>}
+                      </div>
                     </div>
-                    <span className="font-mono text-blue-400 font-black text-sm bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-lg flex-shrink-0">
-                      {event.timer_target_time || event.event_time || "TBD"}
-                    </span>
+                    <div className="flex flex-col items-end gap-2 flex-shrink-0 relative z-10">
+                       <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Launch T-Minus</span>
+                       <span className="font-mono text-blue-400 font-black text-2xl bg-blue-500/10 border border-blue-500/20 px-6 py-2 rounded-2xl shadow-2xl shadow-blue-500/10 group-hover:scale-105 transition-transform">
+                         {event.timer_target_time || event.event_time || "—:—"}
+                       </span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -669,51 +684,59 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
 
         {/* Right column: Wishes Feed */}
         <div className="xl:col-span-1">
-          <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] overflow-hidden flex flex-col">
-            <div className="p-5 border-b border-white/[0.05]">
-              <div className="flex items-center gap-2">
-                <Heart size={14} className="text-pink-400" />
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">
-                  Wishes Feed
-                </h3>
+          <div className="rounded-[3rem] border border-white/[0.08] bg-white/[0.015] overflow-hidden flex flex-col h-full backdrop-blur-3xl shadow-[0_0_50px_rgba(0,0,0,0.3)] sticky top-12">
+            <div className="p-10 border-b border-white/[0.06] bg-white/[0.02]">
+              <div className="flex items-center gap-5 mb-2">
+                <div className="w-12 h-12 rounded-2xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center shadow-lg shadow-pink-500/5">
+                  <Heart size={24} className="text-pink-400" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-[0.3em] text-white/30">
+                    Signal Intercepts
+                  </h3>
+                  <p className="text-[10px] text-white/10 font-black uppercase tracking-[0.4em] mt-1.5">
+                    Today · {todayWishes.length} DATA PACKETS
+                  </p>
+                </div>
               </div>
-              <p className="text-[10px] text-slate-700 font-bold uppercase tracking-widest mt-1.5">
-                Today · {todayWishes.length} messages
-              </p>
             </div>
 
             <div
-              className="overflow-y-auto p-4 space-y-3"
-              style={{ maxHeight: "520px" }}
+              className="overflow-y-auto p-8 space-y-6 custom-scrollbar flex-1"
+              style={{ maxHeight: "700px" }}
             >
               {todayWishes.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
-                  <Heart size={20} className="text-slate-800" />
-                  <p className="text-xs font-bold text-slate-700">
-                    Waiting for wishes…
+                <div className="flex flex-col items-center justify-center py-24 gap-6 text-center">
+                  <div className="w-20 h-20 rounded-[2.5rem] bg-white/[0.01] border border-dashed border-white/10 flex items-center justify-center group hover:border-pink-500/30 transition-all duration-700">
+                    <Heart size={32} className="text-white/5 group-hover:text-pink-500/20 transition-colors" />
+                  </div>
+                  <p className="text-[11px] font-black text-white/10 uppercase tracking-[0.4em]">
+                    Awaiting Inbound Engagement
                   </p>
                 </div>
               ) : (
                 todayWishes.map((wish, idx) => (
                   <div
                     key={idx}
-                    className="p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.05] transition-colors"
+                    className="p-6 rounded-[2.5rem] bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.05] hover:border-pink-500/30 transition-all duration-500 shadow-2xl group animate-in slide-in-from-right-4 duration-700"
+                    style={{ animationDelay: `${idx * 100}ms` }}
                   >
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-pink-500/30 to-purple-500/30 border border-white/10 flex items-center justify-center text-[10px] font-black text-pink-300 flex-shrink-0">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500/20 to-blue-500/20 border border-white/10 flex items-center justify-center text-sm font-black text-pink-400 flex-shrink-0 shadow-lg shadow-pink-500/10 group-hover:scale-110 transition-transform duration-500">
                         {wish.name?.[0]?.toUpperCase() ?? "?"}
                       </div>
-                      <h4 className="font-black text-xs text-white truncate">
+                      <h4 className="font-black text-sm text-white tracking-tight group-hover:text-pink-400 transition-colors">
                         {wish.name}
                       </h4>
                     </div>
-                    <p className="text-slate-400 text-xs leading-relaxed">
+                    <p className="text-white/50 text-[14px] leading-relaxed font-medium italic">
                       &ldquo;{wish.message}&rdquo;
                     </p>
                     {wish.events && (
-                      <p className="text-[10px] text-slate-700 font-bold uppercase tracking-widest text-right mt-2">
-                        For {wish.events.groom_name || wish.events.celebrant_name}
-                      </p>
+                      <div className="flex items-center justify-end gap-3 mt-5 pt-5 border-t border-white/[0.04]">
+                        <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.2em]">Target:</span>
+                        <span className="text-[9px] font-black text-pink-500/60 uppercase tracking-[0.2em] truncate max-w-[140px]">{wish.events.groom_name || wish.events.celebrant_name}</span>
+                      </div>
                     )}
                   </div>
                 ))

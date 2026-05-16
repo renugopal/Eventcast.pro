@@ -17,56 +17,70 @@ export const WishesModeration: React.FC<WishesModerationProps> = ({
   deleteWish
 }) => {
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-7 animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-slate-800">Wishes Moderation</h2>
-        <button onClick={fetchWishes} className="p-2 bg-white border rounded-lg hover:bg-slate-50 transition-colors">
+        <div>
+          <h2 className="text-xl font-black text-white tracking-tight">Wishes Moderation</h2>
+          <p className="text-[10px] text-white/30 font-black uppercase tracking-widest mt-1">Review and manage guest interactions</p>
+        </div>
+        <button 
+          onClick={fetchWishes} 
+          className="p-2.5 bg-white/5 border border-white/10 rounded-xl text-white/40 hover:text-white hover:bg-white/10 transition-all shadow-sm"
+        >
           <RefreshCw size={20} className={isLoadingWishes ? 'animate-spin' : ''} />
         </button>
       </div>
       
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div 
+        className="rounded-3xl border border-white/[0.08] overflow-hidden backdrop-blur-md"
+        style={{ background: "rgba(255,255,255,0.02)" }}
+      >
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="p-4 text-[11px] font-bold text-slate-500 uppercase">Event</th>
-                <th className="p-4 text-[11px] font-bold text-slate-500 uppercase">From</th>
-                <th className="p-4 text-[11px] font-bold text-slate-500 uppercase">Message</th>
-                <th className="p-4 text-[11px] font-bold text-slate-500 uppercase">Date</th>
-                <th className="p-4 text-[11px] font-bold text-slate-500 uppercase text-right">Actions</th>
+              <tr className="bg-white/[0.03] border-b border-white/[0.08]">
+                <th className="p-5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Platform / Event</th>
+                <th className="p-5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">From</th>
+                <th className="p-5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Message</th>
+                <th className="p-5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Timestamp</th>
+                <th className="p-5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em] text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-white/[0.04]">
               {wishes.length === 0 ? (
-                <tr><td colSpan={5} className="p-8 text-center text-slate-400 font-medium italic">No wishes to moderate.</td></tr>
+                <tr><td colSpan={5} className="p-20 text-center text-white/20 font-black uppercase tracking-widest text-[10px] italic">Zero interactions logged in database.</td></tr>
               ) : (
                 wishes.map(wish => (
-                  <tr key={wish.id} className="hover:bg-slate-50/50 group transition-colors">
-                    <td className="p-4 text-xs font-bold text-slate-700">
+                  <tr key={wish.id} className="hover:bg-white/[0.04] group transition-all duration-300">
+                    <td className="p-5">
                       {wish.events ? (
-                        <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded shadow-sm">
+                        <span className="bg-blue-500/10 text-blue-400 px-2.5 py-1 rounded-lg border border-blue-500/20 text-[10px] font-black uppercase tracking-widest">
                           {wish.events.groom_name || wish.events.celebrant_name}
                         </span>
                       ) : (
-                        <span className="text-slate-400 italic">Unknown Event</span>
+                        <span className="text-white/10 italic text-xs font-bold uppercase tracking-widest">Deleted Platform</span>
                       )}
                     </td>
-                    <td className="p-4 text-xs font-bold text-slate-800">{wish.name}</td>
-                    <td className="p-4 text-xs text-slate-600 max-w-md italic font-serif">"{wish.message}"</td>
-                    <td className="p-4 text-[10px] text-slate-400 font-mono font-medium">
-                      {new Date(wish.created_at).toLocaleString()}
+                    <td className="p-5 text-sm font-black text-white/90">{wish.name}</td>
+                    <td className="p-5 text-[13px] text-white/60 max-w-md leading-relaxed">
+                      <span className="font-serif italic opacity-40 text-lg mr-1">"</span>
+                      {wish.message}
+                      <span className="font-serif italic opacity-40 text-lg ml-1">"</span>
                     </td>
-                    <td className="p-4 text-right">
+                    <td className="p-5 text-[10px] text-white/20 font-mono font-bold uppercase tracking-tight">
+                      {new Date(wish.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                    </td>
+                    <td className="p-5 text-right">
                       <button 
                         onClick={() => {
-                          if (window.confirm("Are you sure you want to delete this wish?")) {
+                          if (window.confirm("Purge this interaction from database?")) {
                             deleteWish(wish.id);
                           }
                         }} 
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                        className="p-2.5 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-xl border border-transparent hover:border-red-500/20 transition-all"
+                        title="Delete Wish"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={18} />
                       </button>
                     </td>
                   </tr>

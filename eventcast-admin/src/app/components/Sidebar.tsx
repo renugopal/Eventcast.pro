@@ -48,51 +48,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div
         className={`
           flex flex-col h-screen fixed md:sticky top-0 z-50
-          transition-all duration-300 ease-in-out
-          border-r border-white/[0.06]
+          transition-all duration-500 ease-in-out
+          border-r border-white/[0.08] backdrop-blur-3xl
           ${isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-          ${isCollapsed ? "md:w-[72px]" : "w-[272px]"}
+          ${isCollapsed ? "md:w-[88px]" : "w-[280px]"}
         `}
-        style={{ background: "linear-gradient(180deg, #0d0d17 0%, #07070d 100%)" }}
+        style={{ background: "rgba(255,255,255,0.01)" }}
       >
+        {/* Ambient glow in sidebar */}
+        <div className="absolute top-0 left-0 w-full h-32 bg-blue-500/[0.03] blur-3xl pointer-events-none" />
+
         {/* ── Logo ── */}
-        <div className={`relative flex items-center gap-3 px-4 py-5 ${isCollapsed && !isMobileOpen ? "md:justify-center" : ""}`}>
+        <div className={`relative flex items-center gap-4 px-6 py-8 ${isCollapsed && !isMobileOpen ? "md:justify-center" : ""}`}>
           <button
-            className="md:hidden absolute top-4 right-4 text-white/30 hover:text-white transition-colors"
+            className="md:hidden absolute top-4 right-4 text-white/20 hover:text-white transition-colors"
             onClick={() => setIsMobileOpen(false)}
           >
             <X size={20} />
           </button>
 
           <div
-            className="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center"
+            className="w-10 h-10 rounded-[1.25rem] flex-shrink-0 flex items-center justify-center transition-transform hover:rotate-12 duration-500"
             style={{
               background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-              boxShadow: "0 0 18px rgba(59,130,246,0.35)",
+              boxShadow: "0 8px 24px rgba(59,130,246,0.25)",
             }}
           >
-            <Clapperboard size={17} className="text-white" />
+            <Clapperboard size={20} className="text-white" />
           </div>
 
           {(!isCollapsed || isMobileOpen) && (
-            <div>
-              <h1 className="text-[15px] font-black tracking-wider text-white leading-none">
-                EVENTCAST
+            <div className="animate-in fade-in slide-in-from-left-2 duration-500">
+              <h1 className="text-lg font-black tracking-tighter text-white leading-none">
+                EVENTCAST<span className="text-blue-500">.PRO</span>
               </h1>
-              <p
-                className="text-[9px] font-bold tracking-widest uppercase mt-0.5"
-                style={{ color: "#3b82f6" }}
-              >
-                Admin Control
+              <p className="text-[9px] font-black tracking-[0.3em] uppercase mt-1 text-white/20">
+                ADMIN CONSOLE
               </p>
             </div>
           )}
         </div>
 
-        <div className="mx-4 h-px bg-white/[0.06] mb-3" />
+        <div className="mx-6 h-px bg-white/[0.05] mb-6" />
 
         {/* ── Navigation ── */}
-        <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto">
+        <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto custom-scrollbar">
           {menuItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
@@ -101,39 +101,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => { setActiveTab(item.id); setIsMobileOpen(false); }}
                 title={isCollapsed && !isMobileOpen ? item.label : ""}
                 className={`
-                  relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
-                  text-sm font-semibold transition-all duration-200
-                  ${isActive ? "text-white" : "text-white/35 hover:text-white/75 hover:bg-white/[0.04]"}
+                  relative w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl
+                  text-[13px] font-black uppercase tracking-widest transition-all duration-300
+                  ${isActive ? "text-white" : "text-white/20 hover:text-white/60 hover:bg-white/[0.03]"}
                   ${isCollapsed && !isMobileOpen ? "md:justify-center md:px-0" : ""}
                 `}
                 style={
                   isActive
                     ? {
-                        background: `${item.accent}14`,
-                        boxShadow: `inset 0 0 0 1px ${item.accent}28`,
+                        background: `${item.accent}10`,
+                        border: `1px solid ${item.accent}20`,
+                        boxShadow: `0 10px 20px -10px ${item.accent}30`,
                       }
-                    : undefined
+                    : { border: "1px solid transparent" }
                 }
               >
-                {/* Active left accent bar */}
+                {/* Active glow dot */}
                 {isActive && (
                   <span
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full"
+                    className="absolute left-[-4px] top-1/2 -translate-y-1/2 w-2 h-2 rounded-full"
                     style={{
                       background: item.accent,
-                      boxShadow: `0 0 8px ${item.accent}`,
+                      boxShadow: `0 0 15px ${item.accent}`,
                     }}
                   />
                 )}
 
                 <item.icon
-                  size={18}
-                  className="flex-shrink-0"
+                  size={20}
+                  className={`flex-shrink-0 transition-transform duration-500 ${isActive ? "scale-110" : "group-hover:scale-110"}`}
                   style={isActive ? { color: item.accent } : undefined}
                 />
 
                 {(!isCollapsed || isMobileOpen) && (
-                  <span>{item.label}</span>
+                  <span className="truncate">{item.label}</span>
                 )}
               </button>
             );
@@ -141,49 +142,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* ── Footer ── */}
-        <div className="px-3 pb-4 pt-2 space-y-2">
-          <div className="h-px bg-white/[0.06] mb-2" />
+        <div className="px-4 pb-8 pt-4 space-y-3">
+          <div className="mx-2 h-px bg-white/[0.05] mb-4" />
 
           {/* System Pulse — only when expanded */}
           {(!isCollapsed || isMobileOpen) && (
-            <div className="mb-1">
+            <div className="mb-4 px-2">
               <SystemPulse />
             </div>
           )}
 
-          {/* Collapse toggle (desktop only) */}
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className={`
-              hidden md:flex w-full items-center gap-2 px-3 py-2 rounded-xl
-              text-xs font-semibold text-white/25 hover:text-white/60
-              hover:bg-white/[0.04] transition-all border border-transparent
-              hover:border-white/[0.08]
-              ${isCollapsed && !isMobileOpen ? "md:justify-center" : ""}
-            `}
-          >
-            {isCollapsed
-              ? <ChevronRight size={16} className="mx-auto" />
-              : <><ChevronLeft size={16} /><span>Collapse</span></>
-            }
-          </button>
+          <div className="flex gap-2">
+            {/* Collapse toggle (desktop only) */}
+            <button
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className={`
+                hidden md:flex flex-1 items-center gap-3 px-4 py-3 rounded-2xl
+                text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-white/60
+                hover:bg-white/[0.03] transition-all border border-transparent
+                hover:border-white/[0.08]
+                ${isCollapsed && !isMobileOpen ? "md:justify-center" : ""}
+              `}
+            >
+              {isCollapsed
+                ? <ChevronRight size={18} className="mx-auto" />
+                : <><ChevronLeft size={16} /><span className="truncate">Compact View</span></>
+              }
+            </button>
 
-          {/* Sign out */}
-          <button
-            onClick={handleSignOut}
-            className={`
-              w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
-              text-sm font-semibold text-red-500/50 hover:text-red-400
-              hover:bg-red-500/[0.08] transition-all duration-200 group
-              ${isCollapsed && !isMobileOpen ? "md:justify-center md:px-0" : ""}
-            `}
-          >
-            <LogOut
-              size={18}
-              className="flex-shrink-0 group-hover:-translate-x-0.5 transition-transform"
-            />
-            {(!isCollapsed || isMobileOpen) && <span>Sign Out</span>}
-          </button>
+            {/* Sign out */}
+            <button
+              onClick={handleSignOut}
+              className={`
+                flex items-center justify-center w-12 h-12 md:w-auto md:flex-1 md:px-4 md:py-3 rounded-2xl
+                text-red-500/30 hover:text-red-500
+                bg-red-500/[0.02] hover:bg-red-500/[0.1] transition-all duration-300 border border-transparent hover:border-red-500/20
+                ${isCollapsed && !isMobileOpen ? "md:w-full" : ""}
+              `}
+              title="Sign Out"
+            >
+              <LogOut
+                size={18}
+                className="flex-shrink-0"
+              />
+              {(!isCollapsed || isMobileOpen) && <span className="ml-3 text-[10px] font-black uppercase tracking-widest">Exit</span>}
+            </button>
+          </div>
         </div>
       </div>
     </>
