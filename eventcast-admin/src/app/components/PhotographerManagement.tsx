@@ -59,7 +59,6 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
   });
 
   return (
-  return (
     <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* --- ADD / EDIT FORM --- */}
       <div 
