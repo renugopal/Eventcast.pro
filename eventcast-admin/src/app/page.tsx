@@ -432,51 +432,103 @@ export default function AdminDashboard() {
     setFormData(prev => ({ ...prev, thumbnailUrl: generatedUrl }));
   };
 
-  async function uploadToCloudinary(files: FileList | null, type: string) {
-    if (!files || files.length === 0) return;
-    setIsUploading(type);
+  // ─── Upload Video → Cloudflare R2 (Zero Egress Fees) ────────────────────────
+  async function uploadToR2(files: FileList, folder: string): Promise<string[]> {
     const uploadedUrls: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('folder', folder);
+      try {
+        const res = await fetch('/api/r2-upload', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.success && data.url) {
+          uploadedUrls.push(data.url);
+        } else {
+          console.error('R2 upload failed:', data.error);
+        }
+      } catch (err) {
+        console.error('R2 upload error:', err);
+      }
+    }
+    return uploadedUrls;
+  }
+
+  // ─── Upload Image → Cloudinary (Eager Transformation, once on upload) ────────
+  async function uploadImageToCloudinary(files: FileList, type: string, folder: string): Promise<string[]> {
+    const uploadedUrls: string[] = [];
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
+    const eager = 'f_auto,q_auto,w_1920,c_limit';
 
     for (let i = 0; i < files.length; i++) {
-      let fileToUpload: File | Blob = files[i];
-      
-      // Auto-compress high-res images BEFORE sending to Cloudinary
-      if (type !== 'video') {
-        fileToUpload = await compressImage(files[i]);
+      const fileToUpload = await compressImage(files[i]);
+      const timestamp = Math.round(Date.now() / 1000).toString();
+      const paramsToSign: Record<string, string> = { eager, folder, timestamp };
+
+      let signature = '';
+      try {
+        const sigRes = await fetch('/api/cloudinary-signature', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ params: paramsToSign }),
+        });
+        const sigData = await sigRes.json();
+        signature = sigData.signature;
+      } catch (err) {
+        console.error("Cloudinary signature error:", err);
+        continue;
       }
 
       const formDataUpload = new FormData();
       formDataUpload.append('file', fileToUpload);
-      formDataUpload.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'eventcast_gallery');
-      
-      // Organize into event-specific folders in Cloudinary
-      if (formData.slug) {
-        formDataUpload.append('folder', `events/${formData.slug}`);
-      } else if (formData.groomName || formData.celebrantName) {
-        const tempSlug = (formData.groomName || formData.celebrantName || 'temp').toLowerCase().replace(/\s+/g, '-');
-        formDataUpload.append('folder', `events/${tempSlug}`);
-      }
+      formDataUpload.append('api_key', apiKey || '');
+      formDataUpload.append('timestamp', timestamp);
+      formDataUpload.append('signature', signature);
+      formDataUpload.append('folder', folder);
+      formDataUpload.append('eager', eager);
 
       try {
-        const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/auto/upload`, {
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
           method: 'POST',
-          body: formDataUpload
+          body: formDataUpload,
         });
         const data = await res.json();
-        
         if (data.secure_url) {
-          let optimizedUrl = data.secure_url;
-          // Apply Cloudinary's dynamic Auto-Format & Auto-Quality flags for blazing fast delivery
-          if (data.resource_type === 'image') {
-            optimizedUrl = optimizedUrl.replace('/upload/', '/upload/f_auto,q_auto/');
-          }
-          uploadedUrls.push(optimizedUrl);
+          // Use pre-transformed eager URL if available, else construct it
+          const finalUrl = data.eager?.[0]?.secure_url || data.secure_url.replace('/upload/', `/upload/${eager}/`);
+          uploadedUrls.push(finalUrl);
         }
       } catch (err) {
-        console.error("Upload error:", err);
+        console.error("Cloudinary upload error:", err);
       }
     }
+    return uploadedUrls;
+  }
 
+  // ─── Smart Upload Dispatcher ──────────────────────────────────────────────────
+  // Videos → Cloudflare R2 (zero bandwidth cost)
+  // Images → Cloudinary (eager transforms, once per upload)
+  async function uploadToCloudinary(files: FileList | null, type: string) {
+    if (!files || files.length === 0) return;
+    setIsUploading(type);
+
+    const folder = formData.slug
+      ? `events/${formData.slug}`
+      : `events/${(formData.groomName || formData.celebrantName || 'temp').toLowerCase().replace(/\s+/g, '-')}`;
+
+    let uploadedUrls: string[] = [];
+
+    if (type === 'video') {
+      // ✅ Videos → Cloudflare R2 (no bandwidth charges, no transformation needed)
+      uploadedUrls = await uploadToR2(files, folder);
+    } else {
+      // ✅ Images → Cloudinary (eager transform once, free tier safe)
+      uploadedUrls = await uploadImageToCloudinary(files, type, folder);
+    }
+
+    // Save results to form state
     if (type === 'thumbnail') setFormData(prev => ({ ...prev, thumbnailUrl: uploadedUrls[0] }));
     else if (type === 'video') {
       const newUrls = uploadedUrls.join('\n');
@@ -485,9 +537,8 @@ export default function AdminDashboard() {
     else if (type === 'photographer_logo') setSelectedPhotographer((prev: any) => ({ ...prev, logo_url: uploadedUrls[0] }));
     else if (type === 'loaderPhoto') setFormData(prev => ({ ...prev, loaderPhotoUrl: uploadedUrls[0] }));
     else if (type === 'gallery') {
-      const currentUrls = formData.galleryUrls;
       const newUrls = uploadedUrls.join('\n');
-      setFormData(prev => ({ ...prev, galleryUrls: currentUrls ? `${currentUrls}\n${newUrls}` : newUrls }));
+      setFormData(prev => ({ ...prev, galleryUrls: formData.galleryUrls ? `${formData.galleryUrls}\n${newUrls}` : newUrls }));
     }
     setIsUploading(null);
   }

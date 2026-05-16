@@ -14,23 +14,26 @@ async function generateCloudinarySignature(params: Record<string, string>, apiSe
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Accepts { params: Record<string, string> } where params contains all upload
+// fields that need to be signed (e.g. timestamp, folder, eager).
+// Cloudinary signature rules: sign every param except file, api_key, resource_type.
 export async function POST(req: Request) {
   const auth = await requireAdmin(req);
   if (auth instanceof NextResponse) return auth;
 
   try {
-    const { timestamp, upload_preset } = await req.json();
-    
+    const body = await req.json();
     const apiSecret = process.env.CLOUDINARY_API_SECRET;
     if (!apiSecret) {
       throw new Error("CLOUDINARY_API_SECRET is not configured");
     }
 
-    const signature = await generateCloudinarySignature(
-      { timestamp: timestamp.toString(), upload_preset },
-      apiSecret
-    );
+    // Support both legacy { timestamp, upload_preset } and new { params: {...} }
+    const params: Record<string, string> = body.params
+      ? body.params
+      : { timestamp: body.timestamp?.toString(), upload_preset: body.upload_preset };
 
+    const signature = await generateCloudinarySignature(params, apiSecret);
     return NextResponse.json({ signature });
   } catch (error) {
     console.error('Signature Error:', error);
