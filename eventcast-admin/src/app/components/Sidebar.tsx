@@ -1,8 +1,11 @@
 "use client";
 
 import React from "react";
-import { PlusCircle, List, Settings, BarChart3, Image as ImageIcon, LogOut, Layout, Users, Home, Monitor, ChevronLeft, ChevronRight, X } from "lucide-react";
-
+import {
+  LayoutDashboard, Monitor, PlusCircle, List, Settings, BarChart3,
+  Image as ImageIcon, LogOut, Users, ChevronLeft, ChevronRight, X,
+  Shield, Clapperboard,
+} from "lucide-react";
 import { SystemPulse } from "./SystemPulse";
 
 interface SidebarProps {
@@ -15,105 +18,171 @@ interface SidebarProps {
   setIsMobileOpen: (open: boolean) => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ 
-  activeTab, setActiveTab, isCollapsed, setIsCollapsed, handleSignOut, isMobileOpen, setIsMobileOpen 
-}) => {
-    const menuItems = [
-    { id: 'home', label: 'Dashboard Home', icon: Home },
-    { id: 'monitor', label: 'Live Monitor', icon: Monitor },
-    { id: 'create', label: 'Create Event', icon: PlusCircle },
-    { id: 'list', label: 'All Events', icon: List },
-    { id: 'photographers', label: 'Photographers', icon: Users },
-    { id: 'moderation', label: 'Moderation', icon: Settings },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'assets', label: 'Asset Library', icon: ImageIcon },
-    { id: 'settings', label: 'Account Settings', icon: Settings },
-  ];
+const menuItems = [
+  { id: "home",          label: "Dashboard",       icon: LayoutDashboard, accent: "#3b82f6" },
+  { id: "monitor",       label: "Live Monitor",    icon: Monitor,         accent: "#ef4444" },
+  { id: "create",        label: "Create Event",    icon: PlusCircle,      accent: "#8b5cf6" },
+  { id: "list",          label: "All Events",      icon: List,            accent: "#06b6d4" },
+  { id: "photographers", label: "Photographers",   icon: Users,           accent: "#10b981" },
+  { id: "moderation",    label: "Moderation",      icon: Shield,          accent: "#f59e0b" },
+  { id: "analytics",     label: "Analytics",       icon: BarChart3,       accent: "#6366f1" },
+  { id: "assets",        label: "Asset Library",   icon: ImageIcon,       accent: "#ec4899" },
+  { id: "settings",      label: "Settings",        icon: Settings,        accent: "#64748b" },
+];
 
+export const Sidebar: React.FC<SidebarProps> = ({
+  activeTab, setActiveTab, isCollapsed, setIsCollapsed, handleSignOut,
+  isMobileOpen, setIsMobileOpen,
+}) => {
   return (
     <>
-      {/* Mobile Overlay */}
+      {/* Mobile overlay */}
       {isMobileOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+        <div
+          className="fixed inset-0 bg-black/70 z-40 md:hidden backdrop-blur-sm"
           onClick={() => setIsMobileOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
-      <div className={`
-        bg-white border-r border-slate-200 flex flex-col h-screen fixed md:sticky top-0 z-50 transition-all duration-300
-        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-        ${isCollapsed ? 'md:w-20' : 'w-72'}
-      `}>
-        <div className={`p-6 ${isCollapsed ? 'md:items-center' : ''} flex flex-col relative`}>
-          {/* Mobile Close Button */}
-          <button 
-            className="md:hidden absolute top-6 right-6 text-slate-400 hover:text-slate-800"
+      {/* Sidebar panel */}
+      <div
+        className={`
+          flex flex-col h-screen fixed md:sticky top-0 z-50
+          transition-all duration-300 ease-in-out
+          border-r border-white/[0.06]
+          ${isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+          ${isCollapsed ? "md:w-[72px]" : "w-[272px]"}
+        `}
+        style={{ background: "linear-gradient(180deg, #0d0d17 0%, #07070d 100%)" }}
+      >
+        {/* ── Logo ── */}
+        <div className={`relative flex items-center gap-3 px-4 py-5 ${isCollapsed && !isMobileOpen ? "md:justify-center" : ""}`}>
+          <button
+            className="md:hidden absolute top-4 right-4 text-white/30 hover:text-white transition-colors"
             onClick={() => setIsMobileOpen(false)}
           >
-            <X size={24} />
+            <X size={20} />
           </button>
 
-          <div className="flex items-center gap-3 mb-10 overflow-hidden">
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex-shrink-0 flex items-center justify-center text-white shadow-lg shadow-blue-200">
-              <Layout size={24} />
-            </div>
-            {(!isCollapsed || isMobileOpen) && (
-              <div className="animate-in fade-in slide-in-from-left-2 duration-300">
-                <h1 className="text-xl font-black text-slate-800 tracking-tight">EVENTCAST</h1>
-                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Admin Dashboard</p>
-              </div>
-            )}
+          <div
+            className="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center"
+            style={{
+              background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+              boxShadow: "0 0 18px rgba(59,130,246,0.35)",
+            }}
+          >
+            <Clapperboard size={17} className="text-white" />
           </div>
 
-          <nav className="space-y-1">
-            {menuItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id);
-                  setIsMobileOpen(false); // Auto close on mobile
-                }}
-                title={isCollapsed && !isMobileOpen ? item.label : ""}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 ${
-                  activeTab === item.id 
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-100 translate-x-1' 
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-                } ${isCollapsed && !isMobileOpen ? 'md:justify-center md:px-0' : ''}`}
-              >
-                <item.icon size={20} className="flex-shrink-0" />
-                {(!isCollapsed || isMobileOpen) && <span className="animate-in fade-in duration-300">{item.label}</span>}
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        <div className="mt-auto p-6 space-y-4">
           {(!isCollapsed || isMobileOpen) && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-               <SystemPulse />
+            <div>
+              <h1 className="text-[15px] font-black tracking-wider text-white leading-none">
+                EVENTCAST
+              </h1>
+              <p
+                className="text-[9px] font-bold tracking-widest uppercase mt-0.5"
+                style={{ color: "#3b82f6" }}
+              >
+                Admin Control
+              </p>
             </div>
           )}
-          
-          <button 
+        </div>
+
+        <div className="mx-4 h-px bg-white/[0.06] mb-3" />
+
+        {/* ── Navigation ── */}
+        <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto">
+          {menuItems.map((item) => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => { setActiveTab(item.id); setIsMobileOpen(false); }}
+                title={isCollapsed && !isMobileOpen ? item.label : ""}
+                className={`
+                  relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
+                  text-sm font-semibold transition-all duration-200
+                  ${isActive ? "text-white" : "text-white/35 hover:text-white/75 hover:bg-white/[0.04]"}
+                  ${isCollapsed && !isMobileOpen ? "md:justify-center md:px-0" : ""}
+                `}
+                style={
+                  isActive
+                    ? {
+                        background: `${item.accent}14`,
+                        boxShadow: `inset 0 0 0 1px ${item.accent}28`,
+                      }
+                    : undefined
+                }
+              >
+                {/* Active left accent bar */}
+                {isActive && (
+                  <span
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full"
+                    style={{
+                      background: item.accent,
+                      boxShadow: `0 0 8px ${item.accent}`,
+                    }}
+                  />
+                )}
+
+                <item.icon
+                  size={18}
+                  className="flex-shrink-0"
+                  style={isActive ? { color: item.accent } : undefined}
+                />
+
+                {(!isCollapsed || isMobileOpen) && (
+                  <span>{item.label}</span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* ── Footer ── */}
+        <div className="px-3 pb-4 pt-2 space-y-2">
+          <div className="h-px bg-white/[0.06] mb-2" />
+
+          {/* System Pulse — only when expanded */}
+          {(!isCollapsed || isMobileOpen) && (
+            <div className="mb-1">
+              <SystemPulse />
+            </div>
+          )}
+
+          {/* Collapse toggle (desktop only) */}
+          <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="hidden md:flex w-full items-center gap-3 px-4 py-2 rounded-xl text-xs font-black text-slate-400 hover:bg-slate-50 hover:text-slate-800 transition-all border border-transparent hover:border-slate-100"
+            className={`
+              hidden md:flex w-full items-center gap-2 px-3 py-2 rounded-xl
+              text-xs font-semibold text-white/25 hover:text-white/60
+              hover:bg-white/[0.04] transition-all border border-transparent
+              hover:border-white/[0.08]
+              ${isCollapsed && !isMobileOpen ? "md:justify-center" : ""}
+            `}
           >
-            {isCollapsed ? <ChevronRight size={18} className="mx-auto" /> : (
-              <>
-                <ChevronLeft size={18} />
-                <span>Collapse Sidebar</span>
-              </>
-            )}
+            {isCollapsed
+              ? <ChevronRight size={16} className="mx-auto" />
+              : <><ChevronLeft size={16} /><span>Collapse</span></>
+            }
           </button>
-          
-          <button 
+
+          {/* Sign out */}
+          <button
             onClick={handleSignOut}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition-all duration-200 group ${isCollapsed && !isMobileOpen ? 'md:justify-center md:px-0' : ''}`}
+            className={`
+              w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
+              text-sm font-semibold text-red-500/50 hover:text-red-400
+              hover:bg-red-500/[0.08] transition-all duration-200 group
+              ${isCollapsed && !isMobileOpen ? "md:justify-center md:px-0" : ""}
+            `}
           >
-            <LogOut size={20} className={`${(!isCollapsed || isMobileOpen) && 'group-hover:-translate-x-1'} transition-transform flex-shrink-0`} />
-            {(!isCollapsed || isMobileOpen) && <span className="animate-in fade-in duration-300">Sign Out</span>}
+            <LogOut
+              size={18}
+              className="flex-shrink-0 group-hover:-translate-x-0.5 transition-transform"
+            />
+            {(!isCollapsed || isMobileOpen) && <span>Sign Out</span>}
           </button>
         </div>
       </div>

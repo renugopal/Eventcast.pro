@@ -4,8 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { 
   PlusCircle, List, Settings, BarChart3, Image as ImageIcon, Video, Search, 
-  MapPin, Clock, Calendar, UploadCloud, Film, Play, CheckCircle2, AlertCircle, 
-  Loader2, Link as LinkIcon, X, Layout, Users, Menu
+  MapPin, Clock, Calendar, UploadCloud, Film, Play, CheckCircle2, AlertCircle,
+  AlertTriangle, Loader2, Link as LinkIcon, X, Layout, Users, Menu
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { authFetch, AuthError } from "@/lib/client-auth";
@@ -850,7 +850,7 @@ export default function AdminDashboard() {
     return null;
   }
 
-  if (isAuthLoading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-blue-600" size={48} /></div>;
+  if (isAuthLoading) return <div className="h-screen flex items-center justify-center bg-[#07070d]"><Loader2 className="animate-spin text-blue-500" size={48} /></div>;
 
   async function handlePasswordUpdate(e: any) {
     e.preventDefault();
@@ -957,7 +957,7 @@ export default function AdminDashboard() {
   });
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-blue-100 selection:text-blue-900 md:overflow-hidden">
+    <div className="flex min-h-screen bg-[#07070d] font-sans text-white selection:bg-blue-500/30 selection:text-blue-200 md:overflow-hidden">
       <Sidebar 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
@@ -970,18 +970,21 @@ export default function AdminDashboard() {
 
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Mobile Header */}
-        <header className="md:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
+        <header className="md:hidden border-b border-white/[0.06] p-4 flex items-center justify-between sticky top-0 z-30" style={{ background: "#0d0d17" }}>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
-              <Layout size={16} />
+            <div
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-white"
+              style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)" }}
+            >
+              <Layout size={15} />
             </div>
-            <h1 className="font-black text-slate-800 tracking-tight text-lg leading-none">EVENTCAST</h1>
+            <h1 className="font-black text-white tracking-wider text-[15px] leading-none">EVENTCAST</h1>
           </div>
           <button 
-            className="p-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+            className="p-2 text-white/40 hover:text-white bg-white/[0.06] hover:bg-white/10 rounded-xl transition-colors"
             onClick={() => setIsMobileMenuOpen(true)}
           >
-            <Menu size={24} />
+            <Menu size={22} />
           </button>
         </header>
 
