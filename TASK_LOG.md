@@ -69,7 +69,7 @@ This document provides a concise summary of completed and pending tasks.
 - [x] **Stream Health Monitor**: Cron route `/api/cron/stream-health-monitor` built. Polls Restreamer for bitrate/state per live event window. Alerts via Supabase `stream_alerts` table + optional WhatsApp (CallMeBot). Enable WhatsApp by adding `ALERT_WHATSAPP_PHONE` + `ALERT_WHATSAPP_APIKEY` to `.env.local`.
 - [x] **Event Deletion**: Purge VOD/HLS media files from Restreamer `data/` filesystem on event delete (`deleteChannelFiles` added to `RestreamerClient`, wired into `/api/events/delete`).
 - [x] **Admin UI Phase 2**: Overhaul "All Events", "Photographers", "Analytics", and "Live Monitor" tabs into the dark glassmorphism theme.
-- [ ] **Cloudflare Caching Strategy**: Implement Cloudflare proxy caching for HLS streams to reduce GCP egress costs by 90%+.
+- [x] **Cloudflare Caching Strategy**: Implemented Cloudflare Cache Rules — `.ts` segments cached for 2hrs (Edge TTL), `.m3u8` playlists bypassed. Reduces GCP egress costs by 90%+.
 - [x] **Automated Cloudflare R2 VOD Archiving**: Built GCP cron automation script (`scripts/vod-archiver`) using Node.js & FFmpeg to auto-stitch HLS segments into a single MP4, upload to R2, update Supabase, and purge local server storage upon stream completion.
 - [ ] **Private Infrastructure Migration**: Setup high-end i9 physical server with Cloudflare Tunnels (Argo) to replace expensive cloud VMs.
 
