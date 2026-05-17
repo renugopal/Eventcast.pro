@@ -1,0 +1,38 @@
+[Unit]
+Description=Eventcast VOD Archiver — HLS to Cloudflare R2 pipeline
+Documentation=https://github.com/your-org/eventcast
+# Wait for the network stack and Docker to be available
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+# oneshot: systemd considers the unit "done" when the Node process exits
+Type=oneshot
+
+# Run as the same user that owns the Restreamer data directory.
+# On a standard GCP Debian/Ubuntu VM this is typically 'ubuntu'.
+# Change to match the result of: stat -c '%U' /opt/restreamer/data
+User=ubuntu
+Group=ubuntu
+
+WorkingDirectory=/opt/vod-archiver
+
+# Load all env vars from the .env file
+EnvironmentFile=/opt/vod-archiver/.env
+
+ExecStart=/usr/bin/node /opt/vod-archiver/vod-archiver.js
+
+# Structured JSON logs flow to stdout → journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vod-archiver
+
+# Timeouts: allow up to 4 hours for very long stitching + upload jobs
+TimeoutStartSec=14400
+
+# Restart policy: don't restart automatically — the timer handles re-scheduling.
+# If you want automatic retries on crash, change to: on-failure
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

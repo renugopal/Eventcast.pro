@@ -1,0 +1,16 @@
+[Unit]
+Description=Run VOD Archiver every 5 minutes
+Requires=vod-archiver.service
+
+[Timer]
+# Wait 2 minutes after boot before the first run (gives Docker time to start)
+OnBootSec=2min
+# Then run every 5 minutes
+OnUnitActiveSec=5min
+# Allow up to 30 s of jitter to avoid thundering-herd on the VM
+AccuracySec=30s
+# If the system was suspended and missed a run, execute immediately on resume
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,20 @@
+{
+  "name": "vod-archiver",
+  "version": "1.0.0",
+  "description": "Automated HLS-to-MP4 archiving pipeline for Eventcast.pro — stitches Restreamer recordings and uploads to Cloudflare R2",
+  "main": "vod-archiver.js",
+  "scripts": {
+    "start": "node vod-archiver.js",
+    "test:dry": "DRY_RUN=1 node vod-archiver.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@aws-sdk/lib-storage": "^3.600.0",
+    "@supabase/supabase-js": "^2.43.0"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
