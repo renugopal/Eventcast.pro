@@ -490,6 +490,11 @@ section:not(#hero) {
     border: 8px solid white;
 }
 
+.plyr {
+    height: 100% !important;
+    width: 100% !important;
+}
+
 .video-container iframe {
     position: absolute;
     top: 0;
