@@ -22,6 +22,7 @@ export async function POST(req: Request) {
     const bride = event.bride_name || event.brideName || 'family';
     const type = event.event_type || event.eventType || 'wedding';
 
+    const studioId = auth.studioId;
     const slug = `${groom.toLowerCase().replace(/\s+/g, '-')}-${bride.toLowerCase().replace(/\s+/g, '-')}-${type.toLowerCase()}`;
     const targetPath = `events/${slug}`;
     const templatePath = event.template_id || event.templateId || 'wedding-template-01';
@@ -87,6 +88,7 @@ export async function POST(req: Request) {
       ...(event.notes ? { notes: event.notes } : {}),
       // Restreamer Details for the Table (Server app='/', token='live')
       // OBS: Server URL = rtmp://34.100.142.25/{slug}, Stream Key = live
+      studio_id: auth.studioId,
       restreamer_ingest_url: `rtmp://34.100.142.25/${slug}`,
       restreamer_stream_key: 'live'
     };
