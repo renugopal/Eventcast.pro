@@ -5,7 +5,10 @@ import { supabase } from "@/lib/supabase";
 import { 
   PlusCircle, List, Settings, BarChart3, Image as ImageIcon, Video, Search, 
   MapPin, Clock, Calendar, UploadCloud, Film, Play, CheckCircle2, AlertCircle,
-  AlertTriangle, Loader2, Link as LinkIcon, X, Layout, Users, Menu, ChevronRight
+  AlertTriangle, Loader2, Link as LinkIcon, X, Layout, Users, Menu, ChevronRight,
+  Shield, Zap, RefreshCw, Star, Globe, Lock, Eye, EyeOff, Save, Trash2,
+  ChevronLeft, ChevronDown, Check, Copy, ExternalLink, Info, Bell, Phone,
+  Edit, Plus, Minus, ArrowLeft, ArrowRight, Download, Upload, QrCode
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { authFetch, AuthError } from "@/lib/client-auth";
