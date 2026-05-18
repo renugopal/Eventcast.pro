@@ -474,7 +474,7 @@ function onYouTubeIframeAPIReady() {
                 </div>
             `;
             
-            // Add an attractive YouTube Link button below
+            // Add an attractive YouTube Link button below if available
             if (CONFIG.youtubeId) {
                 const ytLink = document.createElement('div');
                 ytLink.style.textAlign = 'center';
@@ -486,12 +486,31 @@ function onYouTubeIframeAPIReady() {
                 livestreamSection.appendChild(ytLink);
             }
 
+            // Inject Plyr container CSS overrides programmatically to fix any stale CSS cache on already generated pages
+            const style = document.createElement('style');
+            style.innerHTML = `
+                .plyr {
+                    height: 100% !important;
+                    width: 100% !important;
+                }
+                .plyr__video-wrapper {
+                    height: 100% !important;
+                    width: 100% !important;
+                }
+                .plyr--video {
+                    background: #000 !important;
+                }
+            `;
+            document.head.appendChild(style);
+
             // Initialize elements and state variables
             const video = document.getElementById('hls-video');
             const loader = document.getElementById('hls-loader');
+            const loaderText = loader ? loader.querySelector('p') : null;
             let isPlaying = false;
-            let hls;
-            let player;
+            let hls = null;
+            let player = null;
+            let pollInterval = null;
 
             // Update status badge if stream is live
             const updateStatus = (isLive) => {
@@ -506,6 +525,29 @@ function onYouTubeIframeAPIReady() {
                 }
             };
 
+            const showLoader = (text) => {
+                if (loader) {
+                    loader.style.display = 'flex';
+                    if (loaderText && text) loaderText.innerText = text;
+                }
+            };
+
+            const hideLoader = () => {
+                if (loader) loader.style.display = 'none';
+            };
+
+            const destroyHls = () => {
+                if (player) {
+                    player.destroy();
+                    player = null;
+                }
+                if (hls) {
+                    hls.destroy();
+                    hls = null;
+                }
+                isPlaying = false;
+            };
+
             const tryLoadStream = () => {
                 if (isPlaying) return;
                 
@@ -514,19 +556,19 @@ function onYouTubeIframeAPIReady() {
                         if (res.ok) {
                             // --- STREAM IS LIVE ---
                             console.log("Stream detected! Initializing player...");
-                            if (loader) loader.style.display = 'none';
+                            hideLoader();
                             isPlaying = true;
                             updateStatus(true);
                             
                             if (typeof Hls !== 'undefined' && Hls.isSupported()) {
                                 hls = new Hls({ 
                                     capLevelToPlayerSize: true, 
-                                    maxBufferLength: 60, // Increased buffer
-                                    maxMaxBufferLength: 600,
-                                    liveSyncDurationCount: 5, // Wait for 5 segments instead of 3
-                                    liveMaxLatencyDurationCount: 15,
+                                    maxBufferLength: 30, // Optimized live buffers
+                                    maxMaxBufferLength: 60,
+                                    liveSyncDurationCount: 3, // Low latency start
+                                    liveMaxLatencyDurationCount: 10,
                                     enableWorker: true,
-                                    lowLatencyMode: false // Stability over low latency
+                                    lowLatencyMode: true // Fast recovery
                                 });
                                 hls.loadSource(CONFIG.restreamerUrl);
                                 hls.attachMedia(video);
@@ -541,23 +583,26 @@ function onYouTubeIframeAPIReady() {
                                     video.play().catch(e => console.log("Autoplay prevented:", e));
                                 });
 
-                                // Handle Stream Ending (Fallback to VOD)
+                                // Handle Stream Interruption & Disconnection
                                 hls.on(Hls.Events.ERROR, function(event, data) {
                                     if (data.fatal) {
-                                        console.warn("Stream interrupted, switching to VOD if available...");
-                                        isPlaying = false;
-                                        hls.destroy();
-                                        
-                                        if (CONFIG.youtubeId) {
-                                            setTimeout(() => {
-                                                if (playerContainer) {
-                                                    playerContainer.innerHTML = '<div id="youtube-player"></div>';
-                                                    setupYouTubeVOD();
-                                                }
-                                            }, 2000);
-                                        } else {
-                                            if (loader) loader.style.display = 'flex';
-                                            setTimeout(tryLoadStream, 5000);
+                                        switch (data.type) {
+                                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                                console.warn("Fatal network error (OBS disconnected/VPN switch), attempting recovery polling...");
+                                                destroyHls();
+                                                showLoader("Stream Interrupted. Reconnecting...");
+                                                startPolling();
+                                                break;
+                                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                                console.warn("Fatal media error, attempting to recover...");
+                                                hls.recoverMediaError();
+                                                break;
+                                            default:
+                                                console.warn("Fatal error, recreating player...");
+                                                destroyHls();
+                                                showLoader("Waiting for Stream to Start...");
+                                                startPolling();
+                                                break;
                                         }
                                     }
                                 });
@@ -568,24 +613,20 @@ function onYouTubeIframeAPIReady() {
                                 });
                             }
                         } else {
-                            setTimeout(tryLoadStream, 5000);
+                            startPolling();
                         }
                     })
                     .catch(() => {
-                        setTimeout(tryLoadStream, 5000);
+                        startPolling();
                     });
             };
 
-            const setupYouTubeVOD = () => {
-                new YT.Player('youtube-player', {
-                    height: '100%', width: '100%', videoId: CONFIG.youtubeId,
-                    playerVars: { 'playsinline': 1, 'rel': 0, 'modestbranding': 1 },
-                    events: {
-                        'onReady': () => {
-                            if (statusBadge) statusBadge.innerHTML = '● WATCH RECORDING';
-                        }
-                    }
-                });
+            const startPolling = () => {
+                if (pollInterval) return;
+                pollInterval = setTimeout(() => {
+                    pollInterval = null;
+                    tryLoadStream();
+                }, 3000);
             };
             
             tryLoadStream();
