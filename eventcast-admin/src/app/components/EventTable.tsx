@@ -302,9 +302,9 @@ export const EventTable: React.FC<EventTableProps> = ({
               <List size={24} className="text-blue-400" />
             </div>
             <div>
-              <span className="block">Mission Control</span>
+              <span className="block">Events Database</span>
               <span className="block text-[10px] text-white/20 font-black uppercase tracking-[0.4em] mt-1.5">
-                DATABASE: {filteredEvents.length} ACTIVE SYSTEMS
+                DATABASE: {filteredEvents.length} ACTIVE EVENTS
               </span>
             </div>
           </h2>
@@ -313,7 +313,7 @@ export const EventTable: React.FC<EventTableProps> = ({
           <div className="relative flex-1 lg:flex-none">
             <input 
               type="text" 
-              placeholder="Search platforms..." 
+              placeholder="Search events..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-14 pr-6 py-4 bg-white/[0.03] border border-white/[0.08] rounded-2xl text-sm font-black text-white outline-none focus:ring-2 focus:ring-blue-500/50 w-full lg:w-72 transition-all placeholder:text-white/10"
@@ -326,7 +326,7 @@ export const EventTable: React.FC<EventTableProps> = ({
               onChange={(e) => setFilterType(e.target.value)}
               className="pl-6 pr-12 py-4 bg-white/[0.03] border border-white/[0.08] rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/60 outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer appearance-none group-hover:border-white/20 transition-all"
             >
-              <option className="bg-[#0d0d17]">All Segments</option>
+              <option className="bg-[#0d0d17]">All Events</option>
               <option className="bg-[#0d0d17]">Wedding</option>
               <option className="bg-[#0d0d17]">Reception</option>
               <option className="bg-[#0d0d17]">Engagement</option>
@@ -389,7 +389,7 @@ export const EventTable: React.FC<EventTableProps> = ({
                   className="p-6 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] relative group"
                 >
                   <div onClick={() => requestSort('groom_name')} className="cursor-pointer hover:text-white transition-colors flex items-center gap-2">
-                    System Identity {sortConfig?.key === 'groom_name' ? (sortConfig.direction === 'asc' ? <ChevronRight size={14} className="-rotate-90" /> : <ChevronRight size={14} className="rotate-90" />) : ''}
+                    Event Details {sortConfig?.key === 'groom_name' ? (sortConfig.direction === 'asc' ? <ChevronRight size={14} className="-rotate-90" /> : <ChevronRight size={14} className="rotate-90" />) : ''}
                   </div>
                   <div onMouseDown={(e) => handleMouseDown(e, 'identity')} onDoubleClick={() => handleDoubleClick('identity')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
@@ -398,16 +398,16 @@ export const EventTable: React.FC<EventTableProps> = ({
                   className="p-6 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] relative group"
                 >
                   <div onClick={() => requestSort('date')} className="cursor-pointer hover:text-white transition-colors flex items-center gap-2">
-                    Temporal Window {sortConfig?.key === 'date' ? (sortConfig.direction === 'asc' ? <ChevronRight size={14} className="-rotate-90" /> : <ChevronRight size={14} className="rotate-90" />) : ''}
+                    Date & Time {sortConfig?.key === 'date' ? (sortConfig.direction === 'asc' ? <ChevronRight size={14} className="-rotate-90" /> : <ChevronRight size={14} className="rotate-90" />) : ''}
                   </div>
                   <div onMouseDown={(e) => handleMouseDown(e, 'schedule')} onDoubleClick={() => handleDoubleClick('schedule')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
                 <th style={{ width: columnWidths.venue }} className="p-6 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] relative group">
-                  Geographic & Team
+                  Venue & Photographer
                   <div onMouseDown={(e) => handleMouseDown(e, 'venue')} onDoubleClick={() => handleDoubleClick('venue')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
                 <th style={{ width: columnWidths.youtube }} className="p-6 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] relative group">
-                  Broadcast Uplink
+                  Stream & Relay
                   <div onMouseDown={(e) => handleMouseDown(e, 'youtube')} onDoubleClick={() => handleDoubleClick('youtube')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
                 <th 
@@ -415,16 +415,16 @@ export const EventTable: React.FC<EventTableProps> = ({
                   className="p-6 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] text-center relative group"
                 >
                   <div onClick={() => requestSort('view_count')} className="cursor-pointer hover:text-white transition-colors">
-                    Payload {sortConfig?.key === 'view_count' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                    Views {sortConfig?.key === 'view_count' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
                   </div>
                   <div onMouseDown={(e) => handleMouseDown(e, 'views')} onDoubleClick={() => handleDoubleClick('views')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
                 <th style={{ width: columnWidths.control }} className="p-6 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] relative group">
-                  Mission Control
+                  YouTube Control
                   <div onMouseDown={(e) => handleMouseDown(e, 'control')} onDoubleClick={() => handleDoubleClick('identity')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
                 <th style={{ width: columnWidths.actions }} className="p-6 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] text-right relative group">
-                  Operations
+                  Quick Actions
                   <div onMouseDown={(e) => handleMouseDown(e, 'actions')} onDoubleClick={() => handleDoubleClick('actions')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
               </tr>
@@ -435,8 +435,8 @@ export const EventTable: React.FC<EventTableProps> = ({
                   <td colSpan={8} className="p-32 text-center relative overflow-hidden">
                     <div className="absolute inset-0 bg-blue-600/[0.02] animate-pulse" />
                     <RefreshCw className="animate-spin mx-auto text-blue-500 mb-8" size={64} strokeWidth={1.5} />
-                    <p className="text-white font-black text-lg tracking-tight">Synchronizing Platform Matrix</p>
-                    <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.5em] mt-3">Establishing Encrypted Uplink...</p>
+                    <p className="text-white font-black text-lg tracking-tight">Loading Events...</p>
+                    <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.5em] mt-3">Fetching database records...</p>
                   </td>
                 </tr>
               ) : (
@@ -487,7 +487,7 @@ export const EventTable: React.FC<EventTableProps> = ({
                             </h3>
                             {(!event.bride_name || event.bride_name.toLowerCase() === 'family') && (
                                 <p className="text-[10px] text-white/10 font-black uppercase tracking-[0.2em] mt-1.5">
-                                  CORE FAMILY NODE
+                                  Family Event
                                 </p>
                             )}
                           </div>
@@ -651,25 +651,26 @@ export const EventTable: React.FC<EventTableProps> = ({
                            </button>
                          </div>
                        ) : (
-                         <div className="flex flex-col items-center gap-1 opacity-10">
+                        <div className="flex flex-col items-center gap-1 opacity-10">
                             <ZapOff size={20} className="text-white" />
                             <span className="text-[8px] font-black uppercase tracking-widest">No Relay</span>
                          </div>
                        )}
                     </td>
                     <td className={`${getPadding()}`}>
-                       <div className="flex items-center justify-end gap-2">
+                       <div className="flex items-center justify-end gap-2 flex-wrap max-w-[280px]">
                          <div className="relative">
                            <button 
                              onClick={() => setOpenQrEventId(openQrEventId === event.id ? null : event.id)}
                              className={`p-3 rounded-2xl transition-all border shadow-lg ${openQrEventId === event.id ? 'bg-blue-600 text-white border-blue-400 shadow-blue-500/30 active:scale-95' : 'bg-white/[0.03] text-white/30 border-white/5 hover:border-white/20 hover:text-white hover:bg-white/5'}`}
+                             title="Show QR Code"
                            >
                              <QrCode size={20} />
                            </button>
                            {openQrEventId === event.id && (
                              <div className="absolute right-0 bottom-full mb-4 z-50 bg-[#0d0d17]/95 p-6 rounded-[2rem] shadow-2xl border border-white/10 w-56 animate-in zoom-in-95 slide-in-from-bottom-2 duration-300 backdrop-blur-3xl">
                                <div className="flex items-center justify-between mb-4">
-                                 <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Access Node</span>
+                                 <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Event QR Code</span>
                                  <button onClick={() => setOpenQrEventId(null)} className="w-6 h-6 flex items-center justify-center bg-white/5 hover:bg-red-500 rounded-lg text-white/20 hover:text-white transition-all"><X size={12} /></button>
                                </div>
                                <div className="bg-white p-3 rounded-2xl mb-4 shadow-inner">
@@ -681,36 +682,83 @@ export const EventTable: React.FC<EventTableProps> = ({
                                </div>
                                <div className="flex gap-2">
                                  <a 
-                                   href={`https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data=https://eventcast.pro/events/${event.slug}`} 
-                                   download={`qr-${event.slug}.png`}
-                                   className="flex-1 text-center py-2.5 bg-white/5 text-white/60 text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-white/10 border border-white/10 transition-all"
+                                    href={`https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data=https://eventcast.pro/events/${event.slug}`} 
+                                    download={`qr-${event.slug}.png`}
+                                    className="flex-1 text-center py-2.5 bg-white/5 text-white/60 text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-white/10 border border-white/10 transition-all"
                                  >PNG</a>
                                  <a 
-                                   href={`https://eventcast.pro/events/${event.slug}`} 
-                                   target="_blank" 
-                                   className="flex-1 text-center py-2.5 bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20"
+                                    href={`https://eventcast.pro/events/${event.slug}`} 
+                                    target="_blank" 
+                                    className="flex-1 text-center py-2.5 bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20"
                                  >Open</a>
-                               </div>
+                                </div>
                              </div>
                            )}
                          </div>
 
                         <button 
+                          onClick={() => { 
+                            navigator.clipboard.writeText(`https://eventcast.pro/events/${event.slug}`); 
+                            alert("Live Page Link Copied!"); 
+                          }}
+                          className="p-3 bg-white/[0.03] text-blue-400 rounded-2xl transition-all border border-white/5 hover:border-blue-500/40 hover:bg-blue-500/10 hover:shadow-lg hover:shadow-blue-500/5 active:scale-95" 
+                          title="Copy Live Page Link"
+                        >
+                          <Copy size={20} />
+                        </button>
+
+                        <button 
+                          onClick={() => { 
+                            const portalUrl = `${window.location.origin}/portal/${event.slug}`;
+                            navigator.clipboard.writeText(portalUrl); 
+                            alert("Client Portal Link Copied!"); 
+                          }}
+                          className="p-3 bg-white/[0.03] text-pink-500 rounded-2xl transition-all border border-white/5 hover:border-pink-500/40 hover:bg-pink-500/10 hover:shadow-lg hover:shadow-pink-500/5 active:scale-95" 
+                          title="Copy Client Portal Link"
+                        >
+                          <LinkIcon size={20} />
+                        </button>
+
+                        <button 
+                          onClick={() => handleDuplicateClick(event)}
+                          className="p-3 bg-white/[0.03] text-emerald-500 rounded-2xl transition-all border border-white/5 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:shadow-lg hover:shadow-emerald-500/5 active:scale-95" 
+                          title="Duplicate Event"
+                        >
+                          <CopyPlus size={20} />
+                        </button>
+
+                        <button 
+                          onClick={() => {
+                            const message = `Hello! We are excited to invite you to the ${event.event_type || 'event'}. Join us live here: https://eventcast.pro/events/${event.slug}`;
+                            window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+                          }}
+                          className="p-3 bg-white/[0.03] text-green-500 rounded-2xl transition-all border border-white/5 hover:border-green-500/40 hover:bg-green-500/10 hover:shadow-lg hover:shadow-green-500/5 active:scale-95" 
+                          title="Share to WhatsApp"
+                        >
+                          <MessageCircle size={20} />
+                        </button>
+
+                        <button 
                           onClick={() => handleEditClick(event)}
                           className="p-3 bg-white/[0.03] text-amber-500 rounded-2xl transition-all border border-white/5 hover:border-amber-500/40 hover:bg-amber-500/10 hover:shadow-lg hover:shadow-amber-500/5 active:scale-95" 
-                          title="Modify Record"
+                          title="Edit Event"
                         >
                           <Edit size={20} />
                         </button>
+
                         <button 
-                          onClick={() => fullDeleteEvent(event.id)}
+                          onClick={() => {
+                            if (window.confirm("WARNING: Are you sure you want to permanently delete this event? This will also remove the YouTube broadcast and associated data.")) {
+                              fullDeleteEvent(event.id);
+                            }
+                          }}
                           className="p-3 bg-white/[0.03] text-red-500 rounded-2xl transition-all border border-white/5 hover:border-red-500/40 hover:bg-red-500/10 hover:shadow-lg hover:shadow-red-500/5 active:scale-95" 
-                          title="Purge Record"
+                          title="Delete Event"
                         >
                           <Trash2 size={20} />
                         </button>
-                      </div>
-                    </td>
+                       </div>
+                     </td>
                   </tr>
                 );
               })

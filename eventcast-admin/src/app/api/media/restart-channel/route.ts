@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { RestreamerClient } from '@/lib/restreamer';
+import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/auth';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+);
 
 export const runtime = 'edge';
 
@@ -21,7 +27,25 @@ export async function POST(req: Request) {
       password: process.env.RESTREAMER_PASSWORD
     });
 
-    const success = await restreamer.restartChannel(slug);
+    // 1. Try to restart the channel
+    let success = await restreamer.restartChannel(slug);
+
+    // 2. If it fails, the process might not exist in Restreamer. Self-heal by recreating it!
+    if (!success) {
+      console.log(`Channel ${slug} restart failed, attempting auto-recreation/self-healing...`);
+      const { data: event, error: dbError } = await supabase
+        .from('events')
+        .select('youtube_stream_key')
+        .eq('slug', slug)
+        .single();
+
+      if (!dbError && event) {
+        console.log(`Re-creating Restreamer channel config for ${slug} with YouTube key...`);
+        await restreamer.setupChannel(slug, event.youtube_stream_key);
+        // Try starting it again
+        success = await restreamer.restartChannel(slug);
+      }
+    }
 
     if (success) {
       return NextResponse.json({ success: true });
