@@ -2,7 +2,7 @@ window.WEDDING_CONFIG = {
     groom: "Test Groom",
     bride: "Test Bride",
     date: "Monday, May 18th",
-    time: "4:00 PM AM",
+    time: "4:00 PM",
     timeLabel: "Wedding",
     timeSubtext: "",
     timerTarget: "2026-05-18T15:50",
