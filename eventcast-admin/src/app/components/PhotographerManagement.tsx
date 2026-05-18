@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { UserPlus, Search, Link as LinkIcon, Edit, Trash2, Phone, MapPin, Tag } from "lucide-react";
+import { UserPlus, Search, Link as LinkIcon, Edit, Trash2, Phone, MapPin, Tag, RefreshCw, Zap } from "lucide-react";
 
 interface PhotographerManagementProps {
   photographers: any[];

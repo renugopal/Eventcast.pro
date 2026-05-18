@@ -12,11 +12,11 @@ import { supabase, supabaseAdmin } from './supabase';
  *
  *   const auth = await requireAdmin(req);
  *   if (auth instanceof NextResponse) return auth;
- *   // auth.userId is now available
+ *   // auth.userId and auth.studioId are now available
  */
 export async function requireAdmin(
   req: Request
-): Promise<{ userId: string } | NextResponse> {
+): Promise<{ userId: string; studioId: string } | NextResponse> {
   const authHeader = req.headers.get('Authorization');
 
   if (!authHeader?.startsWith('Bearer ')) {
@@ -45,7 +45,22 @@ export async function requireAdmin(
       );
     }
 
-    return { userId: user.id };
+    // Load the user's primary studio
+    const { data: memberData, error: memberError } = await client
+      .from('studio_members')
+      .select('studio_id')
+      .eq('user_id', user.id)
+      .limit(1)
+      .single();
+
+    if (memberError || !memberData) {
+      return NextResponse.json(
+        { error: 'Forbidden: No studio association found' },
+        { status: 403 }
+      );
+    }
+
+    return { userId: user.id, studioId: memberData.studio_id };
   } catch {
     return NextResponse.json(
       { error: 'Unauthorized: Token verification failed' },
