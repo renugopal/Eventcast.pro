@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // ─── Web Crypto AWS Sig V4 Helpers ────────────────────────────────────────────
 
 async function sha256Hex(data: ArrayBuffer | Uint8Array | string): Promise<string> {
-  const buffer = typeof data === 'string' ? new TextEncoder().encode(data) : data;
+  const buffer = typeof data === 'string' ? new TextEncoder().encode(data) as BufferSource : data as BufferSource;
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
   return Array.from(new Uint8Array(hashBuffer))
     .map(b => b.toString(16).padStart(2, '0'))
@@ -28,7 +28,7 @@ async function getSigningKeyBuf(
   secretKey: string, dateStamp: string, region: string, service: string
 ): Promise<ArrayBuffer> {
   const enc = new TextEncoder();
-  const kDate    = await hmacSha256Raw(enc.encode('AWS4' + secretKey), dateStamp);
+  const kDate    = await hmacSha256Raw(enc.encode('AWS4' + secretKey).buffer as ArrayBuffer, dateStamp);
   const kRegion  = await hmacSha256Raw(kDate, region);
   const kService = await hmacSha256Raw(kRegion, service);
   return hmacSha256Raw(kService, 'aws4_request');

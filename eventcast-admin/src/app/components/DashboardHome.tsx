@@ -3,7 +3,7 @@
 import React from "react";
 import {
   Calendar, Activity, Eye, Heart, Play, Clock, ChevronRight,
-  ArrowUpRight, TrendingUp, Flame, Zap, Users,
+  ArrowUpRight, TrendingUp, Flame, Zap, Users, MapPin,
 } from "lucide-react";
 import { authFetch } from "@/lib/client-auth";
 

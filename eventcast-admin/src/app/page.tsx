@@ -670,6 +670,9 @@ export default function AdminDashboard() {
       loaderPhotoUrl: "",
       notes: "",
       slug: "",
+      youtube_broadcast_id: "",
+      youtube_stream_key: "",
+      youtube_url: "",
     });
     setHasManuallyEditedInitials(false);
     setSelectedPhotographer(null);
@@ -767,7 +770,11 @@ export default function AdminDashboard() {
       customInitials: event.custom_initials || "",
       hideLoaderPhoto: event.hide_loader_photo || false,
       loaderPhotoUrl: event.loader_photo_url || "",
-      notes: event.notes || ""
+      notes: event.notes || "",
+      youtube_broadcast_id: "",
+      youtube_stream_key: "",
+      youtube_url: "",
+      slug: "",
     });
     setHasManuallyEditedInitials(!!event.custom_initials);
     const pg = photographers.find((p: any) => p.id === event.photographer_id);
