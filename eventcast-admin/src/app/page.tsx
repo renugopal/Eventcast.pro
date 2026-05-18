@@ -1101,13 +1101,13 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <h3 className="text-xl font-black text-white tracking-tight">Event Identity</h3>
-                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Core Telemetry & Metadata</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Event Details</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div className="md:col-span-1">
-                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Intro Script (Double Line)</label>
+                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Page Top Title (Two Lines)</label>
                       <textarea
                         name="customTopTitle"
                         value={formData.customTopTitle}
@@ -1123,7 +1123,7 @@ export default function AdminDashboard() {
                       />
                     </div>
                     <div className="md:col-span-1">
-                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Mission Type</label>
+                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Event Type</label>
                       <div className="relative group">
                         <select 
                           name="eventType" 
@@ -1142,7 +1142,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     <div className="md:col-span-1">
-                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Visual Matrix</label>
+                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Website Template</label>
                       <div className="relative group">
                         <select 
                           name="templateId" 
@@ -1162,18 +1162,18 @@ export default function AdminDashboard() {
                     {(formData.eventType === "Wedding" || formData.eventType === "Engagement" || formData.eventType === "Reception") ? (
                       <>
                         <div className="md:col-span-1">
-                          <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Primary Node (Groom)</label>
-                          <input type="text" name="groomName" value={formData.groomName} onChange={handleInputChange} required className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" placeholder="Alpha Name" />
+                          <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Groom's Name</label>
+                          <input type="text" name="groomName" value={formData.groomName} onChange={handleInputChange} required className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" placeholder="Groom's Name" />
                         </div>
                         <div className="md:col-span-2">
-                          <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Secondary Node (Bride)</label>
-                          <input type="text" name="brideName" value={formData.brideName} onChange={handleInputChange} required className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" placeholder="Beta Name" />
+                          <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Bride's Name</label>
+                          <input type="text" name="brideName" value={formData.brideName} onChange={handleInputChange} required className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" placeholder="Bride's Name" />
                         </div>
                       </>
                     ) : (
                       <div className="md:col-span-3">
-                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Celebrant Identity</label>
-                        <input type="text" name="celebrantName" value={formData.celebrantName} onChange={handleInputChange} required className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" placeholder="Target Name" />
+                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Celebrant Name</label>
+                        <input type="text" name="celebrantName" value={formData.celebrantName} onChange={handleInputChange} required className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" placeholder="Celebrant's Name" />
                       </div>
                     )}
                   </div>
@@ -1187,7 +1187,7 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <h3 className="text-xl font-black text-white tracking-tight">Branding & Loader</h3>
-                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Initialization Visuals</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Loader & Branding</p>
                     </div>
                   </div>
 
@@ -1226,14 +1226,14 @@ export default function AdminDashboard() {
                       
                       {!formData.hideLoaderPhoto && (
                         <div className="animate-in fade-in zoom-in-95 duration-500">
-                          <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Manual Loader Uplink</label>
+                          <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Loader Photo URL</label>
                           <div className="relative group">
                             <input
                               type="text"
                               name="loaderPhotoUrl"
                               value={formData.loaderPhotoUrl}
                               onChange={handleInputChange}
-                              placeholder="Auto-fetch active if empty"
+                              placeholder="Leave empty to auto-fetch"
                               className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-sm pr-16 placeholder:text-white/10"
                             />
                             <button
@@ -1269,8 +1269,8 @@ export default function AdminDashboard() {
                       <Clock size={22} />
                     </div>
                     <div>
-                      <h3 className="text-xl font-black text-white tracking-tight">Temporal Coordinates</h3>
-                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Schedule & Countdowns</p>
+                      <h3 className="text-xl font-black text-white tracking-tight">Date & Time</h3>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Event Schedule</p>
                     </div>
                   </div>
                   
@@ -1294,7 +1294,7 @@ export default function AdminDashboard() {
                           <div className="w-12 h-6 bg-white/10 rounded-full border border-white/10 transition-all peer-checked:bg-pink-600"></div>
                           <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-6"></div>
                         </div>
-                        <span className="text-[11px] font-black text-white uppercase tracking-widest group-hover:text-pink-400 transition-colors">Broadcast Live Timer</span>
+                        <span className="text-[11px] font-black text-white uppercase tracking-widest group-hover:text-pink-400 transition-colors">Show Countdown Timer</span>
                       </label>
                     </div>
                   </div>
@@ -1307,16 +1307,24 @@ export default function AdminDashboard() {
                       <MapPin size={22} />
                     </div>
                     <div>
-                      <h3 className="text-xl font-black text-white tracking-tight">Geospatial Routing</h3>
-                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Venue Intelligence & Mapping</p>
+                      <h3 className="text-xl font-black text-white tracking-tight">Venue & Location</h3>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Venue Details</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                     <div className="space-y-8">
                       <div>
-                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Venue Descriptor</label>
-                        <div className="flex gap-3">
+                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Venue Name (Display)</label>
+                        <input
+                          type="text"
+                          name="venueName"
+                          value={formData.venueName}
+                          onChange={handleInputChange}
+                          placeholder="e.g. Sri Venkateswara Kalyana Mandapam"
+                          className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10"
+                        />
+                        <div className="flex gap-3 mt-6">
                           <input
                             type="text"
                             value={venueSearchQuery}
@@ -1332,13 +1340,13 @@ export default function AdminDashboard() {
                             className="px-6 bg-blue-600 text-white rounded-2xl font-black text-sm hover:bg-blue-700 transition-all disabled:opacity-30 flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95"
                           >
                             {isSearchingVenue ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
-                            {isSearchingVenue ? '' : 'UPLINK'}
+                            {isSearchingVenue ? '' : 'Search'}
                           </button>
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Google Maps Satellite Link</label>
+                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Google Maps Link</label>
                         <input
                           type="text"
                           name="venueMapLink"
@@ -1350,7 +1358,7 @@ export default function AdminDashboard() {
                         {formData.venueMapLink && (
                           <div className="mt-3">
                              {extractEmbedUrl(formData.venueMapLink) ? (
-                               <p className="text-[9px] text-green-400 font-black uppercase tracking-widest flex items-center gap-2"><CheckCircle2 size={12} /> Coordinate synchronization optimal</p>
+                               <p className="text-[9px] text-green-400 font-black uppercase tracking-widest flex items-center gap-2"><CheckCircle2 size={12} /> ✅ Maps link looks valid</p>
                              ) : formData.venueMapLink.includes('goo.gl') ? (
                                <p className="text-[9px] text-amber-400 font-black uppercase tracking-widest flex items-center gap-2 animate-pulse">🔄 Initializing short-link resolution...</p>
                              ) : null}
@@ -1363,7 +1371,7 @@ export default function AdminDashboard() {
                       {isResolvingMap ? (
                         <div className="flex flex-col items-center gap-4 text-blue-400">
                           <Loader2 size={32} className="animate-spin" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Resolving Satellite Data...</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest">Loading map...</span>
                         </div>
                       ) : mapPreviewUrl ? (
                         <iframe
@@ -1380,8 +1388,8 @@ export default function AdminDashboard() {
                           <div className="w-16 h-16 rounded-full bg-white/[0.02] border border-white/[0.05] flex items-center justify-center mb-2">
                              <MapPin size={32} />
                           </div>
-                          <span className="text-[10px] font-black uppercase tracking-[0.4em]">Visual Telemetry Offline</span>
-                          <span className="text-[9px] font-bold text-white/5 uppercase tracking-widest">Initialize venue uplink for preview</span>
+                          <span className="text-[10px] font-black uppercase tracking-[0.4em]">Map preview will appear here</span>
+                          <span className="text-[9px] font-bold text-white/5 uppercase tracking-widest">Search or paste a Maps link above</span>
                         </div>
                       )}
                     </div>
@@ -1396,7 +1404,7 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <h3 className="text-xl font-black text-white tracking-tight">Media & Assets</h3>
-                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Satellite Uplink & Storage</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Media Uploads</p>
                     </div>
                   </div>
 
@@ -1404,7 +1412,7 @@ export default function AdminDashboard() {
                     <div className="space-y-8">
                       <div>
                         <div className="flex justify-between items-center mb-3">
-                          <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Primary Thumbnail (SEO)</label>
+                          <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Event Thumbnail (for SEO)</label>
                           <label className="flex items-center gap-2 cursor-pointer group">
                              <input type="checkbox" id="autoThumb" checked={formData.autoGenerateThumbnail} onChange={(e) => setFormData(prev => ({ ...prev, autoGenerateThumbnail: e.target.checked }))} className="peer sr-only" />
                              <div className="w-8 h-4 bg-white/10 rounded-full border border-white/10 transition-all peer-checked:bg-blue-600 relative">
@@ -1419,7 +1427,7 @@ export default function AdminDashboard() {
                             name="thumbnailUrl"
                             value={formData.thumbnailUrl}
                             onChange={handleInputChange}
-                            placeholder="Payload URL..."
+                            placeholder="Thumbnail URL..."
                             className="w-full bg-white/[0.03] border border-white/[0.08] rounded-2xl px-5 py-5 text-white focus:ring-2 focus:ring-blue-500/50 outline-none transition-all placeholder:text-white/10 pr-16 font-black text-sm"
                           />
                           <button
@@ -1445,7 +1453,7 @@ export default function AdminDashboard() {
                                 <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none"><Zap size={80} /></div>
                                 <h4 className="text-xs font-black text-blue-400 uppercase tracking-[0.2em] flex items-center gap-3">
                                   <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shadow-[0_0_8px_rgba(96,165,250,1)]" />
-                                  Overlay Synthesis Engine
+                                  Add Names to Thumbnail
                                 </h4>
                                 <div className="grid grid-cols-2 gap-3">
                                   {[
@@ -1467,7 +1475,7 @@ export default function AdminDashboard() {
                                 <button type="button" onClick={generateThumbWithNames}
                                   className="w-full py-4 bg-white/10 hover:bg-white text-white hover:text-black rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 border border-white/10"
                                 >
-                                  <Zap size={16} /> Synthesize Preview
+                                  <Zap size={16} /> Preview with Names
                                 </button>
                                 
                                 {thumbOverlayPreview && (
@@ -1480,7 +1488,7 @@ export default function AdminDashboard() {
                                       onClick={() => { setFormData(prev => ({ ...prev, thumbnailUrl: thumbOverlayPreview })); setThumbOverlayPreview(''); }}
                                       className="w-full py-4 bg-green-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-green-500 transition-all shadow-lg shadow-green-600/20"
                                     >
-                                      ✅ Deploy to Production
+                                      ✅ Use This Thumbnail
                                     </button>
                                   </div>
                                 )}
@@ -1493,7 +1501,7 @@ export default function AdminDashboard() {
                       <div className="space-y-8">
                         <div>
                           <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">
-                            Cinematic Uplink (MP4)
+                            Invitation Video (MP4)
                           </label>
                           <textarea
                             name="invitationVideoUrls"
@@ -1501,7 +1509,7 @@ export default function AdminDashboard() {
                             onChange={handleInputChange}
                             rows={2}
                             className="w-full p-5 bg-white/[0.02] border border-white/[0.08] rounded-2xl font-mono text-[10px] mb-4 text-white/20 outline-none focus:ring-0 transition-all cursor-default resize-none"
-                            placeholder="Satellite streams pending..."
+                            placeholder="Video URLs will appear here..."
                             readOnly
                           />
                           <button
@@ -1510,7 +1518,7 @@ export default function AdminDashboard() {
                             className="w-full flex items-center justify-center gap-3 py-5 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-500 font-black uppercase tracking-[0.2em] text-xs transition-all shadow-lg shadow-indigo-600/20 active:scale-[0.98]"
                           >
                             {isUploading === 'video' ? <Loader2 className="animate-spin" size={18} /> : <Film size={18} />}
-                            {isUploading === 'video' ? 'Uploading Stream...' : 'Initialize Video Uplink'}
+                            {isUploading === 'video' ? 'Uploading...' : 'Upload Video'}
                           </button>
                           <input type="file" ref={videoInputRef} hidden multiple accept="video/*" onChange={(e) => uploadToCloudinary(e.target.files, 'video')} />
                           
@@ -1542,17 +1550,17 @@ export default function AdminDashboard() {
                     {/* Gallery Upload */}
                     <div className="md:col-span-2 space-y-6">
                       <div className="flex items-center justify-between">
-                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Bulk Assets Matrix (Photo Gallery)</label>
+                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Photo Gallery</label>
                         {formData.galleryUrls && (
                           <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
-                            {formData.galleryUrls.split('\n').filter(u => u.trim()).length} Nodes Online
+                            {formData.galleryUrls.split('\n').filter(u => u.trim()).length} Photos
                           </span>
                         )}
                       </div>
-                      <textarea name="galleryUrls" value={formData.galleryUrls} onChange={handleInputChange} rows={3} className="w-full p-5 bg-white/[0.02] border border-white/[0.08] rounded-2xl font-mono text-[10px] text-white/20 outline-none focus:ring-0 transition-all resize-none" placeholder="Asset identifiers will appear here..." />
+                      <textarea name="galleryUrls" value={formData.galleryUrls} onChange={handleInputChange} rows={3} className="w-full p-5 bg-white/[0.02] border border-white/[0.08] rounded-2xl font-mono text-[10px] text-white/20 outline-none focus:ring-0 transition-all resize-none" placeholder="Photo URLs will appear here..." />
                       <button type="button" onClick={() => galleryInputRef.current?.click()} className="w-full flex items-center justify-center gap-3 py-6 bg-white/[0.05] hover:bg-white text-white hover:text-black rounded-[2rem] font-black uppercase tracking-[0.3em] text-sm transition-all border border-white/[0.08] shadow-2xl active:scale-[0.99] group">
                         {isUploading === 'gallery' ? <Loader2 className="animate-spin" size={20} /> : <ImageIcon size={20} className="group-hover:scale-110 transition-transform" />}
-                        {isUploading === 'gallery' ? 'Uplinking Assets...' : 'Synchronize Bulk Media'}
+                        {isUploading === 'gallery' ? 'Uploading...' : 'Upload Photos'}
                       </button>
                       <input type="file" ref={galleryInputRef} hidden multiple accept="image/*" onChange={(e) => uploadToCloudinary(e.target.files, 'gallery')} />
                       
@@ -1577,14 +1585,14 @@ export default function AdminDashboard() {
                       <Shield size={22} />
                     </div>
                     <div>
-                      <h3 className="text-xl font-black text-white tracking-tight">Security & Routing</h3>
-                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Network Permissions & Access</p>
+                      <h3 className="text-xl font-black text-white tracking-tight">Privacy & YouTube Settings</h3>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Who can see this event</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div>
-                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-4">Encryption & Privacy Protocol</label>
+                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-4">Website Privacy</label>
                       <div className="flex flex-col gap-3">
                         {['Public (Visible Everywhere)', 'Unlisted (Link Only)', 'Private (Admin Only)'].map((status) => (
                           <button 
@@ -1602,7 +1610,7 @@ export default function AdminDashboard() {
                     
                     <div className="space-y-8">
                       <div>
-                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Broadcaster Visibility</label>
+                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">YouTube Privacy</label>
                         <div className="flex gap-4">
                           {['public', 'unlisted'].map((p) => (
                             <button key={p} type="button" onClick={() => setFormData(prev => ({ ...prev, youtubePrivacy: p }))} className={`flex-1 p-5 rounded-2xl border-2 font-black uppercase tracking-[0.2em] text-[11px] transition-all ${formData.youtubePrivacy === p ? 'border-red-500 bg-red-500/10 text-white shadow-lg shadow-red-500/10' : 'border-white/[0.08] bg-white/[0.02] text-white/20 hover:border-white/20 hover:text-white/60'}`}>
@@ -1613,11 +1621,11 @@ export default function AdminDashboard() {
                       </div>
                       
                       <div>
-                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Photographer Credit Assignment</label>
+                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Assign Photographer</label>
                         <div className="relative group">
                           <input
                             type="text"
-                            placeholder="Query by name, studio, or phone..."
+                            placeholder="Search by name, studio or phone..."
                             value={selectedPhotographer ? (selectedPhotographer.nickname || selectedPhotographer.name) : photographerSearchQuery}
                             onChange={(e) => { setPhotographerSearchQuery(e.target.value); setSelectedPhotographer(null); setShowPhotographerList(true); }}
                             onFocus={() => setShowPhotographerList(true)}
@@ -1633,7 +1641,7 @@ export default function AdminDashboard() {
                           {showPhotographerList && photographerSearchQuery && !selectedPhotographer && (
                             <div className="absolute z-50 w-full mt-3 bg-[#11111a] border border-white/10 rounded-[2rem] shadow-2xl max-h-72 overflow-y-auto backdrop-blur-3xl animate-in fade-in zoom-in-95 duration-300 custom-scrollbar">
                               {filteredPhotographers.length === 0 ? (
-                                <div className="p-8 text-center text-white/20 text-[10px] font-black uppercase tracking-widest">No matching nodes found</div>
+                                <div className="p-8 text-center text-white/20 text-[10px] font-black uppercase tracking-widest">No photographers found</div>
                               ) : filteredPhotographers.map(p => (
                                 <button key={p.id} type="button" onClick={() => { setSelectedPhotographer(p); setShowPhotographerList(false); }} className="w-full p-5 hover:bg-white/[0.05] text-left border-b border-white/[0.03] transition-all group">
                                   <div className="flex items-center gap-5">
@@ -1680,18 +1688,18 @@ export default function AdminDashboard() {
                       <Layout size={22} />
                     </div>
                     <div>
-                      <h3 className="text-xl font-black text-white tracking-tight">Internal Core</h3>
-                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Private Infrastructure Notes</p>
+                      <h3 className="text-xl font-black text-white tracking-tight">Internal Notes</h3>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Private notes (not visible to guests)</p>
                     </div>
                   </div>
                   <div className="relative group">
                     <textarea 
-                      placeholder="Input private operational telemetry, payment status, or specific deployment instructions..."
+                      placeholder="Add private notes — payment status, client details, etc."
                       value={formData.notes}
                       onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                       className="w-full p-6 bg-white/[0.03] border border-white/[0.08] rounded-[2rem] outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-bold text-white text-base h-40 resize-none placeholder:text-white/10 custom-scrollbar"
                     />
-                    <div className="absolute bottom-6 right-6 text-[9px] font-black text-white/10 uppercase tracking-widest pointer-events-none">SECURE PRIVATE STORAGE</div>
+                    <div className="absolute bottom-6 right-6 text-[9px] font-black text-white/10 uppercase tracking-widest pointer-events-none">PRIVATE — NOT VISIBLE TO GUESTS</div>
                   </div>
                 </section>
 
@@ -1699,7 +1707,7 @@ export default function AdminDashboard() {
                 <section className="bg-blue-600/[0.03] rounded-[3rem] p-10 border border-white/[0.05] relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-32 h-32 bg-blue-600/10 blur-[80px] -z-10" />
                   <h3 className="text-[10px] font-black text-white/40 uppercase tracking-[0.4em] mb-10 flex items-center gap-4">
-                    <Search size={18} className="text-blue-500" /> WhatsApp & Social Uplink Preview
+                    <Search size={18} className="text-blue-500" /> WhatsApp & Social Media Preview
                   </h3>
                   
                   <div className="max-w-[400px] mx-auto bg-[#1a1a24] rounded-[2.5rem] shadow-2xl border border-white/[0.08] overflow-hidden group">
@@ -1709,7 +1717,7 @@ export default function AdminDashboard() {
                       ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center text-white/10 gap-4">
                           <ImageIcon size={48} strokeWidth={1} className="animate-pulse" />
-                          <span className="text-[10px] font-black uppercase tracking-[0.3em]">Payload Missing</span>
+                          <span className="text-[10px] font-black uppercase tracking-[0.3em]">No thumbnail yet</span>
                         </div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
@@ -1735,16 +1743,16 @@ export default function AdminDashboard() {
                  <div className="pt-16 flex flex-col gap-6">
                   <div className="flex gap-6">
                     <button type="button" onClick={runHealthCheck} className="flex-1 py-6 bg-white/[0.03] text-white hover:bg-white/[0.06] rounded-[2rem] font-black uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3 border border-white/[0.08] active:scale-95 text-xs shadow-xl">
-                      <Search size={20} /> Readiness Scan
+                      <Search size={20} /> Pre-flight Check
                     </button>
                     <button type="submit" disabled={isSubmitting || !!isUploading} className="flex-[2] py-6 bg-blue-600 text-white rounded-[2rem] font-black uppercase tracking-[0.4em] text-sm shadow-[0_20px_50px_-10px_rgba(59,130,246,0.5)] hover:bg-blue-500 transition-all disabled:opacity-30 transform active:scale-[0.98] flex items-center justify-center gap-4 group">
                       {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <Zap size={20} className="group-hover:rotate-12 transition-transform" />}
-                      {isSubmitting ? (isEditing ? "Synchronizing..." : "Initializing...") : (isEditing ? "Deploy Updates" : "Launch Mission")}
+                      {isSubmitting ? (isEditing ? "Saving..." : "Creating...") : (isEditing ? "Save Changes" : "Create Event")}
                     </button>
                   </div>
                   {isEditing && (
                     <button type="button" onClick={resetForm} className="w-full py-4 text-white/20 font-black uppercase tracking-[0.4em] hover:text-red-500 transition-all text-[10px] bg-red-500/5 rounded-2xl border border-red-500/0 hover:border-red-500/20">
-                      Abort Operation
+                      Cancel Editing
                     </button>
                   )}
                 </div>
@@ -1782,7 +1790,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <span className="block text-xl tracking-tight">Account Security</span>
-                  <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Infrastructure Access Control</span>
+                  <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Change your password</span>
                 </div>
               </h2>
 
@@ -1794,23 +1802,23 @@ export default function AdminDashboard() {
               <form onSubmit={handlePasswordUpdate} className="space-y-8">
                 <div className="grid grid-cols-1 gap-8">
                   <div>
-                    <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Authentication Baseline (Current)</label>
-                    <input type="password" name="currentPassword" required placeholder="Verification required" className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" />
+                    <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Current Password</label>
+                    <input type="password" name="currentPassword" required placeholder="Enter current password" className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
-                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">New Protocol (8+ Chars)</label>
-                      <input type="password" name="newPassword" required minLength={8} placeholder="Entropy minimum 8" className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" />
+                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">New Password (min 8 characters)</label>
+                      <input type="password" name="newPassword" required minLength={8} placeholder="Enter new password" className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Protocol Confirmation</label>
-                      <input type="password" name="confirmPassword" required placeholder="Repeat new protocol" className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" />
+                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Confirm New Password</label>
+                      <input type="password" name="confirmPassword" required placeholder="Re-enter new password" className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" />
                     </div>
                   </div>
                 </div>
                 <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase tracking-[0.4em] text-sm shadow-[0_20px_50px_-10px_rgba(59,130,246,0.5)] hover:bg-blue-500 transition-all disabled:opacity-30 transform active:scale-[0.98] flex items-center justify-center gap-4 group mt-4">
                   {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <Shield size={20} className="group-hover:rotate-12 transition-transform" />}
-                  {isSubmitting ? "UPDATING SECURITY CORE..." : "INITIALIZE CREDENTIAL ROTATION"}
+                  {isSubmitting ? "Updating..." : "Update Password"}
                 </button>
               </form>
             </div>
@@ -1825,14 +1833,14 @@ export default function AdminDashboard() {
                   <Layout size={24} />
                 </div>
                 <div>
-                  <span className="block text-xl tracking-tight">Mission Defaults</span>
-                  <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Global Preference Matrix</span>
+                  <span className="block text-xl tracking-tight">Default Settings</span>
+                  <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Preferences saved in your browser</span>
                 </div>
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 <div>
-                  <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Baseline Template</label>
+                  <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Default Template</label>
                   <div className="relative group">
                     <select 
                       id="defaultTemplate"
@@ -1848,7 +1856,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Broadcaster Privacy</label>
+                  <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Default YouTube Privacy</label>
                   <div className="relative group">
                     <select 
                       id="defaultYoutubePrivacy"
@@ -1878,8 +1886,8 @@ export default function AdminDashboard() {
                   <Users size={24} />
                 </div>
                 <div>
-                  <span className="block text-xl tracking-tight">Team Intelligence</span>
-                  <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Personnel & Access Management</span>
+                  <span className="block text-xl tracking-tight">Team Members</span>
+                  <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Manage access</span>
                 </div>
               </h3>
               
@@ -1891,12 +1899,12 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <p className="font-black text-white tracking-tight">{user?.email || "Super Admin"}</p>
-                      <p className="text-[10px] text-blue-500 font-black uppercase tracking-widest mt-1">Mission Control / Owner</p>
+                      <p className="text-[10px] text-blue-500 font-black uppercase tracking-widest mt-1">Owner</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,1)]" />
-                    <span className="text-[10px] font-black text-green-400 uppercase tracking-[0.2em]">Live Node</span>
+                    <span className="text-[10px] font-black text-green-400 uppercase tracking-[0.2em]">Active</span>
                   </div>
                 </div>
               </div>
