@@ -1253,7 +1253,7 @@ export default function AdminDashboard() {
                           </div>
                           {formData.loaderPhotoUrl && (
                             <div className="mt-3 text-[9px] text-green-400 font-black uppercase tracking-widest flex items-center gap-2">
-                              <CheckCircle2 size={12} /> Custom payload synchronization complete
+                              <CheckCircle2 size={12} /> Custom photo saved successfully
                             </div>
                           )}
                         </div>
@@ -1796,7 +1796,7 @@ export default function AdminDashboard() {
 
               <div className="mb-10 p-6 bg-blue-500/5 rounded-2xl border border-blue-500/10 text-blue-400 text-[11px] font-black uppercase tracking-widest leading-relaxed flex items-start gap-4">
                 <Zap size={18} className="flex-shrink-0 mt-0.5" />
-                <p>Sessions: Identity persistence is maintained via encrypted refresh tokens. Modifying credentials will force a global broadcast logout across all active nodes.</p>
+                <p>Security Notice: Modifying your password will automatically log you out of all other active sessions across devices.</p>
               </div>
 
               <form onSubmit={handlePasswordUpdate} className="space-y-8">
@@ -1909,7 +1909,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
               <button className="mt-10 px-6 py-4 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3 border border-white/5 transition-all">
-                <PlusCircle size={18} /> Add New Node (Coming Soon)
+                <PlusCircle size={18} /> Add Team Member (Coming Soon)
               </button>
             </div>
           </div>

@@ -242,8 +242,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
         {[
           { label: "Gross Platform Traffic", value: totalViews, icon: Eye, color: "blue", sub: "Aggregated Views" },
-          { label: "Active Deployments", value: analyticsData.length, icon: Activity, color: "indigo", sub: "Managed Event Nodes" },
-          { label: "Intensity Quotient", value: avgViews, icon: Users, color: "pink", sub: "Avg Engagement / Node" },
+          { label: "Active Deployments", value: analyticsData.length, icon: Activity, color: "indigo", sub: "Managed Events" },
+          { label: "Average Engagement", value: avgViews, icon: Users, color: "pink", sub: "Avg Views / Event" },
           { label: "Unique Reach", value: uniqueVisitors, icon: Smartphone, color: "amber", sub: "Estimated Terminals" }
         ].map((card, i) => (
           <div key={i} className="relative group">
@@ -282,9 +282,9 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
                 <div className="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 shadow-lg shadow-blue-500/5">
                   <TrendingUp size={20} className="text-blue-400"/>
                 </div>
-                Node Performance Matrix
+                Event Views Leaderboard
               </h3>
-              <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.4em] mt-2 ml-14">Sector ranking by payload intensity</p>
+              <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.4em] mt-2 ml-14">Top ranking events by view count</p>
             </div>
             <div className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] bg-white/[0.03] px-6 py-3 rounded-2xl border border-white/[0.06]">
               Real-time Ranking Engine
@@ -334,7 +334,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
                   </div>
                   <div className="min-w-[100px]">
                     <p className="font-black text-white text-3xl tracking-tighter leading-none group-hover:scale-110 transition-transform duration-500 group-hover:text-blue-400">{(event.view_count || 0).toLocaleString()}</p>
-                    <p className="text-[10px] font-black text-white/10 uppercase tracking-[0.3em] mt-2.5">Gross Payload</p>
+                    <p className="text-[10px] font-black text-white/10 uppercase tracking-[0.3em] mt-2.5">Total Views</p>
                   </div>
                 </div>
               </div>

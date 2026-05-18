@@ -265,7 +265,7 @@ export const EventTable: React.FC<EventTableProps> = ({
             </div>
             <div>
               <p className="text-white font-black text-lg tracking-tight">Active Selection Batch</p>
-              <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em] mt-1">Multi-Node Operations Enabled</p>
+              <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em] mt-1">Multi-Stream Relays Enabled</p>
             </div>
           </div>
           <div className="flex items-center gap-4 relative z-10">
@@ -564,11 +564,11 @@ export const EventTable: React.FC<EventTableProps> = ({
                           <div className="flex flex-col gap-1.5 bg-white/[0.03] p-3 rounded-2xl border border-white/[0.08] shadow-inner group/node">
                             <div className="flex items-center justify-between gap-3">
                               <span className="text-[10px] font-mono text-white/30 truncate max-w-[140px] tracking-tight">{event.restreamer_ingest_url || `rtmp://34.100.142.25/${event.slug}`}</span>
-                              <button onClick={() => { navigator.clipboard.writeText(event.restreamer_ingest_url || `rtmp://34.100.142.25/${event.slug}`); alert("System Uplink Copied"); }} className="text-white/10 hover:text-blue-400 transition-colors"><CopyPlus size={14}/></button>
+                              <button onClick={() => { navigator.clipboard.writeText(event.restreamer_ingest_url || `rtmp://34.100.142.25/${event.slug}`); alert("Ingest URL Copied"); }} className="text-white/10 hover:text-blue-400 transition-colors"><CopyPlus size={14}/></button>
                             </div>
                             <div className="flex items-center justify-between gap-3 border-t border-white/[0.05] pt-2 mt-1">
                               <span className="text-[11px] font-mono font-black text-blue-400 uppercase tracking-tighter">● {event.restreamer_stream_key || 'live'}</span>
-                              <button onClick={() => { navigator.clipboard.writeText(event.restreamer_stream_key || 'live'); alert("Node Key Copied"); }} className="text-white/10 hover:text-blue-400 transition-colors"><Copy size={14}/></button>
+                              <button onClick={() => { navigator.clipboard.writeText(event.restreamer_stream_key || 'live'); alert("Stream Key Copied"); }} className="text-white/10 hover:text-blue-400 transition-colors"><Copy size={14}/></button>
                             </div>
                           </div>
                         </div>

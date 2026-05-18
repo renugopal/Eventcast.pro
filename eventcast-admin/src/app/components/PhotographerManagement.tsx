@@ -87,7 +87,7 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
               value={fields.nickname}
               onChange={handleField('nickname')}
               className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white placeholder:text-white/10"
-              placeholder="Private Node ID"
+              placeholder="Username"
             />
           </div>
 
@@ -106,7 +106,7 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
 
           {/* Phone */}
           <div>
-            <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Telemetry Uplink (Phone)</label>
+            <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Phone Number</label>
             <input
               type="text"
               name="phone"
@@ -119,14 +119,14 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
 
           {/* City */}
           <div>
-            <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Geographic Sector (City)</label>
+            <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">City</label>
             <input
               type="text"
               name="city"
               value={fields.city}
               onChange={handleField('city')}
               className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white placeholder:text-white/10"
-              placeholder="Location Matrix"
+              placeholder="City"
             />
           </div>
 
@@ -162,7 +162,7 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
                 onClick={() => (document.getElementById('p_logo_file') as HTMLInputElement)?.click()}
                 className="px-8 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center gap-3 shadow-lg shadow-blue-600/20 active:scale-95 border border-blue-500/20"
               >
-                <LinkIcon size={16} /> Uplink
+                <LinkIcon size={16} /> Profile Link
               </button>
               <input
                 type="file"
@@ -245,14 +245,14 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
               Verified Partners
             </h3>
             <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em] mt-3">
-              ACTIVE NETWORK NODES: <span className="text-white/60">{photographers.length} SYSTEMS ONLINE</span>
+              Total Photographers: <span className="text-white/60">{photographers.length} ACTIVE</span>
             </p>
           </div>
 
           <div className="relative w-full lg:w-[450px] group">
             <input
               type="text"
-              placeholder="Query by alias, sector or telemetry..."
+              placeholder="Search by name, city or phone..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full p-5 pl-14 bg-white/[0.03] border border-white/[0.08] rounded-[2rem] outline-none focus:ring-2 focus:ring-green-500/50 font-black text-white placeholder:text-white/10 transition-all"
@@ -286,7 +286,7 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
                 </div>
               </div>
 
-              {/* Details Matrix */}
+              {/* Details */}
               <div className="space-y-4 mb-10">
                 {p.phone_number && (
                   <div className="flex items-center gap-4 text-[11px] font-black text-white/40 bg-white/[0.02] p-4 rounded-2xl border border-white/[0.05] group-hover:border-white/10 transition-colors">

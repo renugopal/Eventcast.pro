@@ -144,7 +144,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             className="flex items-center gap-3 px-5 py-2.5 rounded-[1.25rem] text-[10px] font-black uppercase tracking-[0.2em] bg-red-500/10 border border-red-500/20 text-red-500 shadow-lg shadow-red-500/5 backdrop-blur-md"
           >
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,1)]" />
-            {activeEventsCount} Active Nodes Online
+            {activeEventsCount} Events Online
           </div>
         )}
       </div>
@@ -207,7 +207,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
               <span
                 className="px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border border-blue-500/20 bg-blue-500/5 text-blue-400"
               >
-                {todayEvents.length} Active Nodes
+                {todayEvents.length} Events Today
               </span>
             </div>
 
@@ -394,7 +394,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                 onClick={() => setActiveTab("moderation")}
                 className="w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white transition-all border border-white/[0.08] hover:border-blue-500/40 hover:bg-blue-500/10 shadow-2xl"
               >
-                Launch Moderation Matrix
+                Launch Moderation Panel
               </button>
             </div>
           )}
@@ -405,8 +405,8 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {[
           { label: "Initialize System",       sub: "Generate new event site",       tab: "create",        accent: "#8b5cf6", icon: Zap },
-          { label: "Satellite Monitor",    sub: "Uplink & stream telemetry",    tab: "monitor",       accent: "#ef4444", icon: Activity },
-          { label: "Intelligence Matrix",  sub: "Gross traffic & reach",       tab: "analytics",     accent: "#6366f1", icon: TrendingUp },
+          { label: "Live Monitor",    sub: "Stream health & active relays",    tab: "monitor",       accent: "#ef4444", icon: Activity },
+          { label: "Analytics Dashboard",  sub: "Total traffic & reach",       tab: "analytics",     accent: "#6366f1", icon: TrendingUp },
         ].map((action, i) => (
           <button
             key={i}

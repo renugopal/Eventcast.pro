@@ -505,37 +505,37 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
           </div>
           <div>
             <h2 className="text-3xl font-black tracking-tighter text-white">
-              Mission <span className="text-red-500">Control</span> Hub
+              Live <span className="text-red-500">Monitor</span> Hub
             </h2>
             <div className="flex items-center gap-5 mt-2.5">
               {systemStatus === 'initializing' && (
                 <span className="flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.3em] text-white/20">
                   <div className="w-2 h-2 rounded-full bg-white/20 animate-pulse" />
-                  Calibrating Satellite Link…
+                  Connecting to Media Server…
                 </span>
               )}
               {systemStatus === 'online' && (
                 <span className="flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400 bg-emerald-500/10 px-4 py-1.5 rounded-full border border-emerald-500/20 shadow-lg shadow-emerald-500/5">
                   <Radio size={12} className="animate-pulse" />
-                  Telemetry: NOMINAL
+                  Connection: Stable
                 </span>
               )}
               {systemStatus === 'degraded' && (
                 <span className="flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.3em] text-amber-400 bg-amber-500/10 px-4 py-1.5 rounded-full border border-amber-500/20">
                   <Radio size={12} className="animate-pulse" />
-                  Link Degradation Detected
+                  Connection Unstable
                 </span>
               )}
               {systemStatus === 'offline' && (
                 <span className="flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.3em] text-red-400 bg-red-500/10 px-4 py-1.5 rounded-full border border-red-500/20">
                   <WifiOff size={12} />
-                  Mainframe Connection Lost
+                  Media Server Offline
                 </span>
               )}
               {liveCount > 0 && (
                 <div className="flex items-center gap-3 bg-red-500/10 px-4 py-1.5 rounded-full border border-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.1)]">
                   <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_12px_rgba(239,68,68,1)]" />
-                  <span className="text-[10px] font-black text-red-500 uppercase tracking-[0.3em]">{liveCount} BROADCASTS LIVE</span>
+                  <span className="text-[10px] font-black text-red-500 uppercase tracking-[0.3em]">{liveCount} STREAMS LIVE</span>
                 </div>
               )}
             </div>
@@ -595,16 +595,16 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
             <div className="flex items-center justify-between mb-10">
               <div className="flex items-center gap-5">
                 <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-white/30">
-                  Global Sector Monitor
+                  Active Live Streams
                 </h3>
                 <div className="h-px w-20 bg-white/[0.06]" />
                 <span className="text-[11px] font-black text-white/10 tabular-nums uppercase tracking-widest">
-                  {activeStreams.length} ACTIVE NODES
+                  {activeStreams.length} ACTIVE STREAMS
                 </span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]" />
-                <span className="text-[10px] font-black text-emerald-500/40 uppercase tracking-[0.3em]">Scalability Optimized</span>
+                <span className="text-[10px] font-black text-emerald-500/40 uppercase tracking-[0.3em]">System Healthy</span>
               </div>
             </div>
 
@@ -616,10 +616,10 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
                 </div>
                 <div className="text-center relative z-10">
                   <p className="text-2xl font-black text-white/20 tracking-tight">
-                    Listening for Broadcast Signals
+                    Waiting for Live Streams
                   </p>
                   <p className="text-[10px] font-black text-white/10 uppercase tracking-[0.4em] mt-3">
-                    Awaiting Ingest Authorization From Remote Nodes
+                    Awaiting video feed from streaming software
                   </p>
                 </div>
               </div>
@@ -645,9 +645,9 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
                 </div>
                 <div>
                   <h3 className="text-xs font-black uppercase tracking-[0.3em] text-white/30">
-                    Deployment Queue
+                    Upcoming Events
                   </h3>
-                  <p className="text-[10px] font-black text-white/10 mt-1 uppercase tracking-[0.4em]">Chronological Schedule: {upcomingToday.length} Expected Units</p>
+                  <p className="text-[10px] font-black text-white/10 mt-1 uppercase tracking-[0.4em]">Scheduled today: {upcomingToday.length} Events</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -670,7 +670,7 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2 flex-shrink-0 relative z-10">
-                       <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Launch T-Minus</span>
+                       <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Scheduled Time</span>
                        <span className="font-mono text-blue-400 font-black text-2xl bg-blue-500/10 border border-blue-500/20 px-6 py-2 rounded-2xl shadow-2xl shadow-blue-500/10 group-hover:scale-105 transition-transform">
                          {event.timer_target_time || event.event_time || "—:—"}
                        </span>
@@ -692,10 +692,10 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
                 </div>
                 <div>
                   <h3 className="text-xs font-black uppercase tracking-[0.3em] text-white/30">
-                    Signal Intercepts
+                    Recent Guest Wishes
                   </h3>
                   <p className="text-[10px] text-white/10 font-black uppercase tracking-[0.4em] mt-1.5">
-                    Today · {todayWishes.length} DATA PACKETS
+                    Today · {todayWishes.length} WISHES
                   </p>
                 </div>
               </div>
@@ -711,7 +711,7 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
                     <Heart size={32} className="text-white/5 group-hover:text-pink-500/20 transition-colors" />
                   </div>
                   <p className="text-[11px] font-black text-white/10 uppercase tracking-[0.4em]">
-                    Awaiting Inbound Engagement
+                    Waiting for guest wishes
                   </p>
                 </div>
               ) : (
