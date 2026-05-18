@@ -163,6 +163,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { console.error("Analytics error:", e); }
     };
     trackPageView();
+    initLiveViewerCount();
+    initLangToggle();
     
     // Inject Info
     const infoItems = document.querySelectorAll('.info-text');
@@ -195,6 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let loopCount = 0;
         const MAX_LOOPS = 3;
         let isLoopingEnabled = true;
+        let videoSourceLoaded = false; // true once the browser has been told to fetch any bytes
 
         invVideo.setAttribute('poster', optimizeUrl(CONFIG.thumbnail));
 
@@ -202,13 +205,16 @@ document.addEventListener('DOMContentLoaded', () => {
             currentVideoIndex = index;
             const src = invVideo.querySelector('source');
             if (src) src.setAttribute('src', optimizeUrl(allVideos[index]));
-            invVideo.load();
-            
-            // Only play if in viewport or manually triggered
-            if (videoOverlay && videoOverlay.style.display === 'none') {
-                invVideo.play().catch(() => {});
+
+            // Only call load()/play() after the source has been initialised by the
+            // IntersectionObserver or a manual user tap — never on initial page load.
+            if (videoSourceLoaded) {
+                invVideo.load();
+                if (videoOverlay && videoOverlay.style.display === 'none') {
+                    invVideo.play().catch(() => {});
+                }
             }
-            
+
             // Update dots
             if (allVideos.length > 1 && videoDotsContainer) {
                 videoDotsContainer.querySelectorAll('.vdot').forEach((dot, i) => {
@@ -251,6 +257,12 @@ document.addEventListener('DOMContentLoaded', () => {
             isLoopingEnabled = true;
             loopCount = 0;
             if (videoOverlay) videoOverlay.style.display = 'none';
+            if (!videoSourceLoaded) {
+                videoSourceLoaded = true;
+                const src = invVideo.querySelector('source');
+                if (src) src.setAttribute('src', optimizeUrl(allVideos[currentVideoIndex]));
+                invVideo.load();
+            }
             invVideo.play().catch(() => {});
         }
 
@@ -258,10 +270,17 @@ document.addEventListener('DOMContentLoaded', () => {
             videoOverlay.addEventListener('click', startVideoManually);
         }
 
-        // --- Intersection Observer: Play only when visible ---
+        // --- Intersection Observer: Lazy-load + play only when visible ---
+        // Zero bytes are downloaded until the video wrapper crosses the threshold.
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting && isLoopingEnabled) {
+                    if (!videoSourceLoaded) {
+                        videoSourceLoaded = true;
+                        const src = invVideo.querySelector('source');
+                        if (src) src.setAttribute('src', optimizeUrl(allVideos[currentVideoIndex]));
+                        invVideo.load(); // First network request for video bytes happens here
+                    }
                     invVideo.play().catch(() => {});
                 } else {
                     invVideo.pause();
@@ -284,7 +303,8 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
-        playVideoAt(0);
+        // currentVideoIndex is already 0. Source is lazy-loaded on first viewport
+        // intersection or user tap — no load() call here prevents background download.
     } else if (invVideo) {
         const section = document.getElementById('invitation-video');
         if (section) section.style.display = 'none';
@@ -441,33 +461,136 @@ function onYouTubeIframeAPIReady() {
     }
 
     // 1. Check if we have a Restreamer Player (High Quality Choice)
-    if (CONFIG.restreamerPlayer) {
-        console.log("Using Restreamer High Quality Player...");
+    if (CONFIG.restreamerUrl) {
+        console.log("Using Native HLS Player for Restreamer...");
         if (playerContainer) {
             playerContainer.innerHTML = `
-                <iframe 
-                    src="${CONFIG.restreamerPlayer}&autoplay=true&mute=false&controlbar=true" 
-                    width="100%" 
-                    height="100%" 
-                    style="border:none;" 
-                    allowfullscreen 
-                    allow="autoplay; fullscreen">
-                </iframe>
+                <div class="plyr-container" style="position:absolute; top:0; left:0; width:100%; height:100%; overflow:hidden; background:#000;">
+                    <video id="hls-video" controls width="100%" height="100%" playsinline style="width:100%; height:100%; object-fit:contain;"></video>
+                    <div id="hls-loader" class="hls-loader-container" style="position:absolute; top:0; left:0; right:0; bottom:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:10; background:rgba(0,0,0,0.5);">
+                        <i class="fas fa-spinner fa-spin" style="font-size:3rem; margin-bottom:15px; color:white;"></i>
+                        <p style="font-family:'Playfair Display', serif; letter-spacing:2px; text-transform:uppercase; color:white;">Waiting for Stream to Start...</p>
+                    </div>
+                </div>
             `;
-            // Add a small YouTube Link button below for viewers who prefer YouTube
+            
+            // Add an attractive YouTube Link button below
             if (CONFIG.youtubeId) {
                 const ytLink = document.createElement('div');
                 ytLink.style.textAlign = 'center';
-                ytLink.style.marginTop = '15px';
                 ytLink.innerHTML = `
-                    <a href="https://youtube.com/watch?v=${CONFIG.youtubeId}" target="_blank" class="btn secondary-btn" style="font-size: 0.8rem; padding: 8px 15px;">
-                        <i class="fab fa-youtube"></i> Watch on YouTube (Alternate)
+                    <a href="https://youtube.com/watch?v=${CONFIG.youtubeId}" target="_blank" class="btn primary-btn youtube-fallback-btn" style="display:inline-flex; align-items:center; justify-content:center; gap:10px; margin-top:25px; background: linear-gradient(135deg, #e52d27 0%, #b31217 100%); color: white; border: none; min-width: 200px;">
+                        <i class="fab fa-youtube" style="font-size:1.3rem;"></i> Watch on YouTube
                     </a>
                 `;
                 livestreamSection.appendChild(ytLink);
             }
+
+            // Initialize elements and state variables
+            const video = document.getElementById('hls-video');
+            const loader = document.getElementById('hls-loader');
+            let isPlaying = false;
+            let hls;
+            let player;
+
+            // Update status badge if stream is live
+            const updateStatus = (isLive) => {
+                if (statusBadge) {
+                    if (isLive) {
+                        statusBadge.innerHTML = '● LIVE NOW';
+                        statusBadge.classList.add('live-glow');
+                    } else {
+                        statusBadge.innerHTML = '● LIVE SOON';
+                        statusBadge.classList.remove('live-glow');
+                    }
+                }
+            };
+
+            const tryLoadStream = () => {
+                if (isPlaying) return;
+                
+                fetch(CONFIG.restreamerUrl, { method: 'HEAD', cache: 'no-store' })
+                    .then(res => {
+                        if (res.ok) {
+                            // --- STREAM IS LIVE ---
+                            console.log("Stream detected! Initializing player...");
+                            if (loader) loader.style.display = 'none';
+                            isPlaying = true;
+                            updateStatus(true);
+                            
+                            if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+                                hls = new Hls({ 
+                                    capLevelToPlayerSize: true, 
+                                    maxBufferLength: 60, // Increased buffer
+                                    maxMaxBufferLength: 600,
+                                    liveSyncDurationCount: 5, // Wait for 5 segments instead of 3
+                                    liveMaxLatencyDurationCount: 15,
+                                    enableWorker: true,
+                                    lowLatencyMode: false // Stability over low latency
+                                });
+                                hls.loadSource(CONFIG.restreamerUrl);
+                                hls.attachMedia(video);
+                                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                                    if (typeof Plyr !== 'undefined') {
+                                        player = new Plyr(video, {
+                                            controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
+                                            settings: ['quality'],
+                                            tooltips: { controls: true, seek: true }
+                                        });
+                                    }
+                                    video.play().catch(e => console.log("Autoplay prevented:", e));
+                                });
+
+                                // Handle Stream Ending (Fallback to VOD)
+                                hls.on(Hls.Events.ERROR, function(event, data) {
+                                    if (data.fatal) {
+                                        console.warn("Stream interrupted, switching to VOD if available...");
+                                        isPlaying = false;
+                                        hls.destroy();
+                                        
+                                        if (CONFIG.youtubeId) {
+                                            setTimeout(() => {
+                                                if (playerContainer) {
+                                                    playerContainer.innerHTML = '<div id="youtube-player"></div>';
+                                                    setupYouTubeVOD();
+                                                }
+                                            }, 2000);
+                                        } else {
+                                            if (loader) loader.style.display = 'flex';
+                                            setTimeout(tryLoadStream, 5000);
+                                        }
+                                    }
+                                });
+                            } else if (video && video.canPlayType('application/vnd.apple.mpegurl')) {
+                                video.src = CONFIG.restreamerUrl;
+                                video.addEventListener('loadedmetadata', function() {
+                                    video.play().catch(e => console.log("Autoplay prevented:", e));
+                                });
+                            }
+                        } else {
+                            setTimeout(tryLoadStream, 5000);
+                        }
+                    })
+                    .catch(() => {
+                        setTimeout(tryLoadStream, 5000);
+                    });
+            };
+
+            const setupYouTubeVOD = () => {
+                new YT.Player('youtube-player', {
+                    height: '100%', width: '100%', videoId: CONFIG.youtubeId,
+                    playerVars: { 'playsinline': 1, 'rel': 0, 'modestbranding': 1 },
+                    events: {
+                        'onReady': () => {
+                            if (statusBadge) statusBadge.innerHTML = '● WATCH RECORDING';
+                        }
+                    }
+                });
+            };
+            
+            tryLoadStream();
         }
-        return; // Skip standard YouTube player setup
+        return; 
     }
 
     // 2. Fallback to standard YouTube Player API
@@ -718,6 +841,147 @@ function escapeHTML(str) {
 }
 
 fetchWishes();
+
+// --- LANGUAGE TOGGLE (EN / Telugu) ---
+const TRANSLATIONS = {
+    en: {
+        days: 'Days', hours: 'Hours', min: 'Min', sec: 'Sec',
+        save_calendar: ' Save to Calendar',
+        share_whatsapp: ' Share on WhatsApp',
+        watch_live: 'Watch Live',
+        join_live: ' Join Live Stream',
+        watch_live_stream: ' Watch Live Stream',
+        invitation_video: ' Invitation Video',
+        watch_invitation: 'Watch Invitation',
+        live_stream: 'Live Stream',
+        watching_now: ' Watching Now',
+        memories: 'Memories',
+        beautiful_memories: ' Beautiful Memories',
+        wishes_wall: 'Wishes Wall',
+        blessings: ' Blessings',
+        wishes_subtitle: 'Send your blessings to the happy couple',
+        name_placeholder: 'Your Name',
+        message_placeholder: 'Write your message here...',
+        blessings_placeholder: 'Write your blessings here...',
+        send_message: 'Send Message',
+        send_wishes: 'Send Wishes ',
+        locate_venue: 'Locate the Venue',
+        venue: ' Venue',
+        open_maps: ' Open in Google Maps',
+        people_visited: ' People visited this page',
+    },
+    te: {
+        days: 'రోజులు', hours: 'గంటలు', min: 'నిమిషాలు', sec: 'సెకన్లు',
+        save_calendar: ' క్యాలెండర్‌కు జోడించండి',
+        share_whatsapp: ' WhatsApp లో షేర్ చేయండి',
+        watch_live: 'లైవ్ చూడండి',
+        join_live: ' లైవ్ స్ట్రీమ్ లో చేరండి',
+        watch_live_stream: ' లైవ్ స్ట్రీమ్ చూడండి',
+        invitation_video: ' ఆహ్వాన వీడియో',
+        watch_invitation: 'ఆహ్వానం చూడండి',
+        live_stream: 'లైవ్ స్ట్రీమ్',
+        watching_now: ' చూస్తున్నారు',
+        memories: 'అందమైన జ్ఞాపకాలు',
+        beautiful_memories: ' అందమైన జ్ఞాపకాలు',
+        wishes_wall: 'శుభాకాంక్షలు',
+        blessings: ' ఆశీర్వాదాలు',
+        wishes_subtitle: 'జంటకు మీ శుభాకాంక్షలు తెలియజేయండి',
+        name_placeholder: 'మీ పేరు',
+        message_placeholder: 'మీ సందేశం ఇక్కడ రాయండి...',
+        blessings_placeholder: 'మీ ఆశీర్వాదాలు ఇక్కడ రాయండి...',
+        send_message: 'సందేశం పంపండి',
+        send_wishes: 'శుభాకాంక్షలు పంపండి ',
+        locate_venue: 'వేదిక స్థానం',
+        venue: ' వేదిక',
+        open_maps: ' Google Maps లో తెరవండి',
+        people_visited: ' మంది ఈ పేజీని సందర్శించారు',
+    }
+};
+
+let currentLang = localStorage.getItem('ec_lang') || 'en';
+
+function applyLocale(lang) {
+    currentLang = lang;
+    localStorage.setItem('ec_lang', lang);
+    const t = TRANSLATIONS[lang];
+
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.dataset.i18n;
+        if (t[key] === undefined) return;
+        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+            el.placeholder = t[key];
+        } else {
+            el.textContent = t[key];
+        }
+    });
+
+    // Toggle gold highlight on active language
+    const enLabel = document.getElementById('lang-label-en');
+    const teLabel = document.getElementById('lang-label-te');
+    if (enLabel && teLabel) {
+        enLabel.classList.toggle('lang-active', lang === 'en');
+        teLabel.classList.toggle('lang-active', lang === 'te');
+    }
+
+    // Apply Telugu font class to body
+    document.body.classList.toggle('lang-te', lang === 'te');
+}
+
+function initLangToggle() {
+    const btn = document.getElementById('lang-toggle-btn');
+    if (btn) {
+        btn.addEventListener('click', () => applyLocale(currentLang === 'en' ? 'te' : 'en'));
+    }
+    applyLocale(currentLang);
+}
+
+// --- LIVE VIEWER COUNT (Supabase Realtime Presence) ---
+function initLiveViewerCount() {
+    if (!_supabase || !CONFIG.eventId) return;
+
+    // Each tab gets its own unique key so every open window = 1 viewer
+    const presenceKey = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2);
+
+    const channel = _supabase.channel(`presence:event:${CONFIG.eventId}`, {
+        config: { presence: { key: presenceKey } }
+    });
+
+    const badge = document.getElementById('live-viewer-badge');
+    const numEl = badge ? badge.querySelector('.lvc-number') : null;
+
+    function updateBadge(count) {
+        if (!badge) return;
+        // Only show badge when 2+ people are watching (hides on solo preview)
+        if (count < 2) {
+            badge.style.display = 'none';
+        } else {
+            badge.style.display = 'inline-flex';
+            if (numEl) numEl.textContent = count;
+        }
+    }
+
+    channel
+        .on('presence', { event: 'sync' }, () => {
+            const count = Object.keys(channel.presenceState()).length;
+            updateBadge(count);
+        })
+        .subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                await channel.track({ joined_at: new Date().toISOString() });
+            }
+        });
+
+    // Pause presence tracking when tab is hidden (prevents ghost counts)
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            channel.untrack();
+        } else {
+            channel.track({ joined_at: new Date().toISOString() });
+        }
+    });
+}
 
 // --- WHATSAPP SHARE LOGIC ---
 document.getElementById('whatsapp-share-btn')?.addEventListener('click', () => {
