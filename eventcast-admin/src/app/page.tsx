@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { 
   PlusCircle, List, Settings, BarChart3, Image as ImageIcon, Video, Search, 
   MapPin, Clock, Calendar, UploadCloud, Film, Play, CheckCircle2, AlertCircle,
-  AlertTriangle, Loader2, Link as LinkIcon, X, Layout, Users, Menu
+  AlertTriangle, Loader2, Link as LinkIcon, X, Layout, Users, Menu, ChevronRight
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { authFetch, AuthError } from "@/lib/client-auth";
