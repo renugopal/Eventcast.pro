@@ -15,7 +15,28 @@ export async function GET(req: Request) {
       password: process.env.RESTREAMER_PASSWORD
     });
 
-    const activeProcesses = await restreamer.getAllProcesses();
+    const processes = await restreamer.getAllProcesses();
+    
+    const activeProcesses = await Promise.all(
+      processes.map(async (proc: any) => {
+        try {
+          const health = await restreamer.getProcessHealth(proc.id);
+          if (health) {
+            return {
+              ...proc,
+              bitrateKbps: health.bitrateKbps,
+              fps: health.fps,
+              runtime_seconds: health.runtimeSeconds,
+              state: health.state
+            };
+          }
+        } catch (e) {
+          console.error(`Failed to fetch health for process ${proc.id}:`, e);
+        }
+        return proc;
+      })
+    );
+
     return NextResponse.json({ success: true, activeProcesses });
   } catch (err: any) {
     console.error('Fetch Live Status Error:', err);

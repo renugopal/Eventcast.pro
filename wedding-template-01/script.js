@@ -537,6 +537,12 @@ function onYouTubeIframeAPIReady() {
             };
 
             const destroyHls = () => {
+                if (video && video._dropHandlers) {
+                    video.removeEventListener('waiting', video._dropHandlers);
+                    video.removeEventListener('stalled', video._dropHandlers);
+                    video.removeEventListener('ended', video._dropHandlers);
+                    delete video._dropHandlers;
+                }
                 if (player) {
                     player.destroy();
                     player = null;
@@ -572,6 +578,32 @@ function onYouTubeIframeAPIReady() {
                                 });
                                 hls.loadSource(CONFIG.restreamerUrl);
                                 hls.attachMedia(video);
+
+                                // Stream status drop checker
+                                const checkStreamStatusOnDrop = () => {
+                                    if (!isPlaying) return;
+                                    fetch(CONFIG.restreamerUrl, { method: 'HEAD', cache: 'no-store' })
+                                        .then(res => {
+                                            if (!res.ok) {
+                                                console.warn("Stream went offline. Reconnecting...");
+                                                destroyHls();
+                                                showLoader("Stream Interrupted. Reconnecting...");
+                                                startPolling();
+                                            }
+                                        })
+                                        .catch(() => {
+                                            console.warn("Stream check failed. Reconnecting...");
+                                            destroyHls();
+                                            showLoader("Stream Interrupted. Reconnecting...");
+                                            startPolling();
+                                        });
+                                };
+
+                                video.addEventListener('waiting', checkStreamStatusOnDrop);
+                                video.addEventListener('stalled', checkStreamStatusOnDrop);
+                                video.addEventListener('ended', checkStreamStatusOnDrop);
+                                video._dropHandlers = checkStreamStatusOnDrop;
+
                                 hls.on(Hls.Events.MANIFEST_PARSED, function() {
                                     if (typeof Plyr !== 'undefined') {
                                         player = new Plyr(video, {
