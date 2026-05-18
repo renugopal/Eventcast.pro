@@ -115,7 +115,7 @@ export class RestreamerClient {
     const outputs = [
       {
         "id": "hls",
-        "address": "{data}/{processid}.m3u8",
+        "address": "{memfs}/{processid}.m3u8",
         "options": [
           "-c:v", "copy", 
           "-c:a", "aac", "-b:a", "128k", "-ar", "44100", 
@@ -204,8 +204,8 @@ export class RestreamerClient {
     return {
       ingestUrl: `rtmp://34.100.142.25/${slug}`,
       streamKey: 'live',
-      hlsUrl: `${this.config.url}/data/${slug}.m3u8`,
-      playerUrl: `${this.config.url}/ui/player.html?query=data/${slug}.m3u8`
+      hlsUrl: `${this.config.url}/memfs/${slug}.m3u8`,
+      playerUrl: `${this.config.url}/ui/player.html?query=memfs/${slug}.m3u8`
     };
   }
 
