@@ -6,8 +6,6 @@ export const runtime = 'edge';
 // 🤖 EVENTCAST PRO - AI SALES BOT (THE RAINMAKER)
 // This endpoint powers the interactive chat widget on the landing page.
 
-const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || '');
-
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -52,10 +50,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid messages array' }, { status: 400, headers: CORS_HEADERS });
     }
 
-    if (!process.env.NEXT_PUBLIC_GEMINI_API_KEY) {
+    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    if (!apiKey) {
       return NextResponse.json({ error: 'AI API Key not configured' }, { status: 500, headers: CORS_HEADERS });
     }
 
+    const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     // Format history for Gemini
