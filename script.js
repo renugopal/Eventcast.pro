@@ -145,9 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatInput = document.getElementById('chat-input');
     const messagesContainer = document.getElementById('chat-messages');
     
-    let chatHistory = [
-        { role: 'model', content: "Hello! I'm the Eventcast AI. Use the calculator above to see your savings, or ask me how we can upgrade your livestreaming business! 🚀" }
-    ];
+    let chatHistory = [];
 
     if (chatForm) {
         chatForm.addEventListener('submit', async (e) => {
