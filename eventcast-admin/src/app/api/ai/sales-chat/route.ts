@@ -56,7 +56,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'AI API Key not configured' }, { status: 500, headers: CORS_HEADERS });
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     // Format history for Gemini
     const chat = model.startChat({
