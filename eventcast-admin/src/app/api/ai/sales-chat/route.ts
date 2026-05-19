@@ -83,6 +83,6 @@ export async function POST(req: Request) {
 
   } catch (err: any) {
     console.error('AI Sales Chat API Error:', err);
-    return NextResponse.json({ error: 'Failed to generate AI response' }, { status: 500, headers: CORS_HEADERS });
+    return NextResponse.json({ error: err.message || err.toString() }, { status: 500, headers: CORS_HEADERS });
   }
 }
