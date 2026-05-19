@@ -8,6 +8,20 @@ export const runtime = 'edge';
 
 const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || '');
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+// Handle CORS Preflight OPTIONS requests
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 200,
+    headers: CORS_HEADERS
+  });
+}
+
 const SYSTEM_PROMPT = `
 You are 'Eventcast AI', the official sales and consulting assistant for Eventcast.pro.
 Eventcast.pro is India's most reliable and premium B2B SaaS platform for live streaming weddings, sangeeths, and corporate events.
@@ -35,11 +49,11 @@ export async function POST(req: Request) {
     const { messages } = body;
 
     if (!messages || !Array.isArray(messages)) {
-      return NextResponse.json({ error: 'Invalid messages array' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid messages array' }, { status: 400, headers: CORS_HEADERS });
     }
 
     if (!process.env.NEXT_PUBLIC_GEMINI_API_KEY) {
-      return NextResponse.json({ error: 'AI API Key not configured' }, { status: 500 });
+      return NextResponse.json({ error: 'AI API Key not configured' }, { status: 500, headers: CORS_HEADERS });
     }
 
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
@@ -63,10 +77,12 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       reply: responseText
+    }, {
+      headers: CORS_HEADERS
     });
 
   } catch (err: any) {
     console.error('AI Sales Chat API Error:', err);
-    return NextResponse.json({ error: 'Failed to generate AI response' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to generate AI response' }, { status: 500, headers: CORS_HEADERS });
   }
 }

@@ -167,10 +167,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 // Determine API URL based on host (local vs production)
-                // Assuming admin panel runs on port 3000 locally and admin.eventcast.pro in prod
-                const apiUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+                // Point directly to our live Cloudflare Pages URL for immediate CORS fallback support!
+                const isLocal = window.location.hostname === 'localhost' || 
+                                window.location.hostname === '127.0.0.1' || 
+                                window.location.hostname === 'localhost:3000';
+                
+                const apiUrl = isLocal
                     ? 'http://localhost:3000/api/ai/sales-chat'
-                    : 'https://admin.eventcast.pro/api/ai/sales-chat';
+                    : 'https://eventcast-admin.pages.dev/api/ai/sales-chat';
 
                 const res = await fetch(apiUrl, {
                     method: 'POST',
