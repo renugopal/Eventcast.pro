@@ -422,17 +422,29 @@ interface LiveMonitorProps {
   wishes: any[];
 }
 
+const POLL_INTERVAL_MS = 10_000;
+
 export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeStreams, setActiveStreams] = useState<any[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [systemStatus, setSystemStatus] = useState<SystemStatus>('initializing');
+  const [nextRefreshIn, setNextRefreshIn] = useState<number>(POLL_INTERVAL_MS / 1000);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Tick the clock every second
   useEffect(() => {
     const t = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(t);
+  }, []);
+
+  const resetCountdown = useCallback(() => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    setNextRefreshIn(POLL_INTERVAL_MS / 1000);
+    countdownRef.current = setInterval(() => {
+      setNextRefreshIn(prev => (prev <= 1 ? POLL_INTERVAL_MS / 1000 : prev - 1));
+    }, 1000);
   }, []);
 
   const fetchLiveStatus = useCallback(async () => {
@@ -459,13 +471,17 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
       setSystemStatus('offline');
     } finally {
       setIsRefreshing(false);
+      resetCountdown();
     }
-  }, [events]);
+  }, [events, resetCountdown]);
 
   useEffect(() => {
     fetchLiveStatus();
-    const interval = setInterval(fetchLiveStatus, 15_000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchLiveStatus, POLL_INTERVAL_MS);
+    return () => {
+      clearInterval(interval);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
   }, [fetchLiveStatus]);
 
   const today = new Date().toISOString().split("T")[0];
@@ -544,24 +560,42 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
 
         <div className="flex items-center gap-12">
           {lastUpdated && (
-            <button
-              onClick={fetchLiveStatus}
-              disabled={isRefreshing}
-              className="group flex items-center gap-4 text-[10px] font-black text-white/30 hover:text-white transition-all bg-white/[0.03] px-6 py-3 rounded-2xl border border-white/5 hover:border-blue-500/40 active:scale-95"
-            >
-              <RefreshCw
-                size={16}
-                className={isRefreshing ? "animate-spin text-blue-400" : "group-hover:rotate-180 transition-transform duration-1000"}
-              />
-              <span className="font-mono tracking-widest uppercase">
-                SYNC {lastUpdated.toLocaleTimeString("en-US", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                  hour12: false
-                })}
-              </span>
-            </button>
+            <div className="flex flex-col items-end gap-2">
+              <button
+                onClick={fetchLiveStatus}
+                disabled={isRefreshing}
+                className="group flex items-center gap-4 text-[10px] font-black text-white/30 hover:text-white transition-all bg-white/[0.03] px-6 py-3 rounded-2xl border border-white/5 hover:border-blue-500/40 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw
+                  size={16}
+                  className={isRefreshing ? "animate-spin text-blue-400" : "group-hover:rotate-180 transition-transform duration-1000"}
+                />
+                <span className="font-mono tracking-widest uppercase">
+                  {isRefreshing ? "SYNCING…" : `SYNC ${lastUpdated.toLocaleTimeString("en-US", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: false
+                  })}`}
+                </span>
+              </button>
+              {!isRefreshing && (
+                <div className="flex items-center gap-2 pr-1">
+                  <div
+                    className="h-0.5 bg-white/[0.06] rounded-full overflow-hidden"
+                    style={{ width: "120px" }}
+                  >
+                    <div
+                      className="h-full bg-blue-500/60 rounded-full transition-all duration-1000 ease-linear"
+                      style={{ width: `${((POLL_INTERVAL_MS / 1000 - nextRefreshIn) / (POLL_INTERVAL_MS / 1000)) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-[9px] font-black font-mono text-white/15 uppercase tracking-widest tabular-nums">
+                    {nextRefreshIn}s
+                  </span>
+                </div>
+              )}
+            </div>
           )}
 
           <div className="text-right">
@@ -603,8 +637,30 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]" />
-                <span className="text-[10px] font-black text-emerald-500/40 uppercase tracking-[0.3em]">System Healthy</span>
+                {systemStatus === 'online' && (
+                  <>
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]" />
+                    <span className="text-[10px] font-black text-emerald-500/40 uppercase tracking-[0.3em]">System Healthy</span>
+                  </>
+                )}
+                {systemStatus === 'degraded' && (
+                  <>
+                    <div className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.8)] animate-pulse" />
+                    <span className="text-[10px] font-black text-amber-500/60 uppercase tracking-[0.3em]">Degraded Signal</span>
+                  </>
+                )}
+                {systemStatus === 'offline' && (
+                  <>
+                    <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.8)]" />
+                    <span className="text-[10px] font-black text-red-500/60 uppercase tracking-[0.3em]">Server Offline</span>
+                  </>
+                )}
+                {systemStatus === 'initializing' && (
+                  <>
+                    <div className="w-2 h-2 rounded-full bg-white/20 animate-pulse" />
+                    <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Initializing…</span>
+                  </>
+                )}
               </div>
             </div>
 

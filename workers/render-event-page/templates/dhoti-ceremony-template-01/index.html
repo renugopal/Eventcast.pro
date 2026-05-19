@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dhoti Ceremony | Eventcast.pro</title>
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Join us live and be part of this traditional Dhoti Ceremony filled with blessings and joy.">
+    <meta property="og:title" content="Traditional Dhoti Ceremony Live | Eventcast.pro">
+    <meta property="og:description" content="Join us live and be part of this traditional Dhoti Ceremony filled with blessings and joy.">
+    <meta property="og:image" content="assets/thumbnail.png">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@400;700&family=Inter:wght@300;400;500;600&family=Outfit:wght@300;400;600&family=Noto+Sans+Telugu:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://eventcast.pro/dhoti-ceremony-template-01/style.css">
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <!-- Preloader -->
+    <div id="loader">
+        <div class="loader-content">
+            <div class="loader-photo">
+                <img src="https://eventcast.pro/dhoti-ceremony-template-01/assets/thumbnail.png" alt="Celebrant" onerror="this.style.display='none';">
+            </div>
+            <h1 class="logo-text">A</h1>
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <!-- Stunning Fixed Background -->
+    <div class="bg-layer"></div>
+    <div class="bg-overlay"></div>
+
+    <!-- Falling Petals/Grains Canvas -->
+    <canvas id="petal-canvas"></canvas>
+
+    <main class="glass-container">
+        
+        <!-- HERO SECTION -->
+        <section id="hero" class="fade-in">
+            <p class="invite-header">You are cordially invited to celebrate the</p>
+            <h2 class="ceremony-title">Dhoti Ceremony</h2>
+            <div class="of-connector">of</div>
+            
+            <div class="name-showcase">
+                <h1 class="girl-name">Aryan</h1>
+            </div>
+
+            <div class="info-row">
+                <div class="info-pill"><i class="fas fa-calendar-alt"></i> <span class="config-date">Sunday, June 15th</span></div>
+                <div class="info-pill"><i class="fas fa-clock"></i> <span class="config-time">10:30 AM</span></div>
+                <div class="info-pill"><i class="fas fa-map-marker-alt"></i> <span class="config-venue-short">Venue TBA</span></div>
+            </div>
+
+            <div class="countdown-glass">
+                <div class="time-box"><span id="days">--</span><small data-i18n="days">Days</small></div>
+                <div class="time-box"><span id="hours">--</span><small data-i18n="hours">Hours</small></div>
+                <div class="time-box"><span id="minutes">--</span><small data-i18n="min">Min</small></div>
+                <div class="time-box"><span id="seconds">--</span><small data-i18n="sec">Sec</small></div>
+            </div>
+            
+            <a href="#live-card" class="btn primary-btn pulse-btn">
+                <i class="fas fa-video"></i><span data-i18n="watch_live_stream"> Watch Live Stream</span>
+            </a>
+        </section>
+
+        <div class="ornamental-divider"></div>
+
+        <!-- MEDIA GRID SECTION -->
+        <section id="media-grid" class="fade-in">
+            <div id="video-card" class="media-card video-card">
+                <h3><i class="fas fa-film"></i><span data-i18n="invitation_video"> Invitation Video</span></h3>
+                <div class="video-wrapper" id="video-wrapper">
+                    <video id="main-invitation-video" class="invitation-video" muted playsinline poster="https://eventcast.pro/dhoti-ceremony-template-01/assets/thumbnail.png">
+                        <source src="" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                    <!-- Video Controls Overlay -->
+                    <div id="video-play-overlay" class="video-overlay">
+                        <div class="play-circle"><i class="fas fa-play"></i></div>
+                        <span data-i18n="watch_invitation">Watch Invitation</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="live-card" class="media-card live-card">
+                <div class="live-header">
+                    <h3><i class="fab fa-youtube"></i><span data-i18n="live_stream"> Live Stream</span></h3>
+                    <div class="live-header-badges">
+                        <span class="live-badge"><span class="pulse"></span> LIVE SOON</span>
+                        <div id="live-viewer-badge" class="live-viewer-badge" style="display:none;">
+                            <span class="lvc-dot"></span>
+                            <span class="lvc-number">0</span><span data-i18n="watching_now"> Watching Now</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="video-wrapper">
+                    <div id="youtube-player"></div>
+                </div>
+            </div>
+        </section>
+
+        <div class="ornamental-divider"></div>
+
+        <!-- PHOTO GALLERY SECTION -->
+        <section id="gallery-section" class="fade-in" style="display: none; margin-top: 30px;">
+            <div class="media-card" style="width: 100%;">
+                <h3><i class="fas fa-images"></i><span data-i18n="beautiful_memories"> Beautiful Memories</span></h3>
+                <div class="slideshow-container" style="position: relative; overflow: hidden; border-radius: 15px; margin-top: 15px; background: rgba(0,0,0,0.05); min-height: 250px;">
+                </div>
+            </div>
+        </section>
+
+        <div class="ornamental-divider"></div>
+
+        <!-- INTERACTIVE SPLIT SECTION -->
+        <section id="interactive-split" class="fade-in">
+            <div class="split-card wishes-card">
+                <h3><i class="fas fa-heart"></i><span data-i18n="blessings"> Blessings</span></h3>
+                <p class="subtitle">Shower your wishes for Aryan</p>
+                <form id="wishes-form">
+                    <input type="text" id="wish-name" placeholder="Your Name" data-i18n="name_placeholder" required>
+                    <textarea id="wish-message" rows="3" placeholder="Write your blessings here..." data-i18n="blessings_placeholder" required></textarea>
+                    <button type="submit" class="btn solid-btn"><span data-i18n="send_wishes">Send Wishes </span><i class="fas fa-paper-plane"></i></button>
+                </form>
+                <div id="wishes-list" class="wishes-scroll-area">
+                    <!-- Wishes will appear here -->
+                </div>
+            </div>
+
+            <div class="split-card map-card">
+                <h3><i class="fas fa-location-dot"></i><span data-i18n="venue"> Venue</span></h3>
+                <p class="subtitle config-venue-full">Venue Address</p>
+                <div class="map-wrapper" id="map-wrapper">
+                    <iframe id="venue-iframe" src="" width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+                </div>
+                <a href="#" id="venue-nav-btn" target="_blank" class="btn outline-btn mt-15">
+                    <i class="fas fa-map"></i><span data-i18n="open_maps"> Open in Google Maps</span>
+                </a>
+            </div>
+        </section>
+
+        <!-- FOOTER -->
+        <footer id="footer-section">
+            <div class="photographer-section">
+                <img src="" alt="Studio Logo" id="footer-logo" style="display:none; max-height: 50px; margin: 0 auto 10px;">
+                <h3 class="studio-name" id="footer-studio-name"></h3>
+                <div class="contact-info mt-15">
+                    <a href="#" class="p-phone" id="footer-phone" style="display:none;"><i class="fas fa-phone"></i> <span></span></a>
+                    <a href="#" class="p-insta" id="footer-insta" target="_blank" style="display:none;"><i class="fab fa-instagram"></i> Instagram</a>
+                    <div class="public-stats" style="margin-top: 20px; font-size: 0.8rem; color: rgba(0,0,0,0.5); border-top: 1px solid rgba(184, 134, 11, 0.3); padding-top: 15px;">
+                        <i class="fas fa-eye"></i> <span id="total-views-display">--</span><span data-i18n="people_visited"> People visited this page</span>
+                    </div>
+                </div>
+            </div>
+        </footer>
+
+    </main>
+
+    <script src="https://eventcast.pro/dhoti-ceremony-template-01/script.js"></script>
+
+    <!-- Language Toggle Button -->
+    <button id="lang-toggle-btn" class="lang-toggle-btn" aria-label="Toggle Language">
+        <i class="fas fa-globe"></i>
+        <span id="lang-label-en" class="lang-active">EN</span>
+        <span class="lang-sep">|</span>
+        <span id="lang-label-te">తె</span>
+    </button>
+</body>
+</html>

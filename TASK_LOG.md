@@ -62,7 +62,7 @@ This document provides a concise summary of completed and pending tasks.
 
 ### High Priority
 - [x] **White Labeling**: Custom Live Control Center in Admin Dashboard (Replaced Restreamer UI with premium glassmorphism StreamCards, built-in HLS preview, and direct API controls).
-- [ ] AI Thumbnails: Auto-generate event thumbnails using Vertex AI.
+- [x] **AI Thumbnails**: Auto-generate event thumbnails using Vertex AI / Gemini Image Predict (with high-end custom prompt generation, signed Cloudinary server-side upload, and robust premium fallback support).
 - [x] **Restreamer Token Cache**: `RestreamerClient.getAuthToken()` now caches the Bearer token at module level (key: `url::username`) with a 55-minute TTL. All 7 methods share the same token within an Edge worker isolate — reduces `/api/login` calls from N-per-cron-tick to 1-per-55-min. `invalidateToken()` auto-evicts on HTTP 401 so stale tokens self-heal without a worker restart.
 - [x] **GitHub Rate Limit — Recursive Tree Fetch (generate)**: `/api/events/generate` now uses the GitHub Contents API (`GET /repos/.../contents/{templatePath}`) instead of `?recursive=1` to locate template files. Response is O(template_files) not O(repo_size). Safe at 1000+ events.
 - [x] **GitHub Rate Limit — Bulk Delete**: `/api/events/delete` now lists only the target event folder's files via the Contents API and removes them by sending `sha:null` entries against `base_tree`. Single targeted commit; never re-lists the full repo. `deleteMultipleEvents()` in the admin panel now processes deletions in sequential batches of 2 (instead of a single `Promise.all`) to avoid 429 responses on the GitHub API.
@@ -78,7 +78,7 @@ This document provides a concise summary of completed and pending tasks.
 - [ ] **Multi-Camera Support**: Internal switching between streams.
 - [ ] **Smart TV Casting**: AirPlay and Chromecast integration.
 - [ ] **Interactive Geo-Location Analytics**: Implement a real-time world map in the admin dashboard showing viewer distribution.
-- [ ] **Wishes Moderation System**: Add a "Control Room" for admins to approve/reject messages before they go live.
+- [x] **Wishes Moderation System**: Guests' wishes publish directly in real-time. Admins have absolute power to instantly delete/purge any unnecessary wish from the dashboard (secured by Supabase RLS).
 - [ ] **PWA Support**: Make event landing pages installable as mobile apps for better retention.
 - [ ] **IP & Anti-Theft Protection**: Implement JS code obfuscation, Cloudflare CORS/Hotlink protection, and basic UI blockers (disable right-click/F12) on public templates.
 

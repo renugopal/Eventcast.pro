@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ishaan Garikapati's 2nd Birthday Live</title>
+    
+    <!-- Open Graph Meta Tags (SEO & WhatsApp Previews) -->
+    <meta property="og:title" content="🔴 LIVE: Ishaan's 2nd Birthday Celebration 🎉 | Live Streaming | 1st April 6:00 PM">
+    <meta property="og:description" content="Join us live as we celebrate this special milestone filled with joy, laughter, and beautiful moments.">
+    <meta property="og:image" content="https://eventcast.pro/ishaan-birthday/whatsapp_thumbnail.jpg">
+    <meta property="og:type" content="website">
+
+    <!-- Elegant Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Nunito:wght@400;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="https://eventcast.pro/ishaan-birthday/style.css">
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    
+    <!-- Fixed Global Confetti -->
+    <div class="confetti-overlay" id="confetti" style="position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:9000; overflow:hidden;"></div>
+
+    <!-- SECTION 1: HERO (bg_hero.png) -->
+    <section class="full-section bg-hero fade-in">
+        <div class="page-container">
+            <div class="section hero-section">
+                <div class="balloons-container">
+                    <div class="balloon balloon-light-gold"></div>
+                    <div class="balloon balloon-sage"></div>
+                    <div class="balloon balloon-deep-gold"></div>
+                    <div class="balloon balloon-ivory"></div>
+                </div>
+
+                <div class="hero-card arch-card">
+                    <div class="invitation-intro">Join us to celebrate</div>
+                    
+                    <h1 class="child-name">Ishaan Garikapati</h1>
+                    <h2 class="birthday-title">2nd Birthday</h2>
+                    
+                    <div class="divider decorative-divider"></div>
+
+                    <div class="event-details">
+                        <p class="event-date">April 1, 2026</p>
+                        <p class="event-time">6:00 PM onwards</p>
+                        <p class="event-venue">Garikapati Farm House, Kellampalli</p>
+                    </div>
+                    
+                    <div class="divider decorative-divider"></div>
+
+                    <div class="inviters">
+                        <span class="invited-by-label">Invited by</span>
+                        <p>Garikapati Subbaiah & Chenchamma</p>
+                        <p>Venkat & Bhargavi Yeshika</p>
+                    </div>
+
+                    <div class="elegant-signboard">
+                        We can't wait to celebrate with you!
+                    </div>
+                </div>
+            </div>
+
+            <!-- Countdown tightly coupled to Hero visually -->
+            <div class="section countdown-section" style="margin-top: 40px;">
+                <div class="countdown-card content-card">
+                    <h2 class="section-title">Party Starts In...</h2>
+                    <div class="countdown-timer" id="countdown-timer">
+                        <div class="time-box">
+                            <span class="time-value" id="cd-days">--</span>
+                            <span class="time-label">Days</span>
+                        </div>
+                        <div class="time-box">
+                            <span class="time-value" id="cd-hours">--</span>
+                            <span class="time-label">Hours</span>
+                        </div>
+                        <div class="time-box">
+                            <span class="time-value" id="cd-minutes">--</span>
+                            <span class="time-label">Minutes</span>
+                        </div>
+                        <div class="time-box">
+                            <span class="time-value" id="cd-seconds">--</span>
+                            <span class="time-label">Seconds</span>
+                        </div>
+                    </div>
+                    <div class="countdown-live hidden" id="countdown-live">
+                        <h2 class="live-title">The Party is LIVE! Join Now! 🎉</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 2: LIVE STREAM (bg_live.png) -->
+    <section class="full-section bg-live fade-in">
+        <div class="page-container">
+            <div class="section livestream-section">
+                <div class="livestream-hero">
+                    <h2 class="section-title" style="padding-top: 25px;">Watch Live</h2>
+                    <div class="video-container" style="border-radius: 0; border-top: 1px solid var(--gold); border-bottom: 1px solid var(--gold); margin-bottom: 20px;">
+                        <iframe src="https://www.youtube.com/embed/ra5O81PU8wo" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                    </div>
+                    <div class="status-badge live-starting-soon" id="livestream-status">Starting soon</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 3: WISHES (bg_wishes.png) -->
+    <section class="full-section bg-wishes fade-in">
+        <div class="page-container">
+            <div class="section wishes-section">
+                <div class="content-card arch-card">
+                    <h2 class="section-title">Send Birthday Wishes</h2>
+                    
+                    <form class="wishes-form" id="wishes-form">
+                        <div class="form-group">
+                            <label for="wish-name">Your Name</label>
+                            <input type="text" id="wish-name" placeholder="Enter your name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="wish-message">Your Message</label>
+                            <textarea id="wish-message" rows="3" placeholder="Write a happy birthday wish..." required></textarea>
+                        </div>
+                        <button type="submit" class="primary-btn">Send Wishes 🎈</button>
+                    </form>
+
+                    <div class="wishes-list" id="wishes-list">
+                        <!-- Wish items will be generated here by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 4: GALLERY, MAP & FOOTER (bg_gallery.png) -->
+    <section class="full-section bg-gallery fade-in">
+        <div class="page-container">
+            <div class="section gallery-section">
+                <h2 class="section-title white-text title-shadow" style="color: var(--gold-light);">Ishaan's Happy Moments</h2>
+                <div class="gallery-grid" id="photo-gallery">
+                    <!-- Photos will be dynamically loaded here by script.js -->
+                </div>
+            </div>
+
+            <div class="section map-section" style="margin-top: 60px;">
+                <div class="content-card map-card arch-card-bottom">
+                    <h2 class="section-title">Find the Venue</h2>
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <a href="https://maps.app.goo.gl/7WTzR5zvAZY73kps6?g_st=ic" target="_blank" rel="noopener noreferrer" class="primary-btn" style="text-decoration: none; display: inline-block;">Open in Google Maps</a>
+                    </div>
+                    <div class="map-container">
+                        <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3838.6490011454566!2d79.7469174!3d15.822451200000001!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a4aebd63671b82f%3A0x2bf4be7804ebcc95!2sGarikapati%20Farm%20House!5e0!3m2!1sen!2sin!4v1774855928821!5m2!1sen!2sin" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+                    </div>
+                </div>
+            </div>
+
+            <footer class="footer-section" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 50px;">
+                <div class="studio-logo" style="border-color: var(--gold-light); color: var(--gold-light);">
+                    <span>SR</span>
+                </div>
+                <p class="studio-name" style="color: white;">SR PHOTOGRAPHY</p>
+                <p class="studio-name" style="font-size: 1.1rem; margin-top: 5px; color: var(--gold-light);">YASWANTH BITRA</p>
+                <p class="studio-phone" style="color: var(--gold);">8074 344 923</p>
+                <div class="footer-links" style="margin-top: 15px;">
+                    <a href="https://www.instagram.com/srphotographyforyou?igsh=ZjlzdGh4Z2pnNjI1&utm_source=qr" target="_blank" style="color: white; text-decoration: none; font-size: 0.9rem;"><i class="fab fa-instagram"></i> Instagram</a>
+                </div>
+                <p class="powered-by" style="color: white; margin-top: 30px;">Powered by EVENTCAST.PRO</p>
+            </footer>
+        </div>
+    </section>
+
+    <!-- Lightbox Modal -->
+    <div id="lightbox-modal" class="lightbox">
+        <span class="lightbox-close">&times;</span>
+        <img class="lightbox-content" id="lightbox-img">
+    </div>
+
+    <script src="https://eventcast.pro/ishaan-birthday/script.js"></script>
+</body>
+</html>

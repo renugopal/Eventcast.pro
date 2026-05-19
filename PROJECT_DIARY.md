@@ -4,6 +4,88 @@ This diary is a detailed record of the evolution of Eventcast Pro. It documents 
 
 ---
 
+## 🏛️ Session 12: Cloudflare Custom Domains & Wallet Subscription Upgrades (Phase 2 Masterpiece)
+**Date: May 18, 2026 (Night Session)**
+
+### 🔍 Context
+Following the successful deployment of our billing system, we designed and implemented the Phase 2 masterpiece: mapping custom user domains (e.g. `live.mystudio.com`) with automated SSL provisioning and DNS routing for absolute white-labeled wedding broadcasts. Additionally, we implemented a full-fledged "Purchase with Wallet Balance" feature, enabling users to instantly purchase or upgrade their subscription plan using loaded wallet credits.
+
+### 🗣️ Our Discussion
+We discussed creating a zero-dependency, Edge-compatible Cloudflare client on Next.js to directly handle custom hostnames under the target zone. We also planned a visually stunning Upgrade lock screen overlay in `UserSettings.tsx` for free/pay-per-event tiers, a seamless DNS setup ledger (`DnsSetupCard`) to display CNAME/TXT targets, and an automated balance deduction routing that charges ₹4,999 to immediately unlock Pro settings directly via prepaid credits.
+
+### 🛠️ What we did & Why
+1. **Custom Domain Database Schema (`0007_custom_domains_schema.sql`)**:
+   - *What we did*: Designed schemas for `studio_domains` mapping hostname records with strict RLS permissions scoped to studio owners.
+   - *Why*: To safely store custom mapping records with multi-tenant isolation.
+2. **Prepaid Subscription Upgrade API (`POST /api/billing/subscription`)**:
+   - *What we did*: Coded a secure backend API that validates wallet balance, deducts ₹4,999 for Pro or ₹9,999 for Agency, appends a `subscription` kind debit log in the prepaid ledger, and upgrades the studio tier in the database.
+   - *Why*: To provide absolute payment convenience directly via prepaid wallet credits.
+3. **Responsive Wallet Upgrade Card Actions (`Wallet.tsx`)**:
+   - *What we did*: Integrated interactive "Activate Plan" and "Upgrade with Wallet" buttons inside Solo Broadcaster and Professional Studio cards.
+   - *Why*: To empower photographers to upgrade their plans with a single click.
+4. **Cloudflare SaaS API Client (`cloudflare.ts`)**:
+   - *What we did*: Built edge-compatible fetch wrappers `cfAddCustomHostname`, `cfGetCustomHostname`, and `cfDeleteCustomHostname`.
+   - *Why*: To interface directly with the Cloudflare Zones API for real-time certificate provisioning.
+3. **Provisioning Route Handlers (`/api/domains`)**:
+   - *What we did*: Programmed secure endpoints for `/add` (plan checking and database recording), `/status` (real-time propagation checking), and `/remove` (clean zone deletions).
+   - *Why*: To cleanly expose safe domain transactions to the client.
+4. **White-Label DNS Panel UI (`UserSettings.tsx`)**:
+   - *What we did*: Integrated dynamic upgrade gates alongside domain creation input fields and DNS record details showing copyable CNAME and TXT keys.
+   - *Why*: To empower pro photographers with absolute branding autonomy while encouraging subscription updates.
+
+### 💡 Results & Learnings
+All features successfully compiled with **100% type-safety** verified by the Next.js/TypeScript compiler! The core monetization and custom white-labeling framework of Eventcast Pro is officially alive and ready for launch!
+
+---
+
+## 🏛️ Session 11: B2B SaaS Monetization & Prepaid Wallet System (Phase 2 Launch)
+**Date: May 18, 2026**
+
+### 🔍 Context
+Following the multi-tenant SaaS transformation, our goal was to implement the Phase 2 monetization engine: introducing a glassmorphic billing portal, a prepaid wallet model (charging ₹499 per new event), and high-end subscription tiers.
+
+### 🗣️ Our Discussion
+We planned a high-fidelity sandbox environment to simulate Razorpay credit top-ups during development without hitting live API limits. Additionally, we designed a highly resilient, transactional event generation pipeline featuring "pre-flight credit checks" and an "automatic rollback/refund safety net" to protect client balances against system crashes or generation timeouts.
+
+### 🛠️ What we did & Why
+1. **Postgres Billing Schema (`0006_billing_schema.sql`)**:
+   - *What we did*: Designed schemas for `wallet_balances` (paise-based accounting), `transactions` (detailed auditable ledger), and `subscriptions` (pro/agency tiers).
+   - *Why*: To ensure strict multi-tenant row-level security isolation for all studio financial data.
+2. **Glassmorphic Wallet Component (`Wallet.tsx`)**:
+   - *What we did*: Created an ultra-premium, dark-themed wallet UI displaying real-time balance metrics, tier cards, and transaction history logs.
+   - *Why*: To wow creative studio operators and make it effortless to manage funds and upgrade subscriptions.
+3. **Razorpay Sandbox Simulator**:
+   - *What we did*: Added a beautiful Razorpay-styled simulation popup allowing one-click prepaid wallet loads during testing.
+   - *Why*: To facilitate seamless, robust pre-production testing of the top-up pipelines.
+4. **Tenant-Scoped Secure Billing APIs**:
+   - *What we did*: Programmed secure endpoints `/api/billing/balance`, `/api/billing/transactions`, `/api/billing/subscription`, and `/api/billing/topup`.
+   - *Why*: To securely authenticate and handle all wallet transactions on the server.
+5. **Pre-flight Credit Engine with Auto-Refund Protection**:
+   - *What we did*: Integrated credit verification into the `/api/events/generate` endpoint. It checks studio balance (charging ₹499 per event), executes secure debits, and performs a complete rollback/refund if the generation process fails.
+   - *Why*: To maximize reliability and build trust with creative professionals.
+
+### 💡 Results & Learnings
+All additions successfully compiled with **100% type-safety** verified by the TypeScript compiler. The core monetization and transactional framework of Eventcast Pro is officially alive and ready for launch!
+
+---
+
+## 🏛️ Session 10: Infrastructure Optimization (VOD Archiving & Cloudflare HLS Caching)
+**Date: May 17, 2026**
+
+### 🔍 Context
+Optimized live stream caching and VOD storage reliability to prevent buffering and maximize performance on high-concurrency event days.
+
+### 🗣️ Our Discussion
+We discussed reducing latency while maintaining a high quality playback experience. We decided to leverage Cloudflare's edge network for HLS segments and establish direct VOD archiving routines from the Restreamer HLS stream to prevent cloud storage egress fees.
+
+### 🛠️ What we did & Why
+1. **Cloudflare Caching**: Added fine-tuned cache-control headers for `.ts` media segments.
+   - *Why?* To serve stream segments directly from the edge, lowering CPU load on our streaming server.
+2. **VOD Automation**: Built background sync workers to convert active streams into persistent MP4 archives post-event.
+   - *Why?* To ensure seamless replay ability without keeping high-performance servers running indefinitely.
+
+---
+
 ## 🏛️ Session 3: Admin Dashboard Hardening & Operational Tools
 **Date: May 4 - May 11, 2026**
 

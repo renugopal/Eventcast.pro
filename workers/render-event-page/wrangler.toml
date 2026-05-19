@@ -1,0 +1,26 @@
+name            = "render-event-page"
+main            = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# Allow importing *.html template files as plain text strings
+[[rules]]
+type   = "Text"
+globs  = ["templates/**/*.html"]
+fallthrough = true
+
+# ---------------------------------------------------------------------------
+# Plain-text vars (non-secret).  Set secrets with:
+#   wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+#   wrangler secret put SUPABASE_ANON_KEY
+# ---------------------------------------------------------------------------
+[vars]
+SUPABASE_URL = "https://lteogzqeuuoxlekhofow.supabase.co"
+
+# ---------------------------------------------------------------------------
+# Route — intercept /events/* on the production domain.
+# Activate in the Cloudflare dashboard or uncomment below after you have
+# added the zone to your Cloudflare account.
+# ---------------------------------------------------------------------------
+# [[routes]]
+# pattern  = "eventcast.pro/events/*"
+# zone_name = "eventcast.pro"

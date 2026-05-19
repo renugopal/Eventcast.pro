@@ -1,0 +1,11 @@
+name = "hls-signer"
+main = "src/index.ts"
+compatibility_date = "2024-03-20"
+
+# Note: The secret HLS_SIGNING_SECRET must be added via:
+# wrangler secret put HLS_SIGNING_SECRET
+# (Use the same secret as in eventcast-admin/.env.local)
+
+# To deploy, map this worker to intercept requests to your media domain.
+# In Cloudflare Dashboard -> Workers & Pages -> Routes:
+# Add route: media.eventcast.pro/memfs/* -> hls-signer

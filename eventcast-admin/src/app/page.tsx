@@ -8,7 +8,7 @@ import {
   AlertTriangle, Loader2, Link as LinkIcon, X, Layout, Users, Menu, ChevronRight,
   Shield, Zap, RefreshCw, Star, Globe, Lock, Eye, EyeOff, Save, Trash2,
   ChevronLeft, ChevronDown, Check, Copy, ExternalLink, Info, Bell, Phone,
-  Edit, Plus, Minus, ArrowLeft, ArrowRight, Download, Upload, QrCode
+  Edit, Plus, Minus, ArrowLeft, ArrowRight, Download, Upload, QrCode, Sparkles
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { authFetch, AuthError } from "@/lib/client-auth";
@@ -23,11 +23,15 @@ import { PhotographerManagement } from "./components/PhotographerManagement";
 import { AssetPreviewModal } from "./components/AssetPreviewModal";
 import { DashboardHome } from "./components/DashboardHome";
 import { LiveMonitor } from "./components/LiveMonitor";
+import { UserSettings } from "./components/UserSettings";
+import { Wallet } from "./components/Wallet";
 
 export default function AdminDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("home"); const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [studioId, setStudioId] = useState<string | null>(null);
+  const [studioSlug, setStudioSlug] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [events, setEvents] = useState<any[]>([]);
@@ -40,11 +44,8 @@ export default function AdminDashboard() {
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [isLoadingWishes, setIsLoadingWishes] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isUploading, setIsUploading] = useState<string | null>(null);
   const [submitStatus, setSubmitStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
-  const [thumbOverlayStyle, setThumbOverlayStyle] = useState<'classic_white' | 'golden' | 'dark_shadow' | 'minimal'>('classic_white');
-  const [thumbOverlayPreview, setThumbOverlayPreview] = useState<string>('');
 
   // Form State
   const [isEditing, setIsEditing] = useState(false);
@@ -68,7 +69,6 @@ export default function AdminDashboard() {
     vodLink: "",
     templateId: (typeof window !== 'undefined' ? localStorage.getItem('defaultTemplate') : null) || "wedding-template-01",
     youtubePrivacy: (typeof window !== 'undefined' ? localStorage.getItem('defaultYoutubePrivacy') : null) || "public",
-    autoGenerateThumbnail: true,
     customInitials: "",
     hideLoaderPhoto: false,
     loaderPhotoUrl: "",
@@ -87,7 +87,6 @@ export default function AdminDashboard() {
   const [isSearchingVenue, setIsSearchingVenue] = useState(false);
   const [mapPreviewUrl, setMapPreviewUrl] = useState(""); // Resolved, working embed URL for preview
   const [isResolvingMap, setIsResolvingMap] = useState(false);
-  const [selectedBaseDesign, setSelectedBaseDesign] = useState("ec_premium_pink_v1");
   const [isEditingPhotographer, setIsEditingPhotographer] = useState(false);
   const [editingPhotographerId, setEditingPhotographerId] = useState<string | null>(null);
   const [editingPhotographerData, setEditingPhotographerData] = useState<any | null>(null);
@@ -98,22 +97,10 @@ export default function AdminDashboard() {
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const loaderPhotoInputRef = useRef<HTMLInputElement>(null);
 
-  const baseDesigns = [
-    { id: "base_thumbnails/base_thumbnails/b421a3bc-10fb-4968-87d3-fc7e5902b55a", name: "Floral Classic", font: "Georgia", accentFont: "Times", nameColor: "7D5A50", typeColor: "8E7F7F" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_496fib496fib496f", name: "Modern Blush", font: "Times", accentFont: "Georgia", nameColor: "6D4C41", typeColor: "8D6E63" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_dki6mhdki6mhdki6", name: "Vintage Sage", font: "Georgia", accentFont: "Times", nameColor: "3E4E41", typeColor: "5E6E61" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_h4x887h4x887h4x8", name: "Royal Maroon", font: "Georgia", accentFont: "Times", nameColor: "5D4037", typeColor: "8D6E63" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_nukskenukskenuks", name: "Golden Frame", font: "Times", accentFont: "Georgia", nameColor: "4E342E", typeColor: "6D4C41" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_qkvc8rqkvc8rqkvc", name: "Elegant White", font: "Georgia", accentFont: "Times", nameColor: "424242", typeColor: "757575" },
-    { id: "base_thumbnails/base_thumbnails/Gemini_Generated_Image_rc16u6rc16u6rc16", name: "Artistic Pastel", font: "Georgia", accentFont: "Times", nameColor: "5D4037", typeColor: "8D6E63" }
-  ];
+  const [isUploading, setIsUploading] = useState<string | null>(null);
 
   useEffect(() => {
     checkUser();
-    fetchEvents();
-    fetchWishes();
-    fetchAnalytics();
-    fetchPhotographers();
 
     // Real-time listener: increment the affected event's count in-place
     // instead of re-fetching all rows from the DB on every single INSERT.
@@ -141,7 +128,33 @@ export default function AdminDashboard() {
     if (!session) {
       router.push("/login");
     } else {
-      setUser(session.user); setIsAuthLoading(false);
+      setUser(session.user);
+      
+      // Fetch the user's studio
+      const { data: memberData, error: memberError } = await supabase
+        .from('studio_members')
+        .select('studio_id, studios(slug, display_name)')
+        .eq('user_id', session.user.id)
+        .limit(1)
+        .single();
+        
+      if (memberData && !memberError) {
+        const sid = memberData.studio_id;
+        setStudioId(sid);
+        setStudioSlug((memberData.studios as any)?.slug || null);
+        setIsAuthLoading(false);
+        
+        // Scope all data fetches to this specific studio!
+        fetchEvents(sid);
+        fetchWishes(sid);
+        fetchAnalytics(sid);
+        fetchPhotographers(sid);
+      } else {
+        // Forbidden if no studio association is found
+        console.error("No studio found for this user context.");
+        await supabase.auth.signOut();
+        router.push("/login");
+      }
     }
   }
 
@@ -150,9 +163,17 @@ export default function AdminDashboard() {
     router.push("/login");
   }
 
-  async function fetchEvents() {
+  async function fetchEvents(currentStudioId?: string) {
+    const targetStudioId = currentStudioId || studioId;
+    if (!targetStudioId) return;
+
     setIsLoadingEvents(true);
-    const { data: eventsData, error } = await supabase.from('events').select('*, photographers(name)').order('created_at', { ascending: false });
+    const { data: eventsData, error } = await supabase
+      .from('events')
+      .select('*, photographers(name)')
+      .eq('studio_id', targetStudioId)
+      .order('created_at', { ascending: false });
+      
     const { data: viewCountRows } = await supabase.rpc('get_event_view_counts');
     
     if (eventsData) {
@@ -185,18 +206,44 @@ export default function AdminDashboard() {
     setIsLoadingEvents(false);
   }
 
-  async function fetchWishes() {
+  async function fetchWishes(currentStudioId?: string) {
+    const targetStudioId = currentStudioId || studioId;
+    if (!targetStudioId) return;
+
     setIsLoadingWishes(true);
-    const { data } = await supabase.from('wishes').select('*, events(groom_name, celebrant_name)').order('created_at', { ascending: false });
+    const { data } = await supabase
+      .from('wishes')
+      .select('*, events(groom_name, celebrant_name)')
+      .eq('studio_id', targetStudioId)
+      .order('created_at', { ascending: false });
     if (data) setWishes(data);
     setIsLoadingWishes(false);
   }
 
-  async function fetchAnalytics() {
+  async function deleteWish(id: string) {
+    try {
+      const { error } = await supabase
+        .from('wishes')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      fetchWishes();
+    } catch (err: any) {
+      console.error("Error deleting wish:", err);
+      alert("❌ Failed to delete wish: " + err.message);
+    }
+  }
+
+
+  async function fetchAnalytics(currentStudioId?: string) {
+    const targetStudioId = currentStudioId || studioId;
+    if (!targetStudioId) return;
+
     // Single aggregate query — no raw rows shipped to the client
     const { data: eventsData } = await supabase
       .from('events')
       .select('id, groom_name, celebrant_name, bride_name, event_type, slug, event_date')
+      .eq('studio_id', targetStudioId)
       .order('created_at', { ascending: false });
 
     const { data: viewCountRows } = await supabase.rpc('get_event_view_counts');
@@ -221,8 +268,15 @@ export default function AdminDashboard() {
     }
   }
 
-  async function fetchPhotographers() {
-    const { data } = await supabase.from('photographers').select('*').order('name');
+  async function fetchPhotographers(currentStudioId?: string) {
+    const targetStudioId = currentStudioId || studioId;
+    if (!targetStudioId) return;
+
+    const { data } = await supabase
+      .from('photographers')
+      .select('*')
+      .eq('studio_id', targetStudioId)
+      .order('name');
     if (data) setPhotographers(data);
   }
 
@@ -390,51 +444,6 @@ export default function AdminDashboard() {
     });
   };
 
-  const handleGenerateThumbnailPreview = () => {
-    if (!formData.groomName && !formData.celebrantName) {
-      alert("Please enter the Groom or Celebrant name first!");
-      return;
-    }
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const currentDesign = baseDesigns.find(d => d.id === selectedBaseDesign) || baseDesigns[0];
-    
-    const formatText = (str: string) => {
-      if (!str) return "";
-      // Double encode for Cloudinary text overlays
-      return encodeURIComponent(str)
-        .replace(/%26/g, "%2526")
-        .replace(/%2C/g, "%252C")
-        .replace(/\//g, "%252F")
-        .replace(/\?/g, "%253F");
-    };
-    
-    const groom = formatText(formData.groomName || formData.celebrantName || "Groom");
-    const bride = formatText(formData.brideName || "");
-    const eventTypeText = formatText(`${formData.eventType} Live`);
-    
-    // Premium AI-Style Layout with Shadows
-    let transformations = `w_1280,h_720,c_fill/`;
-    
-    // Layer 1: Groom Name with shadow
-    transformations += `co_rgb:${currentDesign.nameColor},e_shadow:40,x_2,y_2,l_text:Georgia_75_bold:${groom}/g_center,y_-110,fl_layer_apply/`;
-    
-    if (bride) {
-      // Ampersand with shadow
-      transformations += `co_rgb:${currentDesign.nameColor},e_shadow:30,l_text:Times_60:${formatText("&")}/g_center,y_-40,fl_layer_apply/`;
-      // Bride Name with shadow
-      transformations += `co_rgb:${currentDesign.nameColor},e_shadow:40,x_2,y_2,l_text:Georgia_75_bold:${bride}/g_center,y_30,fl_layer_apply/`;
-    }
-    
-    // Layer 4: Event Type with shadow
-    transformations += `co_rgb:${currentDesign.typeColor},e_shadow:20,l_text:Arial_55:${eventTypeText}/g_center,y_140,fl_layer_apply/`;
-    
-    // Add timestamp for cache busting
-    const generatedUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${transformations}f_auto,q_auto/${currentDesign.id}.jpg?v=${Date.now()}`;
-
-    console.log("Generated Thumbnail URL:", generatedUrl);
-    setFormData(prev => ({ ...prev, thumbnailUrl: generatedUrl }));
-  };
-
   // ─── Upload Video → Cloudflare R2 (Zero Egress Fees) ────────────────────────
   async function uploadToR2(files: FileList, folder: string): Promise<string[]> {
     const uploadedUrls: string[] = [];
@@ -552,30 +561,7 @@ export default function AdminDashboard() {
     setSubmitStatus(null);
 
     try {
-      let finalThumbnailUrl = formData.thumbnailUrl;
-      
-      if (formData.autoGenerateThumbnail && !finalThumbnailUrl) {
-        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-        const currentDesign = baseDesigns.find(d => d.id === selectedBaseDesign) || baseDesigns[0];
-        
-        const formatText = (str: string) => {
-          if (!str) return "";
-          return encodeURIComponent(str).replace(/%26/g, "%2526").replace(/%2C/g, "%252C");
-        };
-        const groom = formatText(formData.groomName || formData.celebrantName || "Groom");
-        const bride = formatText(formData.brideName || "");
-        const eventTypeText = formatText(`${formData.eventType} Live`);
-        
-        let transformations = `w_1280,h_720,c_fill/`;
-        transformations += `co_rgb:${currentDesign.nameColor},e_shadow:40,l_text:${currentDesign.font}_75_bold:${groom}/g_center,y_-110,fl_layer_apply/`;
-        if (bride) {
-          transformations += `co_rgb:${currentDesign.nameColor},e_shadow:30,l_text:${currentDesign.accentFont}_60:${formatText("&")}/g_center,y_-40,fl_layer_apply/`;
-          transformations += `co_rgb:${currentDesign.nameColor},e_shadow:40,l_text:${currentDesign.font}_75_bold:${bride}/g_center,y_30,fl_layer_apply/`;
-        }
-        transformations += `co_rgb:${currentDesign.typeColor},e_shadow:20,l_text:Arial_55:${eventTypeText}/g_center,y_140,fl_layer_apply/`;
-        
-        finalThumbnailUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${transformations}f_auto,q_auto/${currentDesign.id}.jpg`;
-      }
+      const finalThumbnailUrl = formData.thumbnailUrl;
 
 
       let youtubeDetails = null;
@@ -609,7 +595,6 @@ export default function AdminDashboard() {
         thumbnailUrl: finalThumbnailUrl,
         photographerId: selectedPhotographer?.id,
         galleryUrls: formData.galleryUrls.split('\n').filter(url => url.trim()),
-        baseDesign: selectedBaseDesign,
         vodLink: youtubeDetails?.youtubeUrl || formData.vodLink,
         youtube_broadcast_id: youtubeDetails?.broadcastId || formData.youtube_broadcast_id,
         youtube_stream_key: youtubeDetails?.streamKey || formData.youtube_stream_key,
@@ -664,7 +649,6 @@ export default function AdminDashboard() {
       vodLink: "",
       templateId: (typeof window !== 'undefined' ? localStorage.getItem('defaultTemplate') : null) || "wedding-template-01",
       youtubePrivacy: (typeof window !== 'undefined' ? localStorage.getItem('defaultYoutubePrivacy') : null) || "public",
-      autoGenerateThumbnail: true,
       customInitials: "",
       hideLoaderPhoto: false,
       loaderPhotoUrl: "",
@@ -723,7 +707,6 @@ export default function AdminDashboard() {
       vodLink: event.vod_link || "",
       templateId: event.template_id || "wedding-template-01",
       youtubePrivacy: "public",
-      autoGenerateThumbnail: event.auto_generate_thumbnail ?? true,
       customInitials: event.custom_initials || "",
       hideLoaderPhoto: event.hide_loader_photo || false,
       loaderPhotoUrl: event.loader_photo_url || "",
@@ -737,8 +720,6 @@ export default function AdminDashboard() {
     setHasManuallyEditedInitials(true);
     const pg = photographers.find((p: any) => p.id === event.photographer_id);
     if (pg) setSelectedPhotographer(pg);
-    // Restore base design selection if available
-    if (event.base_design) setSelectedBaseDesign(event.base_design);
     setActiveTab("create");
   };
 
@@ -766,7 +747,6 @@ export default function AdminDashboard() {
       vodLink: "", // Do not copy vodLink or youtube stream details
       templateId: event.template_id || "wedding-template-01",
       youtubePrivacy: "public",
-      autoGenerateThumbnail: event.auto_generate_thumbnail ?? true,
       customInitials: event.custom_initials || "",
       hideLoaderPhoto: event.hide_loader_photo || false,
       loaderPhotoUrl: event.loader_photo_url || "",
@@ -779,7 +759,6 @@ export default function AdminDashboard() {
     setHasManuallyEditedInitials(!!event.custom_initials);
     const pg = photographers.find((p: any) => p.id === event.photographer_id);
     if (pg) setSelectedPhotographer(pg);
-    if (event.base_design) setSelectedBaseDesign(event.base_design);
     setActiveTab("create");
   };
 
@@ -949,63 +928,6 @@ export default function AdminDashboard() {
     }
     setIsSubmitting(false);
   }
-
-  const generateThumbWithNames = () => {
-    if (!formData.thumbnailUrl) return;
-    if (!formData.groomName && !formData.celebrantName) {
-      alert('Please enter names first!');
-      return;
-    }
-    // Extract Cloudinary public_id from URL
-    const url = formData.thumbnailUrl;
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    if (!url.includes('cloudinary.com')) {
-      alert('Only works with Cloudinary-uploaded images. Upload the photo first.');
-      return;
-    }
-    const uploadSegment = url.split('/upload/')[1];
-    if (!uploadSegment) return;
-    // Strip any existing transformations — find the public_id part (after the last transform)
-    const segments = uploadSegment.split('/');
-    // Cloudinary transforms are segments matching x_y or x_y,z_w patterns
-    const transformPat = /^[a-zA-Z]+_[^/,]+([,][a-zA-Z]+_[^/,]+)*$/;
-    let idSegments: string[] = [];
-    let pastTransforms = false;
-    for (const seg of segments) {
-      if (!pastTransforms && transformPat.test(seg)) continue;
-      pastTransforms = true;
-      idSegments.push(seg);
-    }
-    const publicId = idSegments.join('/').replace(/\.[^.]+$/, ''); // remove extension
-
-    const fmt = (s: string) => encodeURIComponent(s).replace(/%2C/g, '%252C').replace(/%26/g, '%2526').replace(/%2F/g, '%252F');
-    const groomText = fmt(formData.groomName || formData.celebrantName || '');
-    const brideText = fmt(formData.brideName || '');
-
-    const styles: Record<string, { nameColor: string; groomFont: string; brideFont: string; yGroom: string; yBride: string; shadow: string; overlay: string }> = {
-      classic_white: { nameColor: 'FFFFFF', groomFont: 'Georgia_70_bold', brideFont: 'Georgia_55_italic', yGroom: '-80', yBride: '-20', shadow: 'e_shadow:50', overlay: '' },
-      golden:        { nameColor: 'F5C842', groomFont: 'Georgia_72_bold', brideFont: 'Georgia_58_italic', yGroom: '-80', yBride: '-20', shadow: 'e_shadow:40', overlay: 'e_brightness:-20,' },
-      dark_shadow:   { nameColor: '1A1A1A', groomFont: 'Georgia_70_bold', brideFont: 'Georgia_55_italic', yGroom: '80', yBride: '140', shadow: 'e_shadow:60', overlay: '' },
-      minimal:       { nameColor: 'F0EDE6', groomFont: 'Arial_65_bold', brideFont: 'Arial_50', yGroom: '-60', yBride: '5', shadow: '', overlay: '' },
-    };
-    const s = styles[thumbOverlayStyle];
-
-    let transforms = `w_1280,h_720,c_fill/`;
-    if (s.overlay) transforms += `${s.overlay}/`;
-    // Dark semi-transparent gradient overlay at bottom for readability (for classic & golden)
-    if (thumbOverlayStyle === 'classic_white' || thumbOverlayStyle === 'golden') {
-      transforms += `e_gradient_fade:symmetric_pad,x_0.5,y_0.4,b_rgb:000000/`;
-    }
-    transforms += `co_rgb:${s.nameColor},${s.shadow ? s.shadow + ',' : ''}l_text:${s.groomFont}:${groomText}/g_south,y_${s.yGroom},fl_layer_apply/`;
-    if (brideText) {
-      const amp = fmt('& ');
-      transforms += `co_rgb:${s.nameColor},l_text:${s.brideFont}:${amp}${brideText}/g_south,y_${s.yBride},fl_layer_apply/`;
-    }
-    transforms += `f_auto,q_auto/`;
-
-    const previewUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${transforms}${publicId}.jpg?v=${Date.now()}`;
-    setThumbOverlayPreview(previewUrl);
-  };
 
   const filteredPhotographers = photographers.filter(p => {
     const q = photographerSearchQuery.toLowerCase();
@@ -1411,16 +1333,8 @@ export default function AdminDashboard() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div className="space-y-8">
                       <div>
-                        <div className="flex justify-between items-center mb-3">
-                          <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Event Thumbnail (for SEO)</label>
-                          <label className="flex items-center gap-2 cursor-pointer group">
-                             <input type="checkbox" id="autoThumb" checked={formData.autoGenerateThumbnail} onChange={(e) => setFormData(prev => ({ ...prev, autoGenerateThumbnail: e.target.checked }))} className="peer sr-only" />
-                             <div className="w-8 h-4 bg-white/10 rounded-full border border-white/10 transition-all peer-checked:bg-blue-600 relative">
-                               <div className="absolute left-0.5 top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-all peer-checked:translate-x-4"></div>
-                             </div>
-                             <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest group-hover:text-white transition-colors">Auto-Design AI</span>
-                          </label>
-                        </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Event Thumbnail (for SEO)</label>
                         <div className="relative group">
                           <input
                             type="text"
@@ -1441,61 +1355,14 @@ export default function AdminDashboard() {
                         </div>
 
                         {formData.thumbnailUrl && (
-                          <div className="mt-6 space-y-6 animate-in fade-in zoom-in-95 duration-700">
+                          <div className="mt-6 animate-in fade-in zoom-in-95 duration-700">
                             <div className="p-2 bg-white/[0.02] border border-white/[0.08] rounded-[2rem] overflow-hidden shadow-2xl group relative">
                               <img src={formData.thumbnailUrl} alt="Thumbnail Preview" className="w-full h-48 object-cover rounded-[1.75rem] group-hover:scale-110 transition-transform duration-700 opacity-80 group-hover:opacity-100" />
                               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
                             </div>
-
-                            {/* ✨ Names on Photo Designer */}
-                            {formData.thumbnailUrl.includes('cloudinary.com') && (formData.groomName || formData.celebrantName) && (
-                              <div className="p-8 bg-blue-500/5 border border-blue-500/20 rounded-[2.5rem] space-y-6 shadow-2xl relative overflow-hidden backdrop-blur-md">
-                                <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none"><Zap size={80} /></div>
-                                <h4 className="text-xs font-black text-blue-400 uppercase tracking-[0.2em] flex items-center gap-3">
-                                  <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shadow-[0_0_8px_rgba(96,165,250,1)]" />
-                                  Add Names to Thumbnail
-                                </h4>
-                                <div className="grid grid-cols-2 gap-3">
-                                  {[
-                                    ['classic_white','☁️ Classic'], 
-                                    ['golden','✨ Golden'], 
-                                    ['dark_shadow','🖤 Stealth'], 
-                                    ['minimal','🤍 Minimal']
-                                  ].map(([val, label]) => (
-                                    <button key={val} type="button"
-                                      onClick={() => setThumbOverlayStyle(val as any)}
-                                      className={`py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border transition-all ${
-                                        thumbOverlayStyle === val
-                                          ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-600/30'
-                                          : 'bg-white/[0.03] text-white/40 border-white/[0.08] hover:border-blue-500/40 hover:text-white'
-                                      }`}
-                                    >{label}</button>
-                                  ))}
-                                </div>
-                                <button type="button" onClick={generateThumbWithNames}
-                                  className="w-full py-4 bg-white/10 hover:bg-white text-white hover:text-black rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 border border-white/10"
-                                >
-                                  <Zap size={16} /> Preview with Names
-                                </button>
-                                
-                                {thumbOverlayPreview && (
-                                  <div className="space-y-4 animate-in fade-in zoom-in-95 duration-500">
-                                    <div className="relative rounded-[1.5rem] overflow-hidden border-2 border-blue-500/30 shadow-2xl">
-                                       <img src={thumbOverlayPreview} alt="Synthesis Preview" className="w-full" />
-                                       <div className="absolute top-3 right-3 px-3 py-1 bg-blue-600 text-white text-[8px] font-black uppercase rounded-full">PREVIEW</div>
-                                    </div>
-                                    <button type="button"
-                                      onClick={() => { setFormData(prev => ({ ...prev, thumbnailUrl: thumbOverlayPreview })); setThumbOverlayPreview(''); }}
-                                      className="w-full py-4 bg-green-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-green-500 transition-all shadow-lg shadow-green-600/20"
-                                    >
-                                      ✅ Use This Thumbnail
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
                           </div>
                         )}
+                      </div>
                       </div>
 
                       <div className="space-y-8">
@@ -1774,145 +1641,14 @@ export default function AdminDashboard() {
             deleteMultipleEvents={deleteMultipleEvents}
           />
         )}
-        {activeTab === "moderation" && <WishesModeration wishes={wishes} isLoadingWishes={isLoadingWishes} fetchWishes={fetchWishes} deleteWish={fetchWishes} />}
+        {activeTab === "moderation" && <WishesModeration wishes={wishes} isLoadingWishes={isLoadingWishes} fetchWishes={fetchWishes} deleteWish={deleteWish} />}
         {activeTab === "analytics" && <AnalyticsDashboard analyticsData={analyticsData} />}
         {activeTab === "assets" && <AssetLibrary assetLibrary={assetLibrary} getVideoThumbnail={getVideoThumbnail} setSelectedAsset={setSelectedAsset} />}
         {activeTab === "settings" && (
-          <div className="max-w-4xl mx-auto space-y-12 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div 
-              className="p-8 md:p-12 rounded-[3rem] border backdrop-blur-2xl shadow-2xl relative overflow-hidden"
-              style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)" }}
-            >
-              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/[0.03] blur-[100px] -z-10" />
-              <h2 className="text-2xl font-black text-white mb-10 flex items-center gap-4">
-                <div className="w-12 h-12 bg-blue-500/10 text-blue-400 rounded-2xl flex items-center justify-center border border-blue-500/20 shadow-lg shadow-blue-500/5">
-                  <Shield size={24} />
-                </div>
-                <div>
-                  <span className="block text-xl tracking-tight">Account Security</span>
-                  <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Change your password</span>
-                </div>
-              </h2>
-
-              <div className="mb-10 p-6 bg-blue-500/5 rounded-2xl border border-blue-500/10 text-blue-400 text-[11px] font-black uppercase tracking-widest leading-relaxed flex items-start gap-4">
-                <Zap size={18} className="flex-shrink-0 mt-0.5" />
-                <p>Security Notice: Modifying your password will automatically log you out of all other active sessions across devices.</p>
-              </div>
-
-              <form onSubmit={handlePasswordUpdate} className="space-y-8">
-                <div className="grid grid-cols-1 gap-8">
-                  <div>
-                    <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Current Password</label>
-                    <input type="password" name="currentPassword" required placeholder="Enter current password" className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">New Password (min 8 characters)</label>
-                      <input type="password" name="newPassword" required minLength={8} placeholder="Enter new password" className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Confirm New Password</label>
-                      <input type="password" name="confirmPassword" required placeholder="Re-enter new password" className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-base placeholder:text-white/10" />
-                    </div>
-                  </div>
-                </div>
-                <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-blue-600 text-white rounded-[2rem] font-black uppercase tracking-[0.4em] text-sm shadow-[0_20px_50px_-10px_rgba(59,130,246,0.5)] hover:bg-blue-500 transition-all disabled:opacity-30 transform active:scale-[0.98] flex items-center justify-center gap-4 group mt-4">
-                  {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <Shield size={20} className="group-hover:rotate-12 transition-transform" />}
-                  {isSubmitting ? "Updating..." : "Update Password"}
-                </button>
-              </form>
-            </div>
-
-            <div 
-              className="p-8 md:p-12 rounded-[3rem] border backdrop-blur-2xl shadow-2xl relative overflow-hidden"
-              style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)" }}
-            >
-              <div className="absolute top-0 left-0 w-64 h-64 bg-purple-600/[0.03] blur-[100px] -z-10" />
-              <h3 className="text-xl font-black text-white mb-10 flex items-center gap-4">
-                <div className="w-12 h-12 bg-purple-500/10 text-purple-400 rounded-2xl flex items-center justify-center border border-purple-500/20 shadow-lg shadow-purple-500/5">
-                  <Layout size={24} />
-                </div>
-                <div>
-                  <span className="block text-xl tracking-tight">Default Settings</span>
-                  <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Preferences saved in your browser</span>
-                </div>
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                <div>
-                  <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Default Template</label>
-                  <div className="relative group">
-                    <select 
-                      id="defaultTemplate"
-                      className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-sm appearance-none cursor-pointer group-hover:border-white/20"
-                      defaultValue={typeof window !== 'undefined' ? localStorage.getItem('defaultTemplate') || 'wedding-template-01' : 'wedding-template-01'}
-                      onChange={(e) => localStorage.setItem('defaultTemplate', e.target.value)}
-                    >
-                      <option value="wedding-template-01" className="bg-[#0d0d17]">Wedding: Pink & Gold</option>
-                      <option value="half-saree-template-01" className="bg-[#0d0d17]">Half Saree: Emerald</option>
-                      <option value="dhoti-ceremony-template-01" className="bg-[#0d0d17]">Dhoti: Royal Blue</option>
-                    </select>
-                    <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 rotate-90 text-white/20 pointer-events-none" size={20} />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Default YouTube Privacy</label>
-                  <div className="relative group">
-                    <select 
-                      id="defaultYoutubePrivacy"
-                      className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white text-sm appearance-none cursor-pointer group-hover:border-white/20"
-                      defaultValue={typeof window !== 'undefined' ? localStorage.getItem('defaultYoutubePrivacy') || 'public' : 'public'}
-                      onChange={(e) => localStorage.setItem('defaultYoutubePrivacy', e.target.value)}
-                    >
-                      <option value="public" className="bg-[#0d0d17]">Public (Everyone)</option>
-                      <option value="unlisted" className="bg-[#0d0d17]">Unlisted (Link Only)</option>
-                    </select>
-                    <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 rotate-90 text-white/20 pointer-events-none" size={20} />
-                  </div>
-                </div>
-              </div>
-              <div className="mt-10 p-6 bg-white/[0.02] rounded-2xl border border-white/[0.05] text-white/40 text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-4">
-                <CheckCircle2 size={16} className="text-green-500" /> Preferences synchronized with local cache storage
-              </div>
-            </div>
-
-            <div 
-              className="p-8 md:p-12 rounded-[3rem] border backdrop-blur-2xl shadow-2xl relative overflow-hidden"
-              style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)" }}
-            >
-              <div className="absolute bottom-0 right-0 w-64 h-64 bg-green-600/[0.03] blur-[100px] -z-10" />
-              <h3 className="text-xl font-black text-white mb-10 flex items-center gap-4">
-                <div className="w-12 h-12 bg-green-500/10 text-green-400 rounded-2xl flex items-center justify-center border border-green-500/20 shadow-lg shadow-green-500/5">
-                  <Users size={24} />
-                </div>
-                <div>
-                  <span className="block text-xl tracking-tight">Team Members</span>
-                  <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Manage access</span>
-                </div>
-              </h3>
-              
-              <div className="space-y-4">
-                <div className="p-6 bg-white/[0.03] rounded-3xl border border-white/[0.08] flex items-center justify-between group hover:bg-white/[0.05] transition-all">
-                  <div className="flex items-center gap-5">
-                    <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg shadow-blue-600/20 group-hover:scale-105 transition-transform">
-                      {user?.email?.charAt(0).toUpperCase() || "A"}
-                    </div>
-                    <div>
-                      <p className="font-black text-white tracking-tight">{user?.email || "Super Admin"}</p>
-                      <p className="text-[10px] text-blue-500 font-black uppercase tracking-widest mt-1">Owner</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,1)]" />
-                    <span className="text-[10px] font-black text-green-400 uppercase tracking-[0.2em]">Active</span>
-                  </div>
-                </div>
-              </div>
-              <button className="mt-10 px-6 py-4 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3 border border-white/5 transition-all">
-                <PlusCircle size={18} /> Add Team Member (Coming Soon)
-              </button>
-            </div>
-          </div>
+          <UserSettings studioId={studioId} studioSlug={studioSlug} user={user} />
+        )}
+        {activeTab === "billing" && (
+          <Wallet studioId={studioId} />
         )}
         {activeTab === "photographers" && (
           <PhotographerManagement 

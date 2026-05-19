@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Lock, Mail, Video, Loader2, AlertCircle } from "lucide-react";
 
@@ -59,7 +60,7 @@ export default function LoginPage() {
             <Video size={32} className="text-white" />
           </div>
           <h1 className="text-3xl font-black text-white tracking-tight">Eventcast <span className="text-blue-500">PRO</span></h1>
-          <p className="text-slate-400 mt-2">Control Center Login</p>
+          <p className="text-slate-400 mt-2">Studio Dashboard Login</p>
         </div>
 
         {/* Login Card */}
@@ -117,11 +118,18 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          <div className="mt-6 pt-6 border-t border-slate-700/60 text-center text-sm text-slate-400">
+            Don't have a studio account?{" "}
+            <Link href="/signup" className="text-blue-500 hover:text-blue-400 font-bold transition-colors">
+              Create one here
+            </Link>
+          </div>
         </div>
 
         <p className="text-center text-slate-500 text-xs mt-8">
           Authorized personnel only. All access attempts are logged.
-          <br />© 2026 Eventcast PRO • Security by Supabase
+          <br />© 2026 Eventcast PRO • Premium Live Streaming Solutions
         </p>
       </div>
     </div>

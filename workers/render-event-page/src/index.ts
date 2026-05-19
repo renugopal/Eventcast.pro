@@ -1,0 +1,394 @@
+import weddingTemplate01 from '../templates/wedding-template-01/index.html';
+import dhotiTemplate from '../templates/dhoti-ceremony-template-01/index.html';
+import halfSareeTemplate from '../templates/half-saree-template-01/index.html';
+import engagementTemplate from '../templates/harika-adithya-engagement/index.html';
+import birthdayTemplate from '../templates/ishaan-birthday/index.html';
+
+// ---------------------------------------------------------------------------
+// Env bindings (declared in wrangler.toml / Cloudflare dashboard secrets)
+// ---------------------------------------------------------------------------
+export interface Env {
+  SUPABASE_URL: string;
+  /** Service-role key — server-side only, bypasses RLS for event reads */
+  SUPABASE_SERVICE_ROLE_KEY: string;
+  /** Anon key — injected into window.WEDDING_CONFIG for client-side Supabase calls */
+  SUPABASE_ANON_KEY: string;
+}
+
+// Map template_id → bundled HTML string. Add new entries here as you add templates.
+const TEMPLATES: Record<string, string> = {
+  'wedding-template-01': weddingTemplate01,
+  'dhoti-ceremony-template-01': dhotiTemplate,
+  'half-saree-template-01': halfSareeTemplate,
+  'engagement-template-01': engagementTemplate,
+  'birthday-template-01': birthdayTemplate,
+};
+const DEFAULT_TEMPLATE_ID = 'wedding-template-01';
+
+// ---------------------------------------------------------------------------
+// Worker entry point
+// ---------------------------------------------------------------------------
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+
+    // Only handle GET /events/:slug — pass everything else through unchanged.
+    if (request.method !== 'GET') {
+      return new Response('Method Not Allowed', { status: 405 });
+    }
+    const eventMatch = url.pathname.match(/^\/events\/([^/?#]+)\/?$/);
+    if (!eventMatch) {
+      return new Response('Not Found', { status: 404 });
+    }
+
+    const slug = decodeURIComponent(eventMatch[1]);
+    const hostname = url.hostname;
+
+    try {
+      const sbHeaders = {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json',
+      };
+
+      // -----------------------------------------------------------------------
+      // 1. Resolve studio — prefer custom_domain match, fall back to 'eventcast'
+      // -----------------------------------------------------------------------
+      let studioId: string | null = null;
+
+      const domainRes = await fetch(
+        `${env.SUPABASE_URL}/rest/v1/studios?select=id&custom_domain=eq.${encodeURIComponent(hostname)}&limit=1`,
+        { headers: sbHeaders },
+      );
+      const domainRows: { id: string }[] = await domainRes.json();
+
+      if (domainRows.length > 0) {
+        studioId = domainRows[0].id;
+      } else {
+        const defaultRes = await fetch(
+          `${env.SUPABASE_URL}/rest/v1/studios?select=id&slug=eq.eventcast&limit=1`,
+          { headers: sbHeaders },
+        );
+        const defaultRows: { id: string }[] = await defaultRes.json();
+        studioId = defaultRows[0]?.id ?? null;
+      }
+
+      if (!studioId) {
+        return htmlError(404, 'Studio not found');
+      }
+
+      // -----------------------------------------------------------------------
+      // 2. Fetch event row + related photographer in one PostgREST call
+      // -----------------------------------------------------------------------
+      const eventRes = await fetch(
+        `${env.SUPABASE_URL}/rest/v1/events` +
+          `?slug=eq.${encodeURIComponent(slug)}` +
+          `&studio_id=eq.${studioId}` +
+          `&select=*,photographers(*)` +
+          `&limit=1`,
+        { headers: sbHeaders },
+      );
+      const events: EventRow[] = await eventRes.json();
+
+      if (!events || events.length === 0) {
+        return htmlError(404, `Event "${slug}" not found`);
+      }
+
+      const event = events[0];
+      // PostgREST returns a nested array for the foreign-key join
+      const photographer: PhotographerRow | null = Array.isArray(event.photographers)
+        ? (event.photographers[0] ?? null)
+        : (event.photographers ?? null);
+
+      // -----------------------------------------------------------------------
+      // 3. Pick template, render, return
+      // -----------------------------------------------------------------------
+      const templateHtml = TEMPLATES[event.template_id ?? DEFAULT_TEMPLATE_ID]
+        ?? TEMPLATES[DEFAULT_TEMPLATE_ID];
+
+      const rendered = renderEvent(templateHtml, event, photographer, slug, env);
+
+      return new Response(rendered, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          // Cache 60 s at edge; stale responses still served for 5 min while revalidating
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+          'X-Rendered-By': 'render-event-page-worker',
+        },
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[render-event-page]', msg);
+      return new Response('Internal Server Error', { status: 500 });
+    }
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Types (minimal shape — extend as the schema evolves)
+// ---------------------------------------------------------------------------
+interface EventRow {
+  id: string;
+  slug: string;
+  studio_id: string;
+  template_id?: string | null;
+  event_type?: string | null;
+  groom_name?: string | null;
+  bride_name?: string | null;
+  celebrant_name?: string | null;
+  custom_top_title?: string | null;
+  event_date?: string | null;
+  event_time?: string | null;
+  timer_target_time?: string | null;
+  show_timer?: boolean | null;
+  venue_name?: string | null;
+  venue_map_link?: string | null;
+  thumbnail_url?: string | null;
+  gallery_urls?: string[] | null;
+  invitation_video_url?: string | null;
+  vod_link?: string | null;
+  privacy_status?: string | null;
+  custom_initials?: string | null;
+  hide_loader_photo?: boolean | null;
+  loader_photo_url?: string | null;
+  restreamer_ingest_url?: string | null;
+  restreamer_hls_url?: string | null;
+  restreamer_player_url?: string | null;
+  youtube_url?: string | null;
+  photographer_id?: string | null;
+  photographers?: PhotographerRow | PhotographerRow[] | null;
+}
+
+interface PhotographerRow {
+  id: string;
+  name?: string | null;
+  instagram?: string | null;
+  website?: string | null;
+  logo_url?: string | null;
+  [key: string]: unknown;
+}
+
+// ---------------------------------------------------------------------------
+// Date / time helpers — identical logic to the original route.ts
+// ---------------------------------------------------------------------------
+function formatDate(rawDate: string): string {
+  if (!rawDate) return '';
+  const [y, m, d] = rawDate.split('-').map(Number);
+  const dateObj = new Date(Date.UTC(y, m - 1, d));
+  let formatted = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC',
+  }).format(dateObj);
+  const day = dateObj.getUTCDate();
+  const suffix =
+    day % 10 === 1 && day !== 11 ? 'st' :
+    day % 10 === 2 && day !== 12 ? 'nd' :
+    day % 10 === 3 && day !== 13 ? 'rd' : 'th';
+  return formatted.replace(String(day), `${day}${suffix}`);
+}
+
+function formatTime(rawTime: string): string {
+  if (!rawTime) return '';
+  const [hours, minutes] = rawTime.split(':');
+  const h = parseInt(hours, 10);
+  return `${h % 12 || 12}:${minutes} ${h >= 12 ? 'PM' : 'AM'}`;
+}
+
+// ---------------------------------------------------------------------------
+// Venue / map URL helpers
+// ---------------------------------------------------------------------------
+function buildEmbedUrl(vMap: string | null | undefined, vName: string | null | undefined): string {
+  const name = vName ?? '';
+  if (!vMap && !name) return '';
+  if (vMap && vMap.includes('<iframe')) {
+    const m = vMap.match(/src="([^"]+)"/);
+    return m ? m[1] : '';
+  }
+  let q = name;
+  if (vMap) {
+    try {
+      const urlStr = vMap.startsWith('http') ? vMap : `https://${vMap}`;
+      const parsed = new URL(urlStr);
+      const coords = parsed.pathname.match(/\/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+      if (coords) {
+        q = `${coords[1]},${coords[2]}`;
+      } else if (parsed.pathname.includes('/place/')) {
+        q = decodeURIComponent(parsed.pathname.split('/place/')[1].split('/')[0]);
+      } else if (parsed.searchParams.has('q')) {
+        q = parsed.searchParams.get('q') ?? name;
+      } else if (parsed.pathname.includes('/search/')) {
+        q = decodeURIComponent(parsed.pathname.split('/search/')[1].split('/')[0]);
+      }
+    } catch (_) { /* malformed URL — fall back to name */ }
+  }
+  return `https://maps.google.com/maps?q=${encodeURIComponent(q || name)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+}
+
+function buildNavigateUrl(vMap: string | null | undefined, vName: string | null | undefined): string {
+  if (vMap && !vMap.includes('<iframe')) return vMap;
+  if (vName) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(vName)}`;
+  return '';
+}
+
+// ---------------------------------------------------------------------------
+// Core renderer — mirrors every HTML mutation that used to happen in route.ts
+// ---------------------------------------------------------------------------
+function renderEvent(
+  templateHtml: string,
+  event: EventRow,
+  photographer: PhotographerRow | null,
+  slug: string,
+  env: Env,
+): string {
+  const groom      = event.groom_name ?? event.celebrant_name ?? 'Event';
+  const bride      = event.bride_name ?? 'Family';
+  const type       = event.event_type ?? 'wedding';
+  const thumbnailUrl = event.thumbnail_url ?? '';
+  const vName      = event.venue_name ?? '';
+  const vMap       = event.venue_map_link ?? '';
+
+  const formattedDate = formatDate(event.event_date ?? '');
+  const formattedTime = formatTime(event.event_time ?? '');
+
+  const isSinglePerson = !bride || bride.toLowerCase() === 'family';
+  const mainName   = isSinglePerson ? groom : `${groom} & ${bride}`;
+  const typeLabel  = type.charAt(0).toUpperCase() + type.slice(1);
+  const displayTitle = `✨ ${mainName} ${typeLabel} Live | ${formattedDate}`;
+  const displayDesc  = 'Join us live to celebrate this beautiful traditional occasion filled with blessings, happiness, culture, and family moments.';
+
+  // Gallery
+  const galleryArray: string[] = (() => {
+    const raw = event.gallery_urls;
+    if (Array.isArray(raw)) return raw.filter(Boolean);
+    return [];
+  })();
+
+  // Invitation videos
+  const invitationVideos: string[] = (() => {
+    const raw = event.invitation_video_url ?? '';
+    if (Array.isArray(raw)) return (raw as string[]).filter(Boolean);
+    if (typeof raw === 'string') return raw.split('\n').map(u => u.trim()).filter(Boolean);
+    return [];
+  })();
+
+  // Initials
+  const customInitials = event.custom_initials ?? '';
+  const groomInitial = (event.groom_name ?? event.celebrant_name ?? groom).charAt(0).toUpperCase();
+  const brideRaw    = event.bride_name ?? bride;
+  const brideIsGeneric = brideRaw.toLowerCase() === 'family' || brideRaw.toLowerCase() === 'event';
+  const brideInitial = brideIsGeneric ? '' : brideRaw.charAt(0).toUpperCase();
+  const autoInitials = groomInitial && brideInitial
+    ? `${groomInitial} & ${brideInitial}`
+    : groomInitial || brideInitial || 'E';
+  const finalInitials = customInitials || autoInitials;
+
+  // Loader photo
+  const hideLoaderPhoto = event.hide_loader_photo ?? false;
+  const loaderPhotoUrl  = event.loader_photo_url ?? '';
+  const loaderSrc       = loaderPhotoUrl || thumbnailUrl || (galleryArray[0] ?? '');
+  const optimizedLoader = loaderSrc.includes('/upload/')
+    ? loaderSrc.replace('/upload/', '/upload/f_auto,q_auto/')
+    : loaderSrc;
+
+  // Timer
+  const timerTime = event.timer_target_time ?? event.event_time ?? '09:00';
+
+  // YouTube
+  const youtubeId = (event.vod_link ?? '').split('/').pop() ?? '';
+
+  // Map URLs
+  const embedUrl    = buildEmbedUrl(vMap, vName);
+  const navigateUrl = buildNavigateUrl(vMap, vName);
+
+  // Config object strings — escape for safe JS string literal embedding
+  const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+
+  const configScript = `<script>
+window.WEDDING_CONFIG = {
+  groom: "${esc(event.groom_name ?? event.celebrant_name ?? '')}",
+  bride: "${esc(event.bride_name ?? 'Family')}",
+  date: "${esc(formattedDate)}",
+  time: "${esc(formattedTime)}",
+  timeLabel: "${esc(type)}",
+  timeSubtext: "",
+  timerTarget: "${esc(event.event_date ?? '')}T${esc(timerTime)}",
+  venue: "${esc(vName)}",
+  venueSubtext: "",
+  venueUrl: ${embedUrl ? JSON.stringify(embedUrl) : 'null'},
+  venueNavigateUrl: ${navigateUrl ? JSON.stringify(navigateUrl) : 'null'},
+  youtubeId: "${esc(youtubeId)}",
+  restreamerUrl: "${esc(event.restreamer_hls_url ?? '')}",
+  restreamerPlayer: "${esc(event.restreamer_player_url ?? '')}",
+  invitationVideo: "${esc(invitationVideos[0] ?? '')}",
+  invitationVideos: ${JSON.stringify(invitationVideos)},
+  thumbnail: "${esc(thumbnailUrl)}",
+  gallery: ${JSON.stringify(galleryArray)},
+  supabaseUrl: "${esc(env.SUPABASE_URL)}",
+  supabaseKey: "${esc(env.SUPABASE_ANON_KEY)}",
+  eventId: "${esc(event.id)}",
+  eventType: "${esc(type)}",
+  introText: "${esc(event.custom_top_title ?? '')}",
+  photographer: ${JSON.stringify(photographer)},
+  customInitials: "${esc(customInitials)}",
+  hideLoaderPhoto: ${hideLoaderPhoto ? 'true' : 'false'},
+  loaderPhotoUrl: "${esc(loaderPhotoUrl)}"
+};
+</script>`;
+
+  let html = templateHtml;
+
+  // --- SEO meta tags ---
+  html = html.replace(/<title>.*?<\/title>/gs,       `<title>${displayTitle}</title>`);
+  html = html.replace(/<meta property="og:title" content=".*?">/g,       `<meta property="og:title" content="${displayTitle}">`);
+  html = html.replace(/<meta name="description" content=".*?">/g,        `<meta name="description" content="${displayDesc}">`);
+  html = html.replace(/<meta property="og:description" content=".*?">/g, `<meta property="og:description" content="${displayDesc}">`);
+  html = html.replace(/<meta property="og:image" content=".*?">/g,       `<meta property="og:image" content="${thumbnailUrl}">`);
+  html = html.replace(/<meta property="og:url" content=".*?">/g,         `<meta property="og:url" content="https://eventcast.pro/events/${slug}">`);
+  html = html.replace(/<meta name="twitter:image" content=".*?">/g,      `<meta name="twitter:image" content="${thumbnailUrl}">`);
+
+  // --- Inject config inline; remove external config.js script tag ---
+  html = html.replace('</head>', `${configScript}\n</head>`);
+  html = html.replace(/<script\s+src=["']config\.js["'][^>]*><\/script>/g, '');
+
+  // --- Logo / initials ---
+  html = html.replace(/<h1 class="logo-text">.*?<\/h1>/gs,   `<h1 class="logo-text">${finalInitials}</h1>`);
+  html = html.replace(/<div class="initials">.*?<\/div>/gs,  `<div class="initials">${finalInitials}</div>`);
+
+  // --- Loader photo ---
+  if (hideLoaderPhoto || !optimizedLoader) {
+    html = html.replace(
+      /<div class="loader-photo">[\s\S]*?<\/div>/g,
+      '<div class="loader-photo" style="display:none;"></div>',
+    );
+  } else {
+    html = html.replace(
+      /<div class="loader-photo">\s*<img src="[^"]*"/g,
+      `<div class="loader-photo">\n                <img src="${optimizedLoader}"`,
+    );
+  }
+
+  // --- Venue / maps ---
+  if (vName || vMap) {
+    html = html.replace(/src="https:\/\/(www\.)?google\.com\/maps\/embed[^"]*"/g, `src="${embedUrl}"`);
+    html = html.replace(/src="https:\/\/maps\.google\.com\/maps\?q=[^"]*"/g,      `src="${embedUrl}"`);
+    html = html.replace(/id="venue-iframe" src=""/g,  `id="venue-iframe" src="${embedUrl}"`);
+    html = html.replace(/id="venue-iframe" src=''/g,  `id="venue-iframe" src="${embedUrl}"`);
+    html = html.replace(/class="subtitle config-venue-full">[^<]*/g, `class="subtitle config-venue-full">${vName}`);
+    html = html.replace(/id="venue-nav-btn" href="#"/g, `id="venue-nav-btn" href="${navigateUrl}"`);
+    html = html.replace(/href="https:\/\/(www\.)?google\.com\/maps[^"]*"/g, `href="${navigateUrl}"`);
+    html = html.replace(/href="https:\/\/maps\.app\.goo\.gl[^"]*"/g,        `href="${navigateUrl}"`);
+  }
+
+  return html;
+}
+
+// ---------------------------------------------------------------------------
+// Helper — return a minimal HTML error page
+// ---------------------------------------------------------------------------
+function htmlError(status: number, message: string): Response {
+  return new Response(
+    `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${message}</title></head>`
+    + `<body style="font-family:sans-serif;padding:2rem"><h1>${message}</h1></body></html>`,
+    { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+  );
+}

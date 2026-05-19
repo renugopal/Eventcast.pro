@@ -249,8 +249,42 @@ export async function GET(req: Request) {
       const result = healthResults[i];
       const health = result.status === 'fulfilled' ? result.value : null;
 
-      const alert = evaluateHealth(event, health);
+      let alert = evaluateHealth(event, health);
       if (alert) {
+        // ─── AUTO-RECOVERY ACTIONS ───
+        try {
+          if (alert.type === 'stream_dead') {
+            console.log(`[StreamHealthMonitor] Auto-Recovery: Attempting to restart crashed stream process for "${event.slug}"...`);
+            const restarted = await restreamer.restartChannel(event.slug);
+            if (restarted) {
+              alert.message += ` [AUTO-RECOVERED: Channel process restarted successfully]`;
+              alert.severity = 'warning'; // Demote to warning since recovery succeeded
+            } else {
+              alert.message += ` [AUTO-RECOVERY FAILED: Process restart call failed]`;
+            }
+          } else if (alert.type === 'stream_not_found') {
+            console.log(`[StreamHealthMonitor] Auto-Recovery: Re-creating missing process for "${event.slug}"...`);
+            // Fetch the youtube stream key from Supabase for recreation
+            const { data: dbEvent } = await supabaseAdmin
+              .from('events')
+              .select('youtube_stream_key')
+              .eq('id', event.id)
+              .single();
+
+            const youtubeKey = dbEvent?.youtube_stream_key || undefined;
+            const setupResult = await restreamer.setupChannel(event.slug, youtubeKey);
+            if (setupResult) {
+              alert.message += ` [AUTO-RECOVERED: Channel configuration reconstructed successfully]`;
+              alert.severity = 'warning'; // Demote to warning
+            } else {
+              alert.message += ` [AUTO-RECOVERY FAILED: Channel reconstruction failed]`;
+            }
+          }
+        } catch (recoveryErr: any) {
+          console.error(`[StreamHealthMonitor] Auto-Recovery failed for ${event.slug}:`, recoveryErr);
+          alert.message += ` [AUTO-RECOVERY ERROR: ${recoveryErr.message || String(recoveryErr)}]`;
+        }
+
         alerts.push(alert);
         await sendAlert(alert);
       } else {

@@ -4,7 +4,7 @@ import React from "react";
 import {
   LayoutDashboard, Monitor, PlusCircle, List, Settings, BarChart3,
   Image as ImageIcon, LogOut, Users, ChevronLeft, ChevronRight, X,
-  Shield, Clapperboard,
+  Shield, Clapperboard, Wallet,
 } from "lucide-react";
 import { SystemPulse } from "./SystemPulse";
 
@@ -27,6 +27,7 @@ const menuItems = [
   { id: "moderation",    label: "Moderation",      icon: Shield,          accent: "#f59e0b" },
   { id: "analytics",     label: "Analytics",       icon: BarChart3,       accent: "#6366f1" },
   { id: "assets",        label: "Asset Library",   icon: ImageIcon,       accent: "#ec4899" },
+  { id: "billing",       label: "Billing & Wallet", icon: Wallet,          accent: "#10b981" },
   { id: "settings",      label: "Settings",        icon: Settings,        accent: "#64748b" },
 ];
 

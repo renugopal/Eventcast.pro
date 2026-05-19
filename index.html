@@ -292,7 +292,53 @@
         <div class="footer-bottom">
             <p>&copy; 2026 Eventcast.pro. All Rights Reserved.</p>
         </div>
+        </div>
     </footer>
+
+    <!-- AI Sales Bot Widget (THE RAINMAKER) -->
+    <div id="ai-chat-widget">
+        <!-- Floating Button -->
+        <button id="ai-chat-btn" class="glass-btn">
+            <span class="chat-icon">✨</span>
+            <span class="chat-text">Chat with AI</span>
+        </button>
+
+        <!-- Chat Overlay -->
+        <div id="ai-chat-window" class="glass-panel hidden">
+            <div class="chat-header">
+                <div>
+                    <h3>Eventcast AI</h3>
+                    <span class="online-status">● Online</span>
+                </div>
+                <button id="close-chat-btn">×</button>
+            </div>
+            
+            <!-- Cost Savings Calculator Section -->
+            <div class="cost-calculator">
+                <h4>💰 See Your Savings</h4>
+                <div class="calc-inputs">
+                    <label>Events/Month: <span id="events-val">10</span></label>
+                    <input type="range" id="events-slider" min="1" max="50" value="10">
+                </div>
+                <div class="calc-results">
+                    <div>Others: <span class="old-price">₹<span id="other-cost">30000</span></span></div>
+                    <div>Eventcast: <span class="new-price">₹<span id="ec-cost">4990</span></span></div>
+                </div>
+                <div class="savings-highlight">You Save: ₹<span id="total-savings">25010</span>/mo!</div>
+            </div>
+
+            <div class="chat-messages" id="chat-messages">
+                <div class="message ai-message">
+                    Hello! I'm the Eventcast AI. Use the calculator above to see your savings, or ask me how we can upgrade your livestreaming business! 🚀
+                </div>
+            </div>
+            
+            <form id="chat-form" class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Ask about pricing, tech, domains..." required autocomplete="off">
+                <button type="submit" id="chat-submit-btn">➤</button>
+            </form>
+        </div>
+    </div>
 
     <script>
         // Smooth Entrance Animations using Intersection Observer

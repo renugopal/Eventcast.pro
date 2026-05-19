@@ -97,4 +97,120 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 1000);
         });
     }
+
+    // 5. AI Sales Bot & Cost-Savings Calculator
+    const chatBtn = document.getElementById('ai-chat-btn');
+    const chatWindow = document.getElementById('ai-chat-window');
+    const closeChatBtn = document.getElementById('close-chat-btn');
+    
+    // Toggle Chat
+    if (chatBtn && chatWindow && closeChatBtn) {
+        chatBtn.addEventListener('click', () => {
+            chatWindow.classList.remove('hidden');
+            chatBtn.style.display = 'none';
+        });
+        
+        closeChatBtn.addEventListener('click', () => {
+            chatWindow.classList.add('hidden');
+            chatBtn.style.display = 'flex';
+        });
+    }
+
+    // Cost Calculator Logic
+    const eventsSlider = document.getElementById('events-slider');
+    const eventsVal = document.getElementById('events-val');
+    const otherCost = document.getElementById('other-cost');
+    const ecCost = document.getElementById('ec-cost');
+    const totalSavings = document.getElementById('total-savings');
+
+    if (eventsSlider) {
+        eventsSlider.addEventListener('input', (e) => {
+            const numEvents = parseInt(e.target.value);
+            eventsVal.innerText = numEvents;
+            
+            // Typical generic platform / CDN cost per event for 1000 viewers: ₹3,000
+            // Eventcast Pro Cost: ₹499
+            const otherTotal = numEvents * 3000;
+            const ecTotal = numEvents * 499;
+            const savings = otherTotal - ecTotal;
+            
+            otherCost.innerText = otherTotal.toLocaleString('en-IN');
+            ecCost.innerText = ecTotal.toLocaleString('en-IN');
+            totalSavings.innerText = savings.toLocaleString('en-IN');
+        });
+    }
+
+    // AI Chat Logic
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const messagesContainer = document.getElementById('chat-messages');
+    
+    let chatHistory = [
+        { role: 'model', content: "Hello! I'm the Eventcast AI. Use the calculator above to see your savings, or ask me how we can upgrade your livestreaming business! 🚀" }
+    ];
+
+    if (chatForm) {
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userText = chatInput.value.trim();
+            if (!userText) return;
+
+            // 1. Add user message to UI
+            appendMessage('user', userText);
+            chatInput.value = '';
+            
+            // 2. Add loading state
+            const loadingId = 'loading-' + Date.now();
+            appendMessage('model', '...', loadingId);
+
+            chatHistory.push({ role: 'user', content: userText });
+
+            try {
+                // Determine API URL based on host (local vs production)
+                // Assuming admin panel runs on port 3000 locally and admin.eventcast.pro in prod
+                const apiUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+                    ? 'http://localhost:3000/api/ai/sales-chat'
+                    : 'https://admin.eventcast.pro/api/ai/sales-chat';
+
+                const res = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages: chatHistory })
+                });
+
+                const data = await res.json();
+                
+                // Remove loading message
+                document.getElementById(loadingId)?.remove();
+
+                if (data.success) {
+                    appendMessage('model', data.reply);
+                    chatHistory.push({ role: 'model', content: data.reply });
+                } else {
+                    appendMessage('model', 'Oops, I had a small connection issue. Please try again!');
+                }
+            } catch (err) {
+                console.error(err);
+                document.getElementById(loadingId)?.remove();
+                appendMessage('model', 'Oops, I am unable to reach the server right now.');
+            }
+        });
+    }
+
+    function appendMessage(role, text, id = null) {
+        if (!messagesContainer) return;
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${role === 'user' ? 'user-message' : 'ai-message'}`;
+        if (id) msgDiv.id = id;
+        
+        // Convert markdown bold and line breaks to basic HTML (simple parser)
+        let htmlText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        htmlText = htmlText.replace(/\n/g, '<br>');
+        
+        msgDiv.innerHTML = htmlText;
+        messagesContainer.appendChild(msgDiv);
+        
+        // Auto scroll to bottom
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
 });
