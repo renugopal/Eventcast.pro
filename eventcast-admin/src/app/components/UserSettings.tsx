@@ -107,10 +107,30 @@ function DomainRow({
   onRefresh: () => void;
   onRemove: () => void;
 }) {
+  // Auto-refresh every 60s while either status is still 'pending'
+  const isPending = domain.ssl_status === 'pending' || domain.dns_status === 'pending';
+  useEffect(() => {
+    if (!isPending || isRefreshing) return;
+    const timer = setTimeout(onRefresh, 60_000);
+    return () => clearTimeout(timer);
+  }, [isPending, isRefreshing, onRefresh]);
+
   return (
-    <div className="p-5 bg-white/[0.02] rounded-2xl border border-white/[0.06] flex items-center justify-between gap-4 group hover:bg-white/[0.04] transition-all">
+    <div className={`p-5 rounded-2xl border flex items-center justify-between gap-4 group transition-all ${
+      isPending
+        ? 'bg-amber-500/[0.03] border-amber-500/20 hover:bg-amber-500/[0.05]'
+        : 'bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04]'
+    }`}>
       <div className="flex-1 min-w-0">
-        <p className="font-black text-white text-sm truncate">{domain.domain}</p>
+        <div className="flex items-center gap-3">
+          <p className="font-black text-white text-sm truncate">{domain.domain}</p>
+          {isPending && (
+            <span className="flex items-center gap-1 text-[9px] font-black text-amber-400/70 uppercase tracking-widest">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              Propagating
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-3 mt-2 flex-wrap">
           <StatusBadge label="SSL" status={domain.ssl_status} />
           <StatusBadge label="DNS" status={domain.dns_status} />
@@ -150,16 +170,20 @@ function DnsRecord({
   label,
   name,
   value,
+  copiedKey,
   onCopy,
 }: {
   label: string;
   name: string;
   value: string;
+  copiedKey: string | null;
   onCopy: (v: string) => void;
 }) {
   return (
     <div className="space-y-2">
       <p className="text-[9px] font-black uppercase tracking-[0.25em] text-cyan-400/60">{label}</p>
+
+      {/* Name row */}
       <div className="grid grid-cols-[1fr_auto] gap-2 items-center">
         <div className="p-3 bg-black/20 rounded-xl border border-white/5 font-mono text-[11px] text-white/50 truncate">
           <span className="text-white/25 mr-2">Name:</span>{name}
@@ -167,11 +191,18 @@ function DnsRecord({
         <button
           onClick={() => onCopy(name)}
           title="Copy name"
-          className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/30 hover:text-white transition-all"
+          className={`p-2.5 rounded-xl transition-all flex items-center gap-1.5 text-[9px] font-black ${
+            copiedKey === name
+              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+              : "bg-white/5 hover:bg-white/10 text-white/30 hover:text-white"
+          }`}
         >
-          <Copy size={13} />
+          {copiedKey === name ? <CheckCircle2 size={13} /> : <Copy size={13} />}
+          {copiedKey === name && <span>Copied!</span>}
         </button>
       </div>
+
+      {/* Value row */}
       <div className="grid grid-cols-[1fr_auto] gap-2 items-center">
         <div className="p-3 bg-black/20 rounded-xl border border-white/5 font-mono text-[11px] text-white/50 truncate">
           <span className="text-white/25 mr-2">Value:</span>{value}
@@ -179,9 +210,14 @@ function DnsRecord({
         <button
           onClick={() => onCopy(value)}
           title="Copy value"
-          className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/30 hover:text-white transition-all"
+          className={`p-2.5 rounded-xl transition-all flex items-center gap-1.5 text-[9px] font-black ${
+            copiedKey === value
+              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+              : "bg-white/5 hover:bg-white/10 text-white/30 hover:text-white"
+          }`}
         >
-          <Copy size={13} />
+          {copiedKey === value ? <CheckCircle2 size={13} /> : <Copy size={13} />}
+          {copiedKey === value && <span>Copied!</span>}
         </button>
       </div>
     </div>
@@ -195,25 +231,29 @@ function DnsSetupCard({
   instructions: DomainSetupInstructions;
   onDismiss: () => void;
 }) {
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
   function copyToClipboard(text: string) {
     navigator.clipboard?.writeText(text).catch(() => {});
+    setCopiedKey(text);
+    setTimeout(() => setCopiedKey(null), 2000);
   }
 
   return (
-    <div className="mt-6 p-6 bg-cyan-500/[0.04] rounded-3xl border border-cyan-500/20 space-y-6">
+    <div className="mt-6 p-6 bg-cyan-500/[0.04] rounded-3xl border border-cyan-500/20 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-400">
-            DNS Setup Required
+            🌐 DNS Setup Required
           </p>
           <p className="text-white/30 text-[10px] font-black mt-1 tracking-wider">
             Add these records in your DNS provider for{" "}
-            <span className="text-white/50">{instructions.domain}</span>
+            <span className="text-cyan-300/60 font-mono">{instructions.domain}</span>
           </p>
         </div>
         <button
           onClick={onDismiss}
-          className="text-white/20 hover:text-white/50 transition-colors text-[10px] font-black uppercase tracking-wider"
+          className="text-white/20 hover:text-white/50 transition-colors text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg hover:bg-white/5"
         >
           Dismiss
         </button>
@@ -223,6 +263,7 @@ function DnsSetupCard({
         label="CNAME — Point your subdomain to Eventcast"
         name={instructions.domain}
         value={instructions.cnameTarget}
+        copiedKey={copiedKey}
         onCopy={copyToClipboard}
       />
 
@@ -231,6 +272,7 @@ function DnsSetupCard({
           label="TXT — Ownership Verification"
           name={instructions.ownershipTxtName}
           value={instructions.ownershipTxtValue}
+          copiedKey={copiedKey}
           onCopy={copyToClipboard}
         />
       )}
@@ -240,12 +282,13 @@ function DnsSetupCard({
           label="TXT — SSL Certificate (DCV)"
           name={instructions.sslTxtName}
           value={instructions.sslTxtValue}
+          copiedKey={copiedKey}
           onCopy={copyToClipboard}
         />
       )}
 
-      <p className="text-white/25 text-[10px] font-black uppercase tracking-widest pt-1 border-t border-white/5">
-        After adding records, click the refresh icon on the domain row. DNS propagation may take up to 24 hours.
+      <p className="text-white/25 text-[10px] font-black uppercase tracking-widest pt-2 border-t border-white/5">
+        ⏱ After adding these records, click the refresh icon on the domain row to check propagation. DNS updates may take up to 24 hours.
       </p>
     </div>
   );
