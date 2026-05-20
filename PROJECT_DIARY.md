@@ -4,7 +4,51 @@ This diary is a detailed record of the evolution of Eventcast Pro. It documents 
 
 ---
 
+## 🔐 Session 15: API Security, Premium UX & Live Deployment Tracking
+**Date: May 20, 2026**
+
+### 🎯 What We Built
+Three complete sprints shipped in one session — all committed to GitHub and deployed via Vercel.
+
+---
+
+### Sprint C — API Middleware Security (commit: acca564)
+- Created `src/middleware.ts` protecting **all `/api/*` routes** by default with Supabase JWT validation
+- Uses `supabase.auth.getUser(token)` — server-verified, cannot be spoofed by crafted JWTs
+- Public allowlist: `/api/ai/sales-chat`, `/api/cron/*`, `/api/resolve-url`, `/api/billing/webhook`
+- Injects `x-user-id` and `x-user-email` headers for downstream API routes
+- Falls back to `sb-access-token` cookie if no Authorization header present
+- Edge runtime compatible — works on Cloudflare Pages
+
+### Sprint D — Premium Toast Notification System (commit: e5b527d)
+- Built complete `Toast.tsx` system: `ToastProvider` + `useToast` hook + `AlertDialog`
+- **Eliminated 27 `alert()` calls + 5 `confirm()` calls** across 7 files — zero browser-blocking dialogs remain
+- Toast types: success (emerald), error (red, 6s), warning (amber), info (blue)
+- Animated glassmorphic toasts with progress bar auto-dismiss, max 5 visible
+- All copy buttons upgraded to inline `CheckCircle2` stateful feedback (2s green)
+- `AlertDialog` for all delete confirmations: glassmorphic modal with keyboard Escape support
+- `layout.tsx` now wraps app in `ToastProvider` + fixed metadata title to "Eventcast Pro — Admin"
+
+### Sprint E — Live Deployment Status Badge (commit: 00dfeca)
+- **Migration 0009**: added `deployment_status`, `deployment_error`, `deployed_at` to events table
+- `generate/route.ts`: sets `deploying` on DB write → `live` after restreamer → `failed` in catch
+- `EventTable.tsx`: inline badge per event row — amber pulse (deploying), emerald dot (live), red+tooltip (failed)
+- **Supabase Realtime** channel `eventcast-deployment-status` auto-updates badge without page reload
+
+---
+
+### 📊 Stats
+| Metric | Value |
+|--------|-------|
+| Files changed | 12 |
+| Commits | 3 |
+| TypeScript errors | 0 |
+| alert()/confirm() removed | 32 |
+
+---
+
 ## 🏛️ Session 14: Cron Infrastructure Hardening & Custom Domain UX Polish
+
 **Date: May 20, 2026**
 
 ### 🔍 Context
