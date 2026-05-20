@@ -214,7 +214,11 @@ export async function GET(req: Request) {
     // 2. Filter down to events whose 12-hour live window is active right now
     const liveWindowEvents = (events ?? []).filter(event => {
       if (!event.event_date) return false;
-      const startTime = new Date(`${event.event_date}T${event.timer_target_time || '00:00'}`);
+      // Always parse event times as IST (UTC+05:30). Without the explicit
+      // offset, Vercel Edge (UTC) shifts the window by −5h30m, causing the
+      // health monitor to skip active streams during ceremony hours.
+      const timerTime = event.timer_target_time || '00:00';
+      const startTime = new Date(`${event.event_date}T${timerTime}:00+05:30`);
       const endTime = new Date(startTime.getTime() + 12 * 60 * 60 * 1000);
       return now >= startTime && now < endTime;
     });

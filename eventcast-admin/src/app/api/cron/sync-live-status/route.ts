@@ -50,9 +50,12 @@ export async function GET(req: Request) {
 
     for (const event of events) {
       try {
-        // Construct event start time
-        // event_date is YYYY-MM-DD, timer_target_time is HH:mm
-        const startTimeStr = `${event.event_date}T${event.timer_target_time || '00:00'}`;
+        // Construct event start time — always parse as IST (UTC+05:30).
+        // Without the explicit offset, Vercel Edge (UTC) interprets the string
+        // as UTC, shifting the live window by −5h30m and marking events
+        // "completed" 5.5 hours before the ceremony actually ends.
+        const timerTime = event.timer_target_time || '00:00';
+        const startTimeStr = `${event.event_date}T${timerTime}:00+05:30`;
         const startTime = new Date(startTimeStr);
         const endTime = new Date(startTime.getTime() + 12 * 60 * 60 * 1000); // 12 hours later
 

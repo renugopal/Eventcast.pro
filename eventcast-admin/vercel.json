@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/sync-live-status",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/stream-health-monitor",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
