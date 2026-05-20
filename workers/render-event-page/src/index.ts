@@ -36,13 +36,63 @@ export default {
     if (request.method !== 'GET') {
       return new Response('Method Not Allowed', { status: 405 });
     }
-    const eventMatch = url.pathname.match(/^\/events\/([^/?#]+)\/?$/);
-    if (!eventMatch) {
+    const eventMatch = url.pathname.match(/^\/events\/([^/]+)$/);
+    const manifestMatch = url.pathname.match(/^\/events\/([^/]+)\/manifest\.json$/);
+    const swMatch = url.pathname.match(/^\/events\/([^/]+)\/sw\.js$/);
+
+    if (!eventMatch && !manifestMatch && !swMatch) {
       return new Response('Not Found', { status: 404 });
     }
 
-    const slug = decodeURIComponent(eventMatch[1]);
+    const slug = decodeURIComponent(eventMatch ? eventMatch[1] : (manifestMatch ? manifestMatch[1] : swMatch![1]));
     const hostname = url.hostname;
+
+    // Handle sw.js immediately to save database queries
+    if (swMatch) {
+      const swCode = `const CACHE_NAME = 'eventcast-pwa-v1';
+const ASSETS_TO_CACHE = [
+  'https://cdn.plyr.io/3.7.8/plyr.css',
+  'https://cdn.plyr.io/3.7.8/plyr.js',
+  'https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js',
+  'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1'
+];
+
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // CRITICAL: NEVER cache live stream playlists (.m3u8) or segments (.ts)
+  if (url.pathname.endsWith('.m3u8') || url.pathname.endsWith('.ts') || url.hostname.includes('restreamer')) {
+    return;
+  }
+
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(event.request);
+    })
+  );
+});`;
+
+      return new Response(swCode, {
+        headers: {
+          'Content-Type': 'application/javascript; charset=utf-8',
+          'Cache-Control': 'public, max-age=86400',
+        },
+      });
+    }
 
     try {
       const sbHeaders = {
@@ -99,6 +149,66 @@ export default {
       const photographer: PhotographerRow | null = Array.isArray(event.photographers)
         ? (event.photographers[0] ?? null)
         : (event.photographers ?? null);
+
+      // Handle manifest.json dynamic compilation
+      if (manifestMatch) {
+        const type = event.event_type || 'Wedding';
+        let title = '';
+        let shortName = '';
+        
+        if (type === 'Wedding' || type === 'Engagement') {
+          const gName = event.groom_name || 'Groom';
+          const bName = event.bride_name || 'Bride';
+          title = `${gName} & ${bName} ${type} Live Broadcast`;
+          shortName = `${gName} & ${bName}`;
+        } else {
+          const cName = event.celebrant_name || 'Celebrant';
+          title = `${cName}'s ${type} Live Broadcast`;
+          shortName = cName;
+        }
+
+        // Dynamic icons utilizing Cloudinary face-cropping / center fill to create a square avatar icon
+        const rawThumb = event.thumbnail_url || 'https://eventcast.pro/assets/img/default-thumbnail.jpg';
+        let icon192 = rawThumb;
+        let icon512 = rawThumb;
+
+        if (rawThumb.includes('cloudinary.com')) {
+          icon192 = rawThumb.replace('/upload/', '/upload/c_fill,g_auto,w_192,h_192,f_auto,q_auto/');
+          icon512 = rawThumb.replace('/upload/', '/upload/c_fill,g_auto,w_512,h_512,f_auto,q_auto/');
+        }
+
+        const manifestJSON = {
+          name: title,
+          short_name: shortName,
+          description: `Watch the live broadcast of ${shortName}'s ${type.toLowerCase()} celebration on Eventcast.pro`,
+          start_url: `/events/${slug}`,
+          display: 'standalone',
+          background_color: '#0a0a0f',
+          theme_color: '#0a0a0f',
+          orientation: 'portrait',
+          icons: [
+            {
+              src: icon192,
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'any'
+            },
+            {
+              src: icon512,
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'any'
+            }
+          ]
+        };
+
+        return new Response(JSON.stringify(manifestJSON, null, 2), {
+          headers: {
+            'Content-Type': 'application/manifest+json; charset=utf-8',
+            'Cache-Control': 'public, s-maxage=3600', // Cache 1 hour at edge
+          },
+        });
+      }
 
       // -----------------------------------------------------------------------
       // 3. Pick template, render, return

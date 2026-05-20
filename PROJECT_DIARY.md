@@ -4,6 +4,27 @@ This diary is a detailed record of the evolution of Eventcast Pro. It documents 
 
 ---
 
+## 🔐 Session 16: Edge Security Verification, Geo-Location & Dynamic PWA Support (Phase 2 Masterpiece Continued)
+**Date: May 21, 2026**
+
+### 🔍 Context
+We reviewed the implementation of IP & Anti-Theft Protection and Geo-Location Analytics on production. Having verified their successful live operations, our goal transitioned to implementing dynamic Progressive Web App (PWA) Support across all public event landing pages. We needed a frictionless PWA installation flow that generates highly-personalized, studio-branded home screen applications for wedding broadcasts.
+
+### 🗣️ Our Discussion
+We discussed that instead of using static web app manifests, a Cloudflare Worker-based dynamic manifest endpoint `/events/[slug]/manifest.json` would be highly superior. By fetching event details (groom, bride, celebrant, and thumbnail) directly from Supabase, we can serve a custom-tailored manifest containing a personalized app name and square, face-cropped launcher icons optimized via Cloudinary. We also designed a Service Worker `/events/[slug]/sw.js` with dynamic caching bypasses to prevent buffering live HLS media chunks from filling up guest mobile phone storage.
+
+### 🛠️ What we did & Why
+1. **PWA Worker Interceptors**:
+   - Updated the Cloudflare rendering worker routing to dynamically serve `/events/[slug]/manifest.json` and `/events/[slug]/sw.js`.
+2. **Cloudinary-Optimized PWA Launcher Icons**:
+   - Leveraged Cloudinary transformations (`c_fill,g_auto,w_192,h_192` and `w_512,h_512`) to automatically crop event thumbnails into gorgeous square home screen icons.
+3. **PWA Integration into Dynamic Templates**:
+   - Modified `index.html` across all dynamic templates (`wedding-template-01`, `dhoti-ceremony-template-01`, and `half-saree-template-01`) to support mobile standalone view and auto-register the edge-served service worker.
+4. **Documentation Audit & Sync**:
+   - Noted the verified, active states of edge-resolved Geo-Location tracking (`CF-IPCountry`) and dynamic DevTools anti-debugging loops in `TASK_LOG.md` and project diaries.
+
+---
+
 ## 🔐 Session 15: API Security, Premium UX & Live Deployment Tracking
 **Date: May 20, 2026**
 

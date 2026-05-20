@@ -83,10 +83,10 @@ This document provides a concise summary of completed and pending tasks.
 ### Planned Features
 - [ ] **Multi-Camera Support**: Internal switching between streams.
 - [ ] **Smart TV Casting**: AirPlay and Chromecast integration.
-- [ ] **Interactive Geo-Location Analytics**: Implement a real-time world map in the admin dashboard showing viewer distribution.
+- [/] **Interactive Geo-Location Analytics**: Database schema (Migration 0012) & Cloudflare edge-resolver resolved at edge and stored via template script are 100% complete. Admin dashboard world map visualizer is planned.
 - [x] **Wishes Moderation System**: Guests' wishes publish directly in real-time. Admins have absolute power to instantly delete/purge any unnecessary wish from the dashboard (secured by Supabase RLS).
-- [ ] **PWA Support**: Make event landing pages installable as mobile apps for better retention.
-- [ ] **IP & Anti-Theft Protection**: Implement JS code obfuscation, Cloudflare CORS/Hotlink protection, and basic UI blockers (disable right-click/F12) on public templates.
+- [/] **PWA Support**: Implementing dynamic, personalized icons and manifests on the Cloudflare edge worker.
+- [x] **IP & Anti-Theft Protection**: Disables context menu, image dragging, text selection, common DevTools inspecting shortcuts (F12, Ctrl+Shift+I/J/C, Ctrl+U, Ctrl+S), and runs an active anti-debugging freeze loop to blank the page upon inspection.
 
 ---
 *Status: Active Development*
