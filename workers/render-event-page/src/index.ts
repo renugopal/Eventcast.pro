@@ -347,7 +347,94 @@ window.WEDDING_CONFIG = {
   html = html.replace(/<meta name="twitter:image" content=".*?">/g,      `<meta name="twitter:image" content="${thumbnailUrl}">`);
 
   // --- Inject config inline; remove external config.js script tag ---
-  html = html.replace('</head>', `${configScript}\n</head>`);
+  const antiTheftScript = `
+<style>
+  /* Sprint H: IP & Anti-Theft Protection Styles */
+  body {
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+  }
+  input, textarea, select, [contenteditable="true"] {
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
+  }
+  img {
+    -webkit-user-drag: none !important;
+    user-drag: none !important;
+    -webkit-touch-callout: none !important;
+  }
+</style>
+<script>
+(function() {
+  if (
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.startsWith('192.168.')
+  ) {
+    return;
+  }
+
+  // 1. Disable context menu
+  document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+  }, false);
+
+  // 2. Disable image dragging
+  document.addEventListener('dragstart', function(e) {
+    if (e.target.tagName === 'IMG') {
+      e.preventDefault();
+    }
+  }, false);
+
+  // 3. Disable DevTools & Inspect shortcuts
+  document.addEventListener('keydown', function(e) {
+    if (e.keyCode === 123 || e.key === 'F12') {
+      e.preventDefault();
+      return false;
+    }
+    if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.keyCode === 73)) {
+      e.preventDefault();
+      return false;
+    }
+    if (e.ctrlKey && e.shiftKey && (e.key === 'J' || e.key === 'j' || e.keyCode === 74)) {
+      e.preventDefault();
+      return false;
+    }
+    if (e.ctrlKey && e.shiftKey && (e.key === 'C' || e.key === 'c' || e.keyCode === 67)) {
+      e.preventDefault();
+      return false;
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'U' || e.key === 'u' || e.keyCode === 85)) {
+      e.preventDefault();
+      return false;
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'S' || e.key === 's' || e.keyCode === 83)) {
+      e.preventDefault();
+      return false;
+    }
+  }, false);
+
+  // 4. Active Anti-Debugging Freeze Loop
+  function checkDebugger() {
+    var startTime = performance.now();
+    debugger;
+    var endTime = performance.now();
+    if (endTime - startTime > 100) {
+      document.body.innerHTML = '<div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;background:#0d0d12;color:#ff4444;font-family:sans-serif;text-align:center;padding:20px;">' +
+        '<h1 style="font-size:2rem;margin-bottom:10px;font-weight:600;letter-spacing:-0.025em;">Unauthorized Access Detected</h1>' +
+        '<p style="color:rgba(255,255,255,0.6);font-size:1rem;max-width:400px;line-height:1.5;">To protect photographer intellectual property, developer tools are disabled on this live broadcast page.</p>' +
+        '</div>';
+    }
+  }
+  setInterval(checkDebugger, 1000);
+})();
+</script>`;
+
+  html = html.replace('</head>', `${configScript}\n${antiTheftScript}\n</head>`);
   html = html.replace(/<script\s+src=["']config\.js["'][^>]*><\/script>/g, '');
 
   // --- Logo / initials ---
