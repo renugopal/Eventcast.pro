@@ -16,6 +16,7 @@ export async function POST(req: Request) {
 
   const studioId = auth.studioId;
   let didDebitOccur = false;
+  let eventId: string | undefined;
 
   try {
     const event = await req.json();
@@ -81,7 +82,7 @@ export async function POST(req: Request) {
 
     const slug = `${groom.toLowerCase().replace(/\s+/g, '-')}-${bride.toLowerCase().replace(/\s+/g, '-')}-${type.toLowerCase()}`;
     // --- NEW: Database First to get Event ID ---
-    let eventId = event.editingId;
+    eventId = event.editingId as string | undefined;
     const dbPayload = {
       event_type: event.event_type || event.eventType,
       groom_name: event.groom_name || event.groomName,
@@ -132,13 +133,13 @@ export async function POST(req: Request) {
     if (event.isEditing && event.editingId) {
       const { error: dbError } = await supabase
         .from('events')
-        .update(dbPayload)
+        .update({ ...dbPayload, deployment_status: 'deploying', deployment_error: null })
         .eq('id', event.editingId);
       if (dbError) throw new Error("Database Update Error: " + dbError.message);
     } else {
       const { data: dbData, error: dbError } = await supabase
         .from('events')
-        .insert([dbPayload])
+        .insert([{ ...dbPayload, deployment_status: 'deploying' }])
         .select();
       if (dbError) throw new Error("Database Insert Error: " + dbError.message);
       eventId = dbData[0].id;
@@ -171,12 +172,24 @@ export async function POST(req: Request) {
       }
     } catch (rsError: any) {
       console.error("Restreamer Setup Failed:", rsError);
-      // Save the error to the database for debugging
+      // Save the error to the database for debugging — but do NOT fail the whole event
       const errorMsg = "Restreamer Error: " + (rsError.message || String(rsError));
-      await supabase.from('events').update({ notes: errorMsg }).eq('id', eventId);
+      await supabase.from('events').update({
+        notes: errorMsg,
+        // Restreamer failure = non-fatal; keep 'deploying' state so user knows it's partial
+      }).eq('id', eventId);
       // We don't throw here to ensure the site is still generated even if media server is down
     }
-    // ----------------------------------
+
+    // ─── Mark deployment as LIVE ──────────────────────────────────────────────
+    if (eventId) {
+      await supabase.from('events').update({
+        deployment_status: 'live',
+        deployment_error: null,
+        deployed_at: new Date().toISOString(),
+      }).eq('id', eventId);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     return NextResponse.json({ 
       success: true, 
@@ -217,6 +230,19 @@ export async function POST(req: Request) {
         console.error("Critical: Failed to auto-refund on generation crash", refundErr);
       }
     }
+    // ─── Mark deployment as FAILED ────────────────────────────────────────────
+    if (eventId) {
+      try {
+        await supabase.from('events').update({
+          deployment_status: 'failed',
+          deployment_error: error.message,
+        }).eq('id', eventId);
+      } catch {
+        // best-effort: ignore errors here
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

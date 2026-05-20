@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy, Search, Download, QrCode, MessageCircle, Link as LinkIcon, CopyPlus, StickyNote, X, Eye, ChevronRight, List, MapPin, Clock, ZapOff, Activity, CheckCircle2 } from "lucide-react";
 import { authFetch } from "@/lib/client-auth";
 import { useToast, AlertDialog } from "./Toast";
+import { supabase } from "@/lib/supabase";
 
 interface EventTableProps {
   events: any[];
@@ -123,6 +124,37 @@ export const EventTable: React.FC<EventTableProps> = ({
   const resizingColumn = useRef<string | null>(null);
   const startX = useRef<number>(0);
   const startWidth = useRef<number>(0);
+
+  // ── Realtime: auto-patch deployment_status when it changes in Supabase ──────
+  useEffect(() => {
+    const channel = supabase
+      .channel('eventcast-deployment-status')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'events' },
+        (payload) => {
+          const updated = payload.new as any;
+          if (!updated?.id) return;
+          // Only patch if deployment_status changed — avoids full re-renders
+          const prev = events.find((e) => e.id === updated.id);
+          if (
+            prev &&
+            (prev.deployment_status !== updated.deployment_status ||
+              prev.deployment_error !== updated.deployment_error)
+          ) {
+            fetchEvents(); // lightweight: updates the whole list in-place
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // ─────────────────────────────────────────────────────────────────────────────
+
 
   const handleMouseDown = (e: React.MouseEvent, column: string) => {
     e.preventDefault();
@@ -506,6 +538,30 @@ export const EventTable: React.FC<EventTableProps> = ({
                               <span className="px-2.5 py-1 bg-blue-500/10 text-blue-400 text-[9px] font-black uppercase tracking-widest rounded-lg border border-blue-400/20">
                                 {event.event_type}
                               </span>
+
+                              {/* Deployment Status Badge */}
+                              {event.deployment_status === 'deploying' && (
+                                <span className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-400 text-[9px] font-black uppercase tracking-widest rounded-lg border border-amber-400/20 animate-pulse">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                                  Deploying
+                                </span>
+                              )}
+                              {event.deployment_status === 'live' && (
+                                <span className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 text-emerald-400 text-[9px] font-black uppercase tracking-widest rounded-lg border border-emerald-400/20">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                  Live
+                                </span>
+                              )}
+                              {event.deployment_status === 'failed' && (
+                                <span
+                                  className="flex items-center gap-1.5 px-2.5 py-1 bg-red-500/10 text-red-400 text-[9px] font-black uppercase tracking-widest rounded-lg border border-red-400/20 cursor-help"
+                                  title={event.deployment_error || 'Deployment failed'}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                                  Failed
+                                </span>
+                              )}
+
                               {eventWishes.length > 0 && (
                                 <span className="flex items-center gap-1.5 px-2.5 py-1 bg-green-500/10 text-green-400 text-[9px] font-black uppercase tracking-widest rounded-lg border border-green-400/20">
                                   <MessageCircle size={10} /> {eventWishes.length}
