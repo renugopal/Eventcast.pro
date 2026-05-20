@@ -25,7 +25,7 @@ export async function POST(req: Request) {
   if (auth instanceof NextResponse) return auth;
 
   try {
-    const { id } = await req.json();
+    const { id, permanent } = await req.json();
 
     // 1. Fetch Event Details from Supabase
     const { data: event, error: fetchError } = await db
@@ -36,6 +36,18 @@ export async function POST(req: Request) {
 
     if (fetchError || !event) throw new Error("Event not found.");
 
+    // If NOT permanent, just soft delete (archive)
+    if (!permanent) {
+      const { error: archiveError } = await db
+        .from('events')
+        .update({ archived_at: new Date().toISOString() })
+        .eq('id', id);
+      
+      if (archiveError) throw new Error(`Soft Delete Error: ${archiveError.message}`);
+      return NextResponse.json({ success: true, message: "Event archived successfully" });
+    }
+
+    // --- PERMANENT DELETE FLOW ---
     const slug = event.slug;
 
     // 2. Restreamer Cleanup: delete process config AND all VOD/HLS media files from disk
@@ -45,27 +57,20 @@ export async function POST(req: Request) {
         username: process.env.RESTREAMER_USERNAME || 'admin',
         password: process.env.RESTREAMER_PASSWORD
       });
-      // Step A: remove the process (stops any active stream and removes config)
       await restreamer.deleteChannel(slug);
-      // Step B: purge persisted VOD files from the data filesystem
-      //         Without this, .m3u8 + .ts segment files accumulate on the media server disk
       const { deleted, errors } = await restreamer.deleteChannelFiles(slug);
       console.log(`VOD cleanup for ${slug}: ${deleted} files removed, ${errors} errors`);
     } catch (rsErr) {
-      // Non-fatal: log the error but continue — Supabase/GitHub/Cloudinary deletion must still proceed
       console.error(`Restreamer cleanup failed for ${slug}:`, rsErr);
     }
 
     // 3. Cloudinary Deletion
-    // Track images and videos separately by their source field — never infer from public_id string
     try {
       const imagePublicIds: string[] = [];
       const videoPublicIds: string[] = [];
 
       if (event.thumbnail_url) imagePublicIds.push(getPublicId(event.thumbnail_url));
-      // invitation_video_url is always a video resource in Cloudinary
       if (event.invitation_video_url) videoPublicIds.push(getPublicId(event.invitation_video_url));
-      // gallery_urls are always image resources
       if (event.gallery_urls) {
         event.gallery_urls.forEach((url: string) => imagePublicIds.push(getPublicId(url)));
       }
@@ -102,9 +107,6 @@ export async function POST(req: Request) {
     }
 
     // 4. GitHub Folder Deletion
-    //    Strategy: use Contents API to list only the target event folder's files, then
-    //    create a new tree with base_tree (inheriting the full repo unchanged) and mark
-    //    each event file for removal with sha:null.  Never fetches the full recursive tree.
     try {
       const githubToken = process.env.GITHUB_TOKEN;
       const owner = 'renugopal';
@@ -120,88 +122,56 @@ export async function POST(req: Request) {
           'User-Agent': 'Eventcast-Admin',
         };
 
-        // Step A: get latest commit SHA and its root tree SHA
-        const refRes = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`,
-          { headers }
-        );
+        const refRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`, { headers });
         const refData = await refRes.json();
-        if (!refRes.ok) throw new Error(`GitHub ref fetch failed: ${JSON.stringify(refData)}`);
-        const latestCommitSha: string = refData.object.sha;
+        if (refRes.ok) {
+          const latestCommitSha: string = refData.object.sha;
 
-        const commitRes = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/git/commits/${latestCommitSha}`,
-          { headers }
-        );
-        const commitData = await commitRes.json();
-        if (!commitRes.ok) throw new Error(`GitHub commit fetch failed: ${JSON.stringify(commitData)}`);
-        const rootTreeSha: string = commitData.tree.sha;
+          const commitRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/commits/${latestCommitSha}`, { headers });
+          const commitData = await commitRes.json();
+          if (commitRes.ok) {
+            const rootTreeSha: string = commitData.tree.sha;
 
-        // Step B: list only the files inside events/{slug}/ using the Contents API
-        //         This is O(files_in_event) — typically 3 files — not O(repo_size)
-        const contentsRes = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/contents/${targetPath}?ref=${branch}`,
-          { headers }
-        );
+            const contentsRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${targetPath}?ref=${branch}`, { headers });
+            if (contentsRes.ok) {
+              const contentsData = await contentsRes.json();
+              const deletionEntries = (contentsData as any[])
+                .filter((item: any) => item.type === 'file')
+                .map((item: any) => ({
+                  path: `${targetPath}/${item.name}`,
+                  mode: '100644' as const,
+                  type: 'blob' as const,
+                  sha: null,
+                }));
 
-        if (contentsRes.status === 404) {
-          // Folder never existed on GitHub (e.g. event was created but publishing failed)
-          console.warn(`GitHub: folder ${targetPath} not found — skipping tree update`);
-        } else {
-          const contentsData = await contentsRes.json();
-          if (!contentsRes.ok) throw new Error(`GitHub contents fetch failed: ${JSON.stringify(contentsData)}`);
-
-          // Step C: build deletion entries — sha:null removes the file from the tree
-          const deletionEntries = (contentsData as any[])
-            .filter((item: any) => item.type === 'file')
-            .map((item: any) => ({
-              path: `${targetPath}/${item.name}`,
-              mode: '100644' as const,
-              type: 'blob' as const,
-              sha: null,
-            }));
-
-          if (deletionEntries.length > 0) {
-            // Step D: create a new tree that inherits everything via base_tree,
-            //         then removes only the event's files — POST body is tiny (3-4 entries)
-            const createTreeRes = await fetch(
-              `https://api.github.com/repos/${owner}/${repo}/git/trees`,
-              {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({ base_tree: rootTreeSha, tree: deletionEntries }),
+              if (deletionEntries.length > 0) {
+                const createTreeRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees`, {
+                  method: 'POST',
+                  headers,
+                  body: JSON.stringify({ base_tree: rootTreeSha, tree: deletionEntries }),
+                });
+                const createTreeData = await createTreeRes.json();
+                if (createTreeRes.ok) {
+                  const createCommitRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/commits`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                      message: `Automated Cleanup: Deleted ${slug}`,
+                      tree: createTreeData.sha,
+                      parents: [latestCommitSha],
+                    }),
+                  });
+                  const createCommitData = await createCommitRes.json();
+                  if (createCommitRes.ok) {
+                    await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`, {
+                      method: 'PATCH',
+                      headers,
+                      body: JSON.stringify({ sha: createCommitData.sha, force: false }),
+                    });
+                  }
+                }
               }
-            );
-            const createTreeData = await createTreeRes.json();
-            if (!createTreeRes.ok) throw new Error(`GitHub tree creation failed: ${JSON.stringify(createTreeData)}`);
-
-            // Step E: create commit
-            const createCommitRes = await fetch(
-              `https://api.github.com/repos/${owner}/${repo}/git/commits`,
-              {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({
-                  message: `Automated Cleanup: Deleted ${slug}`,
-                  tree: createTreeData.sha,
-                  parents: [latestCommitSha],
-                }),
-              }
-            );
-            const createCommitData = await createCommitRes.json();
-            if (!createCommitRes.ok) throw new Error(`GitHub commit creation failed: ${JSON.stringify(createCommitData)}`);
-
-            // Step F: fast-forward the branch ref
-            const updateRefRes = await fetch(
-              `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`,
-              {
-                method: 'PATCH',
-                headers,
-                body: JSON.stringify({ sha: createCommitData.sha, force: false }),
-              }
-            );
-            const updateRefData = await updateRefRes.json();
-            if (!updateRefRes.ok) throw new Error(`GitHub ref update failed: ${JSON.stringify(updateRefData)}`);
+            }
           }
         }
       }
@@ -213,7 +183,7 @@ export async function POST(req: Request) {
     const { error: deleteError } = await db.from('events').delete().eq('id', id);
     if (deleteError) throw new Error(`Supabase Deletion Error: ${deleteError.message}`);
 
-    return NextResponse.json({ success: true, message: "Deleted successfully" });
+    return NextResponse.json({ success: true, message: "Deleted permanently" });
 
   } catch (error: any) {
     console.error("Delete Endpoint Error:", error);

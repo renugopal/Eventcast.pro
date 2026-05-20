@@ -41,6 +41,7 @@ export default function AdminDashboard() {
   const [wishes, setWishes] = useState<any[]>([]);
   const [analyticsData, setAnalyticsData] = useState<any[]>([]);
   const [assetLibrary, setAssetLibrary] = useState<any[]>([]); // Grouped by event
+  const [showArchived, setShowArchived] = useState(false);
   const [showHealthCheck, setShowHealthCheck] = useState(false);
   const [healthResults, setHealthResults] = useState<any[]>([]);
   const [photographers, setPhotographers] = useState<any[]>([]);
@@ -765,12 +766,12 @@ export default function AdminDashboard() {
     setActiveTab("create");
   };
 
-  async function fullDeleteEvent(id: string) {
+  async function fullDeleteEvent(id: string, permanent: boolean = false) {
     setIsLoadingEvents(true);
     try {
       const res = await authFetch('/api/events/delete', {
         method: 'POST',
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, permanent }),
       });
       
       const data = await res.json();
@@ -778,12 +779,30 @@ export default function AdminDashboard() {
         throw new Error(data.error || "Failed to delete event.");
       }
       
-      success('Event deleted', 'Event and all related data removed successfully.');
+      success(permanent ? 'Event deleted' : 'Event archived', permanent ? 'Event and all related data removed permanently.' : 'Moved to archived events.');
       fetchEvents();
     } catch (err: any) {
       if (err instanceof AuthError) { router.push('/login'); return; }
       console.error("Delete error:", err);
       toastError('Delete failed', err.message);
+    } finally {
+      setIsLoadingEvents(false);
+    }
+  }
+
+  async function restoreEvent(id: string) {
+    setIsLoadingEvents(true);
+    try {
+      const res = await authFetch('/api/events/restore', {
+        method: 'POST',
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error);
+      success('Event Restored', 'Event has been moved back to active.');
+      fetchEvents();
+    } catch (err: any) {
+      toastError('Restore failed', err.message);
     } finally {
       setIsLoadingEvents(false);
     }
@@ -1647,16 +1666,32 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === "list" && (
-          <EventTable 
-            events={events} 
-            wishes={wishes}
-            isLoadingEvents={isLoadingEvents} 
-            fetchEvents={fetchEvents} 
-            handleEditClick={handleEditClick} 
-            handleDuplicateClick={handleDuplicateClick}
-            fullDeleteEvent={fullDeleteEvent} 
-            deleteMultipleEvents={deleteMultipleEvents}
-          />
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-end pr-4">
+              <button 
+                onClick={() => setShowArchived(!showArchived)}
+                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                  showArchived 
+                    ? 'bg-blue-600 text-white shadow-lg' 
+                    : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white border border-white/10'
+                }`}
+              >
+                {showArchived ? 'View Active Events' : 'View Archived Events'}
+              </button>
+            </div>
+            <EventTable 
+              events={events.filter(e => showArchived ? e.archived_at : !e.archived_at)} 
+              wishes={wishes}
+              isLoadingEvents={isLoadingEvents} 
+              fetchEvents={fetchEvents} 
+              handleEditClick={handleEditClick} 
+              handleDuplicateClick={handleDuplicateClick}
+              fullDeleteEvent={fullDeleteEvent} 
+              deleteMultipleEvents={deleteMultipleEvents}
+              isArchiveView={showArchived}
+              restoreEvent={restoreEvent}
+            />
+          </div>
         )}
         {activeTab === "moderation" && <WishesModeration wishes={wishes} isLoadingWishes={isLoadingWishes} fetchWishes={fetchWishes} deleteWish={deleteWish} />}
         {activeTab === "analytics" && <AnalyticsDashboard analyticsData={analyticsData} />}

@@ -13,8 +13,10 @@ interface EventTableProps {
   fetchEvents: () => void;
   handleEditClick: (event: any) => void;
   handleDuplicateClick: (event: any) => void;
-  fullDeleteEvent: (id: string) => void;
+  fullDeleteEvent: (id: string, permanent?: boolean) => void;
   deleteMultipleEvents: (ids: string[]) => void;
+  isArchiveView?: boolean;
+  restoreEvent?: (id: string) => void;
 }
 
 const adminOptimize = (url: string, width = 150) => {
@@ -33,7 +35,9 @@ export const EventTable: React.FC<EventTableProps> = ({
   handleEditClick,
   handleDuplicateClick,
   fullDeleteEvent,
-  deleteMultipleEvents
+  deleteMultipleEvents,
+  isArchiveView = false,
+  restoreEvent
 }) => {
   const { success, error: toastError, info } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
@@ -821,44 +825,69 @@ export const EventTable: React.FC<EventTableProps> = ({
                           {copiedKey === `portal-${event.id}` ? <CheckCircle2 size={20} className="text-emerald-400" /> : <LinkIcon size={20} />}
                         </button>
 
-                        <button 
-                          onClick={() => handleDuplicateClick(event)}
-                          className="p-3 bg-white/[0.03] text-emerald-500 rounded-2xl transition-all border border-white/5 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:shadow-lg hover:shadow-emerald-500/5 active:scale-95" 
-                          title="Duplicate Event"
-                        >
-                          <CopyPlus size={20} />
-                        </button>
+                        {isArchiveView ? (
+                          <>
+                            <button 
+                              onClick={() => restoreEvent && restoreEvent(event.id)}
+                              className="p-3 bg-white/[0.03] text-blue-500 rounded-2xl transition-all border border-white/5 hover:border-blue-500/40 hover:bg-blue-500/10 hover:shadow-lg hover:shadow-blue-500/5 active:scale-95" 
+                              title="Restore Event"
+                            >
+                              <RefreshCw size={20} />
+                            </button>
+                            <button 
+                              onClick={() => openConfirm(
+                                'Permanently delete this event?',
+                                'WARNING: This will permanently wipe the event, remove the YouTube broadcast, and erase all associated media files. This cannot be undone.',
+                                () => fullDeleteEvent(event.id, true)
+                              )}
+                              className="p-3 bg-white/[0.03] text-red-500 rounded-2xl transition-all border border-white/5 hover:border-red-500/40 hover:bg-red-500/10 hover:shadow-lg hover:shadow-red-500/5 active:scale-95" 
+                              title="Permanently Delete Event"
+                            >
+                              <Trash2 size={20} />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button 
+                              onClick={() => handleDuplicateClick(event)}
+                              className="p-3 bg-white/[0.03] text-emerald-500 rounded-2xl transition-all border border-white/5 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:shadow-lg hover:shadow-emerald-500/5 active:scale-95" 
+                              title="Duplicate Event"
+                            >
+                              <CopyPlus size={20} />
+                            </button>
 
-                        <button 
-                          onClick={() => {
-                            const message = `Hello! We are excited to invite you to the ${event.event_type || 'event'}. Join us live here: https://eventcast.pro/events/${event.slug}`;
-                            window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
-                          }}
-                          className="p-3 bg-white/[0.03] text-green-500 rounded-2xl transition-all border border-white/5 hover:border-green-500/40 hover:bg-green-500/10 hover:shadow-lg hover:shadow-green-500/5 active:scale-95" 
-                          title="Share to WhatsApp"
-                        >
-                          <MessageCircle size={20} />
-                        </button>
+                            <button 
+                              onClick={() => {
+                                const message = `Hello! We are excited to invite you to the ${event.event_type || 'event'}. Join us live here: https://eventcast.pro/events/${event.slug}`;
+                                window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+                              }}
+                              className="p-3 bg-white/[0.03] text-green-500 rounded-2xl transition-all border border-white/5 hover:border-green-500/40 hover:bg-green-500/10 hover:shadow-lg hover:shadow-green-500/5 active:scale-95" 
+                              title="Share to WhatsApp"
+                            >
+                              <MessageCircle size={20} />
+                            </button>
 
-                        <button 
-                          onClick={() => handleEditClick(event)}
-                          className="p-3 bg-white/[0.03] text-amber-500 rounded-2xl transition-all border border-white/5 hover:border-amber-500/40 hover:bg-amber-500/10 hover:shadow-lg hover:shadow-amber-500/5 active:scale-95" 
-                          title="Edit Event"
-                        >
-                          <Edit size={20} />
-                        </button>
+                            <button 
+                              onClick={() => handleEditClick(event)}
+                              className="p-3 bg-white/[0.03] text-amber-500 rounded-2xl transition-all border border-white/5 hover:border-amber-500/40 hover:bg-amber-500/10 hover:shadow-lg hover:shadow-amber-500/5 active:scale-95" 
+                              title="Edit Event"
+                            >
+                              <Edit size={20} />
+                            </button>
 
-                        <button 
-                          onClick={() => openConfirm(
-                            'Delete this event?',
-                            'WARNING: This will permanently delete the event, remove the YouTube broadcast, and erase all associated data. This cannot be undone.',
-                            () => fullDeleteEvent(event.id)
-                          )}
-                          className="p-3 bg-white/[0.03] text-red-500 rounded-2xl transition-all border border-white/5 hover:border-red-500/40 hover:bg-red-500/10 hover:shadow-lg hover:shadow-red-500/5 active:scale-95" 
-                          title="Delete Event"
-                        >
-                          <Trash2 size={20} />
-                        </button>
+                            <button 
+                              onClick={() => openConfirm(
+                                'Archive this event?',
+                                'This will move the event to the archive. It will no longer be visible on the public site.',
+                                () => fullDeleteEvent(event.id, false)
+                              )}
+                              className="p-3 bg-white/[0.03] text-red-500 rounded-2xl transition-all border border-white/5 hover:border-red-500/40 hover:bg-red-500/10 hover:shadow-lg hover:shadow-red-500/5 active:scale-95" 
+                              title="Archive Event"
+                            >
+                              <Trash2 size={20} />
+                            </button>
+                          </>
+                        )}
                        </div>
                      </td>
                   </tr>

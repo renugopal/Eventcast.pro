@@ -16,7 +16,7 @@ const genAI = new GoogleGenerativeAI(apiKey);
 async function testGemini() {
   console.log("🚀 Testing Gemini 1.5 Flash Prompt Generation...");
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const eventType = "Wedding";
     const groomName = "Shanti";
     const brideName = "Priya";
