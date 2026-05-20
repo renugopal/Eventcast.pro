@@ -4,6 +4,78 @@ This diary is a detailed record of the evolution of Eventcast Pro. It documents 
 
 ---
 
+## 🏛️ Session 14: Cron Infrastructure Hardening & Custom Domain UX Polish
+**Date: May 20, 2026**
+
+### 🔍 Context
+With the AI Sales Bot fully online from Session 13, we moved to Phase 3: hardening the cron infrastructure and polishing the Custom Domain white-label UX. Two critical production bugs were identified and fixed: a UTC/IST timezone shift causing live events to be marked "completed" 5.5 hours early, and the absence of an in-repo cron schedule definition.
+
+### 🗣️ Our Discussion
+We assessed that both Sprint A (Cron Hardening) and Sprint B (Custom Domain UX) needed to ship in this session. We decided A→B order because a broken timezone calculation in the cron jobs is a live production bug that affects every active ceremony, and cron stability is a prerequisite for everything else. We also identified that the `stream_alerts` table had no committed migration, meaning health monitor alerts were silently failing to persist.
+
+### 🛠️ What we did & Why
+
+**Sprint A — Cron & Infrastructure Hardening:**
+1. **In-Repo Cron Schedules (`eventcast-admin/vercel.json`)**:
+   - *What we did*: Created `vercel.json` defining `*/15 * * * *` for `sync-live-status` and `*/5 * * * *` for `stream-health-monitor`.
+   - *Why*: Without this file, cron schedules only existed in an external dashboard. If that was reset or lost, cron jobs would silently stop with no indication in the codebase.
+2. **IST Timezone Bug Fix (both cron routes)**:
+   - *What we did*: Changed event start time parsing from `new Date(\`${date}T${time}\`)` to `new Date(\`${date}T${time}:00+05:30\`)` in both `sync-live-status/route.ts` and `stream-health-monitor/route.ts`.
+   - *Why*: Vercel Edge runs in UTC. Without the explicit `+05:30` offset, an 8:00 AM IST ceremony was being parsed as 8:00 AM UTC (= 1:30 PM IST), causing the live window to shift by −5h30m and events to get marked "completed" during the ceremony.
+3. **`stream_alerts` Supabase Migration (`0008_stream_alerts.sql`)**:
+   - *What we did*: Created a formal migration file provisioning the `stream_alerts` table with indexes on `event_id`, `created_at`, `severity`, and proper RLS policies for studio-scoped reads and service-role inserts.
+   - *Why*: The health monitor's DB insert was silently swallowed (table didn't exist). Alerts were logged to console but never persisted for historical review.
+
+**Sprint B — Custom Domain UX Polish:**
+1. **Inline Copy-Confirm Feedback (`UserSettings.tsx` → `DnsRecord`)**:
+   - *What we did*: Added `copiedKey` state to `DnsSetupCard` and per-field copy-confirm UI — copy button flips to a green `CheckCircle2 + "Copied!"` badge for 2 seconds, then resets.
+   - *Why*: Previously, clipboard writes were silent. Photographers had no confirmation that they'd copied the right value.
+2. **Auto-Refresh Poller (`DomainRow`)**:
+   - *What we did*: Added a `useEffect` inside `DomainRow` that triggers `onRefresh` automatically after 60 seconds whenever `ssl_status` or `dns_status` is still `"pending"`.
+   - *Why*: Photographers shouldn't need to manually click refresh repeatedly while waiting for Cloudflare DNS propagation. The UI now self-updates.
+3. **Pending State Visual Indicator**:
+   - *What we did*: Added an amber pulsing `"Propagating"` badge and amber-tinted card background when a domain is pending.
+   - *Why*: Makes it immediately clear which domains still need action vs which are fully active.
+
+### 💡 Results & Learnings
+All changes compiled with **100% TypeScript type-safety** (0 errors). Two production bugs eliminated. Custom domain UX now provides real-time feedback that makes the photographer onboarding experience feel premium and self-guided.
+*Learning*: Always append explicit timezone offsets (`+05:30`) when parsing date strings in Edge runtimes. Edge workers always run in UTC regardless of the end user's location.
+
+---
+
+## 🏛️ Session 13: Gemini AI Sales Bot Stabilization & Cloudflare Edge Runtime Hardening
+
+**Date: May 20, 2026**
+
+### 🔍 Context
+The AI Sales Bot ("The Rainmaker") floating drawer on the marketing page (`eventcast.pro`) was failing on load with a connection error: `"Oops, I had a small connection issue. Please try again!"`. We needed to diagnose the backend API route, resolve rate limits or credential issues, ensure Edge runtime environment compatibility, handle CORS, and secure the AI response flow.
+
+### 🗣️ Our Discussion
+We analyzed the Cloudflare Pages logs and local test scripts. We discovered that the Google Gemini API key was hitting quota limits on the free tier, and the Next.js Edge route was failing because the Gemini client was initialized globally, yielding an undefined API key during bundle parsing in Cloudflare's worker isolates. Additionally, we found that the Gemini SDK throws a fatal error if the chat history starts with a `model` role instead of a `user` role. We discussed refactoring the Next.js Edge handler to initialize dynamically per-request, adding preflight CORS options, upgrading to `gemini-2.5-flash`, and rewriting the frontend chat history serialization.
+
+### 🛠️ What we did & Why
+1. **Unthrottled GCP Billing & API Key**:
+   - *What we did*: Linked the user's GCP billing account to the API project, raising the daily throttle limits to full pay-as-you-go capacity.
+   - *Why*: To eliminate the `429 Quota Exceeded` errors that blocked the free-tier key.
+2. **Next.js Edge Route Refactoring (`eventcast-admin/src/app/api/ai/sales-chat/route.ts`)**:
+   - *What we did*: Relocated `GoogleGenerativeAI` initialization from the global file scope directly inside the `POST` request handler, dynamically fetching `process.env.NEXT_PUBLIC_GEMINI_API_KEY`.
+   - *Why*: Cloudflare Edge evaluates global variables before environment variables are bound, causing empty keys. Dynamic initialization guarantees fresh and valid credential loading.
+3. **CORS Enablement & OPTIONS Handler**:
+   - *What we did*: Configured full CORS headers (`Access-Control-Allow-Origin`, `Access-Control-Allow-Headers`) and a custom `OPTIONS` preflight response in the API route.
+   - *Why*: To allow secure, cross-origin chat requests from local testing environments (`file://`) and the live marketing domain.
+4. **Upgrade to `gemini-2.5-flash`**:
+   - *What we did*: Switched the model backend from `gemini-1.5-flash` to the modern, high-performance `gemini-2.5-flash`.
+   - *Why*: To benefit from faster generation times, lower latency, and higher sales context comprehension.
+5. **Frontend Chat History Alignment (`script.js`)**:
+   - *What we did*: Changed initial `chatHistory` from starting with a simulated `model` greeting to an empty array `[]`.
+   - *Why*: The Gemini SDK's `startChat` throws a fatal `500` error if the first message in the history is from the model. Starting with an empty history ensures that the first message sent to the backend is always from the `user` role, satisfying strict SDK requirements.
+
+### 💡 Results & Learnings
+The AI Sales Bot is now **100% online, unthrottled, and fully operational** in production! Incognito and fresh loads now instantly stream premium, dynamic sales responses, giving our marketing page an extremely premium, state-of-the-art interactive experience.
+*Learning*: Edge runtime environments have strict parsing constraints; global scopes should never rely on process environment variables. SDK-specific payload sequences must be rigorously validated.
+
+---
+
 ## 🏛️ Session 12: Cloudflare Custom Domains & Wallet Subscription Upgrades (Phase 2 Masterpiece)
 **Date: May 18, 2026 (Night Session)**
 

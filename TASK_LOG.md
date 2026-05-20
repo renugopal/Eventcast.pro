@@ -23,6 +23,12 @@ This document provides a concise summary of completed and pending tasks.
     - [x] Switched to **Eager Transformations** for Cloudinary images (credits saved at upload).
     - [x] Implemented **True Lazy Loading** for videos (no bytes downloaded until scroll).
 
+### AI & Sales Bot ("The Rainmaker")
+- [x] Upgraded AI backend to modern, high-performance **`gemini-2.5-flash`** model.
+- [x] Fixed Cloudflare Edge global scope initialization issue for `GoogleGenerativeAI` by instantiating it dynamically inside request handlers.
+- [x] Resolved GCP free-tier quota limits by linking active billing profile to Google Gemini API Key.
+- [x] Implemented complete CORS and custom preflight `OPTIONS` routing in the Next.js API route to support requests from local `file://` tests and production marketing domains.
+- [x] Resolved Gemini SDK history structure constraints in `script.js` by establishing an empty initial chat history starting with the `user` role instead of `model`.
 
 ### UI & UX
 - [x] Fixed video player bottom gap/alignment issue.
