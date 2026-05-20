@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Film, Play, Link, Folder, ChevronRight, ArrowLeft, Image as ImageIcon } from "lucide-react";
+import { Film, Play, Link, Folder, ChevronRight, ArrowLeft, Image as ImageIcon, CheckCircle2 } from "lucide-react";
 
 interface AssetLibraryProps {
   assetLibrary: any[]; // Now an array of { eventId, eventTitle, slug, assets[] }
@@ -13,6 +13,14 @@ export const AssetLibrary: React.FC<AssetLibraryProps> = ({
   setSelectedAsset 
 }) => {
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+
+  function copyUrl(url: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    navigator.clipboard.writeText(url).catch(() => {});
+    setCopiedUrl(url);
+    setTimeout(() => setCopiedUrl(null), 2000);
+  }
 
   const activeFolder = activeFolderId 
     ? assetLibrary.find(f => f.eventId === activeFolderId) 
@@ -107,17 +115,19 @@ export const AssetLibrary: React.FC<AssetLibraryProps> = ({
                 
                 <div className="absolute inset-0 bg-slate-900/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-4 backdrop-blur-sm">
                   <button 
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      navigator.clipboard.writeText(url); 
-                      alert("Asset URL synchronized to clipboard!"); 
-                    }} 
-                    className="p-4 bg-white/10 text-white rounded-[1.25rem] hover:bg-blue-600 border border-white/10 transition-all transform scale-90 group-hover:scale-100 shadow-2xl"
+                    onClick={(e) => copyUrl(url, e)}
+                    className={`p-4 rounded-[1.25rem] border transition-all transform scale-90 group-hover:scale-100 shadow-2xl ${
+                      copiedUrl === url
+                        ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
+                        : 'bg-white/10 text-white border-white/10 hover:bg-blue-600'
+                    }`}
                     title="Copy Image URL"
                   >
-                    <Link size={20} />
+                    {copiedUrl === url ? <CheckCircle2 size={20} /> : <Link size={20} />}
                   </button>
-                  <span className="text-[9px] text-white/60 font-black uppercase tracking-[0.2em]">Synchronize Link</span>
+                  <span className="text-[9px] text-white/60 font-black uppercase tracking-[0.2em]">
+                    {copiedUrl === url ? 'Copied!' : 'Synchronize Link'}
+                  </span>
                 </div>
               </div>
             );

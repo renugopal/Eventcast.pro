@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { RefreshCw, Trash2 } from "lucide-react";
+import { AlertDialog } from "./Toast";
 
 interface WishesModerationProps {
   wishes: any[];
@@ -16,8 +17,20 @@ export const WishesModeration: React.FC<WishesModerationProps> = ({
   fetchWishes,
   deleteWish
 }) => {
+  const [confirmWishId, setConfirmWishId] = useState<string | null>(null);
+
   return (
     <div className="max-w-6xl mx-auto space-y-7 animate-in fade-in duration-500">
+      <AlertDialog
+        open={confirmWishId !== null}
+        title="Delete this wish?"
+        message="This interaction will be permanently purged from the database. This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        danger
+        onConfirm={() => { if (confirmWishId) { deleteWish(confirmWishId); setConfirmWishId(null); } }}
+        onCancel={() => setConfirmWishId(null)}
+      />
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-xl font-black text-white tracking-tight">Wishes Moderation</h2>
@@ -72,11 +85,7 @@ export const WishesModeration: React.FC<WishesModerationProps> = ({
                     </td>
                     <td className="p-5 text-right">
                       <button 
-                        onClick={() => {
-                          if (window.confirm("Purge this interaction from database?")) {
-                            deleteWish(wish.id);
-                          }
-                        }} 
+                        onClick={() => setConfirmWishId(wish.id)} 
                         className="p-2.5 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-xl border border-transparent hover:border-red-500/20 transition-all"
                         title="Delete Wish"
                       >

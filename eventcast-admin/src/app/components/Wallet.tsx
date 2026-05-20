@@ -6,12 +6,14 @@ import {
   Sparkles, RefreshCw, Zap, Check, AlertCircle, Calendar, Shield, Loader2, X
 } from "lucide-react";
 import { authFetch } from "@/lib/client-auth";
+import { useToast } from "./Toast";
 
 interface WalletProps {
   studioId: string | null;
 }
 
 export const Wallet: React.FC<WalletProps> = ({ studioId }) => {
+  const { success, error: toastError } = useToast();
   const [balance, setBalance] = useState<number>(0);
   const [lifetimeTopup, setLifetimeTopup] = useState<number>(0);
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -36,14 +38,14 @@ export const Wallet: React.FC<WalletProps> = ({ studioId }) => {
 
       const data = await res.json();
       if (res.ok) {
-        alert(data.message || `Successfully upgraded to ${tier}!`);
+        success(`Plan upgraded!`, data.message || `Successfully activated ${tier} plan.`);
         fetchBillingData();
       } else {
-        alert(data.error || "Failed to upgrade subscription");
+        toastError('Upgrade failed', data.error || 'Failed to upgrade subscription');
       }
     } catch (err) {
       console.error(err);
-      alert("An unexpected error occurred during upgrade.");
+      toastError('Unexpected error', 'An error occurred during upgrade. Please try again.');
     } finally {
       setIsUpgrading(null);
     }

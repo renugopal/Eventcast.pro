@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { X, Link } from "lucide-react";
+import React, { useState } from "react";
+import { X, Link, CheckCircle2 } from "lucide-react";
 
 interface AssetPreviewModalProps {
   selectedAsset: string | null;
@@ -12,6 +12,15 @@ export const AssetPreviewModal: React.FC<AssetPreviewModalProps> = ({
   selectedAsset,
   setSelectedAsset
 }) => {
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy() {
+    if (!selectedAsset) return;
+    navigator.clipboard.writeText(selectedAsset).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
   if (!selectedAsset) return null;
 
   const isVideo = selectedAsset.toLowerCase().endsWith('.mp4') || 
@@ -49,10 +58,15 @@ export const AssetPreviewModal: React.FC<AssetPreviewModalProps> = ({
           {selectedAsset}
         </code>
         <button 
-          onClick={() => { navigator.clipboard.writeText(selectedAsset); alert("URL Copied!"); }}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-xl"
+          onClick={handleCopy}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all shadow-xl ${
+            copied
+              ? 'bg-emerald-600 text-white'
+              : 'bg-blue-600 text-white hover:bg-blue-700'
+          }`}
         >
-          <Link size={20} /> Copy Asset URL
+          {copied ? <CheckCircle2 size={20} /> : <Link size={20} />}
+          {copied ? 'Copied!' : 'Copy Asset URL'}
         </button>
       </div>
     </div>

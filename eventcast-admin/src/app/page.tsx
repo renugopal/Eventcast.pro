@@ -25,9 +25,12 @@ import { DashboardHome } from "./components/DashboardHome";
 import { LiveMonitor } from "./components/LiveMonitor";
 import { UserSettings } from "./components/UserSettings";
 import { Wallet } from "./components/Wallet";
+import { useToast, AlertDialog } from "./components/Toast";
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const { success, error: toastError, warning } = useToast();
+  const [deletePhotographerPending, setDeletePhotographerPending] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("home"); const [user, setUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [studioId, setStudioId] = useState<string | null>(null);
@@ -230,7 +233,7 @@ export default function AdminDashboard() {
       fetchWishes();
     } catch (err: any) {
       console.error("Error deleting wish:", err);
-      alert("❌ Failed to delete wish: " + err.message);
+      toastError('Delete failed', err.message);
     }
   }
 
@@ -763,7 +766,6 @@ export default function AdminDashboard() {
   };
 
   async function fullDeleteEvent(id: string) {
-    if (!confirm("Are you sure?")) return;
     setIsLoadingEvents(true);
     try {
       const res = await authFetch('/api/events/delete', {
@@ -776,12 +778,12 @@ export default function AdminDashboard() {
         throw new Error(data.error || "Failed to delete event.");
       }
       
-      alert("✅ Event and all related data deleted successfully!");
+      success('Event deleted', 'Event and all related data removed successfully.');
       fetchEvents();
     } catch (err: any) {
       if (err instanceof AuthError) { router.push('/login'); return; }
       console.error("Delete error:", err);
-      alert(`❌ Delete failed: ${err.message}`);
+      toastError('Delete failed', err.message);
     } finally {
       setIsLoadingEvents(false);
     }
@@ -809,14 +811,14 @@ export default function AdminDashboard() {
 
       const failed = results.filter(r => !r.success);
       if (failed.length > 0) {
-        alert(`${failed.length} events failed to delete. ${results.length - failed.length} succeeded.`);
+        warning('Partial delete', `${failed.length} events failed. ${results.length - failed.length} deleted successfully.`);
       } else {
-        alert(`✅ All ${ids.length} events deleted successfully.`);
+        success('All deleted', `${ids.length} events removed successfully.`);
       }
       fetchEvents();
     } catch (err) {
       console.error("Bulk delete error:", err);
-      alert("❌ Bulk delete failed.");
+      toastError('Bulk delete failed', 'An error occurred. Some events may not have been deleted.');
     } finally {
       setIsLoadingEvents(false);
     }
@@ -843,11 +845,11 @@ export default function AdminDashboard() {
           .eq('id', editingPhotographerId);
         
         if (error) throw error;
-        alert("Photographer updated successfully!");
+        success('Photographer updated', 'Studio credit updated successfully.');
       } else {
         const { error } = await supabase.from('photographers').insert(photographerData);
         if (error) throw error;
-        alert("Photographer added successfully!");
+        success('Photographer added', 'New studio credit saved successfully.');
       }
       
       e.target.reset();
@@ -857,7 +859,7 @@ export default function AdminDashboard() {
       fetchPhotographers();
     } catch (error: any) {
       console.error("Photographer Action Error:", error);
-      alert("Action failed: " + error.message);
+      toastError('Action failed', error.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -872,14 +874,17 @@ export default function AdminDashboard() {
   };
 
   async function deletePhotographer(id: string) {
-    if (!confirm("Are you sure you want to delete this photographer credit? This will not affect existing events but they will lose the photographer info in future edits.")) return;
+    setDeletePhotographerPending(id);
+  }
+
+  async function confirmDeletePhotographer(id: string) {
     try {
       const { error } = await supabase.from('photographers').delete().eq('id', id);
       if (error) throw error;
-      alert("Photographer deleted!");
+      success('Photographer deleted', 'Studio credit removed successfully.');
       fetchPhotographers();
     } catch (err: any) {
-      alert("Delete failed: " + err.message);
+      toastError('Delete failed', err.message);
     }
   }
 
@@ -898,11 +903,11 @@ export default function AdminDashboard() {
     const newPassword = e.target.newPassword.value;
     const confirmPassword = e.target.confirmPassword.value;
     if (newPassword !== confirmPassword) {
-      alert("New passwords do not match!");
+      warning('Passwords do not match', 'New password and confirm password must be identical.');
       return;
     }
     if (newPassword.length < 8) {
-      alert("New password must be at least 8 characters.");
+      warning('Password too short', 'New password must be at least 8 characters long.');
       return;
     }
     setIsSubmitting(true);
@@ -912,16 +917,16 @@ export default function AdminDashboard() {
       password: currentPassword,
     });
     if (authError) {
-      alert("❌ Current password is incorrect. Please try again.");
+      toastError('Incorrect password', 'Current password is wrong. Please try again.');
       setIsSubmitting(false);
       return;
     }
     // Step 2: Update to new password
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) {
-      alert("Update failed: " + error.message);
+      toastError('Update failed', error.message);
     } else {
-      alert("✅ Password updated successfully! Please re-login on all devices.");
+      success('Password updated!', 'Please re-login on all devices.');
       e.target.reset();
       // Sign out all other sessions by signing out and back in
       await supabase.auth.signOut({ scope: 'others' });
@@ -947,6 +952,18 @@ export default function AdminDashboard() {
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/[0.03] rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/[0.03] rounded-full blur-[120px]" />
       </div>
+
+      {/* Photographer delete confirm dialog */}
+      <AlertDialog
+        open={deletePhotographerPending !== null}
+        title="Delete photographer credit?"
+        message="This will remove the studio credit permanently. Existing events will not be affected, but future edits will lose this photographer info."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        danger
+        onConfirm={() => { if (deletePhotographerPending) confirmDeletePhotographer(deletePhotographerPending); setDeletePhotographerPending(null); }}
+        onCancel={() => setDeletePhotographerPending(null)}
+      />
 
       <Sidebar 
         activeTab={activeTab} 

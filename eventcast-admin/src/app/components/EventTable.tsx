@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy, Search, Download, QrCode, MessageCircle, Link as LinkIcon, CopyPlus, StickyNote, X, Eye, ChevronRight, List, MapPin, Clock, ZapOff, Activity } from "lucide-react";
+import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy, Search, Download, QrCode, MessageCircle, Link as LinkIcon, CopyPlus, StickyNote, X, Eye, ChevronRight, List, MapPin, Clock, ZapOff, Activity, CheckCircle2 } from "lucide-react";
 import { authFetch } from "@/lib/client-auth";
+import { useToast, AlertDialog } from "./Toast";
 
 interface EventTableProps {
   events: any[];
@@ -33,10 +34,33 @@ export const EventTable: React.FC<EventTableProps> = ({
   fullDeleteEvent,
   deleteMultipleEvents
 }) => {
+  const { success, error: toastError, info } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [togglingYoutube, setTogglingYoutube] = useState<Record<string, boolean>>({});
   const [restartingServer, setRestartingServer] = useState<Record<string, boolean>>({});
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [alertDialog, setAlertDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ open: false, title: '', message: '', onConfirm: () => {} });
+
+  function copyToClipboard(text: string, key: string, label: string) {
+    navigator.clipboard.writeText(text).catch(() => {});
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+    info(`${label} copied`, 'Pasted to clipboard');
+  }
+
+  function openConfirm(title: string, message: string, onConfirm: () => void) {
+    setAlertDialog({ open: true, title, message, onConfirm });
+  }
+
+  function closeConfirm() {
+    setAlertDialog(prev => ({ ...prev, open: false }));
+  }
 
   const handleRestartServer = async (slug: string, eventId: string) => {
     setRestartingServer(prev => ({ ...prev, [eventId]: true }));
@@ -45,8 +69,8 @@ export const EventTable: React.FC<EventTableProps> = ({
         method: 'POST',
         body: JSON.stringify({ slug }),
       });
-      if (res.ok) alert("Server process restarted successfully!");
-      else alert("Failed to restart server.");
+      if (res.ok) success('Server restarted!', 'Stream channel process restarted successfully.');
+      else toastError('Restart failed', 'Could not restart the server. Try again.');
     } finally {
       setRestartingServer(prev => {
         const next = { ...prev };
@@ -64,7 +88,10 @@ export const EventTable: React.FC<EventTableProps> = ({
         body: JSON.stringify({ slug: event.slug, enabled, eventId: event.id }),
       });
       if (response.ok) {
-        alert(`YouTube Relay ${enabled ? 'Started' : 'Stopped'} Successfully!`);
+        success(
+          `YouTube Relay ${enabled ? 'Started' : 'Stopped'}`,
+          enabled ? 'Stream is now relaying to YouTube.' : 'YouTube relay has been terminated.'
+        );
         fetchEvents();
       }
     } finally {
@@ -249,6 +276,16 @@ export const EventTable: React.FC<EventTableProps> = ({
 
   return (
     <div className="w-full space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <AlertDialog
+        open={alertDialog.open}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        danger
+        onConfirm={() => { alertDialog.onConfirm(); closeConfirm(); }}
+        onCancel={closeConfirm}
+      />
       {selectedEventIds.size > 0 && (
         <div 
           className="flex items-center justify-between p-6 rounded-[2rem] shadow-2xl animate-in slide-in-from-top-6 duration-500 relative overflow-hidden"
@@ -270,12 +307,11 @@ export const EventTable: React.FC<EventTableProps> = ({
           </div>
           <div className="flex items-center gap-4 relative z-10">
             <button 
-              onClick={() => {
-                if (confirm(`CRITICAL: Are you sure you want to WIPE ${selectedEventIds.size} events from the core database?`)) {
-                  deleteMultipleEvents(Array.from(selectedEventIds));
-                  setSelectedEventIds(new Set());
-                }
-              }}
+              onClick={() => openConfirm(
+                `Wipe ${selectedEventIds.size} events?`,
+                `CRITICAL: This will permanently delete ${selectedEventIds.size} events and all associated data from the database. This cannot be undone.`,
+                () => { deleteMultipleEvents(Array.from(selectedEventIds)); setSelectedEventIds(new Set()); }
+              )}
               className="flex items-center gap-3 px-6 py-3 bg-red-500/20 text-red-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-500/20 active:scale-95"
             >
               <Trash2 size={16} /> Force Batch Wipe
@@ -564,11 +600,21 @@ export const EventTable: React.FC<EventTableProps> = ({
                           <div className="flex flex-col gap-1.5 bg-white/[0.03] p-3 rounded-2xl border border-white/[0.08] shadow-inner group/node">
                             <div className="flex items-center justify-between gap-3">
                               <span className="text-[10px] font-mono text-white/30 truncate max-w-[140px] tracking-tight">{event.restreamer_ingest_url || `rtmp://34.100.142.25/${event.slug}`}</span>
-                              <button onClick={() => { navigator.clipboard.writeText(event.restreamer_ingest_url || `rtmp://34.100.142.25/${event.slug}`); alert("Ingest URL Copied"); }} className="text-white/10 hover:text-blue-400 transition-colors"><CopyPlus size={14}/></button>
+                              <button
+                                onClick={() => copyToClipboard(event.restreamer_ingest_url || `rtmp://34.100.142.25/${event.slug}`, `ingest-${event.id}`, 'Ingest URL')}
+                                className={`transition-colors ${ copiedKey === `ingest-${event.id}` ? 'text-emerald-400' : 'text-white/10 hover:text-blue-400' }`}
+                              >
+                                {copiedKey === `ingest-${event.id}` ? <CheckCircle2 size={14}/> : <CopyPlus size={14}/>}
+                              </button>
                             </div>
                             <div className="flex items-center justify-between gap-3 border-t border-white/[0.05] pt-2 mt-1">
                               <span className="text-[11px] font-mono font-black text-blue-400 uppercase tracking-tighter">● {event.restreamer_stream_key || 'live'}</span>
-                              <button onClick={() => { navigator.clipboard.writeText(event.restreamer_stream_key || 'live'); alert("Stream Key Copied"); }} className="text-white/10 hover:text-blue-400 transition-colors"><Copy size={14}/></button>
+                              <button
+                                onClick={() => copyToClipboard(event.restreamer_stream_key || 'live', `key-${event.id}`, 'Stream Key')}
+                                className={`transition-colors ${ copiedKey === `key-${event.id}` ? 'text-emerald-400' : 'text-white/10 hover:text-blue-400' }`}
+                              >
+                                {copiedKey === `key-${event.id}` ? <CheckCircle2 size={14}/> : <Copy size={14}/>}
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -600,7 +646,12 @@ export const EventTable: React.FC<EventTableProps> = ({
                             {event.youtube_stream_key && (
                               <div className="flex items-center justify-between gap-3">
                                 <span className="text-[10px] font-mono text-red-500/60 truncate max-w-[140px]">{event.youtube_stream_key}</span>
-                                <button onClick={() => { navigator.clipboard.writeText(event.youtube_stream_key); alert("YouTube Key Copied"); }} className="text-white/10 hover:text-red-500 transition-colors"><Copy size={14}/></button>
+                                <button
+                                  onClick={() => copyToClipboard(event.youtube_stream_key, `yt-${event.id}`, 'YouTube Key')}
+                                  className={`transition-colors ${ copiedKey === `yt-${event.id}` ? 'text-emerald-400' : 'text-white/10 hover:text-red-500' }`}
+                                >
+                                  {copiedKey === `yt-${event.id}` ? <CheckCircle2 size={14}/> : <Copy size={14}/>}
+                                </button>
                               </div>
                             )}
                             {event.vod_link && (
@@ -629,7 +680,8 @@ export const EventTable: React.FC<EventTableProps> = ({
                                  method: 'POST',
                                  body: JSON.stringify({ eventId: event.id, broadcastId: event.youtube_broadcast_id, title: baseTitle, isLive: true }),
                                });
-                               if (res.ok) alert("CRITICAL: BROADCAST IS NOW LIVE");
+                               if (res.ok) success('🔴 BROADCAST LIVE', 'Stream is now live on YouTube.');
+                               else toastError('Failed to go live', 'Check broadcast settings.');
                              }}
                              className="px-4 py-2 bg-red-600 text-white rounded-xl text-[9px] font-black hover:bg-red-500 border border-red-500/20 uppercase tracking-[0.2em] transition-all shadow-lg shadow-red-600/20 active:scale-95"
                            >
@@ -643,7 +695,8 @@ export const EventTable: React.FC<EventTableProps> = ({
                                  method: 'POST',
                                  body: JSON.stringify({ eventId: event.id, broadcastId: event.youtube_broadcast_id, title: baseTitle, isLive: false }),
                                });
-                               if (res.ok) alert("MISSION COMPLETE: BROADCAST TERMINATED");
+                               if (res.ok) success('Broadcast terminated', 'Stream has ended successfully.');
+                               else toastError('Termination failed', 'Could not end the broadcast.');
                              }}
                              className="px-4 py-2 bg-white/5 text-white/30 rounded-xl text-[9px] font-black hover:bg-white/10 hover:text-white border border-white/10 uppercase tracking-[0.2em] transition-all active:scale-95"
                            >
@@ -697,26 +750,19 @@ export const EventTable: React.FC<EventTableProps> = ({
                          </div>
 
                         <button 
-                          onClick={() => { 
-                            navigator.clipboard.writeText(`https://eventcast.pro/events/${event.slug}`); 
-                            alert("Live Page Link Copied!"); 
-                          }}
+                          onClick={() => copyToClipboard(`https://eventcast.pro/events/${event.slug}`, `live-${event.id}`, 'Live Page Link')}
                           className="p-3 bg-white/[0.03] text-blue-400 rounded-2xl transition-all border border-white/5 hover:border-blue-500/40 hover:bg-blue-500/10 hover:shadow-lg hover:shadow-blue-500/5 active:scale-95" 
                           title="Copy Live Page Link"
                         >
-                          <Copy size={20} />
+                          {copiedKey === `live-${event.id}` ? <CheckCircle2 size={20} className="text-emerald-400" /> : <Copy size={20} />}
                         </button>
 
                         <button 
-                          onClick={() => { 
-                            const portalUrl = `${window.location.origin}/portal/${event.slug}`;
-                            navigator.clipboard.writeText(portalUrl); 
-                            alert("Client Portal Link Copied!"); 
-                          }}
+                          onClick={() => copyToClipboard(`${window.location.origin}/portal/${event.slug}`, `portal-${event.id}`, 'Client Portal Link')}
                           className="p-3 bg-white/[0.03] text-pink-500 rounded-2xl transition-all border border-white/5 hover:border-pink-500/40 hover:bg-pink-500/10 hover:shadow-lg hover:shadow-pink-500/5 active:scale-95" 
                           title="Copy Client Portal Link"
                         >
-                          <LinkIcon size={20} />
+                          {copiedKey === `portal-${event.id}` ? <CheckCircle2 size={20} className="text-emerald-400" /> : <LinkIcon size={20} />}
                         </button>
 
                         <button 
@@ -747,11 +793,11 @@ export const EventTable: React.FC<EventTableProps> = ({
                         </button>
 
                         <button 
-                          onClick={() => {
-                            if (window.confirm("WARNING: Are you sure you want to permanently delete this event? This will also remove the YouTube broadcast and associated data.")) {
-                              fullDeleteEvent(event.id);
-                            }
-                          }}
+                          onClick={() => openConfirm(
+                            'Delete this event?',
+                            'WARNING: This will permanently delete the event, remove the YouTube broadcast, and erase all associated data. This cannot be undone.',
+                            () => fullDeleteEvent(event.id)
+                          )}
                           className="p-3 bg-white/[0.03] text-red-500 rounded-2xl transition-all border border-white/5 hover:border-red-500/40 hover:bg-red-500/10 hover:shadow-lg hover:shadow-red-500/5 active:scale-95" 
                           title="Delete Event"
                         >
@@ -861,13 +907,14 @@ export const EventTable: React.FC<EventTableProps> = ({
               </div>
               <div className="flex gap-3">
                 <button 
-                  onClick={() => {
-                    navigator.clipboard.writeText(previewStream.restreamer_ingest_url || `rtmp://34.100.142.25/${previewStream.slug}`);
-                    alert("RTMP Ingest URL Copied!");
-                  }}
+                  onClick={() => copyToClipboard(
+                    previewStream.restreamer_ingest_url || `rtmp://34.100.142.25/${previewStream.slug}`,
+                    'rtmp-preview',
+                    'RTMP Ingest URL'
+                  )}
                   className="px-5 py-2.5 bg-white/5 text-white/60 text-[10px] font-black rounded-xl border border-white/10 hover:bg-white/10 transition-all flex items-center gap-2"
                 >
-                  <Copy size={14} /> INGEST URL
+                  {copiedKey === 'rtmp-preview' ? <CheckCircle2 size={14} className="text-emerald-400" /> : <Copy size={14} />} INGEST URL
                 </button>
                 <a 
                   href={`https://eventcast.pro/events/${previewStream.slug}`}
