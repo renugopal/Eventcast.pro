@@ -145,7 +145,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         event_id: CONFIG.eventId,
                         device_type: deviceType,
                         referrer: referrer,
-                        user_agent: userAgent
+                        user_agent: userAgent,
+                        country: CONFIG.country || 'Unknown'
                     }]);
 
                 // 2. Count total visits for this event accurately

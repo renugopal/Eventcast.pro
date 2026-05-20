@@ -536,7 +536,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         event_id: EVENT_ID,
                         device_type: deviceType,
                         referrer: referrer,
-                        user_agent: userAgent
+                        user_agent: userAgent,
+                        country: CONFIG.country || 'Unknown'
                     }]);
 
                 const { count } = await _supabase

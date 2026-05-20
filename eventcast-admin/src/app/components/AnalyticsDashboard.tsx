@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Users, Smartphone, Globe, Monitor, Clock, Activity, MapPin, Eye, TrendingUp, ChevronLeft, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { WorldMap, CountryStat, COUNTRY_NAMES, flagEmoji } from "./WorldMap";
 
 interface AnalyticsDashboardProps {
   analyticsData: any[];
@@ -38,7 +39,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
     setIsLoadingDetail(true);
     supabase
       .from('page_views')
-      .select('created_at, referrer, device_type, user_agent')
+      .select('created_at, referrer, device_type, user_agent, country')
       .eq('event_id', selectedEventId)
       .then(({ data }) => {
         setRawViews(data || []);
@@ -79,6 +80,24 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
       else if (type === 'Tablet') devices.Tablet++;
       else devices.Desktop++;
     });
+
+    // ── Geo-Location Aggregation ──────────────────────────────────────────────
+    const countryCounts: Record<string, number> = {};
+    rawViews.forEach((v: any) => {
+      const code = (v.country && v.country !== 'Unknown') ? v.country : 'Unknown';
+      countryCounts[code] = (countryCounts[code] || 0) + 1;
+    });
+    const totalForPct = rawViews.length || 1;
+    const countryStats: CountryStat[] = Object.entries(countryCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([code, count]) => ({
+        country: code,
+        label: COUNTRY_NAMES[code] || code,
+        count,
+        percentage: Math.round((count / totalForPct) * 1000) / 10,
+      }));
+    const topCountries = countryStats.slice(0, 8);
+
 
     if (isLoadingDetail) {
       return (
@@ -215,6 +234,76 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
                 })}
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* ── Geo-Location World Map Card ───────────────────────────── */}
+        <div className="bg-white/[0.015] p-8 md:p-10 rounded-[2.5rem] border border-white/[0.08] backdrop-blur-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/5 blur-[120px] pointer-events-none" />
+          <div className="relative z-10">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-2xl flex items-center justify-center border border-blue-500/20 shadow-lg shadow-blue-500/5">
+                  <Globe size={20} />
+                </div>
+                <div>
+                  <h3 className="font-black text-white tracking-tight">Viewer Distribution</h3>
+                  <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mt-1">Real-time geo-location telemetry</p>
+                </div>
+              </div>
+              <div className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em] bg-white/[0.03] px-4 py-2 rounded-xl border border-white/[0.06]">
+                {countryStats.length} {countryStats.length === 1 ? 'Country' : 'Countries'} Detected
+              </div>
+            </div>
+
+            {countryStats.length === 0 ? (
+              /* Empty state */
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <Globe size={48} className="text-white/10" />
+                <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">No geo-location data yet</p>
+                <p className="text-[9px] text-white/10 uppercase tracking-widest">Views captured before this feature was enabled show &apos;Unknown&apos;</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Map — takes 2/3 width */}
+                <div className="lg:col-span-2">
+                  <WorldMap data={countryStats} />
+                </div>
+
+                {/* Leaderboard — takes 1/3 width */}
+                <div className="space-y-3">
+                  <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em] mb-5 flex items-center gap-2">
+                    <MapPin size={11} className="text-blue-400" /> Top Origins
+                  </p>
+                  {topCountries.map((cs, i) => (
+                    <div key={cs.country} className="group flex items-center gap-3 p-3 rounded-2xl hover:bg-white/[0.04] transition-all duration-300 border border-transparent hover:border-white/[0.06]">
+                      {/* Rank */}
+                      <span className="text-[10px] font-black text-white/20 w-5 text-right flex-shrink-0">
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
+                      {/* Flag */}
+                      <span className="text-lg leading-none flex-shrink-0">{cs.country === 'Unknown' ? '🌐' : cs.country.length === 2 ? String.fromCodePoint(0x1F1E0 - 0x41 + cs.country.charCodeAt(0)) + String.fromCodePoint(0x1F1E0 - 0x41 + cs.country.charCodeAt(1)) : '🌐'}</span>
+                      {/* Name + bar */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] font-black text-white/60 group-hover:text-white/90 transition-colors truncate">{cs.label}</span>
+                          <span className="text-[9px] font-black text-white/30 ml-2 flex-shrink-0">{cs.count}</span>
+                        </div>
+                        <div className="h-1 bg-white/[0.04] rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-400 transition-all duration-1000"
+                            style={{ width: `${cs.percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                      {/* Percentage */}
+                      <span className="text-[10px] font-black text-blue-400 flex-shrink-0 w-10 text-right">{cs.percentage}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

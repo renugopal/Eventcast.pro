@@ -348,7 +348,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const trackView = async () => {
         if (!_supabase || !EVENT_ID) return;
         try {
-            await _supabase.from('page_views').insert([{ event_id: EVENT_ID, device_type: /Mobi|Android/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop' }]);
+            const userAgent = navigator.userAgent;
+            const deviceType = /Mobi|Android/i.test(userAgent) ? 'Mobile' :
+                               /Tablet|iPad/i.test(userAgent) ? 'Tablet' : 'Desktop';
+            const referrer = document.referrer.includes('whatsapp') ? 'WhatsApp' :
+                             document.referrer.includes('instagram') ? 'Instagram' :
+                             document.referrer.includes('facebook') ? 'Facebook' : 'Direct';
+            await _supabase.from('page_views').insert([{
+                event_id: EVENT_ID,
+                device_type: deviceType,
+                referrer: referrer,
+                user_agent: userAgent,
+                country: CONFIG.country || 'Unknown'
+            }]);
             const { count } = await _supabase.from('page_views').select('*', { count: 'exact', head: true }).eq('event_id', EVENT_ID);
             const display = document.getElementById('total-views-display');
             if (display && count !== null) display.innerText = count.toLocaleString();

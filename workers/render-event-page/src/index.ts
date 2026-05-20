@@ -106,7 +106,12 @@ export default {
       const templateHtml = TEMPLATES[event.template_id ?? DEFAULT_TEMPLATE_ID]
         ?? TEMPLATES[DEFAULT_TEMPLATE_ID];
 
-      const rendered = renderEvent(templateHtml, event, photographer, slug, env);
+      // Resolve visitor country at the edge — Cloudflare provides CF-IPCountry
+      // automatically for all requests (free, zero-latency, no external API).
+      // Falls back to 'Unknown' on local dev or if the header is absent.
+      const countryCode = request.headers.get('CF-IPCountry') ?? 'Unknown';
+
+      const rendered = renderEvent(templateHtml, event, photographer, slug, env, countryCode);
 
       return new Response(rendered, {
         status: 200,
@@ -239,6 +244,7 @@ function renderEvent(
   photographer: PhotographerRow | null,
   slug: string,
   env: Env,
+  countryCode: string = 'Unknown',
 ): string {
   const groom      = event.groom_name ?? event.celebrant_name ?? 'Event';
   const bride      = event.bride_name ?? 'Family';
@@ -331,7 +337,8 @@ window.WEDDING_CONFIG = {
   photographer: ${JSON.stringify(photographer)},
   customInitials: "${esc(customInitials)}",
   hideLoaderPhoto: ${hideLoaderPhoto ? 'true' : 'false'},
-  loaderPhotoUrl: "${esc(loaderPhotoUrl)}"
+  loaderPhotoUrl: "${esc(loaderPhotoUrl)}",
+  country: "${esc(countryCode)}"
 };
 </script>`;
 
