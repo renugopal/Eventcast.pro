@@ -47,6 +47,97 @@ const optimizeUrl = (url) => {
     return url;
 };
 
+// --- CHROMECAST SENDER INTEGRATION ---
+let castSession = null;
+window.isCastApiAvailable = false;
+
+window['__onGCastApiAvailable'] = function(isLoaded) {
+    if (isLoaded && typeof cast !== 'undefined') {
+        try {
+            cast.framework.CastContext.getInstance().setOptions({
+                receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+                autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
+            });
+
+            // Register session state listeners
+            const context = cast.framework.CastContext.getInstance();
+            context.addEventListener(
+                cast.framework.CastContextEventType.SESSION_STATE_CHANGED,
+                function(event) {
+                    switch (event.sessionState) {
+                        case cast.framework.SessionState.SESSION_STARTED:
+                        case cast.framework.SessionState.SESSION_RESUMED:
+                            console.log("Cast Session established!");
+                            castSession = event.session;
+                            onCastSessionStarted(castSession);
+                            break;
+                        case cast.framework.SessionState.SESSION_ENDED:
+                            console.log("Cast Session disconnected.");
+                            castSession = null;
+                            onCastSessionEnded();
+                            break;
+                    }
+                }
+            );
+
+            window.isCastApiAvailable = true;
+
+            // Reveal the container once initialized so the button is rendered when active
+            const castContainer = document.querySelector('.cast-button-container');
+            if (castContainer) {
+                castContainer.style.display = 'block';
+            }
+        } catch (e) {
+            console.error("Cast SDK init failed:", e);
+        }
+    }
+};
+
+function onCastSessionStarted(session) {
+    if (!session || !CONFIG.restreamerUrl) return;
+
+    // Setup media info for HLS streaming (.m3u8)
+    const mediaInfo = new chrome.cast.media.MediaInfo(CONFIG.restreamerUrl, 'application/x-mpegurl');
+    mediaInfo.metadata = new chrome.cast.media.GenericMediaMetadata();
+    mediaInfo.metadata.metadataType = chrome.cast.media.MetadataType.GENERIC;
+
+    // Set beautiful metadata matching the active event details
+    const celebrant = CONFIG.groom && CONFIG.bride && CONFIG.bride.toLowerCase() !== 'family'
+        ? `${CONFIG.groom} & ${CONFIG.bride}`
+        : CONFIG.groom || 'Eventcast Broadcast';
+    mediaInfo.metadata.title = `${celebrant} - Live Wedding`;
+    mediaInfo.metadata.subtitle = CONFIG.venue || "Watch on Smart TV";
+
+    if (CONFIG.thumbnail) {
+        mediaInfo.metadata.images = [{ url: CONFIG.thumbnail }];
+    }
+
+    const request = new chrome.cast.media.LoadRequest(mediaInfo);
+    session.loadMedia(request).then(
+        function() {
+            console.log("Stream successfully casted to TV!");
+            
+            // Safely pause local playback
+            const video = document.getElementById('hls-video');
+            if (video) video.pause();
+            if (window.plyrPlayer && typeof window.plyrPlayer.pause === 'function') {
+                window.plyrPlayer.pause();
+            }
+        },
+        function(err) {
+            console.error("Failed to load stream on Chromecast:", err);
+        }
+    );
+}
+
+function onCastSessionEnded() {
+    // Gracefully handle session disconnection
+    const video = document.getElementById('hls-video');
+    if (video && video.paused) {
+        video.play().catch(e => console.log("Auto-resume prevented:", e));
+    }
+}
+
 // --- UI INJECTION ---
 document.addEventListener('DOMContentLoaded', () => {
     // --- LOADER: Update photo & initials dynamically from CONFIG ---
@@ -468,6 +559,12 @@ function onYouTubeIframeAPIReady() {
             playerContainer.innerHTML = `
                 <div class="plyr-container" style="position:absolute; top:0; left:0; width:100%; height:100%; overflow:hidden; background:#000;">
                     <video id="hls-video" controls width="100%" height="100%" playsinline style="width:100%; height:100%; object-fit:contain;"></video>
+                    
+                    <!-- Floating Glassmorphic Chromecast Button -->
+                    <div class="cast-button-container" style="position:absolute; top:15px; right:15px; z-index:15; display:none;">
+                        <google-cast-launcher id="chromecast-btn"></google-cast-launcher>
+                    </div>
+
                     <div id="hls-loader" class="hls-loader-container" style="position:absolute; top:0; left:0; right:0; bottom:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:10; background:rgba(0,0,0,0.5);">
                         <i class="fas fa-spinner fa-spin" style="font-size:3rem; margin-bottom:15px; color:white;"></i>
                         <p style="font-family:'Playfair Display', serif; letter-spacing:2px; text-transform:uppercase; color:white;">Waiting for Stream to Start...</p>
@@ -503,6 +600,14 @@ function onYouTubeIframeAPIReady() {
                 }
             `;
             document.head.appendChild(style);
+
+            // If the Cast API is already initialized, reveal the floating launcher container
+            if (window.isCastApiAvailable) {
+                const castContainer = document.querySelector('.cast-button-container');
+                if (castContainer) {
+                    castContainer.style.display = 'block';
+                }
+            }
 
             // Initialize elements and state variables
             const video = document.getElementById('hls-video');
@@ -612,6 +717,7 @@ function onYouTubeIframeAPIReady() {
                                             settings: ['quality'],
                                             tooltips: { controls: true, seek: true }
                                         });
+                                        window.plyrPlayer = player;
                                     }
                                     video.play().catch(e => console.log("Autoplay prevented:", e));
                                 });
