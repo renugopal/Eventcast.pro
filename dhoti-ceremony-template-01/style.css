@@ -663,3 +663,28 @@ body.lang-te [data-i18n] {
     font-family: 'Noto Sans Telugu', sans-serif;
     letter-spacing: 0;
 }
+
+/* --- CHROMECAST GLASSMORPHIC OVERLAY --- */
+.cast-button-container {
+    transition: opacity 0.3s ease;
+}
+google-cast-launcher {
+    display: inline-block !important;
+    width: 40px !important;
+    height: 40px !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+    backdrop-filter: blur(8px) !important;
+    border-radius: 50% !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    cursor: pointer !important;
+    padding: 8px !important;
+    transition: all 0.3s ease !important;
+    --disconnected-color: #ffffff !important;
+    --connected-color: #10b981 !important; /* Premium Emerald green */
+}
+google-cast-launcher:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.25) !important;
+    transform: scale(1.08);
+}

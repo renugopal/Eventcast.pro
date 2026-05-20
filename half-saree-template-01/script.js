@@ -121,6 +121,97 @@ function initSlideshow() {
     startSlideshow();
 }
 
+// --- CHROMECAST SENDER INTEGRATION ---
+let castSession = null;
+window.isCastApiAvailable = false;
+
+window['__onGCastApiAvailable'] = function(isLoaded) {
+    if (isLoaded && typeof cast !== 'undefined') {
+        try {
+            cast.framework.CastContext.getInstance().setOptions({
+                receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+                autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
+            });
+
+            // Register session state listeners
+            const context = cast.framework.CastContext.getInstance();
+            context.addEventListener(
+                cast.framework.CastContextEventType.SESSION_STATE_CHANGED,
+                function(event) {
+                    switch (event.sessionState) {
+                        case cast.framework.SessionState.SESSION_STARTED:
+                        case cast.framework.SessionState.SESSION_RESUMED:
+                            console.log("Cast Session established!");
+                            castSession = event.session;
+                            onCastSessionStarted(castSession);
+                            break;
+                        case cast.framework.SessionState.SESSION_ENDED:
+                            console.log("Cast Session disconnected.");
+                            castSession = null;
+                            onCastSessionEnded();
+                            break;
+                    }
+                }
+            );
+
+            window.isCastApiAvailable = true;
+
+            // Reveal the container once initialized so the button is rendered when active
+            const castContainer = document.querySelector('.cast-button-container');
+            if (castContainer) {
+                castContainer.style.display = 'block';
+            }
+        } catch (e) {
+            console.error("Cast SDK init failed:", e);
+        }
+    }
+};
+
+function onCastSessionStarted(session) {
+    if (!session || !CONFIG.restreamerUrl) return;
+
+    // Setup media info for HLS streaming (.m3u8)
+    const mediaInfo = new chrome.cast.media.MediaInfo(CONFIG.restreamerUrl, 'application/x-mpegurl');
+    mediaInfo.metadata = new chrome.cast.media.GenericMediaMetadata();
+    mediaInfo.metadata.metadataType = chrome.cast.media.MetadataType.GENERIC;
+
+    // Set beautiful metadata matching the active event details
+    const celebrant = CONFIG.groom && CONFIG.bride && CONFIG.bride.toLowerCase() !== 'family'
+        ? `${CONFIG.groom} & ${CONFIG.bride}`
+        : CONFIG.groom || 'Eventcast Broadcast';
+    mediaInfo.metadata.title = `${celebrant} - Live Broadcast`;
+    mediaInfo.metadata.subtitle = CONFIG.venue || "Watch on Smart TV";
+
+    if (CONFIG.thumbnail) {
+        mediaInfo.metadata.images = [{ url: CONFIG.thumbnail }];
+    }
+
+    const request = new chrome.cast.media.LoadRequest(mediaInfo);
+    session.loadMedia(request).then(
+        function() {
+            console.log("Stream successfully casted to TV!");
+            
+            // Safely pause local playback
+            const video = document.getElementById('hls-video');
+            if (video) video.pause();
+            if (window.plyrPlayer && typeof window.plyrPlayer.pause === 'function') {
+                window.plyrPlayer.pause();
+            }
+        },
+        function(err) {
+            console.error("Failed to load stream on Chromecast:", err);
+        }
+    );
+}
+
+function onCastSessionEnded() {
+    // Gracefully handle session disconnection
+    const video = document.getElementById('hls-video');
+    if (video && video.paused) {
+        video.play().catch(e => console.log("Auto-resume prevented:", e));
+    }
+}
+
 // --- VIDEO PLAYER LOGIC ---
 var ytScriptTag = document.createElement('script');
 ytScriptTag.src = "https://www.youtube.com/iframe_api";
@@ -131,14 +222,234 @@ let player;
 function onYouTubeIframeAPIReady() {
     const livestreamSection = document.getElementById('live-card');
     const playerContainer = document.getElementById('youtube-player');
+    const statusBadge = document.querySelector('.live-badge');
 
-    if (!CONFIG.youtubeId && !CONFIG.restreamerPlayer) {
+    if (!CONFIG.youtubeId && !CONFIG.restreamerUrl && !CONFIG.restreamerPlayer) {
         const liveSection = document.getElementById('live-card');
         if (liveSection) liveSection.style.display = 'none';
         return;
     }
 
-    // 1. Check for Restreamer Player
+    // 1. Direct Premium HLS Stream Integration
+    if (CONFIG.restreamerUrl) {
+        console.log("Using Native HLS Player for Restreamer...");
+        if (playerContainer) {
+            playerContainer.innerHTML = `
+                <div class="plyr-container" style="position:absolute; top:0; left:0; width:100%; height:100%; overflow:hidden; background:#000; border-radius:15px;">
+                    <video id="hls-video" controls width="100%" height="100%" playsinline style="width:100%; height:100%; object-fit:contain; border-radius:15px;"></video>
+                    
+                    <!-- Floating Glassmorphic Chromecast Button -->
+                    <div class="cast-button-container" style="position:absolute; top:15px; right:15px; z-index:15; display:none;">
+                        <google-cast-launcher id="chromecast-btn"></google-cast-launcher>
+                    </div>
+
+                    <div id="hls-loader" class="hls-loader-container" style="position:absolute; top:0; left:0; right:0; bottom:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:10; background:rgba(0,0,0,0.5); border-radius:15px;">
+                        <i class="fas fa-spinner fa-spin" style="font-size:3rem; margin-bottom:15px; color:white;"></i>
+                        <p style="font-family:'Playfair Display', serif; letter-spacing:2px; text-transform:uppercase; color:white;">Waiting for Stream to Start...</p>
+                    </div>
+                </div>
+            `;
+            
+            // Add YouTube Link button if available
+            if (CONFIG.youtubeId) {
+                const ytLink = document.createElement('div');
+                ytLink.style.textAlign = 'center';
+                ytLink.style.marginTop = '15px';
+                ytLink.innerHTML = `
+                    <a href="https://youtube.com/watch?v=${CONFIG.youtubeId}" target="_blank" class="btn outline-btn" style="font-size: 0.7rem; padding: 5px 12px; display: inline-block;">
+                        <i class="fab fa-youtube"></i> Watch on YouTube
+                    </a>
+                `;
+                livestreamSection.appendChild(ytLink);
+            }
+
+            // Inject Plyr container CSS overrides programmatically
+            const style = document.createElement('style');
+            style.innerHTML = `
+                .plyr {
+                    height: 100% !important;
+                    width: 100% !important;
+                }
+                .plyr__video-wrapper {
+                    height: 100% !important;
+                    width: 100% !important;
+                }
+                .plyr--video {
+                    background: #000 !important;
+                }
+            `;
+            document.head.appendChild(style);
+
+            // If Cast API is already initialized, reveal the floating launcher container
+            if (window.isCastApiAvailable) {
+                const castContainer = document.querySelector('.cast-button-container');
+                if (castContainer) {
+                    castContainer.style.display = 'block';
+                }
+            }
+
+            // Initialize elements and state variables
+            const video = document.getElementById('hls-video');
+            const loader = document.getElementById('hls-loader');
+            const loaderText = loader ? loader.querySelector('p') : null;
+            let isPlaying = false;
+            let hls = null;
+            let player = null;
+            let pollInterval = null;
+
+            // Update status badge if stream is live
+            const updateStatus = (isLive) => {
+                if (statusBadge) {
+                    if (isLive) {
+                        statusBadge.innerHTML = '<span class="pulse"></span> LIVE NOW';
+                        statusBadge.classList.add('live-glow');
+                    } else {
+                        statusBadge.innerHTML = '<span class="pulse"></span> LIVE SOON';
+                        statusBadge.classList.remove('live-glow');
+                    }
+                }
+            };
+
+            const showLoader = (text) => {
+                if (loader) {
+                    loader.style.display = 'flex';
+                    if (loaderText && text) loaderText.innerText = text;
+                }
+            };
+
+            const hideLoader = () => {
+                if (loader) loader.style.display = 'none';
+            };
+
+            const destroyHls = () => {
+                if (video && video._dropHandlers) {
+                    video.removeEventListener('waiting', video._dropHandlers);
+                    video.removeEventListener('stalled', video._dropHandlers);
+                    video.removeEventListener('ended', video._dropHandlers);
+                    delete video._dropHandlers;
+                }
+                if (player) {
+                    player.destroy();
+                    player = null;
+                }
+                if (hls) {
+                    hls.destroy();
+                    hls = null;
+                }
+                isPlaying = false;
+            };
+
+            const tryLoadStream = () => {
+                if (isPlaying) return;
+                
+                fetch(CONFIG.restreamerUrl, { method: 'HEAD', cache: 'no-store' })
+                    .then(res => {
+                        if (res.ok) {
+                            console.log("Stream detected! Initializing player...");
+                            hideLoader();
+                            isPlaying = true;
+                            updateStatus(true);
+                            
+                            if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+                                hls = new Hls({ 
+                                    capLevelToPlayerSize: true, 
+                                    maxBufferLength: 30,
+                                    maxMaxBufferLength: 60,
+                                    liveSyncDurationCount: 3,
+                                    liveMaxLatencyDurationCount: 10,
+                                    enableWorker: true,
+                                    lowLatencyMode: true
+                                });
+                                hls.loadSource(CONFIG.restreamerUrl);
+                                hls.attachMedia(video);
+
+                                const checkStreamStatusOnDrop = () => {
+                                    if (!isPlaying) return;
+                                    fetch(CONFIG.restreamerUrl, { method: 'HEAD', cache: 'no-store' })
+                                        .then(res => {
+                                            if (!res.ok) {
+                                                console.warn("Stream went offline. Reconnecting...");
+                                                destroyHls();
+                                                showLoader("Stream Interrupted. Reconnecting...");
+                                                startPolling();
+                                            }
+                                        })
+                                        .catch(() => {
+                                            console.warn("Stream check failed. Reconnecting...");
+                                            destroyHls();
+                                            showLoader("Stream Interrupted. Reconnecting...");
+                                            startPolling();
+                                        });
+                                };
+
+                                video.addEventListener('waiting', checkStreamStatusOnDrop);
+                                video.addEventListener('stalled', checkStreamStatusOnDrop);
+                                video.addEventListener('ended', checkStreamStatusOnDrop);
+                                video._dropHandlers = checkStreamStatusOnDrop;
+
+                                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                                    if (typeof Plyr !== 'undefined') {
+                                        player = new Plyr(video, {
+                                            controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
+                                            settings: ['quality'],
+                                            tooltips: { controls: true, seek: true }
+                                        });
+                                        window.plyrPlayer = player;
+                                    }
+                                    video.play().catch(e => console.log("Autoplay prevented:", e));
+                                });
+
+                                hls.on(Hls.Events.ERROR, function(event, data) {
+                                    if (data.fatal) {
+                                        switch (data.type) {
+                                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                                console.warn("Fatal network error, attempting recovery polling...");
+                                                destroyHls();
+                                                showLoader("Stream Interrupted. Reconnecting...");
+                                                startPolling();
+                                                break;
+                                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                                console.warn("Fatal media error, attempting to recover...");
+                                                hls.recoverMediaError();
+                                                break;
+                                            default:
+                                                console.warn("Fatal error, recreating player...");
+                                                destroyHls();
+                                                showLoader("Waiting for Stream to Start...");
+                                                startPolling();
+                                                break;
+                                        }
+                                    }
+                                });
+                            } else if (video && video.canPlayType('application/vnd.apple.mpegurl')) {
+                                video.src = CONFIG.restreamerUrl;
+                                video.addEventListener('loadedmetadata', function() {
+                                    video.play().catch(e => console.log("Autoplay prevented:", e));
+                                });
+                            }
+                        } else {
+                            startPolling();
+                        }
+                    })
+                    .catch(() => {
+                        startPolling();
+                    });
+            };
+
+            const startPolling = () => {
+                if (pollInterval) return;
+                pollInterval = setTimeout(() => {
+                    pollInterval = null;
+                    tryLoadStream();
+                }, 3000);
+            };
+            
+            tryLoadStream();
+        }
+        return; 
+    }
+
+    // 2. Fallback to Restreamer Iframe (if URL is missing but Iframe source exists)
     if (CONFIG.restreamerPlayer) {
         if (playerContainer) {
             playerContainer.innerHTML = `
@@ -146,12 +457,11 @@ function onYouTubeIframeAPIReady() {
                     src="${CONFIG.restreamerPlayer}&autoplay=true&mute=false&controlbar=true" 
                     width="100%" 
                     height="100%" 
-                    style="border:none; min-height: 250px;" 
+                    style="border:none; min-height: 250px; border-radius: 15px;" 
                     allowfullscreen 
                     allow="autoplay; fullscreen">
                 </iframe>
             `;
-            // Add YouTube Link if present
             if (CONFIG.youtubeId) {
                 const ytLink = document.createElement('div');
                 ytLink.style.textAlign = 'center';
@@ -167,7 +477,7 @@ function onYouTubeIframeAPIReady() {
         return;
     }
 
-    // 2. YouTube Fallback
+    // 3. Fallback to standard YouTube Player API
     if (CONFIG.youtubeId) {
         player = new YT.Player('youtube-player', {
             height: '100%',
