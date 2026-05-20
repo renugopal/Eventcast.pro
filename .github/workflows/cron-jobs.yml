@@ -1,0 +1,88 @@
+# Eventcast Pro — Scheduled Cron Jobs
+#
+# Cloudflare Pages does not support native cron triggers for Next.js routes.
+# This GitHub Actions workflow acts as the external scheduler, calling our
+# two cron API endpoints on the live admin panel on a fixed schedule.
+#
+# Required GitHub Secrets (Settings → Secrets → Actions):
+#   CRON_SECRET        — same value as CRON_SECRET env var in Cloudflare Pages dashboard
+#   ADMIN_BASE_URL     — e.g. https://admin.eventcast.pro
+#
+# Schedule (all times UTC — IST = UTC+05:30):
+#   sync-live-status    → every 15 min (keeps YouTube titles & DB status in sync)
+#   stream-health-monitor → every 5 min between 01:00–18:00 UTC (06:30–23:30 IST peak hours)
+
+name: Eventcast Cron Jobs
+
+on:
+  schedule:
+    # ── sync-live-status: every 15 minutes, always ─────────────────────────
+    - cron: '*/15 * * * *'
+    # ── stream-health-monitor: every 5 minutes, 01:00–18:00 UTC (peak IST) ─
+    - cron: '*/5 1-18 * * *'
+
+  # Allow manual triggering from the Actions tab for debugging
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'Which cron to run manually'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - both
+          - sync-live-status
+          - stream-health-monitor
+
+jobs:
+  # ── Job 1: YouTube status sync ────────────────────────────────────────────
+  sync-live-status:
+    name: Sync Live Status (YouTube ↔ DB)
+    runs-on: ubuntu-latest
+    # Run on the 15-min schedule trigger, or manual trigger with matching input
+    if: |
+      github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'sync-live-status' || github.event.inputs.job == 'both') ||
+      github.event_name == 'schedule'
+
+    steps:
+      - name: Call sync-live-status endpoint
+        env:
+          ADMIN_BASE_URL: ${{ secrets.ADMIN_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          echo "⏰ Calling sync-live-status at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          HTTP_STATUS=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            "${ADMIN_BASE_URL}/api/cron/sync-live-status?secret=${CRON_SECRET}")
+          echo "HTTP Status: $HTTP_STATUS"
+          cat /tmp/response.json
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "❌ sync-live-status returned HTTP $HTTP_STATUS"
+            exit 1
+          fi
+          echo "✅ sync-live-status completed successfully"
+
+  # ── Job 2: Stream health monitor ─────────────────────────────────────────
+  stream-health-monitor:
+    name: Stream Health Monitor (Restreamer + WhatsApp Alerts)
+    runs-on: ubuntu-latest
+    # Run on the 5-min schedule trigger, or manual trigger with matching input
+    if: |
+      github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'stream-health-monitor' || github.event.inputs.job == 'both') ||
+      github.event_name == 'schedule'
+
+    steps:
+      - name: Call stream-health-monitor endpoint
+        env:
+          ADMIN_BASE_URL: ${{ secrets.ADMIN_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          echo "🔍 Calling stream-health-monitor at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          HTTP_STATUS=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            "${ADMIN_BASE_URL}/api/cron/stream-health-monitor?secret=${CRON_SECRET}")
+          echo "HTTP Status: $HTTP_STATUS"
+          cat /tmp/response.json
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "❌ stream-health-monitor returned HTTP $HTTP_STATUS"
+            exit 1
+          fi
+          echo "✅ stream-health-monitor completed"
