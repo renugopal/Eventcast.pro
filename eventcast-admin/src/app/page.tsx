@@ -17,6 +17,7 @@ import { authFetch, AuthError } from "@/lib/client-auth";
 import { Sidebar } from "./components/Sidebar";
 import { EventTable } from "./components/EventTable";
 import { WishesModeration } from "./components/WishesModeration";
+import GuestPhotoModeration from "./components/GuestPhotoModeration";
 import { AnalyticsDashboard } from "./components/AnalyticsDashboard";
 import { AssetLibrary } from "./components/AssetLibrary";
 import { PhotographerManagement } from "./components/PhotographerManagement";
@@ -1694,6 +1695,7 @@ export default function AdminDashboard() {
           </div>
         )}
         {activeTab === "moderation" && <WishesModeration wishes={wishes} isLoadingWishes={isLoadingWishes} fetchWishes={fetchWishes} deleteWish={deleteWish} />}
+        {activeTab === "guest-wall" && <GuestPhotoModeration />}
         {activeTab === "analytics" && <AnalyticsDashboard analyticsData={analyticsData} />}
         {activeTab === "assets" && <AssetLibrary assetLibrary={assetLibrary} getVideoThumbnail={getVideoThumbnail} setSelectedAsset={setSelectedAsset} />}
         {activeTab === "settings" && (

@@ -30,6 +30,7 @@ const PUBLIC_PREFIXES = [
   '/api/cron/',                  // Cron jobs use CRON_SECRET query param
   '/api/resolve-url',            // Cloudflare Worker domain resolver
   '/api/billing/webhook',        // Payment provider webhooks (use own signature)
+  '/api/guest-photos/upload',    // Guest Photo Wall — guests upload without login
 ];
 
 // ─── Routes that are fully public (non-API) ───────────────────────────────────

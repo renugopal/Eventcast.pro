@@ -1514,3 +1514,84 @@ google-cast-launcher:hover {
     box-shadow: 0 0 15px rgba(255, 255, 255, 0.25) !important;
     transform: scale(1.08);
 }
+
+/* ============================================================
+   GUEST PHOTO WALL STYLES
+   ============================================================ */
+.gpw-upload-area {
+    border: 2px dashed rgba(255,255,255,0.2);
+    border-radius: 18px;
+    padding: 30px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.3s ease, background 0.3s ease;
+    background: rgba(255,255,255,0.03);
+}
+
+.gpw-upload-area:hover {
+    border-color: var(--gold, #D4AF37);
+    background: rgba(212,175,55,0.05);
+}
+
+.gpw-upload-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    color: rgba(255,255,255,0.7);
+}
+
+.gpw-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.gpw-photo-card {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    aspect-ratio: 1;
+    background: rgba(255,255,255,0.05);
+    animation: gpw-fadein 0.4s ease forwards;
+}
+
+.gpw-photo-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.gpw-photo-card:hover img {
+    transform: scale(1.05);
+}
+
+.gpw-photo-card .gpw-name-badge {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.75));
+    color: #fff;
+    font-size: 0.7rem;
+    padding: 18px 8px 8px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@keyframes gpw-fadein {
+    from { opacity: 0; transform: scale(0.92); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+@media (max-width: 480px) {
+    .gpw-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+}

@@ -4,7 +4,7 @@ import React from "react";
 import {
   LayoutDashboard, Monitor, PlusCircle, List, Settings, BarChart3,
   Image as ImageIcon, LogOut, Users, ChevronLeft, ChevronRight, X,
-  Shield, Clapperboard, Wallet,
+  Shield, Clapperboard, Wallet, Camera,
 } from "lucide-react";
 import { SystemPulse } from "./SystemPulse";
 
@@ -25,6 +25,7 @@ const menuItems = [
   { id: "list",          label: "All Events",      icon: List,            accent: "#06b6d4" },
   { id: "photographers", label: "Photographers",   icon: Users,           accent: "#10b981" },
   { id: "moderation",    label: "Moderation",      icon: Shield,          accent: "#f59e0b" },
+  { id: "guest-wall",    label: "Guest Wall",      icon: Camera,          accent: "#f43f5e" },
   { id: "analytics",     label: "Analytics",       icon: BarChart3,       accent: "#6366f1" },
   { id: "assets",        label: "Asset Library",   icon: ImageIcon,       accent: "#ec4899" },
   { id: "billing",       label: "Billing & Wallet", icon: Wallet,          accent: "#10b981" },

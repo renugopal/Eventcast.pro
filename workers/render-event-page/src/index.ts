@@ -273,6 +273,8 @@ interface EventRow {
   youtube_url?: string | null;
   photographer_id?: string | null;
   photographers?: PhotographerRow | PhotographerRow[] | null;
+  guest_photo_limit?: number | null;
+  guest_photo_wall_enabled?: boolean | null;
 }
 
 interface PhotographerRow {
@@ -448,7 +450,9 @@ window.WEDDING_CONFIG = {
   customInitials: "${esc(customInitials)}",
   hideLoaderPhoto: ${hideLoaderPhoto ? 'true' : 'false'},
   loaderPhotoUrl: "${esc(loaderPhotoUrl)}",
-  country: "${esc(countryCode)}"
+  country: "${esc(countryCode)}",
+  guestPhotoWallEnabled: ${event.guest_photo_wall_enabled !== false ? 'true' : 'false'},
+  guestPhotoLimit: ${event.guest_photo_limit ?? 50}
 };
 </script>`;
 

@@ -24,17 +24,20 @@ export async function POST(req: Request) {
     // Prepaid billing check for new events (excluding edits)
     const isNewEvent = !(event.isEditing && event.editingId);
     
+    // ─── Fetch subscription tier (needed for billing + photo limit) ───────────
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('plan_tier, status')
+      .eq('studio_id', studioId)
+      .maybeSingle();
+
+    const tier = sub?.plan_tier || 'free';
+    const isSubscribed = (tier === 'pro' || tier === 'agency') && sub?.status === 'active';
+
+    // Photo limit: free_trial → 20, all other plans → 50
+    const guestPhotoLimit = tier === 'free_trial' ? 20 : 50;
+
     if (isNewEvent) {
-      // 1. Fetch active subscription tier
-      const { data: sub } = await supabase
-        .from('subscriptions')
-        .select('plan_tier, status')
-        .eq('studio_id', studioId)
-        .maybeSingle();
-
-      const tier = sub?.plan_tier || 'free';
-      const isSubscribed = (tier === 'pro' || tier === 'agency') && sub?.status === 'active';
-
       if (!isSubscribed) {
         // Must charge prepaid event fee: ₹499 (49900 paise)
         const { data: wallet, error: walletError } = await supabase
@@ -123,6 +126,8 @@ export async function POST(req: Request) {
       hide_loader_photo: event.hide_loader_photo ?? event.hideLoaderPhoto ?? false,
       loader_photo_url: event.loader_photo_url || event.loaderPhotoUrl || null,
       ...(event.notes ? { notes: event.notes } : {}),
+      // Guest Photo Wall — limit set once at event creation based on plan tier
+      guest_photo_limit: guestPhotoLimit,
       // Restreamer Details for the Table (Server app='/', token='live')
       // OBS: Server URL = rtmp://34.100.142.25/{slug}, Stream Key = live
       studio_id: auth.studioId,
