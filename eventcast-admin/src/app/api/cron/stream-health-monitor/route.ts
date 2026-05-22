@@ -44,6 +44,14 @@ export const runtime = 'edge';
 const BITRATE_THRESHOLD_KBPS =
   Number(process.env.STREAM_BITRATE_THRESHOLD_KBPS ?? 300);
 
+const WHATSAPP_ALERT_COOLDOWN_MINUTES =
+  Number(process.env.WHATSAPP_ALERT_COOLDOWN_MINUTES ?? 30);
+
+const ADMIN_PUBLIC_URL =
+  process.env.ADMIN_PUBLIC_URL ||
+  process.env.NEXT_PUBLIC_ADMIN_URL ||
+  'https://eventcast-admin.pages.dev';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type AlertType = 'stream_not_found' | 'stream_dead' | 'no_signal' | 'low_bitrate';
@@ -131,6 +139,30 @@ function evaluateHealth(event: any, health: StreamHealth | null): StreamAlert | 
   return null;
 }
 
+/** Skip duplicate WhatsApp pings for the same event + alert type within the cooldown window. */
+async function shouldSendWhatsApp(alert: StreamAlert): Promise<boolean> {
+  if (!supabaseAdmin) return true;
+
+  const since = new Date(
+    Date.now() - WHATSAPP_ALERT_COOLDOWN_MINUTES * 60 * 1000
+  ).toISOString();
+
+  const { data, error } = await supabaseAdmin
+    .from('stream_alerts')
+    .select('id')
+    .eq('event_id', alert.eventId)
+    .eq('alert_type', alert.type)
+    .gte('created_at', since)
+    .limit(1);
+
+  if (error) {
+    // Table missing or RLS — allow send so ops are not blind
+    return true;
+  }
+
+  return !data || data.length === 0;
+}
+
 /**
  * Deliver an alert via all configured channels.
  * All channels are non-fatal — a delivery failure never blocks the cron run.
@@ -139,8 +171,12 @@ async function sendAlert(alert: StreamAlert): Promise<void> {
   const icon = alert.severity === 'critical' ? '🚨' : '⚠️';
   console.warn(`${icon} [StreamHealthMonitor] ${alert.type.toUpperCase()} | ${alert.message}`);
 
-  // Channel 1: Supabase stream_alerts table
-  // Run the SQL migration in the comment at the top of this file to enable this.
+  const phone = process.env.ALERT_WHATSAPP_PHONE?.trim();
+  const apiKey = process.env.ALERT_WHATSAPP_APIKEY?.trim();
+  const sendWhatsApp =
+    phone && apiKey ? await shouldSendWhatsApp(alert) : false;
+
+  // Channel 1: Supabase stream_alerts table (also powers WhatsApp cooldown)
   if (supabaseAdmin) {
     try {
       await supabaseAdmin.from('stream_alerts').insert({
@@ -160,28 +196,36 @@ async function sendAlert(alert: StreamAlert): Promise<void> {
   }
 
   // Channel 2: WhatsApp via CallMeBot (free, no SDK, just a GET request)
-  // To activate: register your number at https://www.callmebot.com/blog/free-api-whatsapp-messages/
-  // Then add ALERT_WHATSAPP_PHONE and ALERT_WHATSAPP_APIKEY to .env.local
-  const phone = process.env.ALERT_WHATSAPP_PHONE;
-  const apiKey = process.env.ALERT_WHATSAPP_APIKEY;
+  // Setup: docs/WHATSAPP_ALERTS_SETUP.md
+  if (!phone || !apiKey) {
+    return;
+  }
 
-  if (phone && apiKey) {
-    try {
-      const text = encodeURIComponent(
-        `${icon} Eventcast Alert [${alert.severity.toUpperCase()}]\n\n` +
-        `${alert.message}\n\n` +
-        `Event: ${alert.eventName}\n` +
-        `Slug: ${alert.slug}\n` +
-        `Bitrate: ${Math.round(alert.bitrateKbps)} kbps\n` +
-        `State: ${alert.streamState}\n\n` +
-        `👉 admin.eventcast.pro`
-      );
-      await fetch(
-        `https://api.callmebot.com/whatsapp.php?phone=${phone}&text=${text}&apikey=${apiKey}`
-      );
-    } catch {
-      console.error('[StreamHealthMonitor] WhatsApp alert delivery failed');
+  if (!sendWhatsApp) {
+    console.log(
+      `[StreamHealthMonitor] WhatsApp skipped (cooldown ${WHATSAPP_ALERT_COOLDOWN_MINUTES}m): ${alert.slug} / ${alert.type}`
+    );
+    return;
+  }
+
+  try {
+    const text = encodeURIComponent(
+      `${icon} Eventcast Alert [${alert.severity.toUpperCase()}]\n\n` +
+      `${alert.message}\n\n` +
+      `Event: ${alert.eventName}\n` +
+      `Slug: ${alert.slug}\n` +
+      `Bitrate: ${Math.round(alert.bitrateKbps)} kbps\n` +
+      `State: ${alert.streamState}\n\n` +
+      `👉 ${ADMIN_PUBLIC_URL}`
+    );
+    const res = await fetch(
+      `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(phone)}&text=${text}&apikey=${encodeURIComponent(apiKey)}`
+    );
+    if (!res.ok) {
+      console.error('[StreamHealthMonitor] WhatsApp HTTP', res.status, await res.text());
     }
+  } catch (err) {
+    console.error('[StreamHealthMonitor] WhatsApp alert delivery failed', err);
   }
 }
 

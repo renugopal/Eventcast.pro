@@ -61,6 +61,10 @@ This document provides a concise summary of completed and pending tasks.
     - [x] Automated YouTube VOD Fallback.
     - [x] Stability-first Hls.js configuration.
     - [x] Real-time Wishes Wall integration.
+- [x] **Interactive Geo-Location Analytics**: Migration 0012, edge `CF-IPCountry`, template inserts, admin `WorldMap` + country leaderboard (per-event detail).
+- [x] **Analytics Performance**: `get_event_view_counts()` RPC (deployed Supabase May 2026), in-place realtime view increments, lazy per-event detail fetch.
+- [x] **PWA Support**: Dynamic manifest + service worker on Cloudflare edge worker; all dynamic templates wired.
+- [x] **Smart TV Casting**: Chromecast + AirPlay in wedding, dhoti, and half-saree templates.
 
 ---
 
@@ -77,16 +81,26 @@ This document provides a concise summary of completed and pending tasks.
 - [x] **Admin UI Phase 2**: Overhaul "All Events", "Photographers", "Analytics", and "Live Monitor" tabs into the dark glassmorphism theme.
 - [x] **Cloudflare Caching Strategy**: Implemented Cloudflare Cache Rules — `.ts` segments cached for 2hrs (Edge TTL), `.m3u8` playlists bypassed. Reduces GCP egress costs by 90%+.
 - [x] **Automated Cloudflare R2 VOD Archiving**: Built GCP cron automation script (`scripts/vod-archiver`) using Node.js & FFmpeg to auto-stitch HLS segments into a single MP4, upload to R2, update Supabase, and purge local server storage upon stream completion.
-- [ ] **Private Infrastructure Migration**: Setup high-end i9 physical server with Cloudflare Tunnels (Argo) to replace expensive cloud VMs.
 
+### Deferred (scheduled — not started)
+- [ ] **Private Infrastructure Migration** *(target: ~June 2026, after on-prem equipment is ready)*: i9 physical server + Cloudflare Tunnel to replace GCP VM costs. **Until then: continue on GCP.**
 
-### Planned Features
-- [ ] **Multi-Camera Support**: Internal switching between streams.
-- [ ] **Smart TV Casting**: AirPlay and Chromecast integration.
-- [/] **Interactive Geo-Location Analytics**: Database schema (Migration 0012) & Cloudflare edge-resolver resolved at edge and stored via template script are 100% complete. Admin dashboard world map visualizer is planned.
-- [x] **Wishes Moderation System**: Guests' wishes publish directly in real-time. Admins have absolute power to instantly delete/purge any unnecessary wish from the dashboard (secured by Supabase RLS).
-- [/] **PWA Support**: Implementing dynamic, personalized icons and manifests on the Cloudflare edge worker.
-- [x] **IP & Anti-Theft Protection**: Disables context menu, image dragging, text selection, common DevTools inspecting shortcuts (F12, Ctrl+Shift+I/J/C, Ctrl+U, Ctrl+S), and runs an active anti-debugging freeze loop to blank the page upon inspection.
+### Cancelled (not needed)
+- [~] **Multi-Camera Support**: Cancelled — not required for Eventcast Pro workflow.
+
+### Deferred — Billing
+- [ ] **Razorpay Live Integration**: Paused until business/KYC ready. Wallet simulator remains for dev.
+
+### Optional / Roadmap (nice-to-have, not blocking launch)
+- [/] **Stream Health WhatsApp Alerts**: Code + 30m cooldown + setup guide (`docs/WHATSAPP_ALERTS_SETUP.md`). **You:** CallMeBot + Cloudflare/GitHub env vars + run migration `0008`.
+- [ ] **Guest Photo Wall**: Guests upload photos during/after event.
+- [ ] **WhatsApp Invitation Broadcast**: Bulk share event link via WhatsApp.
+- [ ] **Post-Event Highlight Reel**: Auto-compile best moments after stream ends.
+- [ ] **Event PIN Protection**: Password-gate public event pages.
+- [ ] **Custom Subdomain per Event**: Per-event vanity URLs (studio-level custom domains already exist).
+- [ ] **Hindi Page Localization**: Telugu toggle done; Hindi is optional expansion.
+- [ ] **OBS Scene Overlay**: Branded lower-thirds for streamers using OBS.
+- [ ] **Bot Ecosystem** (`BOT_STRATEGY.md`): Reseller portal, AI moderation, local 24/7 monitor worker, marketing automation.
 
 ---
-*Status: Active Development*
+*Status: Core platform complete — GCP production. Next milestone: private server migration when hardware is ready.*
