@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Wallet as WalletIcon, CreditCard, ArrowUpRight, ArrowDownRight,
-  Sparkles, RefreshCw, Zap, Check, AlertCircle, Calendar, Shield, Loader2, X
+  Sparkles, Zap, Check, Shield, Loader2, X, Info
 } from "lucide-react";
 import { authFetch } from "@/lib/client-auth";
 import { useToast } from "./Toast";
@@ -25,6 +25,9 @@ export const Wallet: React.FC<WalletProps> = ({ studioId }) => {
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [topUpSuccess, setTopUpSuccess] = useState<boolean>(false);
   const [isUpgrading, setIsUpgrading] = useState<string | null>(null);
+  
+  // Billing cycle toggle: "monthly" or "yearly"
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
 
   const handleUpgradePlan = async (tier: string) => {
     if (!studioId) return;
@@ -120,309 +123,473 @@ export const Wallet: React.FC<WalletProps> = ({ studioId }) => {
     }
   };
 
-  const getTierBadgeColor = (tier: string) => {
-    switch (tier.toLowerCase()) {
-      case "agency": return { bg: "bg-purple-500/10", text: "text-purple-400", border: "border-purple-500/20" };
-      case "pro": return { bg: "bg-blue-500/10", text: "text-blue-400", border: "border-blue-500/20" };
-      case "pay_per_event": return { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20" };
-      default: return { bg: "bg-white/5", text: "text-white/40", border: "border-white/10" };
-    }
-  };
-
   const getTierDisplayName = (tier: string) => {
     switch (tier.toLowerCase()) {
-      case "agency": return "Agency Partner";
-      case "pro": return "Professional Studio";
-      case "pay_per_event": return "Pay-Per-Event Core";
+      case "business": return "Business";
+      case "pro": return "Professional";
+      case "basic": return "Basic";
+      case "pay_per_event": return "Pay-Per-Event";
       default: return "Free Demo Tier";
     }
   };
 
   if (isLoading) {
     return (
-      <div className="w-full h-[60vh] flex flex-col items-center justify-center text-white/40 gap-4 animate-in fade-in duration-500">
-        <Loader2 className="animate-spin text-blue-500" size={40} />
-        <span className="text-[10px] font-black uppercase tracking-[0.3em]">Synching Financial Assets...</span>
+      <div className="w-full h-[60vh] flex flex-col items-center justify-center text-[var(--text-secondary)] gap-4 animate-in fade-in duration-500">
+        <Loader2 className="animate-spin text-[var(--primary)]" size={40} />
+        <span className="ec-section-sub">Syncing financial data…</span>
       </div>
     );
   }
 
-  const subBadge = getTierBadgeColor(subscription.plan_tier);
-
   return (
-    <div className="w-full space-y-10 animate-in fade-in duration-700">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
+    <div className="w-full pb-20 ec-animate-in ec-billing-page">
+      
+      {/* ── Header ───────────────────────────────────────────────────────────── */}
+      <div className="ec-section-header" style={{ marginBottom: 0 }}>
         <div>
-          <h2 className="text-3xl font-black text-white tracking-tighter leading-tight">
-            Billing &amp; <span className="text-emerald-500">Wallet</span>
-          </h2>
-          <p className="text-white/40 font-bold uppercase tracking-[0.2em] mt-2 text-[10px] flex items-center gap-2">
-            <Shield size={14} className="text-emerald-500" /> Account Security &amp; Ledger isolation active
+          <h1 className="ec-page-title">Billing & Wallet</h1>
+          <p className="ec-section-sub flex items-center gap-2 mt-1">
+            <Shield size={14} style={{ color: "var(--success)" }} />
+            Secure billing and wallet ledger
           </p>
         </div>
 
         <button
+          type="button"
           onClick={() => setIsTopUpOpen(true)}
-          className="flex items-center gap-3 px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] bg-emerald-500 hover:bg-emerald-400 text-white shadow-xl shadow-emerald-500/10 transition-all transform active:scale-95 duration-300"
+          className="ec-btn ec-btn-lg bg-emerald-500 hover:bg-emerald-600 text-white border-transparent"
         >
-          <CreditCard size={16} /> Load Wallet Credits
+          <CreditCard size={18} /> Load wallet credits
         </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Card 1: Balance */}
-        <div
-          className="relative w-full p-8 rounded-[2rem] border overflow-hidden backdrop-blur-xl bg-white/[0.02] border-white/[0.08]"
-        >
-          <div className="absolute top-0 right-0 p-4 opacity-[0.03] pointer-events-none">
-            <WalletIcon size={120} className="text-emerald-500" />
-          </div>
-          <div className="flex items-start justify-between mb-6 relative z-10">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-emerald-500/15 border border-emerald-500/30">
-              <WalletIcon size={22} className="text-emerald-400" />
+      {/* ── Stats Cards ──────────────────────────────────────────────────────── */}
+      <div className="ec-billing-stat-grid">
+        <div className="ec-card ec-billing-stat-card">
+          <div className="ec-billing-stat-top">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-emerald-50 text-emerald-600">
+              <WalletIcon size={22} />
             </div>
-            <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              ACTIVE FUNDS
+            <span className="ec-badge" style={{ background: "var(--success-50)", color: "var(--success)", border: "1px solid #A7F3D0" }}>
+              Active funds
             </span>
           </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-2 relative z-10">Prepaid balance</p>
-          <h3 className="text-4xl font-black text-white leading-none tracking-tighter relative z-10">
+          <p className="ec-label" style={{ marginBottom: 6 }}>Prepaid balance</p>
+          <h3 className="text-3xl font-black text-[var(--foreground)] tracking-tight">
             ₹{balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </h3>
         </div>
 
-        {/* Card 2: Tier */}
-        <div
-          className="relative w-full p-8 rounded-[2rem] border overflow-hidden backdrop-blur-xl bg-white/[0.02] border-white/[0.08]"
-        >
-          <div className="absolute top-0 right-0 p-4 opacity-[0.03] pointer-events-none">
-            <Sparkles size={120} className={subBadge.text} />
-          </div>
-          <div className="flex items-start justify-between mb-6 relative z-10">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${subBadge.bg} border ${subBadge.border}`}>
-              <Sparkles size={22} className={subBadge.text} />
+        <div className="ec-card ec-billing-stat-card">
+          <div className="ec-billing-stat-top">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-[var(--primary-subtle)] text-[var(--primary)]">
+              <Sparkles size={22} />
             </div>
-            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${subBadge.bg} ${subBadge.text} border ${subBadge.border}`}>
-              {subscription.plan_tier.toUpperCase()}
+            <span className="ec-badge ec-badge-scheduled">
+              {subscription.plan_tier.replace(/_/g, " ")}
             </span>
           </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-2 relative z-10">Active Tier Plan</p>
-          <h3 className="text-2xl font-black text-white leading-none tracking-tighter relative z-10 pt-1.5">
+          <p className="ec-label" style={{ marginBottom: 6 }}>Active tier plan</p>
+          <h3 className="text-2xl font-black text-[var(--foreground)] tracking-tight">
             {getTierDisplayName(subscription.plan_tier)}
           </h3>
         </div>
 
-        {/* Card 3: Spent */}
-        <div
-          className="relative w-full p-8 rounded-[2rem] border overflow-hidden backdrop-blur-xl bg-white/[0.02] border-white/[0.08]"
-        >
-          <div className="absolute top-0 right-0 p-4 opacity-[0.03] pointer-events-none">
-            <CreditCard size={120} className="text-blue-500" />
-          </div>
-          <div className="flex items-start justify-between mb-6 relative z-10">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-blue-500/15 border border-blue-500/30">
-              <CreditCard size={22} className="text-blue-400" />
+        <div className="ec-card ec-billing-stat-card">
+          <div className="ec-billing-stat-top">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-blue-50 text-blue-600">
+              <CreditCard size={22} />
             </div>
-            <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              AUDIT RECORD
+            <span className="ec-badge" style={{ background: "var(--info-50)", color: "var(--info)", border: "1px solid #BFDBFE" }}>
+              Audit record
             </span>
           </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-2 relative z-10">Lifetime Funds Loaded</p>
-          <h3 className="text-4xl font-black text-white leading-none tracking-tighter relative z-10">
+          <p className="ec-label" style={{ marginBottom: 6 }}>Lifetime funds loaded</p>
+          <h3 className="text-3xl font-black text-[var(--foreground)] tracking-tight">
             ₹{lifetimeTopup.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </h3>
         </div>
       </div>
 
-      {/* Pricing Upgrade Grid & Transaction history */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-        
-        {/* Upgrade / Pricing Tiers (2 Columns) */}
-        <div className="lg:col-span-2 space-y-8">
-          <div className="flex items-center justify-between">
-             <h3 className="text-[10px] font-black text-white flex items-center gap-3 uppercase tracking-[0.3em]">
-               <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-                 <Zap size={16} className="text-blue-400" />
-               </div>
-               Studio Plan Tiers
-             </h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Pay Per Event Tier */}
-            <div className="p-8 rounded-[2.5rem] border border-white/[0.08] bg-white/[0.02] flex flex-col justify-between space-y-6 relative overflow-hidden group">
-              {subscription.plan_tier === "pay_per_event" && (
-                <div className="absolute top-4 right-4 bg-emerald-500 text-white text-[8px] font-black uppercase px-2.5 py-1 rounded-full tracking-widest shadow-lg shadow-emerald-500/20">
-                  CURRENT TIER
-                </div>
-              )}
-              <div className="space-y-4">
-                <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-[9px] font-black uppercase tracking-widest">PAY-PER-EVENT</span>
-                <h4 className="text-xl font-black text-white leading-none tracking-tight pt-2">Solo Broadcaster</h4>
-                <div className="flex items-baseline gap-1 text-white">
-                  <span className="text-3xl font-black">₹499</span>
-                  <span className="text-[10px] text-white/30 font-bold uppercase tracking-wider">/ event</span>
-                </div>
-                <p className="text-xs text-white/40 leading-relaxed">
-                  Perfect for freelancers and solo event operators who live stream occasionally and prefer a prepaid pay-as-you-go model.
-                </p>
-                <div className="h-px bg-white/[0.06] my-4" />
-                <ul className="space-y-2.5 text-xs text-white/60">
-                  <li className="flex items-center gap-2.5"><Check size={14} className="text-emerald-400 flex-shrink-0" /> <span>Prepaid event generation</span></li>
-                  <li className="flex items-center gap-2.5"><Check size={14} className="text-emerald-400 flex-shrink-0" /> <span>All premium event templates</span></li>
-                  <li className="flex items-center gap-2.5"><Check size={14} className="text-emerald-400 flex-shrink-0" /> <span>30 days VOD archive safety</span></li>
-                  <li className="flex items-center gap-2.5"><Check size={14} className="text-emerald-400 flex-shrink-0" /> <span>No platform watermarks</span></li>
-                </ul>
-              </div>
-              
-              {subscription.plan_tier === "pay_per_event" ? (
-                <button
-                  disabled
-                  className="w-full py-4 mt-6 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center gap-2 opacity-80"
-                >
-                  <Check size={14} /> Active Plan
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleUpgradePlan("pay_per_event")}
-                  disabled={isUpgrading !== null}
-                  className="w-full py-4 mt-6 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] bg-emerald-500/10 hover:bg-emerald-500 hover:text-white text-emerald-400 border border-emerald-500/20 hover:border-transparent transition-all duration-300 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
-                >
-                  {isUpgrading === "pay_per_event" ? <Loader2 className="animate-spin" size={14} /> : <Zap size={14} />}
-                  Activate Plan
-                </button>
-              )}
+      {/* ── Pricing Upgrade Grid ─────────────────────────────────────────────── */}
+      <div className="ec-billing-plans-section">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <h3 className="text-xl font-black text-[var(--foreground)] tracking-tight flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[var(--primary-subtle)] flex items-center justify-center">
+              <Zap size={20} className="text-[var(--primary)]" />
             </div>
-
-            {/* Pro subscription Tier */}
-            <div className="p-8 rounded-[2.5rem] border border-blue-500/20 bg-blue-500/[0.02] flex flex-col justify-between space-y-6 relative overflow-hidden group">
-              <div className="absolute -top-10 -right-10 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:scale-125 transition-transform" />
-              {subscription.plan_tier === "pro" ? (
-                <div className="absolute top-4 right-4 bg-blue-500 text-white text-[8px] font-black uppercase px-2.5 py-1 rounded-full tracking-widest shadow-lg shadow-blue-500/20">
-                  CURRENT PLAN
-                </div>
-              ) : (
-                <div className="absolute top-4 right-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white text-[8px] font-black uppercase px-2.5 py-1 rounded-full tracking-widest shadow-lg shadow-blue-500/20">
-                  RECOMMENDED
-                </div>
-              )}
-              <div className="space-y-4">
-                <span className="px-3 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full text-[9px] font-black uppercase tracking-widest">PRO SUBSCRIPTION</span>
-                <h4 className="text-xl font-black text-white leading-none tracking-tight pt-2 font-black font-black">Professional Studio</h4>
-                <div className="flex items-baseline gap-1 text-white">
-                  <span className="text-3xl font-black">₹4,999</span>
-                  <span className="text-[10px] text-white/30 font-bold uppercase tracking-wider">/ month</span>
-                </div>
-                <p className="text-xs text-white/40 leading-relaxed">
-                  Engineered for established media studios, wedding filmmakers, and premium live teams who run multiple productions per month.
-                </p>
-                <div className="h-px bg-white/[0.06] my-4" />
-                <ul className="space-y-2.5 text-xs text-white/60">
-                  <li className="flex items-center gap-2.5"><Check size={14} className="text-blue-400 flex-shrink-0" /> <span><strong>Custom Domain Mapping</strong> (e.g. live.studio.com)</span></li>
-                  <li className="flex items-center gap-2.5"><Check size={14} className="text-blue-400 flex-shrink-0" /> <span>Includes 10 events / month</span></li>
-                  <li className="flex items-center gap-2.5"><Check size={14} className="text-blue-400 flex-shrink-0" /> <span>Premium 90 days VOD archive</span></li>
-                  <li className="flex items-center gap-2.5"><Check size={14} className="text-blue-400 flex-shrink-0" /> <span>Fully white-labeled custom branding</span></li>
-                </ul>
-              </div>
-              
-              {subscription.plan_tier === "pro" ? (
-                <button
-                  disabled
-                  className="w-full py-4 mt-6 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center gap-2 opacity-80"
-                >
-                  <Check size={14} /> Active Plan
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleUpgradePlan("pro")}
-                  disabled={isUpgrading !== null}
-                  className="w-full py-4 mt-6 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-400 hover:to-purple-400 text-white shadow-lg shadow-blue-500/10 transition-all duration-300 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
-                >
-                  {isUpgrading === "pro" ? <Loader2 className="animate-spin" size={14} /> : <Sparkles size={14} />}
-                  Upgrade with Wallet (₹4,999/mo)
-                </button>
-              )}
-            </div>
+            Studio Plan Tiers
+          </h3>
+          
+          {/* Monthly / Yearly Toggle */}
+          <div
+            className="flex items-center gap-2 p-1.5 rounded-xl"
+            style={{ background: "var(--surface)", border: "2px solid var(--border-subtle)" }}
+          >
+            <button
+              type="button"
+              onClick={() => setBillingCycle("monthly")}
+              className={`ec-btn ec-btn-sm ${billingCycle === "monthly" ? "ec-btn-secondary" : "ec-btn-ghost"}`}
+              style={{ border: billingCycle === "monthly" ? undefined : "transparent" }}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              onClick={() => setBillingCycle("yearly")}
+              className={`ec-btn ec-btn-sm flex items-center gap-2 ${billingCycle === "yearly" ? "ec-btn-primary text-white" : "ec-btn-ghost"}`}
+              style={{ border: billingCycle === "yearly" ? undefined : "transparent" }}
+            >
+              Yearly
+              <span
+                className="ec-badge"
+                style={
+                  billingCycle === "yearly"
+                    ? { background: "rgba(255,255,255,0.2)", color: "#fff", border: "none" }
+                    : { background: "var(--success-50)", color: "var(--success)", border: "1px solid #A7F3D0" }
+                }
+              >
+                Save 20%
+              </span>
+            </button>
           </div>
         </div>
 
-        {/* Ledger Transaction History (1 Column) */}
-        <div
-          className="rounded-[2.5rem] border overflow-hidden flex flex-col bg-white/[0.02] border-white/[0.08] h-fit"
-          style={{ maxHeight: "650px" }}
-        >
-          <div className="px-6 py-6 flex items-center justify-between border-b border-white/[0.06] bg-white/[0.01]">
-            <h3 className="text-[10px] font-black text-white flex items-center gap-3 uppercase tracking-[0.3em]">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-                <WalletIcon size={16} className="text-emerald-400" />
+        <div className="ec-billing-plans-grid">
+          {/* 1. Pay Per Event */}
+          <div className="ec-card ec-billing-plan-card">
+            <div>
+              {subscription.plan_tier === "pay_per_event" && (
+                <span className="ec-badge mb-4" style={{ background: "var(--success-50)", color: "var(--success)", border: "1px solid #A7F3D0" }}>
+                  Current tier
+                </span>
+              )}
+              <h4 className="text-xl font-black text-[var(--foreground)] tracking-tight">Pay-Per-Event</h4>
+              <p className="text-xs text-[var(--text-secondary)] font-medium mt-2 mb-6 min-h-[40px]">
+                Wallet-based prepaid model. Perfect for occasional streams.
+              </p>
+              <div className="flex items-baseline gap-1 text-[var(--foreground)]">
+                <span className="text-4xl font-black tracking-tighter">₹299</span>
+                <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>/ event</span>
               </div>
-              Prepaid Ledger
-            </h3>
-            <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-500/20 bg-emerald-500/5 text-emerald-400">
-              {transactions.length} Logs
-            </span>
+              <p className="text-sm font-semibold mt-2" style={{ color: "var(--accent)" }}>Launch offer (reg. ₹499)</p>
+
+              <div className="h-px my-6" style={{ background: "var(--border-subtle)" }} />
+              
+              <ul className="space-y-4 text-sm font-medium text-[var(--text-secondary)]">
+                <li className="flex items-start gap-3"><Check size={16} className="text-emerald-500 mt-0.5" /> <span>All premium templates</span></li>
+                <li className="flex items-start gap-3"><Check size={16} className="text-emerald-500 mt-0.5" /> <span>30 days VOD archive</span></li>
+                <li className="flex items-start gap-3"><Check size={16} className="text-emerald-500 mt-0.5" /> <span>No watermarks</span></li>
+                <li className="flex items-start gap-3"><Check size={16} className="text-emerald-500 mt-0.5" /> <span>Guest Photo Wall (50 photos)</span></li>
+              </ul>
+            </div>
+            
+            <div className="ec-billing-plan-actions">
+            
+            <button
+              type="button"
+              onClick={() => handleUpgradePlan("pay_per_event")}
+              disabled={subscription.plan_tier === "pay_per_event" || isUpgrading !== null}
+              className={`ec-btn ec-btn-lg w-full ${
+                subscription.plan_tier === "pay_per_event"
+                  ? "ec-btn-secondary"
+                  : "ec-btn-secondary"
+              }`}
+            >
+              {isUpgrading === "pay_per_event" ? <Loader2 className="animate-spin" size={18} /> : null}
+              {subscription.plan_tier === "pay_per_event" ? "Active plan" : "Switch to wallet"}
+            </button>
+            
+            </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 max-h-[400px] custom-scrollbar">
-            {transactions.length === 0 ? (
-              <div className="py-20 text-center text-white/10 uppercase tracking-widest text-[10px] font-black">
-                <WalletIcon size={40} className="mx-auto mb-4 opacity-10" />
-                No transactions recorded yet.
+          {/* 2. Basic Plan */}
+          <div className="ec-card ec-billing-plan-card">
+            <div>
+              {subscription.plan_tier === "basic" && (
+                <span className="ec-badge ec-badge-scheduled mb-4">Current plan</span>
+              )}
+              <h4 className="text-xl font-black text-[var(--foreground)] tracking-tight">Basic</h4>
+              <p className="text-xs text-[var(--text-secondary)] font-medium mt-2 mb-6 min-h-[40px]">
+                For growing studios needing a consistent monthly event quota.
+              </p>
+              <div className="flex items-baseline gap-1 text-[var(--foreground)]">
+                <span className="text-4xl font-black tracking-tighter">
+                  {billingCycle === "monthly" ? "₹1,499" : "₹14,990"}
+                </span>
+                <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+                  / {billingCycle === "monthly" ? "mo" : "yr"}
+                </span>
               </div>
-            ) : (
-              transactions.map((tx, idx) => {
-                const isCredit = tx.kind === "topup" || tx.kind === "refund";
-                return (
-                  <div
-                    key={idx}
-                    className="p-5 rounded-2xl border border-white/[0.05] bg-white/[0.01] hover:bg-white/[0.03] transition-all duration-300 group flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black flex-shrink-0 border ${
-                        isCredit 
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
-                          : "bg-red-500/10 text-red-400 border-red-500/20"
-                      }`}>
-                        {isCredit ? <ArrowDownRight size={16} /> : <ArrowUpRight size={16} />}
-                      </div>
-                      <div>
-                        <h4 className="text-[11px] font-black text-white/80 uppercase tracking-widest">
-                          {tx.kind.toUpperCase()}
-                        </h4>
-                        <p className="text-[9px] text-white/20 font-black uppercase mt-1">
-                          {new Date(tx.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                    </div>
-                    <span className={`text-sm font-black tracking-tight ${isCredit ? "text-emerald-400" : "text-red-400"}`}>
-                      {isCredit ? "+" : "-"}₹{(Math.abs(tx.amount_paise) / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                );
-              })
-            )}
+              <p className="text-sm font-medium mt-2" style={{ color: "var(--text-secondary)" }}>
+                Includes 5 events {billingCycle === "yearly" ? "/ year" : "/ month"}
+              </p>
+
+              <div className="h-px my-6" style={{ background: "var(--border-subtle)" }} />
+              
+              <ul className="space-y-4 text-sm font-medium text-[var(--text-secondary)]">
+                <li className="flex items-start gap-3"><Check size={16} className="text-[var(--primary)] mt-0.5" /> <span><strong>5 events included</strong></span></li>
+                <li className="flex items-start gap-3"><Check size={16} className="text-[var(--primary)] mt-0.5" /> <span>₹250 per extra event (auto-wallet)</span></li>
+                <li className="flex items-start gap-3"><Check size={16} className="text-[var(--primary)] mt-0.5" /> <span>30 days VOD archive</span></li>
+                <li className="flex items-start gap-3"><Check size={16} className="text-[var(--primary)] mt-0.5" /> <span>Standard Priority Support</span></li>
+              </ul>
+            </div>
+            
+            <div className="ec-billing-plan-actions">
+            
+            <button
+              type="button"
+              onClick={() => handleUpgradePlan("basic")}
+              disabled={subscription.plan_tier === "basic" || isUpgrading !== null}
+              className="ec-btn ec-btn-lg w-full ec-btn-secondary"
+            >
+              {isUpgrading === "basic" ? <Loader2 className="animate-spin" size={18} /> : null}
+              {subscription.plan_tier === "basic" ? "Active plan" : "Subscribe to Basic"}
+            </button>
+            
+            </div>
+          </div>
+
+          {/* 3. Professional Plan (Highlighted) */}
+          <div
+            className="ec-card ec-billing-plan-card border-2 relative"
+            style={{
+              borderColor: "var(--primary)",
+              boxShadow: "var(--shadow-violet), var(--shadow-card)",
+            }}
+          >
+            <span
+              className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 ec-badge"
+              style={{ background: "var(--primary)", color: "#FFFFFF", border: "none", padding: "8px 16px" }}
+            >
+              Most popular
+            </span>
+            <div>
+              {subscription.plan_tier === "pro" && (
+                <span className="ec-badge mb-4 text-white" style={{ background: "var(--primary)", border: "none" }}>
+                  Current plan
+                </span>
+              )}
+              <h4 className="text-xl font-black text-[var(--foreground)] tracking-tight">Professional</h4>
+              <p className="text-xs text-[var(--text-secondary)] font-medium mt-2 mb-6 min-h-[40px]">
+                Engineered for established media studios & wedding filmmakers.
+              </p>
+              <div className="flex items-baseline gap-1 text-[var(--foreground)]">
+                <span className="text-4xl font-black tracking-tighter text-[var(--primary)]">
+                  {billingCycle === "monthly" ? "₹3,499" : "₹34,990"}
+                </span>
+                <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+                  / {billingCycle === "monthly" ? "mo" : "yr"}
+                </span>
+              </div>
+              <p className="text-sm font-medium mt-2" style={{ color: "var(--primary)" }}>
+                Includes 15 events {billingCycle === "yearly" ? "/ year" : "/ month"}
+              </p>
+
+              <div className="h-px my-6" style={{ background: "var(--border-subtle)" }} />
+              
+              <ul className="space-y-4 text-sm font-medium text-[var(--text-secondary)]">
+                <li className="flex items-start gap-3"><Check size={16} className="text-[var(--primary)] mt-0.5" /> <span><strong>15 events included</strong></span></li>
+                <li className="flex items-start gap-3"><Check size={16} className="text-[var(--primary)] mt-0.5" /> <span><strong>Custom Domain Mapping</strong></span></li>
+                <li className="flex items-start gap-3"><Check size={16} className="text-[var(--primary)] mt-0.5" /> <span>Premium 90 days VOD archive</span></li>
+                <li className="flex items-start gap-3"><Check size={16} className="text-[var(--primary)] mt-0.5" /> <span>₹200 per extra event (auto-wallet)</span></li>
+              </ul>
+            </div>
+            
+            <div className="ec-billing-plan-actions">
+            
+            <button
+              type="button"
+              onClick={() => handleUpgradePlan("pro")}
+              disabled={subscription.plan_tier === "pro" || isUpgrading !== null}
+              className={`ec-btn ec-btn-lg w-full ${
+                subscription.plan_tier === "pro" ? "ec-btn-secondary" : "ec-btn-primary text-white"
+              }`}
+            >
+              {isUpgrading === "pro" ? <Loader2 className="animate-spin" size={18} /> : null}
+              {subscription.plan_tier === "pro" ? "Active plan" : "Upgrade to Pro"}
+            </button>
+            
+            </div>
+          </div>
+
+          {/* 4. Business Plan */}
+          <div className="ec-card ec-billing-plan-card">
+            <div>
+              {subscription.plan_tier === "business" && (
+                <span className="ec-badge ec-badge-amber mb-4">Current plan</span>
+              )}
+              <h4 className="text-xl font-black text-[var(--foreground)] tracking-tight">Business</h4>
+              <p className="text-xs text-[var(--text-secondary)] font-medium mt-2 mb-6 min-h-[40px]">
+                Unlimited scalability for heavy production companies.
+              </p>
+              <div className="flex items-baseline gap-1 text-[var(--foreground)]">
+                <span className="text-4xl font-black tracking-tighter">
+                  {billingCycle === "monthly" ? "₹7,999" : "₹79,990"}
+                </span>
+                <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+                  / {billingCycle === "monthly" ? "mo" : "yr"}
+                </span>
+              </div>
+              <p className="text-sm font-semibold mt-2" style={{ color: "#B45309" }}>
+                Unlimited events
+              </p>
+
+              <div className="h-px my-6" style={{ background: "var(--border-subtle)" }} />
+              
+              <ul className="space-y-4 text-sm font-medium text-[var(--text-secondary)]">
+                <li className="flex items-start gap-3"><Check size={16} className="text-amber-500 mt-0.5" /> <span><strong>Unlimited Events</strong></span></li>
+                <li className="flex items-start gap-3"><Check size={16} className="text-amber-500 mt-0.5" /> <span>All Pro Features included</span></li>
+                <li className="flex items-start gap-3"><Check size={16} className="text-amber-500 mt-0.5" /> <span>1 Year VOD archive</span></li>
+                <li className="flex items-start gap-3"><Check size={16} className="text-amber-500 mt-0.5" /> <span>Priority Dedicated Support</span></li>
+              </ul>
+            </div>
+            
+            <div className="ec-billing-plan-actions">
+            
+            <button
+              type="button"
+              onClick={() => handleUpgradePlan("business")}
+              disabled={subscription.plan_tier === "business" || isUpgrading !== null}
+              className="ec-btn ec-btn-lg w-full ec-btn-secondary"
+            >
+              {isUpgrading === "business" ? <Loader2 className="animate-spin" size={18} /> : null}
+              {subscription.plan_tier === "business" ? "Active plan" : "Subscribe to Business"}
+            </button>
+            
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Top Up Modal */}
-      {isTopUpOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-500">
-          <div 
-            className="w-full max-w-md rounded-[3rem] border border-white/[0.08] shadow-2xl overflow-hidden relative animate-in zoom-in-95 duration-500 bg-[#0d0d17]"
-          >
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-500" />
-            
-            <div className="p-8 border-b border-white/[0.08] flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-black text-white tracking-tight">Load Credits</h3>
-                <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.3em] mt-1">Simulated Razorpay top-up portal</p>
+      {/* ── Add-ons & Ledger ─────────────────────────────────────────────────── */}
+      <div className="ec-billing-bottom-grid">
+        
+        {/* Add-ons Information */}
+        <div className="ec-billing-addon-stack">
+          <p className="ec-label">Available add-ons</p>
+          <div className="ec-card ec-billing-addon-card border-l-4 border-l-blue-500">
+            <h4 className="text-base font-black text-[var(--foreground)] flex items-center gap-2">
+              <Zap size={16} className="text-blue-500" /> Multi-Destination Streaming
+            </h4>
+            <p className="text-xs text-[var(--text-secondary)] mt-2">
+              Stream to multiple Facebook/YouTube pages simultaneously. Automatically deducted from wallet balance per event.
+            </p>
+            <div className="ec-billing-addon-prices">
+              <div className="ec-billing-addon-price-row">
+                <span className="font-bold text-[var(--foreground)]">Extra Destination</span>
+                <span className="text-[var(--text-secondary)]">₹49 / dest</span>
               </div>
-              <button 
-                onClick={() => setIsTopUpOpen(false)} 
-                className="w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-red-500 text-white/40 hover:text-white rounded-xl transition-all border border-white/5"
+              <div className="ec-billing-addon-price-row">
+                <span className="font-bold text-[var(--foreground)]">Bundle (5 Dests)</span>
+                <span className="text-emerald-600 font-bold">₹99 / bundle</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="ec-card ec-billing-addon-card border-l-4 border-l-amber-500">
+            <h4 className="text-base font-black text-[var(--foreground)] flex items-center gap-2">
+              <Info size={16} className="text-amber-500" /> Auto-Fallback Protection
+            </h4>
+            <p className="text-xs text-[var(--text-secondary)] mt-2">
+              If your subscription expires, your account automatically falls back to the Pay-Per-Event tier. Your live events will never be interrupted.
+            </p>
+          </div>
+        </div>
+
+        {/* Ledger Transaction History */}
+        <div>
+          <div className="ec-card overflow-hidden flex flex-col h-full max-h-[500px]">
+            <div
+              className="px-8 py-6 flex items-center justify-between"
+              style={{ borderBottom: "1px solid var(--border-subtle)", background: "var(--surface-hover)" }}
+            >
+              <h3 className="ec-section-title flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{ background: "var(--success-50)", color: "var(--success)" }}
+                >
+                  <WalletIcon size={18} />
+                </div>
+                Wallet ledger
+              </h3>
+              <span className="ec-badge" style={{ background: "var(--surface-hover)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
+                {transactions.length} entries
+              </span>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-3 ec-scrollbar">
+              {transactions.length === 0 ? (
+                <div className="py-20 text-center" style={{ color: "var(--text-secondary)" }}>
+                  <WalletIcon size={40} className="mx-auto mb-4 opacity-20" />
+                  <p className="text-sm font-medium">No transactions recorded yet.</p>
+                </div>
+              ) : (
+                transactions.map((tx, idx) => {
+                  const isCredit = tx.kind === "topup" || tx.kind === "refund";
+                  return (
+                    <div
+                      key={idx}
+                      className="p-4 rounded-xl flex items-center justify-between transition-all"
+                      style={{
+                        border: "1px solid var(--border-subtle)",
+                        background: "var(--surface)",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-hover)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "var(--surface)"; }}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div
+                          className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={
+                            isCredit
+                              ? { background: "var(--success-50)", color: "var(--success)" }
+                              : { background: "var(--error-50)", color: "var(--error)" }
+                          }
+                        >
+                          {isCredit ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold capitalize" style={{ color: "var(--foreground)" }}>
+                            {tx.kind.replace(/_/g, " ")}
+                          </h4>
+                          <p className="text-xs mt-1" style={{ color: "var(--text-tertiary)" }}>
+                            {new Date(tx.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                      </div>
+                      <span className={`text-base font-bold ${isCredit ? "text-emerald-600" : ""}`} style={!isCredit ? { color: "var(--foreground)" } : undefined}>
+                        {isCredit ? "+" : "-"}₹{(Math.abs(tx.amount_paise) / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Top Up Modal ─────────────────────────────────────────────────────── */}
+      {isTopUpOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300"
+          style={{ background: "rgba(0,0,0,0.45)" }}
+        >
+          <div className="ec-card w-full max-w-md relative animate-in zoom-in-95 duration-300" style={{ padding: 0, overflow: "hidden" }}>
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-teal-400" />
+            
+            <div className="p-8 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+              <div>
+                <h3 className="text-xl font-bold tracking-tight" style={{ color: "var(--foreground)" }}>Load credits</h3>
+                <p className="ec-section-sub mt-1">Simulated Razorpay top-up</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTopUpOpen(false)}
+                className="ec-icon-btn"
+                aria-label="Close"
               >
                 <X size={20} />
               </button>
@@ -431,26 +598,24 @@ export const Wallet: React.FC<WalletProps> = ({ studioId }) => {
             <div className="p-8 space-y-6">
               {topUpSuccess ? (
                 <div className="text-center py-10 space-y-4 animate-in zoom-in-90 duration-500">
-                  <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto shadow-[0_0_40px_-5px_rgba(16,185,129,0.3)]">
+                  <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-[0_0_40px_-5px_rgba(16,185,129,0.2)]">
                     <Check size={32} />
                   </div>
-                  <h4 className="text-lg font-black text-white">Funds Loaded Successfully</h4>
-                  <p className="text-xs text-white/30 uppercase tracking-widest font-black">Syncing wallet ledgers...</p>
+                  <h4 className="text-lg font-black text-[var(--foreground)]">Funds Loaded Successfully</h4>
+                  <p className="ec-section-sub">Syncing wallet ledger…</p>
                 </div>
               ) : (
                 <>
                   <div className="space-y-3">
-                    <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Select Credit Amount</label>
+                    <label className="ec-label">Select credit amount</label>
                     <div className="grid grid-cols-3 gap-3">
                       {["500", "1000", "2000"].map((amt) => (
                         <button
                           key={amt}
                           type="button"
                           onClick={() => setTopUpAmount(amt)}
-                          className={`py-3.5 rounded-xl border font-black uppercase text-[11px] tracking-widest transition-all ${
-                            topUpAmount === amt 
-                              ? "border-emerald-500 bg-emerald-500/10 text-white shadow-lg" 
-                              : "border-white/[0.08] bg-white/[0.02] text-white/40 hover:border-white/20"
+                          className={`ec-btn ec-btn-secondary w-full ${
+                            topUpAmount === amt ? "ring-2 ring-emerald-500 bg-emerald-50 text-emerald-700" : ""
                           }`}
                         >
                           ₹{amt}
@@ -460,25 +625,26 @@ export const Wallet: React.FC<WalletProps> = ({ studioId }) => {
                   </div>
 
                   <div className="space-y-3">
-                    <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Custom Amount (INR)</label>
+                    <label className="ec-label">Custom amount (INR)</label>
                     <div className="relative">
                       <input
                         type="number"
                         placeholder="Enter amount..."
                         value={topUpAmount}
                         onChange={(e) => setTopUpAmount(e.target.value)}
-                        className="w-full p-4 pl-10 bg-white/[0.03] border border-white/[0.08] rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/50 text-white font-black text-base placeholder:text-white/10"
+                        className="ec-input w-full pl-10"
                       />
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 font-black">₹</span>
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] font-black">₹</span>
                     </div>
                   </div>
 
                   <button
+                    type="button"
                     onClick={handleSimulateTopUp}
                     disabled={isSimulating}
-                    className="w-full py-5 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black uppercase tracking-[0.4em] text-xs transition-all shadow-xl shadow-emerald-500/10 flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
+                    className="ec-btn ec-btn-lg w-full bg-emerald-500 hover:bg-emerald-600 text-white border-transparent"
                   >
-                    {isSimulating ? <Loader2 className="animate-spin" size={16} /> : <CreditCard size={16} />}
+                    {isSimulating ? <Loader2 className="animate-spin" size={18} /> : <CreditCard size={18} />}
                     {isSimulating ? "Authorizing Funds..." : "Simulate Razorpay Payment"}
                   </button>
                 </>

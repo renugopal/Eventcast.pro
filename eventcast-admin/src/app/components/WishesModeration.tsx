@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { RefreshCw, Trash2 } from "lucide-react";
+import { RefreshCw, Trash2, MessageSquare } from "lucide-react";
 import { AlertDialog } from "./Toast";
 
 interface WishesModerationProps {
@@ -15,79 +15,158 @@ export const WishesModeration: React.FC<WishesModerationProps> = ({
   wishes,
   isLoadingWishes,
   fetchWishes,
-  deleteWish
+  deleteWish,
 }) => {
   const [confirmWishId, setConfirmWishId] = useState<string | null>(null);
 
+  const formatWhen = (iso: string) =>
+    new Date(iso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+
   return (
-    <div className="max-w-6xl mx-auto space-y-7 animate-in fade-in duration-500">
+    <div className="w-full space-y-8 ec-animate-in">
       <AlertDialog
         open={confirmWishId !== null}
         title="Delete this wish?"
-        message="This interaction will be permanently purged from the database. This cannot be undone."
+        message="This interaction will be permanently removed from the database. This cannot be undone."
         confirmLabel="Delete"
         cancelLabel="Cancel"
         danger
-        onConfirm={() => { if (confirmWishId) { deleteWish(confirmWishId); setConfirmWishId(null); } }}
+        onConfirm={() => {
+          if (confirmWishId) {
+            deleteWish(confirmWishId);
+            setConfirmWishId(null);
+          }
+        }}
         onCancel={() => setConfirmWishId(null)}
       />
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-xl font-black text-white tracking-tight">Wishes Moderation</h2>
-          <p className="text-[10px] text-white/30 font-black uppercase tracking-widest mt-1">Review and manage guest interactions</p>
+
+      <div className="ec-section-header" style={{ marginBottom: 0 }}>
+        <div className="flex items-center gap-4">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: "var(--accent-50)", color: "var(--accent)", border: "2px solid #FDE68A" }}
+          >
+            <MessageSquare size={22} />
+          </div>
+          <div>
+            <h2 className="ec-page-title" style={{ fontSize: "24px" }}>Wishes Moderation</h2>
+            <p className="ec-section-sub">Review and manage guest interactions</p>
+          </div>
         </div>
-        <button 
-          onClick={fetchWishes} 
-          className="p-2.5 bg-white/5 border border-white/10 rounded-xl text-white/40 hover:text-white hover:bg-white/10 transition-all shadow-sm"
+        <button
+          type="button"
+          onClick={fetchWishes}
+          className="ec-icon-btn"
+          title="Refresh wishes"
+          aria-label="Refresh wishes"
         >
-          <RefreshCw size={20} className={isLoadingWishes ? 'animate-spin' : ''} />
+          <RefreshCw size={20} className={isLoadingWishes ? "animate-spin" : ""} />
         </button>
       </div>
-      
-      <div 
-        className="rounded-3xl border border-white/[0.08] overflow-hidden backdrop-blur-md"
-        style={{ background: "rgba(255,255,255,0.02)" }}
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[800px]">
+
+      {/* Mobile: card list */}
+      <div className="ec-mobile-only space-y-3">
+        {wishes.length === 0 ? (
+          <div className="ec-card text-center py-12" style={{ color: "var(--text-tertiary)" }}>
+            No guest wishes logged yet.
+          </div>
+        ) : (
+          wishes.map((wish) => (
+            <div key={wish.id} className="ec-wish-mobile-card space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold" style={{ color: "var(--foreground)" }}>{wish.name}</p>
+                  <p className="text-xs mt-1" style={{ color: "var(--text-tertiary)" }}>
+                    {formatWhen(wish.created_at)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfirmWishId(wish.id)}
+                  className="ec-icon-btn ec-icon-btn-danger shrink-0"
+                  aria-label="Delete wish"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+              {wish.events ? (
+                <span
+                  className="ec-badge"
+                  style={{
+                    background: "var(--info-50)",
+                    color: "var(--info)",
+                    border: "1px solid #BFDBFE",
+                  }}
+                >
+                  {wish.events.groom_name || wish.events.celebrant_name}
+                </span>
+              ) : (
+                <span className="text-xs italic" style={{ color: "var(--text-tertiary)" }}>Deleted event</span>
+              )}
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                &ldquo;{wish.message}&rdquo;
+              </p>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="ec-card ec-desktop-only" style={{ padding: 0, overflow: "hidden" }}>
+        <div className="ec-table-scroll-hint">Swipe horizontally on smaller screens →</div>
+        <div className="ec-table-scroll">
+          <table className="ec-table min-w-[800px]">
             <thead>
-              <tr className="bg-white/[0.03] border-b border-white/[0.08]">
-                <th className="p-5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Platform / Event</th>
-                <th className="p-5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">From</th>
-                <th className="p-5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Message</th>
-                <th className="p-5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Timestamp</th>
-                <th className="p-5 text-[10px] font-black text-white/30 uppercase tracking-[0.2em] text-right">Actions</th>
+              <tr>
+                <th>Platform / Event</th>
+                <th>From</th>
+                <th>Message</th>
+                <th>Timestamp</th>
+                <th style={{ textAlign: "right" }}>Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.04]">
+            <tbody>
               {wishes.length === 0 ? (
-                <tr><td colSpan={5} className="p-20 text-center text-white/20 font-black uppercase tracking-widest text-[10px] italic">Zero interactions logged in database.</td></tr>
+                <tr>
+                  <td colSpan={5} className="text-center" style={{ padding: "48px 20px", color: "var(--text-tertiary)" }}>
+                    No guest wishes logged yet.
+                  </td>
+                </tr>
               ) : (
-                wishes.map(wish => (
-                  <tr key={wish.id} className="hover:bg-white/[0.04] group transition-all duration-300">
-                    <td className="p-5">
+                wishes.map((wish) => (
+                  <tr key={wish.id}>
+                    <td>
                       {wish.events ? (
-                        <span className="bg-blue-500/10 text-blue-400 px-2.5 py-1 rounded-lg border border-blue-500/20 text-[10px] font-black uppercase tracking-widest">
+                        <span
+                          className="ec-badge"
+                          style={{
+                            background: "var(--info-50)",
+                            color: "var(--info)",
+                            border: "1px solid #BFDBFE",
+                          }}
+                        >
                           {wish.events.groom_name || wish.events.celebrant_name}
                         </span>
                       ) : (
-                        <span className="text-white/10 italic text-xs font-bold uppercase tracking-widest">Deleted Platform</span>
+                        <span style={{ color: "var(--text-tertiary)", fontSize: "13px", fontStyle: "italic" }}>
+                          Deleted event
+                        </span>
                       )}
                     </td>
-                    <td className="p-5 text-sm font-black text-white/90">{wish.name}</td>
-                    <td className="p-5 text-[13px] text-white/60 max-w-md leading-relaxed">
-                      <span className="font-serif italic opacity-40 text-lg mr-1">"</span>
-                      {wish.message}
-                      <span className="font-serif italic opacity-40 text-lg ml-1">"</span>
+                    <td style={{ fontWeight: 700 }}>{wish.name}</td>
+                    <td style={{ maxWidth: "28rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                      &ldquo;{wish.message}&rdquo;
                     </td>
-                    <td className="p-5 text-[10px] text-white/20 font-mono font-bold uppercase tracking-tight">
-                      {new Date(wish.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                    <td style={{ fontSize: "13px", color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
+                      {formatWhen(wish.created_at)}
                     </td>
-                    <td className="p-5 text-right">
-                      <button 
-                        onClick={() => setConfirmWishId(wish.id)} 
-                        className="p-2.5 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-xl border border-transparent hover:border-red-500/20 transition-all"
-                        title="Delete Wish"
+                    <td style={{ textAlign: "right" }}>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmWishId(wish.id)}
+                        className="ec-icon-btn ec-icon-btn-danger"
+                        title="Delete wish"
+                        aria-label="Delete wish"
                       >
                         <Trash2 size={18} />
                       </button>

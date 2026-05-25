@@ -1,12 +1,26 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import {
-  LayoutDashboard, Monitor, PlusCircle, List, Settings, BarChart3,
-  Image as ImageIcon, LogOut, Users, ChevronLeft, ChevronRight, X,
-  Shield, Clapperboard, Wallet, Camera,
+  LayoutDashboard,
+  Monitor,
+  PlusCircle,
+  List,
+  BarChart3,
+  Image as ImageIcon,
+  LogOut,
+  Users,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Shield,
+  Clapperboard,
+  Wallet,
+  Camera,
+  Settings,
+  Crown,
+  Menu,
 } from "lucide-react";
-import { SystemPulse } from "./SystemPulse";
 
 interface SidebarProps {
   activeTab: string;
@@ -16,182 +30,261 @@ interface SidebarProps {
   handleSignOut: () => void;
   isMobileOpen: boolean;
   setIsMobileOpen: (open: boolean) => void;
+  isSuperAdmin?: boolean;
+  userDisplayName?: string;
+  userPlan?: string;
 }
 
 const menuItems = [
-  { id: "home",          label: "Dashboard",       icon: LayoutDashboard, accent: "#3b82f6" },
-  { id: "monitor",       label: "Live Monitor",    icon: Monitor,         accent: "#ef4444" },
-  { id: "create",        label: "Create Event",    icon: PlusCircle,      accent: "#8b5cf6" },
-  { id: "list",          label: "All Events",      icon: List,            accent: "#06b6d4" },
-  { id: "photographers", label: "Photographers",   icon: Users,           accent: "#10b981" },
-  { id: "moderation",    label: "Moderation",      icon: Shield,          accent: "#f59e0b" },
-  { id: "guest-wall",    label: "Guest Wall",      icon: Camera,          accent: "#f43f5e" },
-  { id: "analytics",     label: "Analytics",       icon: BarChart3,       accent: "#6366f1" },
-  { id: "assets",        label: "Asset Library",   icon: ImageIcon,       accent: "#ec4899" },
-  { id: "billing",       label: "Billing & Wallet", icon: Wallet,          accent: "#10b981" },
-  { id: "settings",      label: "Settings",        icon: Settings,        accent: "#64748b" },
+  { id: "home",          label: "Dashboard",        icon: LayoutDashboard, color: "#5B21B6" },
+  { id: "monitor",       label: "Live Monitor",     icon: Monitor,         color: "#EF4444" },
+  { id: "create",        label: "Create Event",     icon: PlusCircle,      color: "#8B5CF6" },
+  { id: "list",          label: "All Events",       icon: List,            color: "#3B82F6" },
+  { id: "photographers", label: "Photographers",    icon: Users,           color: "#10B981" },
+  { id: "moderation",    label: "Moderation",       icon: Shield,          color: "#F59E0B" },
+  { id: "guest-wall",    label: "Guest Wall",       icon: Camera,          color: "#F43F5E" },
+  { id: "analytics",     label: "Analytics",        icon: BarChart3,       color: "#6366F1" },
+  { id: "assets",        label: "Asset Library",    icon: ImageIcon,       color: "#EC4899" },
+  { id: "billing",       label: "Billing & Wallet", icon: Wallet,          color: "#10B981" },
+  { id: "settings",      label: "Settings",         icon: Settings,        color: "#64748B" },
 ];
 
+// Plan badge styles
+const planBadgeStyle: Record<string, React.CSSProperties> = {
+  free:         { background: "#F3F4F6", color: "#6B7280", border: "1px solid #E5E7EB" },
+  pay_per_use:  { background: "#ECFDF5", color: "#065F46", border: "1px solid #A7F3D0" },
+  basic:        { background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE" },
+  professional: { background: "#F5F3FF", color: "#5B21B6", border: "1px solid #DDD6FE" },
+  business:     { background: "#FFF7ED", color: "#92400E", border: "1px solid #FDE68A" },
+  enterprise:   { background: "#FDF2F8", color: "#86198F", border: "1px solid #F0ABFC" },
+};
+
+const planDisplayNames: Record<string, string> = {
+  free:         "Free Trial",
+  pay_per_use:  "Pay Per Use",
+  basic:        "Basic",
+  professional: "Professional",
+  business:     "Business",
+  enterprise:   "Enterprise",
+};
+
 export const Sidebar: React.FC<SidebarProps> = ({
-  activeTab, setActiveTab, isCollapsed, setIsCollapsed, handleSignOut,
-  isMobileOpen, setIsMobileOpen,
+  activeTab,
+  setActiveTab,
+  isCollapsed,
+  setIsCollapsed,
+  handleSignOut,
+  isMobileOpen,
+  setIsMobileOpen,
+  isSuperAdmin = false,
+  userDisplayName,
+  userPlan = "free",
 }) => {
+  const handleTabClick = (id: string) => {
+    setActiveTab(id);
+    setIsMobileOpen(false);
+  };
+
+  useEffect(() => {
+    if (!isMobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isMobileOpen]);
+
   return (
     <>
       {/* Mobile overlay */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 bg-black/70 z-40 md:hidden backdrop-blur-sm"
+          className="ec-sidebar-overlay fixed inset-0"
+          style={{ background: "rgba(0,0,0,0.40)", backdropFilter: "blur(4px)" }}
           onClick={() => setIsMobileOpen(false)}
+          aria-hidden
         />
       )}
 
-      {/* Sidebar panel */}
-      <div
-        className={`
-          flex flex-col h-screen fixed md:sticky top-0 z-50
-          transition-all duration-500 ease-in-out
-          border-r border-white/[0.08] backdrop-blur-3xl
-          ${isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-          ${isCollapsed ? "md:w-[88px]" : "w-[280px]"}
-        `}
-        style={{ background: "rgba(255,255,255,0.01)" }}
+      {/* Sidebar */}
+      <aside
+        className={`ec-sidebar ec-scrollbar ${isCollapsed ? "collapsed" : ""} ${isMobileOpen ? "mobile-open" : ""}`}
       >
-        {/* Ambient glow in sidebar */}
-        <div className="absolute top-0 left-0 w-full h-32 bg-blue-500/[0.03] blur-3xl pointer-events-none" />
-
-        {/* ── Logo ── */}
-        <div className={`relative flex items-center gap-4 px-6 py-8 ${isCollapsed && !isMobileOpen ? "md:justify-center" : ""}`}>
-          <button
-            className="md:hidden absolute top-4 right-4 text-white/20 hover:text-white transition-colors"
-            onClick={() => setIsMobileOpen(false)}
-          >
-            <X size={20} />
-          </button>
-
-          <div
-            className="w-10 h-10 rounded-[1.25rem] flex-shrink-0 flex items-center justify-center transition-transform hover:rotate-12 duration-500"
-            style={{
-              background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-              boxShadow: "0 8px 24px rgba(59,130,246,0.25)",
-            }}
-          >
-            <Clapperboard size={20} className="text-white" />
+        {/* Logo Area */}
+        <div className="ec-sidebar-logo">
+          <div className="ec-sidebar-logo-icon">
+            <Clapperboard size={20} color="#FFF" />
           </div>
 
           {(!isCollapsed || isMobileOpen) && (
-            <div className="animate-in fade-in slide-in-from-left-2 duration-500">
-              <h1 className="text-lg font-black tracking-tighter text-white leading-none">
-                EVENTCAST<span className="text-blue-500">.PRO</span>
-              </h1>
-              <p className="text-[9px] font-black tracking-[0.3em] uppercase mt-1 text-white/20">
+            <div style={{ animation: "slide-in-left 0.3s ease" }}>
+              <div style={{
+                fontFamily: "var(--font-heading)",
+                fontSize: "16px",
+                fontWeight: 900,
+                letterSpacing: "-0.02em",
+                color: "var(--foreground)",
+                lineHeight: 1,
+              }}>
+                EVENTCAST<span style={{ color: "var(--primary)" }}>.PRO</span>
+              </div>
+              <div style={{
+                fontSize: "10px",
+                fontWeight: 700,
+                letterSpacing: "0.12em",
+                color: "var(--text-tertiary)",
+                textTransform: "uppercase",
+                marginTop: "3px",
+              }}>
                 ADMIN CONSOLE
-              </p>
+              </div>
             </div>
+          )}
+
+          {/* Mobile close */}
+          {isMobileOpen && (
+            <button
+              onClick={() => setIsMobileOpen(false)}
+              style={{
+                marginLeft: "auto",
+                padding: "4px",
+                color: "var(--text-tertiary)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              <X size={18} />
+            </button>
           )}
         </div>
 
-        <div className="mx-6 h-px bg-white/[0.05] mb-6" />
+        {/* Super Admin Badge */}
+        {isSuperAdmin && (!isCollapsed || isMobileOpen) && (
+          <div style={{ padding: "10px 12px 0" }}>
+            <div className="ec-super-admin-badge">
+              <Crown size={13} />
+              <span>Super Admin</span>
+            </div>
+          </div>
+        )}
 
-        {/* ── Navigation ── */}
-        <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto custom-scrollbar">
-          {menuItems.map((item) => {
+        {/* Navigation */}
+        <nav className="ec-sidebar-nav ec-scrollbar" style={{ marginTop: isSuperAdmin ? "4px" : "8px" }}>
+          {menuItems.map((item, i) => {
             const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
-                onClick={() => { setActiveTab(item.id); setIsMobileOpen(false); }}
+                onClick={() => handleTabClick(item.id)}
+                className={`ec-nav-item ${isActive ? "active" : ""}`}
+                style={{
+                  animationDelay: `${i * 30}ms`,
+                  justifyContent: isCollapsed && !isMobileOpen ? "center" : "flex-start",
+                }}
                 title={isCollapsed && !isMobileOpen ? item.label : ""}
-                className={`
-                  relative w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl
-                  text-[13px] font-black uppercase tracking-widest transition-all duration-300
-                  ${isActive ? "text-white" : "text-white/20 hover:text-white/60 hover:bg-white/[0.03]"}
-                  ${isCollapsed && !isMobileOpen ? "md:justify-center md:px-0" : ""}
-                `}
-                style={
-                  isActive
-                    ? {
-                        background: `${item.accent}10`,
-                        border: `1px solid ${item.accent}20`,
-                        boxShadow: `0 10px 20px -10px ${item.accent}30`,
-                      }
-                    : { border: "1px solid transparent" }
-                }
               >
-                {/* Active glow dot */}
-                {isActive && (
-                  <span
-                    className="absolute left-[-4px] top-1/2 -translate-y-1/2 w-2 h-2 rounded-full"
-                    style={{
-                      background: item.accent,
-                      boxShadow: `0 0 15px ${item.accent}`,
-                    }}
-                  />
-                )}
-
                 <item.icon
-                  size={20}
-                  className={`flex-shrink-0 transition-transform duration-500 ${isActive ? "scale-110" : "group-hover:scale-110"}`}
-                  style={isActive ? { color: item.accent } : undefined}
+                  size={18}
+                  className="ec-nav-icon"
+                  style={{
+                    color: isActive ? item.color : undefined,
+                    flexShrink: 0,
+                  }}
                 />
-
                 {(!isCollapsed || isMobileOpen) && (
-                  <span className="truncate">{item.label}</span>
+                  <span style={{ fontSize: "13px", fontWeight: isActive ? 700 : 600 }}>
+                    {item.label}
+                  </span>
                 )}
               </button>
             );
           })}
         </nav>
 
-        {/* ── Footer ── */}
-        <div className="px-4 pb-8 pt-4 space-y-3">
-          <div className="mx-2 h-px bg-white/[0.05] mb-4" />
-
-          {/* System Pulse — only when expanded */}
-          {(!isCollapsed || isMobileOpen) && (
-            <div className="mb-4 px-2">
-              <SystemPulse />
+        {/* Footer */}
+        <div className="ec-sidebar-footer">
+          {/* User plan badge */}
+          {(!isCollapsed || isMobileOpen) && userPlan && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "8px 12px",
+                borderRadius: "10px",
+                marginBottom: "10px",
+                ...(planBadgeStyle[userPlan] ?? planBadgeStyle.free),
+              }}
+            >
+              <span style={{ fontSize: "11px", fontWeight: 700 }}>
+                {planDisplayNames[userPlan] ?? "Free Trial"}
+              </span>
+              {userPlan === "free" && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("billing")}
+                  className="ec-btn ec-btn-sm"
+                  style={{
+                    padding: "4px 10px",
+                    minHeight: "auto",
+                    fontSize: "12px",
+                    background: "var(--primary-50)",
+                    color: "var(--primary)",
+                    borderColor: "var(--violet-200)",
+                  }}
+                >
+                  Upgrade
+                </button>
+              )}
             </div>
           )}
 
-          <div className="flex gap-2">
-            {/* Collapse toggle (desktop only) */}
+          {/* Collapse + Sign Out */}
+          <div style={{ display: "flex", gap: "8px" }}>
+            {/* Desktop collapse toggle */}
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className={`
-                hidden md:flex flex-1 items-center gap-3 px-4 py-3 rounded-2xl
-                text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-white/60
-                hover:bg-white/[0.03] transition-all border border-transparent
-                hover:border-white/[0.08]
-                ${isCollapsed && !isMobileOpen ? "md:justify-center" : ""}
-              `}
+              className="ec-btn ec-btn-ghost ec-btn-sm"
+              style={{
+                flex: isCollapsed ? "none" : 1,
+                display: "none",
+                borderRadius: "10px",
+                padding: "8px 10px",
+              }}
+              title={isCollapsed ? "Expand" : "Collapse"}
             >
               {isCollapsed
-                ? <ChevronRight size={18} className="mx-auto" />
-                : <><ChevronLeft size={16} /><span className="truncate">Compact View</span></>
+                ? <ChevronRight size={16} />
+                : <><ChevronLeft size={16} /><span>Collapse</span></>
               }
             </button>
 
             {/* Sign out */}
             <button
+              type="button"
               onClick={handleSignOut}
-              className={`
-                flex items-center justify-center w-12 h-12 md:w-auto md:flex-1 md:px-4 md:py-3 rounded-2xl
-                text-red-500/30 hover:text-red-500
-                bg-red-500/[0.02] hover:bg-red-500/[0.1] transition-all duration-300 border border-transparent hover:border-red-500/20
-                ${isCollapsed && !isMobileOpen ? "md:w-full" : ""}
-              `}
               title="Sign Out"
+              className="ec-btn ec-btn-ghost"
+              style={{
+                flex: 1,
+                justifyContent: isCollapsed && !isMobileOpen ? "center" : "flex-start",
+                color: "var(--error)",
+                borderColor: "#FECDD3",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.background = "var(--error-50)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.background = "";
+              }}
             >
-              <LogOut
-                size={18}
-                className="flex-shrink-0"
-              />
-              {(!isCollapsed || isMobileOpen) && <span className="ml-3 text-[10px] font-black uppercase tracking-widest">Exit</span>}
+              <LogOut size={16} style={{ flexShrink: 0 }} />
+              {(!isCollapsed || isMobileOpen) && <span>Sign out</span>}
             </button>
           </div>
         </div>
-      </div>
+      </aside>
     </>
   );
 };

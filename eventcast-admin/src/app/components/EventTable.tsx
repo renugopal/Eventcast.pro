@@ -5,6 +5,7 @@ import { RefreshCw, ExternalLink, Edit, Trash2, AlertCircle, Play, Copy, Search,
 import { authFetch } from "@/lib/client-auth";
 import { useToast, AlertDialog } from "./Toast";
 import { supabase } from "@/lib/supabase";
+import { EventTableMobileCards } from "./EventTableMobileCards";
 
 interface EventTableProps {
   events: any[];
@@ -128,6 +129,16 @@ export const EventTable: React.FC<EventTableProps> = ({
   const resizingColumn = useRef<string | null>(null);
   const startX = useRef<number>(0);
   const startWidth = useRef<number>(0);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const applyMobileDensity = () => {
+      if (mq.matches) setTableDensity("compact");
+    };
+    applyMobileDensity();
+    mq.addEventListener("change", applyMobileDensity);
+    return () => mq.removeEventListener("change", applyMobileDensity);
+  }, []);
 
   // ── Realtime: auto-patch deployment_status when it changes in Supabase ──────
   useEffect(() => {
@@ -304,6 +315,34 @@ export const EventTable: React.FC<EventTableProps> = ({
     }
   };
 
+  const buildYoutubeTitle = (event: any) => {
+    const heart = (event.event_type || "").toLowerCase().includes("wedding") ? "❤️" : "✨";
+    return `${event.groom_name || event.celebrant_name} ${heart} ${event.bride_name || "Family"} ${event.event_type} Live | ${formatDisplayDate(event.event_date)}`;
+  };
+
+  const handleGoLive = async (event: any) => {
+    const res = await authFetch("/api/youtube/toggle-live", {
+      method: "POST",
+      body: JSON.stringify({ eventId: event.id, broadcastId: event.youtube_broadcast_id, title: buildYoutubeTitle(event), isLive: true }),
+    });
+    if (res.ok) success("🔴 BROADCAST LIVE", "Stream is now live on YouTube.");
+    else toastError("Failed to go live", "Check broadcast settings.");
+  };
+
+  const handleTerminate = async (event: any) => {
+    const res = await authFetch("/api/youtube/toggle-live", {
+      method: "POST",
+      body: JSON.stringify({ eventId: event.id, broadcastId: event.youtube_broadcast_id, title: buildYoutubeTitle(event), isLive: false }),
+    });
+    if (res.ok) success("Broadcast terminated", "Stream has ended successfully.");
+    else toastError("Termination failed", "Could not end the broadcast.");
+  };
+
+  const handleShareWhatsApp = (event: any) => {
+    const message = `Hello! We are excited to invite you to the ${event.event_type || "event"}. Join us live here: https://eventcast.pro/events/${event.slug}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+  };
+
   const getPadding = () => {
     if (tableDensity === "compact") return "p-2";
     if (tableDensity === "spacious") return "p-6";
@@ -323,38 +362,40 @@ export const EventTable: React.FC<EventTableProps> = ({
         onCancel={closeConfirm}
       />
       {selectedEventIds.size > 0 && (
-        <div 
-          className="flex items-center justify-between p-6 rounded-[2rem] shadow-2xl animate-in slide-in-from-top-6 duration-500 relative overflow-hidden"
-          style={{ 
-            background: "rgba(59,130,246,0.1)",
-            border: "1px solid rgba(59,130,246,0.2)",
-            backdropFilter: "blur(24px)"
-          }}
+        <div
+          className="ec-panel flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in slide-in-from-top-6 duration-500"
+          style={{ background: "var(--info-50)", borderColor: "#BFDBFE" }}
         >
-          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 pointer-events-none" />
-          <div className="flex items-center gap-6 relative z-10">
-            <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg shadow-blue-600/20">
+          <div className="flex items-center gap-4">
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg text-white flex-shrink-0"
+              style={{ background: "var(--info)", boxShadow: "var(--shadow-violet)" }}
+            >
               {selectedEventIds.size}
             </div>
             <div>
-              <p className="text-white font-black text-lg tracking-tight">Active Selection Batch</p>
-              <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em] mt-1">Multi-Stream Relays Enabled</p>
+              <p className="font-bold text-base tracking-tight" style={{ color: "var(--foreground)" }}>Active selection</p>
+              <p className="text-xs font-semibold uppercase tracking-wider mt-0.5" style={{ color: "var(--info)" }}>
+                {selectedEventIds.size} event{selectedEventIds.size === 1 ? "" : "s"} selected
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-4 relative z-10">
-            <button 
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              type="button"
               onClick={() => openConfirm(
                 `Wipe ${selectedEventIds.size} events?`,
                 `CRITICAL: This will permanently delete ${selectedEventIds.size} events and all associated data from the database. This cannot be undone.`,
                 () => { deleteMultipleEvents(Array.from(selectedEventIds)); setSelectedEventIds(new Set()); }
               )}
-              className="flex items-center gap-3 px-6 py-3 bg-red-500/20 text-red-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all border border-red-500/20 active:scale-95"
+              className="ec-btn ec-btn-danger ec-btn-sm"
             >
-              <Trash2 size={16} /> Force Batch Wipe
+              <Trash2 size={16} /> Force batch wipe
             </button>
-            <button 
+            <button
+              type="button"
               onClick={() => setSelectedEventIds(new Set())}
-              className="px-6 py-3 bg-white/5 text-white/40 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 hover:text-white transition-all border border-white/10 active:scale-95"
+              className="ec-btn ec-btn-secondary ec-btn-sm"
             >
               Cancel
             </button>
@@ -363,152 +404,187 @@ export const EventTable: React.FC<EventTableProps> = ({
       )}
 
       {/* Control Bar */}
-      <div 
-        className="flex flex-col lg:flex-row justify-between items-start lg:items-center p-8 rounded-[2.5rem] border backdrop-blur-2xl gap-6 relative overflow-hidden"
-        style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)" }}
-      >
-        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/[0.03] blur-[100px] -z-10" />
-        <div>
-          <h2 className="text-2xl font-black text-white tracking-tight leading-tight flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 shadow-lg shadow-blue-500/5">
-              <List size={24} className="text-blue-400" />
-            </div>
-            <div>
-              <span className="block">Events Database</span>
-              <span className="block text-[10px] text-white/20 font-black uppercase tracking-[0.4em] mt-1.5">
-                DATABASE: {filteredEvents.length} ACTIVE EVENTS
-              </span>
-            </div>
-          </h2>
+      <div className="ec-section-header gap-6" style={{ marginBottom: 0 }}>
+        <div className="flex items-center gap-4">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: "var(--info-50)", color: "var(--info)", border: "2px solid #BFDBFE" }}
+          >
+            <List size={22} />
+          </div>
+          <div>
+            <h2 className="ec-page-title" style={{ fontSize: "24px" }}>Events database</h2>
+            <p className="ec-section-sub">{filteredEvents.length} active events</p>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
-          <div className="relative flex-1 lg:flex-none">
-            <input 
-              type="text" 
-              placeholder="Search events..." 
+        <div className="flex flex-wrap items-center gap-3 ml-auto shrink-0">
+          <div className="relative flex-1 sm:flex-none min-w-[200px] max-w-[320px]">
+            <input
+              type="text"
+              placeholder="Search events..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-14 pr-6 py-4 bg-white/[0.03] border border-white/[0.08] rounded-2xl text-sm font-black text-white outline-none focus:ring-2 focus:ring-blue-500/50 w-full lg:w-72 transition-all placeholder:text-white/10"
+              className="ec-input ec-input-has-icon w-full sm:w-72"
             />
-            <Search size={20} className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20" />
+            <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--text-tertiary)" }} />
           </div>
-          <div className="relative group">
-            <select 
+          <div className="relative">
+            <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="pl-6 pr-12 py-4 bg-white/[0.03] border border-white/[0.08] rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/60 outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer appearance-none group-hover:border-white/20 transition-all"
+              className="ec-input ec-input-has-chevron pr-10 cursor-pointer appearance-none min-w-[140px]"
+              style={{ fontSize: "13px", fontWeight: 600 }}
             >
-              <option className="bg-[#0d0d17]">All Events</option>
-              <option className="bg-[#0d0d17]">Wedding</option>
-              <option className="bg-[#0d0d17]">Reception</option>
-              <option className="bg-[#0d0d17]">Engagement</option>
-              <option className="bg-[#0d0d17]">Birthday</option>
-              <option className="bg-[#0d0d17]">Half Saree</option>
-              <option className="bg-[#0d0d17]">Dhoti Ceremony</option>
+              <option>All Events</option>
+              <option>Wedding</option>
+              <option>Reception</option>
+              <option>Engagement</option>
+              <option>Birthday</option>
+              <option>Half Saree</option>
+              <option>Dhoti Ceremony</option>
             </select>
-            <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 rotate-90 text-white/20 pointer-events-none" size={16} />
+            <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" size={16} style={{ color: "var(--text-tertiary)" }} />
           </div>
-          
-          <div className="flex items-center bg-white/[0.03] p-1.5 rounded-2xl border border-white/[0.08]">
-            <button 
+
+          <div className="flex items-center gap-1 p-1 rounded-xl border ec-hide-xs" style={{ borderColor: "var(--border)", background: "var(--surface-hover)" }}>
+            <button
+              type="button"
               onClick={() => setTableDensity("compact")}
-              className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all ${tableDensity === "compact" ? "bg-white/10 text-white shadow-lg" : "text-white/20 hover:text-white/40"}`}
+              className={`ec-btn ec-btn-sm !min-h-[32px] !py-1.5 !px-3 ${tableDensity === "compact" ? "ec-btn-primary" : "ec-btn-ghost !border-transparent !bg-transparent"}`}
             >
               Compact
             </button>
-            <button 
+            <button
+              type="button"
               onClick={() => setTableDensity("standard")}
-              className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all ${tableDensity === "standard" ? "bg-white/10 text-white shadow-lg" : "text-white/20 hover:text-white/40"}`}
+              className={`ec-btn ec-btn-sm !min-h-[32px] !py-1.5 !px-3 ${tableDensity === "standard" ? "ec-btn-primary" : "ec-btn-ghost !border-transparent !bg-transparent"}`}
             >
               Standard
             </button>
           </div>
-          
-          <button onClick={exportToCSV} className="flex items-center gap-3 px-6 py-4 bg-green-500/10 text-green-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-green-500/20 transition-all border border-green-500/20 active:scale-95">
-            <Download size={18} /> Export
+
+          <button
+            type="button"
+            onClick={exportToCSV}
+            className="ec-btn ec-btn-sm bg-emerald-500 hover:bg-emerald-600 text-white border-transparent"
+          >
+            <Download size={16} /> Export
           </button>
-          <button 
+          <button
+            type="button"
             onClick={fetchEvents}
             disabled={isLoadingEvents}
-            className="p-4 bg-white/[0.03] text-white/40 rounded-2xl hover:bg-white/10 hover:text-white transition-all border border-white/[0.08] active:scale-95"
+            className="ec-icon-btn"
+            title="Refresh events"
+            aria-label="Refresh events"
           >
-            <RefreshCw size={22} className={isLoadingEvents ? 'animate-spin' : ''} />
+            <RefreshCw size={20} className={isLoadingEvents ? "animate-spin" : ""} />
           </button>
         </div>
       </div>
 
-      {/* Table Container */}
-      <div 
-        className="rounded-[3rem] border backdrop-blur-2xl overflow-hidden shadow-2xl relative"
-        style={{ background: "rgba(255,255,255,0.01)", borderColor: "rgba(255,255,255,0.08)" }}
-      >
-        <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full min-w-[1300px] text-left border-collapse table-fixed">
+      {/* Mobile card list */}
+      <div className="ec-mobile-only">
+        <EventTableMobileCards
+          events={sortedEvents}
+          wishes={wishes}
+          isLoading={isLoadingEvents}
+          isArchiveView={isArchiveView}
+          selectedIds={selectedEventIds}
+          onToggleSelect={toggleSelection}
+          onEdit={handleEditClick}
+          onDuplicate={handleDuplicateClick}
+          onArchive={(id) => openConfirm(
+            "Archive this event?",
+            "This will move the event to the archive. It will no longer be visible on the public site.",
+            () => fullDeleteEvent(id, false)
+          )}
+          onPermanentDelete={(id) => openConfirm(
+            "Permanently delete this event?",
+            "WARNING: This will permanently wipe the event, remove the YouTube broadcast, and erase all associated media files. This cannot be undone.",
+            () => fullDeleteEvent(id, true)
+          )}
+          onRestore={restoreEvent}
+          onShareWhatsApp={handleShareWhatsApp}
+          onCopy={copyToClipboard}
+          copiedKey={copiedKey}
+          onRestart={handleRestartServer}
+          restarting={restartingServer}
+          onToggleYoutube={toggleYoutubeRelay}
+          togglingYoutube={togglingYoutube}
+          onPreview={setPreviewStream}
+          onGoLive={handleGoLive}
+          onTerminate={handleTerminate}
+          openQrId={openQrEventId}
+          setOpenQrId={setOpenQrEventId}
+          formatDisplayDate={formatDisplayDate}
+          getEventStatus={getEventStatus}
+          adminOptimize={adminOptimize}
+        />
+      </div>
+
+      {/* Desktop table */}
+      <div className="ec-card ec-desktop-only" style={{ padding: 0, overflow: "hidden" }}>
+        <div className="ec-table-scroll-hint">
+          Swipe horizontally to see all columns →
+        </div>
+        <div className="ec-table-scroll custom-scrollbar">
+          <table className="ec-table min-w-[1300px] table-fixed text-left" data-density={tableDensity}>
             <thead>
-              <tr className="bg-white/[0.04] border-b border-white/[0.08]">
-                <th style={{ width: columnWidths.select }} className="p-6">
+              <tr>
+                <th style={{ width: columnWidths.select }} className="!text-center">
                   <div className="flex items-center justify-center">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={selectedEventIds.size === sortedEvents.length && sortedEvents.length > 0}
                       onChange={toggleSelectAll}
-                      className="w-5 h-5 rounded-lg border-white/10 bg-white/5 text-blue-500 focus:ring-0 focus:ring-offset-0 transition-all cursor-pointer"
+                      className="w-4 h-4 rounded cursor-pointer accent-[var(--primary)]"
                     />
                   </div>
                 </th>
-                <th 
-                  style={{ width: columnWidths.identity }}
-                  className="p-6 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] relative group"
-                >
-                  <div onClick={() => requestSort('groom_name')} className="cursor-pointer hover:text-white transition-colors flex items-center gap-2">
-                    Event Details {sortConfig?.key === 'groom_name' ? (sortConfig.direction === 'asc' ? <ChevronRight size={14} className="-rotate-90" /> : <ChevronRight size={14} className="rotate-90" />) : ''}
+                <th style={{ width: columnWidths.identity }} className="relative group">
+                  <div onClick={() => requestSort('groom_name')} className="cursor-pointer hover:text-[var(--foreground)] transition-colors flex items-center gap-2">
+                    Event details {sortConfig?.key === 'groom_name' ? (sortConfig.direction === 'asc' ? <ChevronRight size={14} className="-rotate-90" /> : <ChevronRight size={14} className="rotate-90" />) : ''}
                   </div>
-                  <div onMouseDown={(e) => handleMouseDown(e, 'identity')} onDoubleClick={() => handleDoubleClick('identity')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
+                  <div onMouseDown={(e) => handleMouseDown(e, 'identity')} onDoubleClick={() => handleDoubleClick('identity')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-[var(--primary)] opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
-                <th 
-                  style={{ width: columnWidths.schedule }}
-                  className="p-6 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] relative group"
-                >
-                  <div onClick={() => requestSort('date')} className="cursor-pointer hover:text-white transition-colors flex items-center gap-2">
-                    Date & Time {sortConfig?.key === 'date' ? (sortConfig.direction === 'asc' ? <ChevronRight size={14} className="-rotate-90" /> : <ChevronRight size={14} className="rotate-90" />) : ''}
+                <th style={{ width: columnWidths.schedule }} className="relative group">
+                  <div onClick={() => requestSort('date')} className="cursor-pointer hover:text-[var(--foreground)] transition-colors flex items-center gap-2">
+                    Date & time {sortConfig?.key === 'date' ? (sortConfig.direction === 'asc' ? <ChevronRight size={14} className="-rotate-90" /> : <ChevronRight size={14} className="rotate-90" />) : ''}
                   </div>
-                  <div onMouseDown={(e) => handleMouseDown(e, 'schedule')} onDoubleClick={() => handleDoubleClick('schedule')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
+                  <div onMouseDown={(e) => handleMouseDown(e, 'schedule')} onDoubleClick={() => handleDoubleClick('schedule')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-[var(--primary)] opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
-                <th style={{ width: columnWidths.venue }} className="p-6 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] relative group">
-                  Venue & Photographer
-                  <div onMouseDown={(e) => handleMouseDown(e, 'venue')} onDoubleClick={() => handleDoubleClick('venue')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
+                <th style={{ width: columnWidths.venue }} className="relative group">
+                  Venue & photographer
+                  <div onMouseDown={(e) => handleMouseDown(e, 'venue')} onDoubleClick={() => handleDoubleClick('venue')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-[var(--primary)] opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
-                <th style={{ width: columnWidths.youtube }} className="p-6 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] relative group">
-                  Stream & Relay
-                  <div onMouseDown={(e) => handleMouseDown(e, 'youtube')} onDoubleClick={() => handleDoubleClick('youtube')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
+                <th style={{ width: columnWidths.youtube }} className="relative group">
+                  Stream & relay
+                  <div onMouseDown={(e) => handleMouseDown(e, 'youtube')} onDoubleClick={() => handleDoubleClick('youtube')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-[var(--primary)] opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
-                <th 
-                  style={{ width: columnWidths.views }}
-                  className="p-6 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] text-center relative group"
-                >
-                  <div onClick={() => requestSort('view_count')} className="cursor-pointer hover:text-white transition-colors">
+                <th style={{ width: columnWidths.views }} className="!text-center relative group">
+                  <div onClick={() => requestSort('view_count')} className="cursor-pointer hover:text-[var(--foreground)] transition-colors inline-flex items-center justify-center gap-1">
                     Views {sortConfig?.key === 'view_count' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
                   </div>
-                  <div onMouseDown={(e) => handleMouseDown(e, 'views')} onDoubleClick={() => handleDoubleClick('views')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
+                  <div onMouseDown={(e) => handleMouseDown(e, 'views')} onDoubleClick={() => handleDoubleClick('views')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-[var(--primary)] opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
-                <th style={{ width: columnWidths.control }} className="p-6 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] relative group">
-                  YouTube Control
-                  <div onMouseDown={(e) => handleMouseDown(e, 'control')} onDoubleClick={() => handleDoubleClick('identity')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
+                <th style={{ width: columnWidths.control }} className="relative group">
+                  YouTube control
+                  <div onMouseDown={(e) => handleMouseDown(e, 'control')} onDoubleClick={() => handleDoubleClick('control')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-[var(--primary)] opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
-                <th style={{ width: columnWidths.actions }} className="p-6 text-[10px] font-black text-white/30 uppercase tracking-[0.3em] text-right relative group">
-                  Quick Actions
-                  <div onMouseDown={(e) => handleMouseDown(e, 'actions')} onDoubleClick={() => handleDoubleClick('actions')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity z-10" />
+                <th style={{ width: columnWidths.actions }} className="!text-right relative group">
+                  Quick actions
+                  <div onMouseDown={(e) => handleMouseDown(e, 'actions')} onDoubleClick={() => handleDoubleClick('actions')} className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-[var(--primary)] opacity-0 group-hover:opacity-100 transition-opacity z-10" />
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.04]">
+            <tbody>
               {isLoadingEvents ? (
                 <tr>
-                  <td colSpan={8} className="p-32 text-center relative overflow-hidden">
-                    <div className="absolute inset-0 bg-blue-600/[0.02] animate-pulse" />
-                    <RefreshCw className="animate-spin mx-auto text-blue-500 mb-8" size={64} strokeWidth={1.5} />
-                    <p className="text-white font-black text-lg tracking-tight">Loading Events...</p>
-                    <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.5em] mt-3">Fetching database records...</p>
+                  <td colSpan={8} className="!py-24 text-center">
+                    <RefreshCw className="animate-spin mx-auto mb-6" size={48} strokeWidth={1.5} style={{ color: "var(--primary)" }} />
+                    <p className="font-bold text-lg tracking-tight" style={{ color: "var(--foreground)" }}>Loading events…</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider mt-2" style={{ color: "var(--text-tertiary)" }}>Fetching database records</p>
                   </td>
                 </tr>
               ) : (
@@ -516,207 +592,216 @@ export const EventTable: React.FC<EventTableProps> = ({
                   const eventWishes = wishes.filter(w => w.event_id === event.id);
                   const status = getEventStatus(event.event_date);
                   return (
-                    <tr key={event.id} className={`hover:bg-white/[0.03] transition-all group animate-in fade-in slide-in-from-left-2 duration-500 ${selectedEventIds.has(event.id) ? 'bg-blue-500/[0.08]' : ''}`} style={{ animationDelay: `${idx * 40}ms` }}>
-                      <td className="p-6">
+                    <tr
+                      key={event.id}
+                      className="group animate-in fade-in slide-in-from-left-2 duration-500"
+                      style={{
+                        animationDelay: `${idx * 40}ms`,
+                        ...(selectedEventIds.has(event.id) ? { background: "var(--primary-50)" } : {}),
+                      }}
+                    >
+                      <td>
                         <div className="flex items-center justify-center">
-                          <input 
-                            type="checkbox" 
+                          <input
+                            type="checkbox"
                             checked={selectedEventIds.has(event.id)}
                             onChange={() => toggleSelection(event.id)}
-                            className="w-5 h-5 rounded-lg border-white/10 bg-white/5 text-blue-600 focus:ring-0 focus:ring-offset-0 transition-all cursor-pointer"
+                            className="w-4 h-4 rounded cursor-pointer accent-[var(--primary)]"
                           />
                         </div>
                       </td>
                       <td className={`${getPadding()} overflow-hidden`}>
-                        <div className="flex items-center gap-6">
-                          <div className="w-16 h-16 bg-white/[0.03] rounded-2xl overflow-hidden border border-white/10 flex-shrink-0 shadow-2xl relative group-hover:scale-105 transition-transform duration-700">
+                        <div className="flex items-center gap-4">
+                          <div
+                            className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 relative group-hover:scale-105 transition-transform duration-300 border"
+                            style={{ borderColor: "var(--border)", background: "var(--surface-hover)" }}
+                          >
                             {event.thumbnail_url ? (
                               <img src={adminOptimize(event.thumbnail_url, 150)} className="w-full h-full object-cover" alt="Thumb" />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-white/5"><AlertCircle size={32} strokeWidth={1} /></div>
+                              <div className="w-full h-full flex items-center justify-center" style={{ color: "var(--text-tertiary)" }}><AlertCircle size={28} strokeWidth={1} /></div>
                             )}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                           </div>
                           <div className="min-w-0">
-                            <div className="flex items-center gap-3 mb-2.5">
-                              <span className="px-2.5 py-1 bg-blue-500/10 text-blue-400 text-[9px] font-black uppercase tracking-widest rounded-lg border border-blue-400/20">
+                            <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                              <span
+                                className="ec-badge"
+                                style={{ background: "var(--info-50)", color: "var(--info)", border: "1px solid #BFDBFE", fontSize: "11px", padding: "4px 10px" }}
+                              >
                                 {event.event_type}
                               </span>
 
                               {/* Deployment Status Badge */}
                               {event.deployment_status === 'deploying' && (
-                                <span className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-400 text-[9px] font-black uppercase tracking-widest rounded-lg border border-amber-400/20 animate-pulse">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                                <span className="ec-badge ec-badge-amber animate-pulse" style={{ fontSize: "11px", padding: "4px 10px" }}>
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
                                   Deploying
                                 </span>
                               )}
                               {event.deployment_status === 'live' && (
-                                <span className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 text-emerald-400 text-[9px] font-black uppercase tracking-widest rounded-lg border border-emerald-400/20">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                  Live
-                                </span>
+                                <span className="ec-badge ec-badge-live" style={{ fontSize: "11px", padding: "4px 10px" }}>Live</span>
                               )}
                               {event.deployment_status === 'failed' && (
                                 <span
-                                  className="flex items-center gap-1.5 px-2.5 py-1 bg-red-500/10 text-red-400 text-[9px] font-black uppercase tracking-widest rounded-lg border border-red-400/20 cursor-help"
+                                  className="ec-badge cursor-help"
+                                  style={{ background: "var(--error-50)", color: "var(--error)", border: "1px solid #FECDD3", fontSize: "11px", padding: "4px 10px" }}
                                   title={event.deployment_error || 'Deployment failed'}
                                 >
-                                  <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
                                   Failed
                                 </span>
                               )}
 
                               {eventWishes.length > 0 && (
-                                <span className="flex items-center gap-1.5 px-2.5 py-1 bg-green-500/10 text-green-400 text-[9px] font-black uppercase tracking-widest rounded-lg border border-green-400/20">
+                                <span className="ec-badge" style={{ background: "var(--success-50)", color: "var(--success)", border: "1px solid #A7F3D0", fontSize: "11px", padding: "4px 10px" }}>
                                   <MessageCircle size={10} /> {eventWishes.length}
                                 </span>
                               )}
                               {event.notes && (
-                                <div className="w-2 h-2 rounded-full bg-white animate-pulse shadow-[0_0_8px_rgba(255,255,255,0.5)]" title={event.notes} />
+                                <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: "var(--accent)" }} title={event.notes} />
                               )}
                             </div>
-                            <h3 className="text-base font-black text-white leading-tight truncate tracking-tight group-hover:text-blue-400 transition-colors">
+                            <h3 className="text-base font-bold leading-tight truncate tracking-tight group-hover:text-[var(--primary)] transition-colors" style={{ color: "var(--foreground)" }}>
                               {event.groom_name || event.celebrant_name}
                               {event.bride_name && event.bride_name.toLowerCase() !== 'family' && (
-                                <span className="text-white/40 font-medium"> & {event.bride_name}</span>
+                                <span className="font-medium" style={{ color: "var(--text-secondary)" }}> & {event.bride_name}</span>
                               )}
                             </h3>
                             {(!event.bride_name || event.bride_name.toLowerCase() === 'family') && (
-                                <p className="text-[10px] text-white/10 font-black uppercase tracking-[0.2em] mt-1.5">
-                                  Family Event
+                                <p className="text-xs font-semibold uppercase tracking-wider mt-1" style={{ color: "var(--text-tertiary)" }}>
+                                  Family event
                                 </p>
                             )}
                           </div>
                         </div>
                       </td>
                       <td className={`${getPadding()} overflow-hidden`}>
-                        <div className="text-sm font-black text-white mb-2 tracking-tight">{formatDisplayDate(event.event_date)}</div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-[10px] text-white/30 font-black uppercase tracking-widest flex items-center gap-1.5">
+                        <div className="text-sm font-bold mb-1.5 tracking-tight" style={{ color: "var(--foreground)" }}>{formatDisplayDate(event.event_date)}</div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5" style={{ color: "var(--text-tertiary)" }}>
                             <Clock size={10} /> {event.event_time}
                           </div>
-                          <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
-                            status.label === 'Today' 
-                              ? 'bg-green-500/10 text-green-400 border-green-400/30 shadow-[0_0_15px_rgba(34,197,94,0.2)]' 
-                              : status.label === 'Upcoming'
-                              ? 'bg-amber-500/10 text-amber-400 border-amber-400/20'
-                              : 'bg-white/5 text-white/20 border-white/10'
-                          }`}>
+                          <span className={`ec-badge ${status.label === 'Today' ? 'ec-badge-live' : status.label === 'Upcoming' ? 'ec-badge-amber' : 'ec-badge-completed'}`} style={{ fontSize: "11px", padding: "4px 10px" }}>
                             {status.label}
                           </span>
                         </div>
                       </td>
                       <td className={`${getPadding()} overflow-hidden`}>
-                        <div className="text-[11px] text-white/60 font-black max-w-[200px] truncate mb-3 flex items-center gap-2">
-                           <MapPin size={12} className="text-white/20" /> {event.venue_name}
+                        <div className="text-sm font-medium max-w-[200px] truncate mb-2 flex items-center gap-2" style={{ color: "var(--text-secondary)" }}>
+                           <MapPin size={12} style={{ color: "var(--text-tertiary)" }} /> {event.venue_name}
                         </div>
                         {event.photographers?.name ? (
-                          <div className="flex items-center gap-3 p-2 pr-4 bg-white/[0.03] rounded-2xl border border-white/[0.05] w-fit hover:border-blue-500/20 transition-all group/pg">
-                            <div className="w-10 h-10 rounded-xl overflow-hidden bg-white shadow-2xl p-2 border border-white/10 group-hover/pg:scale-105 transition-transform">
+                          <div className="flex items-center gap-2 p-2 pr-3 rounded-xl border w-fit transition-all group/pg" style={{ borderColor: "var(--border-subtle)", background: "var(--surface-hover)" }}>
+                            <div className="w-9 h-9 rounded-lg overflow-hidden bg-white p-1.5 border group-hover/pg:scale-105 transition-transform" style={{ borderColor: "var(--border)" }}>
                                {event.photographers.logo_url ? (
                                 <img src={adminOptimize(event.photographers.logo_url, 100)} className="w-full h-full object-contain" alt="" />
                               ) : (
-                                <div className="w-full h-full bg-blue-600 text-white flex items-center justify-center font-black text-xs">
+                                <div className="w-full h-full flex items-center justify-center font-bold text-xs text-white rounded" style={{ background: "var(--primary)" }}>
                                   {(event.photographers.name || '?')[0].toUpperCase()}
                                 </div>
                               )}
                             </div>
                             <div>
-                              <div className="text-[10px] text-white font-black leading-tight tracking-tight">{event.photographers.name}</div>
-                              {event.photographers.city && <div className="text-[8px] text-white/20 font-black uppercase tracking-widest mt-0.5">{event.photographers.city}</div>}
+                              <div className="text-xs font-bold leading-tight" style={{ color: "var(--foreground)" }}>{event.photographers.name}</div>
+                              {event.photographers.city && <div className="text-[10px] font-semibold uppercase tracking-wide mt-0.5" style={{ color: "var(--text-tertiary)" }}>{event.photographers.city}</div>}
                             </div>
                           </div>
                         ) : (
-                          <div className="text-[10px] text-white/5 font-black uppercase tracking-[0.3em] pl-1">Uncredited Partner</div>
+                          <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>Uncredited partner</div>
                         )}
                       </td>
                     <td className={`${getPadding()}`}>
-                      <div className="flex flex-col gap-4 items-start min-w-[220px]">
+                      <div className="flex flex-col gap-3 items-start min-w-[220px]">
                         <div className="w-full space-y-2">
-                          <div className="flex items-center justify-between px-1">
-                            <span className="text-[9px] font-black text-blue-500 uppercase tracking-[0.2em] opacity-40">Ingest Point</span>
-                            <div className="flex items-center gap-2">
+                          <div className="flex items-center justify-between px-0.5">
+                            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--info)" }}>Ingest point</span>
+                            <div className="flex items-center gap-1.5">
                               {event.restreamer_url && (
-                                <button 
+                                <button
+                                  type="button"
                                   onClick={() => setPreviewStream(event)}
-                                  className="text-[9px] font-black text-blue-400 hover:text-white hover:bg-blue-600 rounded-lg px-2 py-1 border border-blue-500/20 transition-all uppercase tracking-widest active:scale-95"
+                                  className="ec-btn ec-btn-sm ec-btn-primary !min-h-[28px] !py-1 !px-2.5"
                                 >
                                   Preview
                                 </button>
                               )}
-                              <button 
+                              <button
+                                type="button"
                                 onClick={() => handleRestartServer(event.slug, event.id)}
                                 disabled={restartingServer[event.id]}
-                                className={`text-[9px] font-black px-2 py-1 rounded-lg transition-all border uppercase tracking-widest active:scale-95 ${
-                                  restartingServer[event.id] 
-                                    ? 'bg-white/5 text-white/10 border-white/5' 
-                                    : 'bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500 hover:text-white'
-                                }`}
+                                className="ec-btn ec-btn-sm ec-btn-amber !min-h-[28px] !py-1 !px-2.5 text-white disabled:opacity-50"
                               >
                                 {restartingServer[event.id] ? 'Busy' : 'Restart'}
                               </button>
                             </div>
                           </div>
-                          <div className="flex flex-col gap-1.5 bg-white/[0.03] p-3 rounded-2xl border border-white/[0.08] shadow-inner group/node">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-[10px] font-mono text-white/30 truncate max-w-[140px] tracking-tight">{event.restreamer_ingest_url || `rtmp://34.100.142.25/${event.slug}`}</span>
+                          <div className="ec-panel !p-3 !rounded-xl flex flex-col gap-2 group/node" style={{ padding: "12px" }}>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11px] font-mono truncate max-w-[140px]" style={{ color: "var(--text-secondary)" }}>{event.restreamer_ingest_url || `rtmp://34.100.142.25/${event.slug}`}</span>
                               <button
+                                type="button"
                                 onClick={() => copyToClipboard(event.restreamer_ingest_url || `rtmp://34.100.142.25/${event.slug}`, `ingest-${event.id}`, 'Ingest URL')}
-                                className={`transition-colors ${ copiedKey === `ingest-${event.id}` ? 'text-emerald-400' : 'text-white/10 hover:text-blue-400' }`}
+                                className="ec-icon-btn !min-w-[32px] !min-h-[32px] !p-1.5"
+                                style={{ color: copiedKey === `ingest-${event.id}` ? "var(--success)" : undefined }}
                               >
                                 {copiedKey === `ingest-${event.id}` ? <CheckCircle2 size={14}/> : <CopyPlus size={14}/>}
                               </button>
                             </div>
-                            <div className="flex items-center justify-between gap-3 border-t border-white/[0.05] pt-2 mt-1">
-                              <span className="text-[11px] font-mono font-black text-blue-400 uppercase tracking-tighter">● {event.restreamer_stream_key || 'live'}</span>
+                            <div className="flex items-center justify-between gap-2 border-t pt-2" style={{ borderColor: "var(--border-subtle)" }}>
+                              <span className="text-[11px] font-mono font-bold uppercase" style={{ color: "var(--info)" }}>● {event.restreamer_stream_key || 'live'}</span>
                               <button
+                                type="button"
                                 onClick={() => copyToClipboard(event.restreamer_stream_key || 'live', `key-${event.id}`, 'Stream Key')}
-                                className={`transition-colors ${ copiedKey === `key-${event.id}` ? 'text-emerald-400' : 'text-white/10 hover:text-blue-400' }`}
+                                className="ec-icon-btn !min-w-[32px] !min-h-[32px] !p-1.5"
+                                style={{ color: copiedKey === `key-${event.id}` ? "var(--success)" : undefined }}
                               >
                                 {copiedKey === `key-${event.id}` ? <CheckCircle2 size={14}/> : <Copy size={14}/>}
                               </button>
                             </div>
                           </div>
                         </div>
-                        
+
                         <div className="w-full space-y-2">
-                          <div className="flex items-center justify-between px-1">
-                            <span className="text-[9px] font-black text-red-500 uppercase tracking-[0.2em] opacity-40">Global Relay</span>
+                          <div className="flex items-center justify-between px-0.5">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-red-600">Global relay</span>
                             {event.youtube_stream_key && (
-                              <div className="flex items-center gap-3">
-                                <span className={`text-[8px] font-black tracking-widest ${togglingYoutube[event.id] ? 'text-blue-400 animate-pulse' : 'text-white/20'}`}>
-                                  {togglingYoutube[event.id] ? 'SIGNAL SYNC...' : 'STATUS'}
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[10px] font-semibold uppercase ${togglingYoutube[event.id] ? 'animate-pulse' : ''}`} style={{ color: togglingYoutube[event.id] ? "var(--info)" : "var(--text-tertiary)" }}>
+                                  {togglingYoutube[event.id] ? 'Syncing…' : 'Status'}
                                 </span>
-                                <div className="flex items-center bg-white/5 rounded-lg border border-white/10 p-0.5">
+                                <div className="flex items-center rounded-lg border p-0.5 bg-red-600">
                                   <button
+                                    type="button"
                                     onClick={() => toggleYoutubeRelay(event, true)}
-                                    className={`px-2 py-0.5 rounded-md text-[8px] font-black transition-all ${togglingYoutube[event.id] ? 'opacity-30' : 'hover:bg-red-600 hover:text-white text-white/40'}`}
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all text-white/90 ${togglingYoutube[event.id] ? 'opacity-30' : 'hover:bg-red-700'}`}
                                     title="Start Relay"
                                   >START</button>
                                   <button
+                                    type="button"
                                     onClick={() => toggleYoutubeRelay(event, false)}
-                                    className={`px-2 py-0.5 rounded-md text-[8px] font-black transition-all ${togglingYoutube[event.id] ? 'opacity-30' : 'hover:bg-white hover:text-black text-white/40'}`}
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all text-white/90 ${togglingYoutube[event.id] ? 'opacity-30' : 'hover:bg-red-800'}`}
                                     title="Kill Relay"
                                   >STOP</button>
                                 </div>
                               </div>
                             )}
                           </div>
-                          <div className="flex flex-col gap-1.5 bg-white/[0.03] p-3 rounded-2xl border border-white/[0.08] shadow-inner">
+                          <div className="ec-panel !p-3 !rounded-xl flex flex-col gap-2">
                             {event.youtube_stream_key && (
-                              <div className="flex items-center justify-between gap-3">
-                                <span className="text-[10px] font-mono text-red-500/60 truncate max-w-[140px]">{event.youtube_stream_key}</span>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[11px] font-mono text-red-600 truncate max-w-[140px]">{event.youtube_stream_key}</span>
                                 <button
+                                  type="button"
                                   onClick={() => copyToClipboard(event.youtube_stream_key, `yt-${event.id}`, 'YouTube Key')}
-                                  className={`transition-colors ${ copiedKey === `yt-${event.id}` ? 'text-emerald-400' : 'text-white/10 hover:text-red-500' }`}
+                                  className="ec-icon-btn !min-w-[32px] !min-h-[32px] !p-1.5"
+                                  style={{ color: copiedKey === `yt-${event.id}` ? "var(--success)" : undefined }}
                                 >
                                   {copiedKey === `yt-${event.id}` ? <CheckCircle2 size={14}/> : <Copy size={14}/>}
                                 </button>
                               </div>
                             )}
                             {event.vod_link && (
-                              <a href={event.vod_link} target="_blank" className="flex items-center justify-center gap-2 text-[9px] text-white font-black uppercase tracking-[0.2em] bg-red-600/10 py-2.5 rounded-xl border border-red-600/20 hover:bg-red-600 hover:text-white transition-all mt-1 shadow-lg shadow-red-600/5 active:scale-95">
-                                <Play size={12} fill="currentColor" /> MONITOR RELAY
+                              <a href={event.vod_link} target="_blank" rel="noopener noreferrer" className="ec-btn ec-btn-sm bg-red-600 hover:bg-red-700 text-white border-transparent w-full !min-h-[32px]">
+                                <Play size={12} fill="currentColor" /> Monitor relay
                               </a>
                             )}
                           </div>
@@ -724,15 +809,16 @@ export const EventTable: React.FC<EventTableProps> = ({
                       </div>
                     </td>
                     <td className={`${getPadding()} text-center`}>
-                       <div className="inline-flex flex-col items-center gap-1">
-                         <span className="font-mono text-lg text-white font-black leading-none">{event.view_count || 0}</span>
-                         <span className="text-[8px] text-white/20 font-black uppercase tracking-widest">Visitors</span>
+                       <div className="inline-flex flex-col items-center gap-0.5">
+                         <span className="font-mono text-lg font-bold leading-none" style={{ color: "var(--foreground)" }}>{event.view_count || 0}</span>
+                         <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>Visitors</span>
                        </div>
                     </td>
                     <td className={`${getPadding()}`}>
                        {event.youtube_broadcast_id ? (
-                         <div className="flex flex-col gap-3">
-                           <button 
+                         <div className="flex flex-col gap-2">
+                           <button
+                             type="button"
                              onClick={async () => {
                                const heart = (event.event_type || '').toLowerCase().includes('wedding') ? '❤️' : '✨';
                                const baseTitle = `${event.groom_name || event.celebrant_name} ${heart} ${event.bride_name || 'Family'} ${event.event_type} Live | ${formatDisplayDate(event.event_date)}`;
@@ -743,11 +829,12 @@ export const EventTable: React.FC<EventTableProps> = ({
                                if (res.ok) success('🔴 BROADCAST LIVE', 'Stream is now live on YouTube.');
                                else toastError('Failed to go live', 'Check broadcast settings.');
                              }}
-                             className="px-4 py-2 bg-red-600 text-white rounded-xl text-[9px] font-black hover:bg-red-500 border border-red-500/20 uppercase tracking-[0.2em] transition-all shadow-lg shadow-red-600/20 active:scale-95"
+                             className="ec-btn ec-btn-sm bg-red-600 hover:bg-red-500 text-white border-transparent w-full"
                            >
-                             GO LIVE
+                             Go live
                            </button>
-                           <button 
+                           <button
+                             type="button"
                              onClick={async () => {
                                const heart = (event.event_type || '').toLowerCase().includes('wedding') ? '❤️' : '✨';
                                const baseTitle = `${event.groom_name || event.celebrant_name} ${heart} ${event.bride_name || 'Family'} ${event.event_type} Live | ${formatDisplayDate(event.event_date)}`;
@@ -758,133 +845,158 @@ export const EventTable: React.FC<EventTableProps> = ({
                                if (res.ok) success('Broadcast terminated', 'Stream has ended successfully.');
                                else toastError('Termination failed', 'Could not end the broadcast.');
                              }}
-                             className="px-4 py-2 bg-white/5 text-white/30 rounded-xl text-[9px] font-black hover:bg-white/10 hover:text-white border border-white/10 uppercase tracking-[0.2em] transition-all active:scale-95"
+                             className="ec-btn ec-btn-secondary ec-btn-sm w-full"
                            >
-                             TERMINATE
+                             Terminate
                            </button>
                          </div>
                        ) : (
-                        <div className="flex flex-col items-center gap-1 opacity-10">
-                            <ZapOff size={20} className="text-white" />
-                            <span className="text-[8px] font-black uppercase tracking-widest">No Relay</span>
+                        <div className="flex flex-col items-center gap-1 opacity-40">
+                            <ZapOff size={20} style={{ color: "var(--text-tertiary)" }} />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>No relay</span>
                          </div>
                        )}
                     </td>
                     <td className={`${getPadding()}`}>
-                       <div className="flex items-center justify-end gap-2 flex-wrap max-w-[280px]">
+                       <div className="flex items-center justify-end gap-1.5 flex-wrap max-w-[280px]">
                          <div className="relative">
-                           <button 
+                           <button
+                             type="button"
                              onClick={() => setOpenQrEventId(openQrEventId === event.id ? null : event.id)}
-                             className={`p-3 rounded-2xl transition-all border shadow-lg ${openQrEventId === event.id ? 'bg-blue-600 text-white border-blue-400 shadow-blue-500/30 active:scale-95' : 'bg-white/[0.03] text-white/30 border-white/5 hover:border-white/20 hover:text-white hover:bg-white/5'}`}
-                             title="Show QR Code"
+                             className={openQrEventId === event.id ? "ec-icon-btn ec-btn-primary !text-white" : "ec-icon-btn"}
+                             title="Show QR code"
+                             aria-label="Show QR code"
                            >
-                             <QrCode size={20} />
+                             <QrCode size={18} />
                            </button>
                            {openQrEventId === event.id && (
-                             <div className="absolute right-0 bottom-full mb-4 z-50 bg-[#0d0d17]/95 p-6 rounded-[2rem] shadow-2xl border border-white/10 w-56 animate-in zoom-in-95 slide-in-from-bottom-2 duration-300 backdrop-blur-3xl">
-                               <div className="flex items-center justify-between mb-4">
-                                 <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Event QR Code</span>
-                                 <button onClick={() => setOpenQrEventId(null)} className="w-6 h-6 flex items-center justify-center bg-white/5 hover:bg-red-500 rounded-lg text-white/20 hover:text-white transition-all"><X size={12} /></button>
+                             <div className="ec-card absolute right-0 bottom-full mb-3 z-50 w-56 !p-4 animate-in zoom-in-95 slide-in-from-bottom-2 duration-300" style={{ boxShadow: "var(--shadow-dropdown)" }}>
+                               <div className="flex items-center justify-between mb-3">
+                                 <span className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--info)" }}>Event QR</span>
+                                 <button type="button" onClick={() => setOpenQrEventId(null)} className="ec-icon-btn ec-icon-btn-danger !min-w-[28px] !min-h-[28px] !p-1"><X size={12} /></button>
                                </div>
-                               <div className="bg-white p-3 rounded-2xl mb-4 shadow-inner">
-                                 <img 
+                               <div className="bg-white p-2 rounded-xl mb-3 border" style={{ borderColor: "var(--border-subtle)" }}>
+                                 <img
                                     src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://eventcast.pro/events/${event.slug}`}
                                     className="w-full h-auto rounded-lg"
                                     alt="QR"
                                  />
                                </div>
                                <div className="flex gap-2">
-                                 <a 
-                                    href={`https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data=https://eventcast.pro/events/${event.slug}`} 
+                                 <a
+                                    href={`https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data=https://eventcast.pro/events/${event.slug}`}
                                     download={`qr-${event.slug}.png`}
-                                    className="flex-1 text-center py-2.5 bg-white/5 text-white/60 text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-white/10 border border-white/10 transition-all"
+                                    className="ec-btn ec-btn-secondary ec-btn-sm flex-1"
                                  >PNG</a>
-                                 <a 
-                                    href={`https://eventcast.pro/events/${event.slug}`} 
-                                    target="_blank" 
-                                    className="flex-1 text-center py-2.5 bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20"
+                                 <a
+                                    href={`https://eventcast.pro/events/${event.slug}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="ec-btn ec-btn-primary ec-btn-sm flex-1 text-white"
                                  >Open</a>
                                 </div>
                              </div>
                            )}
                          </div>
 
-                        <button 
+                        <button
+                          type="button"
                           onClick={() => copyToClipboard(`https://eventcast.pro/events/${event.slug}`, `live-${event.id}`, 'Live Page Link')}
-                          className="p-3 bg-white/[0.03] text-blue-400 rounded-2xl transition-all border border-white/5 hover:border-blue-500/40 hover:bg-blue-500/10 hover:shadow-lg hover:shadow-blue-500/5 active:scale-95" 
-                          title="Copy Live Page Link"
+                          className="ec-icon-btn"
+                          title="Copy live page link"
+                          aria-label="Copy live page link"
+                          style={{ color: copiedKey === `live-${event.id}` ? "var(--success)" : "var(--info)" }}
                         >
-                          {copiedKey === `live-${event.id}` ? <CheckCircle2 size={20} className="text-emerald-400" /> : <Copy size={20} />}
+                          {copiedKey === `live-${event.id}` ? <CheckCircle2 size={18} /> : <Copy size={18} />}
                         </button>
 
-                        <button 
+                        <button
+                          type="button"
                           onClick={() => copyToClipboard(`${window.location.origin}/portal/${event.slug}`, `portal-${event.id}`, 'Client Portal Link')}
-                          className="p-3 bg-white/[0.03] text-pink-500 rounded-2xl transition-all border border-white/5 hover:border-pink-500/40 hover:bg-pink-500/10 hover:shadow-lg hover:shadow-pink-500/5 active:scale-95" 
-                          title="Copy Client Portal Link"
+                          className="ec-icon-btn"
+                          title="Copy client portal link"
+                          aria-label="Copy client portal link"
+                          style={{ color: copiedKey === `portal-${event.id}` ? "var(--success)" : "#DB2777" }}
                         >
-                          {copiedKey === `portal-${event.id}` ? <CheckCircle2 size={20} className="text-emerald-400" /> : <LinkIcon size={20} />}
+                          {copiedKey === `portal-${event.id}` ? <CheckCircle2 size={18} /> : <LinkIcon size={18} />}
                         </button>
 
                         {isArchiveView ? (
                           <>
-                            <button 
+                            <button
+                              type="button"
                               onClick={() => restoreEvent && restoreEvent(event.id)}
-                              className="p-3 bg-white/[0.03] text-blue-500 rounded-2xl transition-all border border-white/5 hover:border-blue-500/40 hover:bg-blue-500/10 hover:shadow-lg hover:shadow-blue-500/5 active:scale-95" 
-                              title="Restore Event"
+                              className="ec-icon-btn"
+                              title="Restore event"
+                              aria-label="Restore event"
+                              style={{ color: "var(--info)" }}
                             >
-                              <RefreshCw size={20} />
+                              <RefreshCw size={18} />
                             </button>
-                            <button 
+                            <button
+                              type="button"
                               onClick={() => openConfirm(
                                 'Permanently delete this event?',
                                 'WARNING: This will permanently wipe the event, remove the YouTube broadcast, and erase all associated media files. This cannot be undone.',
                                 () => fullDeleteEvent(event.id, true)
                               )}
-                              className="p-3 bg-white/[0.03] text-red-500 rounded-2xl transition-all border border-white/5 hover:border-red-500/40 hover:bg-red-500/10 hover:shadow-lg hover:shadow-red-500/5 active:scale-95" 
-                              title="Permanently Delete Event"
+                              className="ec-icon-btn ec-icon-btn-danger"
+                              title="Permanently delete event"
+                              aria-label="Permanently delete event"
                             >
-                              <Trash2 size={20} />
+                              <Trash2 size={18} />
                             </button>
                           </>
                         ) : (
                           <>
-                            <button 
+                            <button
+                              type="button"
                               onClick={() => handleDuplicateClick(event)}
-                              className="p-3 bg-white/[0.03] text-emerald-500 rounded-2xl transition-all border border-white/5 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:shadow-lg hover:shadow-emerald-500/5 active:scale-95" 
-                              title="Duplicate Event"
+                              className="ec-icon-btn"
+                              title="Duplicate event"
+                              aria-label="Duplicate event"
+                              style={{ color: "var(--success)" }}
                             >
-                              <CopyPlus size={20} />
+                              <CopyPlus size={18} />
                             </button>
 
-                            <button 
+                            <button
+                              type="button"
                               onClick={() => {
                                 const message = `Hello! We are excited to invite you to the ${event.event_type || 'event'}. Join us live here: https://eventcast.pro/events/${event.slug}`;
                                 window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
                               }}
-                              className="p-3 bg-white/[0.03] text-green-500 rounded-2xl transition-all border border-white/5 hover:border-green-500/40 hover:bg-green-500/10 hover:shadow-lg hover:shadow-green-500/5 active:scale-95" 
+                              className="ec-icon-btn"
                               title="Share to WhatsApp"
+                              aria-label="Share to WhatsApp"
+                              style={{ color: "#16A34A" }}
                             >
-                              <MessageCircle size={20} />
+                              <MessageCircle size={18} />
                             </button>
 
-                            <button 
+                            <button
+                              type="button"
                               onClick={() => handleEditClick(event)}
-                              className="p-3 bg-white/[0.03] text-amber-500 rounded-2xl transition-all border border-white/5 hover:border-amber-500/40 hover:bg-amber-500/10 hover:shadow-lg hover:shadow-amber-500/5 active:scale-95" 
-                              title="Edit Event"
+                              className="ec-icon-btn"
+                              title="Edit event"
+                              aria-label="Edit event"
+                              style={{ color: "var(--accent)" }}
                             >
-                              <Edit size={20} />
+                              <Edit size={18} />
                             </button>
 
-                            <button 
+                            <button
+                              type="button"
                               onClick={() => openConfirm(
                                 'Archive this event?',
                                 'This will move the event to the archive. It will no longer be visible on the public site.',
                                 () => fullDeleteEvent(event.id, false)
                               )}
-                              className="p-3 bg-white/[0.03] text-red-500 rounded-2xl transition-all border border-white/5 hover:border-red-500/40 hover:bg-red-500/10 hover:shadow-lg hover:shadow-red-500/5 active:scale-95" 
-                              title="Archive Event"
+                              className="ec-icon-btn ec-icon-btn-danger"
+                              title="Archive event"
+                              aria-label="Archive event"
                             >
-                              <Trash2 size={20} />
+                              <Trash2 size={18} />
                             </button>
                           </>
                         )}
@@ -900,40 +1012,42 @@ export const EventTable: React.FC<EventTableProps> = ({
     </div>
       {/* Stream Preview Modal */}
       {previewStream && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-          <div 
-            className="w-full max-w-3xl rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 border border-white/10"
-            style={{ background: "#0d0d17" }}
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300" style={{ background: "rgba(26,26,46,0.55)" }}>
+          <div
+            className="ec-card w-full max-w-3xl !p-0 overflow-hidden animate-in zoom-in-95 duration-300"
+            style={{ boxShadow: "var(--shadow-modal)" }}
           >
-            <div className="flex items-center justify-between p-8 border-b border-white/[0.06]">
+            <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: "var(--border-subtle)" }}>
               <div>
-                <h3 className="text-xl font-black text-white flex items-center gap-2">
+                <h3 className="ec-page-title text-xl flex items-center gap-2" style={{ fontSize: "20px" }}>
                   <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  Live Stream Monitor
+                  Live stream monitor
                 </h3>
-                <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mt-1">
+                <p className="ec-section-sub mt-1">
                   {previewStream.groom_name || previewStream.celebrant_name} & {previewStream.bride_name || 'Family'}
                 </p>
               </div>
-              <button 
+              <button
+                type="button"
                 onClick={() => setPreviewStream(null)}
-                className="p-2 hover:bg-white/5 rounded-xl transition-colors text-white/40 hover:text-white"
+                className="ec-icon-btn"
+                aria-label="Close preview"
               >
-                <X size={24} />
+                <X size={22} />
               </button>
             </div>
-            
+
             <div className="aspect-video bg-black relative">
-              <video 
+              <video
                 id="admin-preview-video"
-                controls 
-                autoPlay 
+                controls
+                autoPlay
                 className="w-full h-full"
                 playsInline
               />
-              <div id="admin-preview-loader" className="absolute inset-0 flex flex-col items-center justify-center bg-[#07070d]/90 text-white z-10 backdrop-blur-sm">
-                <RefreshCw size={40} className="animate-spin text-blue-500 mb-6" />
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] animate-pulse text-white/40">Handshaking Media Server...</p>
+              <div id="admin-preview-loader" className="absolute inset-0 flex flex-col items-center justify-center bg-black/85 text-white z-10">
+                <RefreshCw size={40} className="animate-spin mb-6" style={{ color: "var(--info)" }} />
+                <p className="text-xs font-semibold uppercase tracking-wider animate-pulse text-white/80">Handshaking media server…</p>
               </div>
               
               {/* HLS Loading Script */}
@@ -981,32 +1095,34 @@ export const EventTable: React.FC<EventTableProps> = ({
               `}} />
             </div>
             
-            <div className="p-8 bg-white/[0.02] flex flex-col md:flex-row gap-6 items-center justify-between border-t border-white/[0.06]">
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 text-green-400 text-[9px] font-black rounded-full border border-green-500/20 uppercase tracking-widest">
-                  <Activity size={10} /> Active Pipeline
-                </div>
-                <div className="text-[10px] font-mono text-white/40 bg-white/5 px-3 py-1 rounded-lg border border-white/5">
+            <div className="p-6 flex flex-col md:flex-row gap-4 items-center justify-between border-t" style={{ borderColor: "var(--border-subtle)", background: "var(--surface-hover)" }}>
+              <div className="flex items-center gap-4 flex-wrap">
+                <span className="ec-badge ec-badge-live" style={{ fontSize: "11px" }}>
+                  <Activity size={10} /> Active pipeline
+                </span>
+                <div className="text-xs font-mono px-3 py-1 rounded-lg border" style={{ color: "var(--text-secondary)", borderColor: "var(--border)", background: "var(--surface)" }}>
                   SID: {previewStream.slug}
                 </div>
               </div>
-              <div className="flex gap-3">
-                <button 
+              <div className="flex gap-2 flex-wrap justify-end">
+                <button
+                  type="button"
                   onClick={() => copyToClipboard(
                     previewStream.restreamer_ingest_url || `rtmp://34.100.142.25/${previewStream.slug}`,
                     'rtmp-preview',
                     'RTMP Ingest URL'
                   )}
-                  className="px-5 py-2.5 bg-white/5 text-white/60 text-[10px] font-black rounded-xl border border-white/10 hover:bg-white/10 transition-all flex items-center gap-2"
+                  className="ec-btn ec-btn-secondary ec-btn-sm"
                 >
-                  {copiedKey === 'rtmp-preview' ? <CheckCircle2 size={14} className="text-emerald-400" /> : <Copy size={14} />} INGEST URL
+                  {copiedKey === 'rtmp-preview' ? <CheckCircle2 size={14} style={{ color: "var(--success)" }} /> : <Copy size={14} />} Ingest URL
                 </button>
-                <a 
+                <a
                   href={`https://eventcast.pro/events/${previewStream.slug}`}
                   target="_blank"
-                  className="px-8 py-2.5 bg-blue-600 text-white text-[10px] font-black rounded-xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2"
+                  rel="noopener noreferrer"
+                  className="ec-btn ec-btn-primary ec-btn-sm text-white"
                 >
-                  <ExternalLink size={14} /> VIEW LIVE PAGE
+                  <ExternalLink size={14} /> View live page
                 </a>
               </div>
             </div>

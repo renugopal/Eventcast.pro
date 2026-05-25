@@ -19,10 +19,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 // ─── Web Crypto AWS Sig V4 (same pattern as /api/r2-upload) ──────────────────
-async function sha256Hex(data: ArrayBuffer | string): Promise<string> {
-  const buffer = typeof data === 'string'
-    ? new TextEncoder().encode(data) as BufferSource
-    : data as BufferSource;
+async function sha256Hex(data: ArrayBuffer | Uint8Array | string): Promise<string> {
+  const buffer =
+    typeof data === 'string'
+      ? new TextEncoder().encode(data).buffer as ArrayBuffer
+      : data instanceof Uint8Array
+      ? data.buffer as ArrayBuffer
+      : data;
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
   return Array.from(new Uint8Array(hashBuffer))
     .map(b => b.toString(16).padStart(2, '0'))

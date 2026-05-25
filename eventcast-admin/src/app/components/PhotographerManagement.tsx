@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { UserPlus, Search, Link as LinkIcon, Edit, Trash2, Phone, MapPin, Tag, RefreshCw, Zap, Users } from "lucide-react";
+import { UserPlus, Search, Link as LinkIcon, Edit, Trash2, Phone, MapPin, RefreshCw, Zap, Users } from "lucide-react";
 
 interface PhotographerManagementProps {
   photographers: any[];
@@ -58,111 +58,111 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
     );
   });
 
+  const list = searchQuery ? filtered : photographers;
+
   return (
-    <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="w-full space-y-8 pb-12 ec-animate-in">
       {/* --- ADD / EDIT FORM --- */}
-      <div 
-        className="rounded-[2.5rem] border p-8 md:p-12 backdrop-blur-2xl shadow-2xl relative overflow-hidden"
-        style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)" }}
-      >
-        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/[0.03] blur-[100px] -z-10" />
-        
-        <h2 className="text-2xl font-black text-white mb-10 flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-500/10 text-blue-400 rounded-2xl flex items-center justify-center border border-blue-500/20 shadow-lg shadow-blue-500/5">
+      <div className="ec-card">
+        <div className="flex items-center gap-4 mb-8">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: "var(--primary-50)", color: "var(--primary)", border: "2px solid var(--primary-100)" }}
+          >
             <UserPlus size={24} />
           </div>
           <div>
-            <span className="block text-xl tracking-tight">{isEditing ? "Modify Personnel Record" : "Register Partner System"}</span>
-            <span className="block text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mt-1">Satellite Network Enrollment</span>
+            <h2 className="ec-page-title" style={{ fontSize: "24px" }}>
+              {isEditing ? "Modify Personnel Record" : "Register Partner System"}
+            </h2>
+            <p className="ec-section-sub">Satellite network enrollment</p>
           </div>
-        </h2>
+        </div>
 
-        <form onSubmit={addPhotographer} className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Nickname — internal only */}
+        <form onSubmit={addPhotographer} className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1">
-            <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Internal Identifier</label>
+            <label className="ec-label" htmlFor="pg-nickname">Internal identifier</label>
             <input
+              id="pg-nickname"
               type="text"
               name="nickname"
               value={fields.nickname}
               onChange={handleField('nickname')}
-              className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white placeholder:text-white/10"
+              className="ec-input"
               placeholder="Username"
             />
           </div>
 
-          {/* Studio Name */}
           <div className="md:col-span-2">
-            <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Public Alias (Studio Name)</label>
+            <label className="ec-label" htmlFor="pg-name">Public alias (studio name)</label>
             <input
+              id="pg-name"
               type="text"
               name="name"
               value={fields.name}
               onChange={handleField('name')}
-              className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white placeholder:text-white/10"
-              placeholder="Brand System Name"
+              className="ec-input"
+              placeholder="Brand system name"
             />
           </div>
 
-          {/* Phone */}
           <div>
-            <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Phone Number</label>
+            <label className="ec-label" htmlFor="pg-phone">Phone number</label>
             <input
+              id="pg-phone"
               type="text"
               name="phone"
               value={fields.phone}
               onChange={handleField('phone')}
-              className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white placeholder:text-white/10"
-              placeholder="Communication Line"
+              className="ec-input"
+              placeholder="Communication line"
             />
           </div>
 
-          {/* City */}
           <div>
-            <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">City</label>
+            <label className="ec-label" htmlFor="pg-city">City</label>
             <input
+              id="pg-city"
               type="text"
               name="city"
               value={fields.city}
               onChange={handleField('city')}
-              className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white placeholder:text-white/10"
+              className="ec-input"
               placeholder="City"
             />
           </div>
 
-          {/* Instagram */}
           <div>
-            <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Portfolio Sync (IG)</label>
-            <div className="relative">
-              <input
-                type="text"
-                name="instagram_url"
-                value={fields.instagram_url}
-                onChange={handleField('instagram_url')}
-                className="w-full p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-pink-500/30 transition-all font-black text-white/60 placeholder:text-white/10"
-                placeholder="Social Data Link"
-              />
-            </div>
+            <label className="ec-label" htmlFor="pg-instagram">Portfolio sync (IG)</label>
+            <input
+              id="pg-instagram"
+              type="text"
+              name="instagram_url"
+              value={fields.instagram_url}
+              onChange={handleField('instagram_url')}
+              className="ec-input"
+              placeholder="Social data link"
+            />
           </div>
 
-          {/* Logo Upload */}
           <div className="md:col-span-2">
-            <label className="block text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3">Brand Visual Identity (Logo)</label>
-            <div className="flex gap-4">
+            <label className="ec-label" htmlFor="pg-logo-url">Brand visual identity (logo)</label>
+            <div className="flex flex-wrap gap-3">
               <input
+                id="pg-logo-url"
                 type="text"
                 name="logo_url"
                 value={fields.logo_url}
                 onChange={handleField('logo_url')}
-                className="flex-1 p-5 bg-white/[0.03] border border-white/[0.08] rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-black text-white/60 text-sm placeholder:text-white/10"
-                placeholder="Direct Asset URL..."
+                className="ec-input flex-1 w-full min-w-0"
+                placeholder="Direct asset URL…"
               />
               <button
                 type="button"
                 onClick={() => (document.getElementById('p_logo_file') as HTMLInputElement)?.click()}
-                className="px-8 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center gap-3 shadow-lg shadow-blue-600/20 active:scale-95 border border-blue-500/20"
+                className="ec-btn ec-btn-secondary shrink-0"
               >
-                <LinkIcon size={16} /> Profile Link
+                <LinkIcon size={16} /> Profile link
               </button>
               <input
                 type="file"
@@ -174,7 +174,7 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
                   if (!file) return;
                   const btn = e.target.previousElementSibling as HTMLButtonElement;
                   const originalHtml = btn.innerHTML;
-                  btn.innerText = 'UPLOADING...';
+                  btn.innerText = 'Uploading…';
                   const fd = new FormData();
                   fd.append('file', file);
                   fd.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'eventcast_gallery');
@@ -185,45 +185,53 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
                   const data = await res.json();
                   if (data.secure_url) {
                     setFields(prev => ({ ...prev, logo_url: data.secure_url }));
-                    btn.innerText = 'SUCCESS';
-                    setTimeout(() => btn.innerHTML = originalHtml, 2000);
+                    btn.innerText = 'Success';
+                    setTimeout(() => { btn.innerHTML = originalHtml; }, 2000);
                   } else {
-                    btn.innerText = 'FAILED';
-                    setTimeout(() => btn.innerHTML = originalHtml, 2000);
+                    btn.innerText = 'Failed';
+                    setTimeout(() => { btn.innerHTML = originalHtml; }, 2000);
                   }
                 }}
               />
             </div>
             {fields.logo_url && (
-              <div className="mt-6 flex items-center gap-4 p-4 bg-white/[0.02] rounded-[1.5rem] border border-white/[0.08] animate-in zoom-in-95 duration-500">
-                <div className="w-14 h-14 rounded-xl bg-white flex items-center justify-center p-2.5 border border-white/10 shadow-2xl">
-                  <img src={fields.logo_url} alt="Logo Preview" className="w-full h-full object-contain" />
+              <div
+                className="ec-panel mt-4 flex items-center gap-4 animate-in zoom-in-95 duration-300"
+                style={{ padding: "12px 16px" }}
+              >
+                <div
+                  className="w-14 h-14 rounded-xl flex items-center justify-center p-2 shrink-0"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                >
+                  <img src={fields.logo_url} alt="Logo preview" className="w-full h-full object-contain" />
                 </div>
                 <div>
-                   <p className="text-[10px] font-black text-green-400 uppercase tracking-widest">Asset Synchronization Complete</p>
-                   <p className="text-[9px] text-white/20 font-bold uppercase mt-1">Branding vector active</p>
+                  <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "var(--success)" }}>
+                    Asset synchronization complete
+                  </p>
+                  <p className="ec-section-sub" style={{ marginTop: 2 }}>Branding vector active</p>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Submit */}
-          <div className="md:col-span-3 pt-10">
+          <div className="md:col-span-3 pt-2">
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`w-full py-6 rounded-[2rem] font-black text-sm uppercase tracking-[0.4em] shadow-2xl transition-all duration-500 transform active:scale-[0.98] disabled:opacity-30 flex items-center justify-center gap-4 border ${
-                isEditing 
-                  ? 'bg-amber-600 text-white border-amber-500/20 shadow-amber-600/20 hover:bg-amber-500' 
-                  : 'bg-blue-600 text-white border-blue-500/20 shadow-blue-600/30 hover:bg-blue-500'
+              className={`ec-btn ec-btn-lg w-full text-white disabled:opacity-40 ${
+                isEditing ? "ec-btn-amber" : "ec-btn-primary"
               }`}
             >
               {isSubmitting ? (
-                <><RefreshCw size={20} className="animate-spin" /> SYNCHRONIZING SYSTEM...</>
+                <>
+                  <RefreshCw size={20} className="animate-spin" />
+                  Synchronizing system…
+                </>
               ) : (
                 <>
                   <Zap size={20} />
-                  {isEditing ? "SAVE RECORD UPDATES" : "INITIALIZE PARTNER ENROLLMENT"}
+                  {isEditing ? "Save record updates" : "Initialize partner enrollment"}
                 </>
               )}
             </button>
@@ -232,105 +240,139 @@ export const PhotographerManagement: React.FC<PhotographerManagementProps> = ({
       </div>
 
       {/* --- PHOTOGRAPHER LIST WITH SEARCH --- */}
-      <div 
-        className="rounded-[3rem] border p-8 md:p-12 backdrop-blur-2xl shadow-2xl relative overflow-hidden"
-        style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)" }}
-      >
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8 mb-12 relative z-10">
-          <div>
-            <h3 className="text-2xl font-black text-white flex items-center gap-4 tracking-tight">
-              <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center border border-green-500/20 shadow-lg shadow-green-500/5">
-                <Users size={24} className="text-green-400" />
-              </div>
-              Verified Partners
-            </h3>
-            <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em] mt-3">
-              Total Photographers: <span className="text-white/60">{photographers.length} ACTIVE</span>
-            </p>
+      <div className="ec-card">
+        <div className="ec-section-header gap-6 mb-8">
+          <div className="flex items-center gap-4">
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: "var(--success-50)", color: "var(--success)", border: "2px solid #BBF7D0" }}
+            >
+              <Users size={24} />
+            </div>
+            <div>
+              <h3 className="ec-page-title" style={{ fontSize: "24px" }}>Verified partners</h3>
+              <p className="ec-section-sub">
+                Total photographers:{" "}
+                <span style={{ color: "var(--foreground)", fontWeight: 700 }}>{photographers.length} active</span>
+              </p>
+            </div>
           </div>
 
-          <div className="relative w-full lg:w-[450px] group">
+          <div className="relative w-full lg:w-[400px]">
             <input
               type="text"
-              placeholder="Search by name, city or phone..."
+              placeholder="Search by name, city or phone…"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full p-5 pl-14 bg-white/[0.03] border border-white/[0.08] rounded-[2rem] outline-none focus:ring-2 focus:ring-green-500/50 font-black text-white placeholder:text-white/10 transition-all"
+              className="ec-input pl-11 w-full"
             />
-            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-green-400 transition-colors" size={22} />
+            <Search
+              size={18}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+              style={{ color: "var(--text-tertiary)" }}
+            />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {(searchQuery ? filtered : photographers).map((p, idx) => (
-            <div key={p.id} className="p-8 bg-white/[0.01] rounded-[2.5rem] border border-white/[0.05] hover:border-blue-500/20 hover:bg-white/[0.03] transition-all duration-500 group shadow-xl relative overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-700" style={{ animationDelay: `${idx * 50}ms` }}>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/[0.01] blur-3xl -z-10 group-hover:bg-blue-600/[0.03] transition-all" />
-              
-              <div className="flex items-start gap-6 mb-8">
-                <div className="w-20 h-20 rounded-[1.5rem] overflow-hidden bg-white flex-shrink-0 group-hover:scale-105 transition-all duration-700 shadow-2xl p-3 border border-white/10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {list.map((p) => (
+            <div key={p.id} className="ec-card ec-card-sm flex flex-col">
+              <div className="flex items-start gap-4 mb-5">
+                <div
+                  className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center p-2"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                >
                   {p.logo_url ? (
                     <img src={p.logo_url} className="w-full h-full object-contain" alt={p.name} />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-black text-3xl shadow-inner">
+                    <div
+                      className="w-full h-full rounded-lg flex items-center justify-center text-white font-bold text-2xl"
+                      style={{ background: "linear-gradient(135deg, var(--primary), #6366f1)" }}
+                    >
                       {(p.nickname || p.name || "?").substring(0, 1).toUpperCase()}
                     </div>
                   )}
                 </div>
-                <div className="flex-1 min-w-0 pt-2">
+                <div className="flex-1 min-w-0">
                   {p.nickname && (
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">{p.nickname}</span>
-                    </div>
+                    <span
+                      className="inline-block text-[10px] font-bold uppercase tracking-wide px-2.5 py-0.5 rounded-full mb-2"
+                      style={{ background: "var(--primary-50)", color: "var(--primary)", border: "1px solid var(--primary-100)" }}
+                    >
+                      {p.nickname}
+                    </span>
                   )}
-                  <p className="font-black text-white text-xl truncate tracking-tight leading-none">{p.name || <span className="text-white/10 italic">Undefined Alias</span>}</p>
+                  <p className="font-bold text-lg truncate" style={{ color: "var(--foreground)" }}>
+                    {p.name || <span className="italic" style={{ color: "var(--text-tertiary)" }}>Undefined alias</span>}
+                  </p>
                 </div>
               </div>
 
-              {/* Details */}
-              <div className="space-y-4 mb-10">
+              <div className="space-y-2 mb-5 flex-1">
                 {p.phone_number && (
-                  <div className="flex items-center gap-4 text-[11px] font-black text-white/40 bg-white/[0.02] p-4 rounded-2xl border border-white/[0.05] group-hover:border-white/10 transition-colors">
-                    <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center"><Phone size={14} className="text-white/20" /></div>
-                    <span className="tracking-widest">{p.phone_number}</span>
+                  <div className="ec-panel flex items-center gap-3 text-sm" style={{ padding: "10px 12px" }}>
+                    <Phone size={14} style={{ color: "var(--text-tertiary)" }} />
+                    <span style={{ color: "var(--text-secondary)" }}>{p.phone_number}</span>
                   </div>
                 )}
                 {p.city && (
-                  <div className="flex items-center gap-4 text-[11px] font-black text-white/40 bg-white/[0.02] p-4 rounded-2xl border border-white/[0.05] group-hover:border-white/10 transition-colors">
-                    <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center"><MapPin size={14} className="text-white/20" /></div>
-                    <span className="tracking-widest uppercase">{p.city}</span>
+                  <div className="ec-panel flex items-center gap-3 text-sm" style={{ padding: "10px 12px" }}>
+                    <MapPin size={14} style={{ color: "var(--text-tertiary)" }} />
+                    <span className="uppercase" style={{ color: "var(--text-secondary)" }}>{p.city}</span>
                   </div>
                 )}
                 {p.instagram_url && (
-                  <a href={p.instagram_url} target="_blank" className="flex items-center gap-4 text-[11px] font-black text-blue-400 bg-blue-500/5 p-4 rounded-2xl border border-blue-500/10 hover:bg-blue-500/10 transition-all">
-                    <div className="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center"><LinkIcon size={14} className="text-blue-400" /></div>
-                    <span className="truncate uppercase tracking-widest">Digital Portfolio</span>
+                  <a
+                    href={p.instagram_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ec-panel flex items-center gap-3 text-sm transition-colors hover:border-[var(--primary)]"
+                    style={{ padding: "10px 12px", color: "var(--primary)" }}
+                  >
+                    <LinkIcon size={14} />
+                    <span className="truncate font-semibold">Digital portfolio</span>
                   </a>
                 )}
               </div>
 
-              {/* System Actions */}
-              <div className="flex items-center gap-4 pt-6 border-t border-white/[0.05]">
-                <button 
-                  onClick={() => onEdit(p)} 
-                  className="flex-1 py-3 bg-white/5 rounded-2xl text-white/40 hover:text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/20 border border-white/5 shadow-sm transition-all text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 active:scale-95"
+              <div
+                className="flex items-center gap-3 pt-4 mt-auto"
+                style={{ borderTop: "1px solid var(--border-subtle)" }}
+              >
+                <button
+                  type="button"
+                  onClick={() => onEdit(p)}
+                  className="ec-btn ec-btn-secondary ec-btn-sm flex-1"
                 >
-                  <Edit size={16} /> Mod
+                  <Edit size={16} /> Edit
                 </button>
-                <button 
-                  onClick={() => deletePhotographer(p.id)} 
-                  className="flex-1 py-3 bg-white/5 rounded-2xl text-white/40 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/20 border border-white/5 shadow-sm transition-all text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 active:scale-95"
+                <button
+                  type="button"
+                  onClick={() => deletePhotographer(p.id)}
+                  className="ec-btn ec-btn-danger ec-btn-sm flex-1"
                 >
-                  <Trash2 size={16} /> Wipe
+                  <Trash2 size={16} /> Delete
                 </button>
               </div>
             </div>
           ))}
-          
+
           {searchQuery && filtered.length === 0 && (
-            <div className="lg:col-span-3 text-center py-24 bg-white/[0.01] rounded-[3rem] border border-dashed border-white/10 animate-in zoom-in-95 duration-700">
-              <Search size={64} className="mx-auto mb-6 text-white/5" />
-              <p className="font-black text-white/20 uppercase tracking-[0.4em] text-sm">No matching systems found in sector</p>
-              <button onClick={() => setSearchQuery('')} className="mt-6 text-[10px] font-black text-blue-500 uppercase tracking-widest hover:text-blue-400 transition-colors">Reset Query Filter</button>
+            <div
+              className="lg:col-span-3 ec-card text-center animate-in zoom-in-95 duration-300"
+              style={{ padding: "48px 24px", borderStyle: "dashed" }}
+            >
+              <Search size={48} className="mx-auto mb-4 opacity-30" style={{ color: "var(--text-tertiary)" }} />
+              <p className="font-semibold" style={{ color: "var(--text-secondary)" }}>
+                No matching partners found
+              </p>
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="ec-btn ec-btn-secondary ec-btn-sm mt-4"
+              >
+                Reset search
+              </button>
             </div>
           )}
         </div>

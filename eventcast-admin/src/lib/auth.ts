@@ -5,18 +5,25 @@ import { supabase, supabaseAdmin } from './supabase';
  * Server-side admin authentication guard.
  *
  * Reads the Bearer token from the Authorization header and validates it
- * against Supabase Auth. Returns the authenticated user ID on success, or
- * a 401 NextResponse on any failure.
+ * against Supabase Auth. Returns the authenticated user ID, studio ID,
+ * studio slug, and platform role on success, or a 401/403 NextResponse
+ * on any failure.
  *
  * Usage — add this at the top of every protected API route handler:
  *
  *   const auth = await requireAdmin(req);
  *   if (auth instanceof NextResponse) return auth;
- *   // auth.userId and auth.studioId are now available
+ *   // auth.userId, auth.studioId, auth.studioSlug, auth.isSuperAdmin
  */
 export async function requireAdmin(
   req: Request
-): Promise<{ userId: string; studioId: string } | NextResponse> {
+): Promise<{
+  userId: string;
+  studioId: string;
+  studioSlug: string;
+  platformRole: 'super_admin' | 'live_streamer' | 'reseller';
+  isSuperAdmin: boolean;
+} | NextResponse> {
   const authHeader = req.headers.get('Authorization');
 
   if (!authHeader?.startsWith('Bearer ')) {
@@ -28,8 +35,6 @@ export async function requireAdmin(
 
   const token = authHeader.slice(7);
 
-  // Both the admin and anon clients can verify a Supabase user JWT via the
-  // auth/v1/user endpoint — no special service-role key needed for verification.
   const client = supabaseAdmin ?? supabase;
 
   try {
@@ -45,10 +50,10 @@ export async function requireAdmin(
       );
     }
 
-    // Load the user's primary studio
+    // Load the user's primary studio + slug
     const { data: memberData, error: memberError } = await client
       .from('studio_members')
-      .select('studio_id')
+      .select('studio_id, studios(slug)')
       .eq('user_id', user.id)
       .limit(1)
       .single();
@@ -60,7 +65,34 @@ export async function requireAdmin(
       );
     }
 
-    return { userId: user.id, studioId: memberData.studio_id };
+    const studioSlug = (memberData.studios as any)?.slug ?? '';
+
+    // Load platform role from platform_users table
+    const { data: platformUser } = await client
+      .from('platform_users')
+      .select('platform_role')
+      .eq('user_id', user.id)
+      .limit(1)
+      .single();
+
+    // Fallback: if no platform_users record yet, check if studioSlug === 'eventcast'
+    // (for backward compatibility during migration)
+    let platformRole: 'super_admin' | 'live_streamer' | 'reseller' = 'live_streamer';
+    if (platformUser?.platform_role) {
+      platformRole = platformUser.platform_role as typeof platformRole;
+    } else if (studioSlug === 'eventcast') {
+      platformRole = 'super_admin';
+    }
+
+    const isSuperAdmin = platformRole === 'super_admin';
+
+    return {
+      userId: user.id,
+      studioId: memberData.studio_id,
+      studioSlug,
+      platformRole,
+      isSuperAdmin,
+    };
   } catch {
     return NextResponse.json(
       { error: 'Unauthorized: Token verification failed' },

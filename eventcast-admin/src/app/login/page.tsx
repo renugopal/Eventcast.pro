@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { Lock, Mail, Video, Loader2, AlertCircle } from "lucide-react";
+import { Lock, Mail, Loader2, AlertCircle } from "lucide-react";
+import { AuthShell } from "../components/AuthShell";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,7 +14,6 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Check if already logged in
   useEffect(() => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -30,7 +30,7 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const { data, error: loginError } = await supabase.auth.signInWithPassword({
+      const { error: loginError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -40,7 +40,7 @@ export default function LoginPage() {
       } else {
         router.push("/");
       }
-    } catch (err) {
+    } catch {
       setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
@@ -48,90 +48,89 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Decorative Gradients */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 blur-[120px] rounded-full"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/20 blur-[120px] rounded-full"></div>
-
-      <div className="max-w-md w-full animate-in fade-in zoom-in duration-500">
-        {/* Logo Section */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl shadow-xl shadow-blue-500/20 mb-4">
-            <Video size={32} className="text-white" />
+    <AuthShell
+      variant="login"
+      cardTitle="Welcome back"
+      cardSub="Sign in to your studio dashboard"
+      footer={
+        <>
+          Don&apos;t have a studio account?{" "}
+          <Link href="/signup" className="font-semibold" style={{ color: "var(--primary)" }}>
+            Create one here
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={handleLogin} className="ec-auth-form">
+        {error && (
+          <div className="bg-red-50 border border-red-200 p-4 rounded-xl flex items-center gap-3 text-red-700 text-sm">
+            <AlertCircle size={18} className="flex-shrink-0" />
+            <p>{error}</p>
           </div>
-          <h1 className="text-3xl font-black text-white tracking-tight">Eventcast <span className="text-blue-500">PRO</span></h1>
-          <p className="text-slate-400 mt-2">Studio Dashboard Login</p>
+        )}
+
+        <div>
+          <label className="ec-auth-label" htmlFor="login-email">
+            Admin email
+          </label>
+          <div className="relative ec-auth-input-wrap">
+            <input
+              id="login-email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="admin@eventcast.pro"
+              className="ec-input w-full"
+              autoComplete="email"
+            />
+            <Mail className="ec-auth-field-icon" size={18} />
+          </div>
         </div>
 
-        {/* Login Card */}
-        <div className="bg-slate-800/50 backdrop-blur-xl p-8 rounded-3xl border border-slate-700 shadow-2xl">
-          <form onSubmit={handleLogin} className="space-y-6">
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl flex items-center gap-3 text-red-400 text-sm">
-                <AlertCircle size={18} />
-                <p>{error}</p>
-              </div>
+        <div>
+          <label className="ec-auth-label" htmlFor="login-password">
+            Password
+          </label>
+          <div className="relative ec-auth-input-wrap">
+            <input
+              id="login-password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              className="ec-input w-full"
+              autoComplete="current-password"
+            />
+            <Lock className="ec-auth-field-icon" size={18} />
+          </div>
+        </div>
+
+        <div
+          className="w-full"
+          style={{
+            marginTop: 32,
+            paddingTop: 32,
+            borderTop: "1px solid var(--border-subtle)",
+          }}
+        >
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="ec-btn ec-btn-lg ec-btn-primary text-white w-full"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="animate-spin" size={20} />
+                Authenticating…
+              </>
+            ) : (
+              "Access dashboard"
             )}
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300 ml-1">Admin Email</label>
-              <div className="relative">
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@eventcast.pro"
-                  className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                />
-                <Mail className="absolute left-4 top-3.5 text-slate-500" size={18} />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300 ml-1">Password</label>
-              <div className="relative">
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                />
-                <Lock className="absolute left-4 top-3.5 text-slate-500" size={18} />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-600/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="animate-spin" size={20} />
-                  Authenticating...
-                </>
-              ) : (
-                "Access Dashboard"
-              )}
-            </button>
-          </form>
-
-          <div className="mt-6 pt-6 border-t border-slate-700/60 text-center text-sm text-slate-400">
-            Don't have a studio account?{" "}
-            <Link href="/signup" className="text-blue-500 hover:text-blue-400 font-bold transition-colors">
-              Create one here
-            </Link>
-          </div>
+          </button>
         </div>
-
-        <p className="text-center text-slate-500 text-xs mt-8">
-          Authorized personnel only. All access attempts are logged.
-          <br />© 2026 Eventcast PRO • Premium Live Streaming Solutions
-        </p>
-      </div>
-    </div>
+      </form>
+    </AuthShell>
   );
 }

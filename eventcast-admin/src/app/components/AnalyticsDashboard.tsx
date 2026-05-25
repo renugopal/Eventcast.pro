@@ -1,25 +1,25 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Users, Smartphone, Globe, Monitor, Clock, Activity, MapPin, Eye, TrendingUp, ChevronLeft, Loader2 } from "lucide-react";
+import { Users, Smartphone, Globe, Clock, Activity, MapPin, Eye, TrendingUp, ChevronLeft, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { WorldMap, CountryStat, COUNTRY_NAMES, flagEmoji } from "./WorldMap";
+import { WorldMap, CountryStat, COUNTRY_NAMES } from "./WorldMap";
 
 interface AnalyticsDashboardProps {
   analyticsData: any[];
 }
 
 // Explicit class maps — Tailwind JIT must see full class strings, never interpolated fragments.
-const CARD_COLORS: Record<string, { glow: string; icon: string; dot: string }> = {
-  blue:   { glow: "bg-blue-500/5",   icon: "bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-blue-500/5 group-hover:bg-blue-500 group-hover:text-white",   dot: "bg-blue-500" },
-  indigo: { glow: "bg-indigo-500/5", icon: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20 shadow-indigo-500/5 group-hover:bg-indigo-500 group-hover:text-white", dot: "bg-indigo-500" },
-  pink:   { glow: "bg-pink-500/5",   icon: "bg-pink-500/10 text-pink-400 border-pink-500/20 shadow-pink-500/5 group-hover:bg-pink-500 group-hover:text-white",   dot: "bg-pink-500" },
-  amber:  { glow: "bg-amber-500/5",  icon: "bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-amber-500/5 group-hover:bg-amber-500 group-hover:text-white",  dot: "bg-amber-500" },
+const CARD_COLORS: Record<string, { glow: string; icon: string; dot: string; accent: string; iconBg: string }> = {
+  blue:   { glow: "bg-blue-50",   icon: "bg-blue-50 text-blue-600 border-blue-200 group-hover:bg-blue-600 group-hover:text-white",     dot: "bg-blue-500",   accent: "#2563eb", iconBg: "#eff6ff" },
+  indigo: { glow: "bg-indigo-50", icon: "bg-indigo-50 text-indigo-600 border-indigo-200 group-hover:bg-indigo-600 group-hover:text-white", dot: "bg-indigo-500", accent: "#4f46e5", iconBg: "#eef2ff" },
+  pink:   { glow: "bg-pink-50",   icon: "bg-pink-50 text-pink-600 border-pink-200 group-hover:bg-pink-600 group-hover:text-white",       dot: "bg-pink-500",   accent: "#db2777", iconBg: "#fdf2f8" },
+  amber:  { glow: "bg-amber-50",  icon: "bg-amber-50 text-amber-600 border-amber-200 group-hover:bg-amber-600 group-hover:text-white",    dot: "bg-amber-500",  accent: "#d97706", iconBg: "#fffbeb" },
 };
 
 const DEVICE_BAR: Record<string, string> = {
-  violet: "bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.3)]",
-  blue:   "bg-blue-500   shadow-[0_0_8px_rgba(59,130,246,0.3)]",
+  violet: "bg-violet-500",
+  blue:   "bg-blue-500",
 };
 
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analyticsData }) => {
@@ -101,57 +101,56 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
 
     if (isLoadingDetail) {
       return (
-        <div className="max-w-7xl mx-auto flex items-center justify-center py-32">
-          <Loader2 className="animate-spin text-blue-500" size={40} />
+        <div className="w-full flex items-center justify-center py-32">
+          <Loader2 className="animate-spin text-blue-600" size={40} />
         </div>
       );
     }
 
     return (
-      <div className="max-w-7xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-        <button 
+      <div className="w-full space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+        <button
+          type="button"
           onClick={() => setSelectedEventId(null)}
-          className="flex items-center gap-3 text-[10px] font-black text-white/40 uppercase tracking-widest hover:text-white transition-all bg-white/5 px-6 py-3 rounded-2xl border border-white/5 hover:border-white/10 w-fit shadow-xl group"
+          className="ec-btn ec-btn-secondary ec-btn-sm group"
         >
-          <ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> Back to Analytics Hub
+          <ChevronLeft size={16} className="group-hover:-translate-x-0.5 transition-transform" />
+          Back to Analytics Hub
         </button>
 
-        <div 
-          className="p-8 md:p-12 rounded-[2.5rem] border border-white/[0.08] backdrop-blur-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-8 relative overflow-hidden"
-          style={{ background: "rgba(255,255,255,0.02)" }}
-        >
-          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 blur-[100px] -mr-32 -mt-32 pointer-events-none" />
+        <div className="ec-card flex flex-col md:flex-row justify-between items-start md:items-center gap-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-100/60 blur-[100px] -mr-32 -mt-32 pointer-events-none" />
           <div className="relative z-10">
-            <h2 className="text-4xl font-black text-white tracking-tighter leading-tight">
+            <h2 className="text-3xl md:text-4xl font-black tracking-tight leading-tight" style={{ color: "var(--foreground)" }}>
               {selectedEvent.groom_name || selectedEvent.celebrant_name} & {selectedEvent.bride_name || 'Family'}
             </h2>
-            <div className="flex items-center gap-3 mt-4">
-              <span className="text-[10px] font-black text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20 uppercase tracking-[0.2em]">Live Stream Data</span>
-              <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Event Intelligence Report</span>
+            <div className="flex flex-wrap items-center gap-3 mt-4">
+              <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200 uppercase tracking-wide">Live Stream Data</span>
+              <span className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>Event Intelligence Report</span>
             </div>
           </div>
           <div className="text-right relative z-10">
-            <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em] mb-3">Total Accumulations</p>
-            <p className="text-6xl font-black text-white leading-none tracking-tighter drop-shadow-2xl">
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--text-secondary)" }}>Total Accumulations</p>
+            <p className="text-5xl md:text-6xl font-black leading-none tracking-tight" style={{ color: "var(--foreground)" }}>
               {selectedEvent.view_count.toLocaleString()}
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* View Intensity Graph */}
-          <div className="bg-white/[0.03] p-8 rounded-[2.5rem] border border-white/[0.08] md:col-span-2 backdrop-blur-md relative group">
-            <div className="flex items-center justify-between mb-10">
+          <div className="ec-card md:col-span-2 relative">
+            <div className="flex items-center justify-between mb-8">
                <div className="flex items-center gap-4">
-                 <div className="w-10 h-10 bg-indigo-500/10 text-indigo-400 rounded-2xl flex items-center justify-center border border-indigo-500/20 shadow-lg shadow-indigo-500/5">
+                 <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center border border-indigo-200">
                    <Clock size={20} />
                  </div>
                  <div>
-                   <h3 className="font-black text-white tracking-tight">View Intensity</h3>
-                   <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mt-1">Activity over 24-hour cycle</p>
+                   <h3 className="font-bold tracking-tight" style={{ color: "var(--foreground)" }}>View Intensity</h3>
+                   <p className="text-xs font-medium mt-1" style={{ color: "var(--text-tertiary)" }}>Activity over 24-hour cycle</p>
                  </div>
                </div>
-               <div className="text-[9px] font-black text-white/20 uppercase tracking-widest bg-white/5 px-3 py-1 rounded-full border border-white/5">
+               <div className="text-xs font-semibold uppercase tracking-wide px-3 py-1 rounded-full border border-gray-200 bg-gray-50" style={{ color: "var(--text-secondary)" }}>
                  Real-time Heatmap
                </div>
             </div>
@@ -164,66 +163,64 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
                 return (
                   <div key={i} className="flex-1 flex flex-col items-center group/bar relative h-full justify-end">
                     <div 
-                      className={`w-full rounded-t-lg transition-all duration-700 ease-out relative overflow-hidden ${count > 0 ? 'bg-gradient-to-t from-blue-600 to-indigo-400 shadow-[0_0_15px_rgba(37,99,235,0.2)]' : 'bg-white/[0.02]'}`} 
+                      className={`w-full rounded-t-md transition-all duration-700 ease-out relative overflow-hidden ${count > 0 ? 'bg-gradient-to-t from-blue-600 to-blue-400' : 'bg-gray-100'}`} 
                       style={{ height: `${Math.max(5, height)}%` }}
-                    >
-                      {count > 0 && <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent opacity-50" />}
-                    </div>
-                    <div className="absolute bottom-full mb-3 opacity-0 group-hover/bar:opacity-100 transition-all duration-300 z-50 bg-slate-900/90 backdrop-blur-md text-white text-[10px] font-black px-3 py-2 rounded-xl whitespace-nowrap shadow-2xl border border-white/10 translate-y-2 group-hover/bar:translate-y-0">
-                      <p className="text-blue-400 mb-0.5">{h}</p>
-                      <p className="text-lg">{count} <span className="text-[8px] opacity-40 uppercase">Views</span></p>
+                    />
+                    <div className="absolute bottom-full mb-3 opacity-0 group-hover/bar:opacity-100 transition-all duration-300 z-50 bg-white text-[10px] font-semibold px-3 py-2 rounded-xl whitespace-nowrap shadow-lg border border-gray-200 translate-y-2 group-hover/bar:translate-y-0">
+                      <p className="text-blue-600 mb-0.5">{h}</p>
+                      <p className="text-base" style={{ color: "var(--foreground)" }}>{count} <span className="text-[10px] font-medium" style={{ color: "var(--text-tertiary)" }}>Views</span></p>
                     </div>
                   </div>
                 );
               })}
             </div>
-            <div className="flex justify-between mt-6 px-2 text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">
+            <div className="flex justify-between mt-6 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>
               <span>Midnight</span>
               <span>Noon Convergence</span>
               <span>Nightfall</span>
             </div>
           </div>
 
-          <div className="space-y-8">
+          <div className="space-y-6">
             {/* Sources */}
-            <div className="bg-white/[0.03] p-8 rounded-[2.5rem] border border-white/[0.08] backdrop-blur-md">
-              <div className="flex items-center gap-4 mb-8">
-                 <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center border border-emerald-500/20 shadow-lg shadow-emerald-500/5">
+            <div className="ec-card">
+              <div className="flex items-center gap-4 mb-6">
+                 <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center border border-emerald-200">
                    <Globe size={20} />
                  </div>
-                 <h3 className="font-black text-white tracking-tight">Entry Points</h3>
+                 <h3 className="font-bold tracking-tight" style={{ color: "var(--foreground)" }}>Entry Points</h3>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {Object.entries(referrers).sort((a, b) => b[1] - a[1]).slice(0,4).map(([ref, count], i) => (
-                  <div key={i} className="flex items-center justify-between group">
-                    <span className="text-xs font-bold text-white/50 group-hover:text-white/90 transition-colors">{ref}</span>
-                    <span className="text-[10px] font-black bg-white/5 px-3 py-1.5 rounded-xl text-white/40 border border-white/5 group-hover:border-white/20 transition-all">{count as number} Hits</span>
+                  <div key={i} className="flex items-center justify-between group py-2 px-3 rounded-lg border border-transparent hover:border-gray-200 hover:bg-gray-50 transition-colors">
+                    <span className="text-sm font-medium group-hover:text-[var(--foreground)] transition-colors" style={{ color: "var(--text-secondary)" }}>{ref}</span>
+                    <span className="text-xs font-semibold bg-gray-100 px-3 py-1 rounded-lg border border-gray-200" style={{ color: "var(--text-secondary)" }}>{count as number} Hits</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Devices */}
-            <div className="bg-white/[0.03] p-8 rounded-[2.5rem] border border-white/[0.08] backdrop-blur-md">
-              <div className="flex items-center gap-4 mb-8">
-                 <div className="w-10 h-10 bg-violet-500/10 text-violet-400 rounded-2xl flex items-center justify-center border border-violet-500/20 shadow-lg shadow-violet-500/5">
+            <div className="ec-card">
+              <div className="flex items-center gap-4 mb-6">
+                 <div className="w-10 h-10 bg-violet-50 text-violet-600 rounded-xl flex items-center justify-center border border-violet-200">
                    <Smartphone size={20} />
                  </div>
-                 <h3 className="font-black text-white tracking-tight">Core Devices</h3>
+                 <h3 className="font-bold tracking-tight" style={{ color: "var(--foreground)" }}>Core Devices</h3>
               </div>
-              <div className="space-y-6">
+              <div className="space-y-5">
                 {[
                   { name: "Mobile", val: devices.Mobile, color: "violet" },
                   { name: "Desktop", val: devices.Desktop, color: "blue" }
                 ].map((device, i) => {
                   const perc = Math.round((device.val / Math.max(1, selectedEvent.view_count)) * 100);
                   return (
-                    <div key={i} className="space-y-3">
-                      <div className="flex items-center justify-between text-[10px] font-black text-white/30 uppercase tracking-widest">
+                    <div key={i} className="space-y-2">
+                      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>
                         <span>{device.name} Terminal</span>
-                        <span className="text-white/60">{perc}%</span>
+                        <span style={{ color: "var(--foreground)" }}>{perc}%</span>
                       </div>
-                      <div className="h-2 bg-white/5 rounded-full overflow-hidden border border-white/5 shadow-inner p-[1px]">
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
                         <div 
                           className={`h-full rounded-full transition-all duration-1000 ease-out ${DEVICE_BAR[device.color]}`} 
                           style={{ width: `${perc}%` }} 
@@ -238,21 +235,21 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
         </div>
 
         {/* ── Geo-Location World Map Card ───────────────────────────── */}
-        <div className="bg-white/[0.015] p-8 md:p-10 rounded-[2.5rem] border border-white/[0.08] backdrop-blur-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/5 blur-[120px] pointer-events-none" />
+        <div className="ec-card relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-50 blur-[120px] pointer-events-none" />
           <div className="relative z-10">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-blue-500/10 text-blue-400 rounded-2xl flex items-center justify-center border border-blue-500/20 shadow-lg shadow-blue-500/5">
+                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center border border-blue-200">
                   <Globe size={20} />
                 </div>
                 <div>
-                  <h3 className="font-black text-white tracking-tight">Viewer Distribution</h3>
-                  <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mt-1">Real-time geo-location telemetry</p>
+                  <h3 className="font-bold tracking-tight" style={{ color: "var(--foreground)" }}>Viewer Distribution</h3>
+                  <p className="text-xs font-medium mt-1" style={{ color: "var(--text-tertiary)" }}>Real-time geo-location telemetry</p>
                 </div>
               </div>
-              <div className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em] bg-white/[0.03] px-4 py-2 rounded-xl border border-white/[0.06]">
+              <div className="text-xs font-semibold uppercase tracking-wide px-4 py-2 rounded-xl border border-gray-200 bg-gray-50" style={{ color: "var(--text-secondary)" }}>
                 {countryStats.length} {countryStats.length === 1 ? 'Country' : 'Countries'} Detected
               </div>
             </div>
@@ -260,9 +257,9 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
             {countryStats.length === 0 ? (
               /* Empty state */
               <div className="flex flex-col items-center justify-center py-20 gap-4">
-                <Globe size={48} className="text-white/10" />
-                <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">No geo-location data yet</p>
-                <p className="text-[9px] text-white/10 uppercase tracking-widest">Views captured before this feature was enabled show &apos;Unknown&apos;</p>
+                <Globe size={48} className="text-gray-300" />
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-secondary)" }}>No geo-location data yet</p>
+                <p className="text-xs text-center max-w-md" style={{ color: "var(--text-tertiary)" }}>Views captured before this feature was enabled show &apos;Unknown&apos;</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -272,14 +269,17 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
                 </div>
 
                 {/* Leaderboard — takes 1/3 width */}
-                <div className="space-y-3">
-                  <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em] mb-5 flex items-center gap-2">
-                    <MapPin size={11} className="text-blue-400" /> Top Origins
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide mb-4 flex items-center gap-2" style={{ color: "var(--text-secondary)" }}>
+                    <MapPin size={12} className="text-blue-600" /> Top Origins
                   </p>
                   {topCountries.map((cs, i) => (
-                    <div key={cs.country} className="group flex items-center gap-3 p-3 rounded-2xl hover:bg-white/[0.04] transition-all duration-300 border border-transparent hover:border-white/[0.06]">
+                    <div
+                      key={cs.country}
+                      className="group flex items-center gap-3 p-3 rounded-xl bg-white border border-gray-200 hover:border-blue-200 hover:shadow-md hover:bg-blue-50/30 transition-all duration-200"
+                    >
                       {/* Rank */}
-                      <span className="text-[10px] font-black text-white/20 w-5 text-right flex-shrink-0">
+                      <span className="text-xs font-bold w-5 text-right flex-shrink-0" style={{ color: "var(--text-tertiary)" }}>
                         {String(i + 1).padStart(2, '0')}
                       </span>
                       {/* Flag */}
@@ -287,18 +287,18 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
                       {/* Name + bar */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] font-black text-white/60 group-hover:text-white/90 transition-colors truncate">{cs.label}</span>
-                          <span className="text-[9px] font-black text-white/30 ml-2 flex-shrink-0">{cs.count}</span>
+                          <span className="text-xs font-semibold truncate transition-colors group-hover:text-blue-700" style={{ color: "var(--foreground)" }}>{cs.label}</span>
+                          <span className="text-xs font-medium ml-2 flex-shrink-0" style={{ color: "var(--text-secondary)" }}>{cs.count}</span>
                         </div>
-                        <div className="h-1 bg-white/[0.04] rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-400 transition-all duration-1000"
+                            className="h-full rounded-full bg-blue-500 transition-all duration-1000"
                             style={{ width: `${cs.percentage}%` }}
                           />
                         </div>
                       </div>
                       {/* Percentage */}
-                      <span className="text-[10px] font-black text-blue-400 flex-shrink-0 w-10 text-right">{cs.percentage}%</span>
+                      <span className="text-xs font-bold text-blue-600 flex-shrink-0 w-10 text-right">{cs.percentage}%</span>
                     </div>
                   ))}
                 </div>
@@ -311,123 +311,127 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ analytic
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-8 mb-6">
+    <div className="w-full pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700 ec-analytics-page">
+      <div className="ec-section-header gap-6">
         <div>
-          <h2 className="text-4xl font-black text-white tracking-tighter leading-tight">
-            Ecosystem <span className="text-blue-500">Intelligence</span>
+          <h2 className="text-3xl md:text-4xl font-black tracking-tight leading-tight" style={{ color: "var(--foreground)" }}>
+            Ecosystem <span className="text-blue-600">Intelligence</span>
           </h2>
-          <p className="text-[11px] text-white/30 font-black uppercase tracking-[0.4em] mt-3 flex items-center gap-3">
-            <Activity size={14} className="text-blue-500 animate-pulse" /> Global Engagement & Real-time Audience Telemetry
+          <p className="text-xs md:text-[13px] font-medium uppercase tracking-wide mt-3 flex items-center gap-2" style={{ color: "var(--text-secondary)" }}>
+            <Activity size={14} className="text-blue-600 animate-pulse" /> Global Engagement & Real-time Audience Telemetry
           </p>
         </div>
-        <div className="flex items-center gap-4 px-6 py-3 bg-emerald-500/[0.08] text-emerald-400 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] border border-emerald-500/20 shadow-2xl shadow-emerald-500/10 backdrop-blur-xl">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_12px_rgba(16,185,129,1)]" /> 
+        <div className="flex items-center gap-3 px-5 py-2.5 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-semibold uppercase tracking-wide border border-emerald-200">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           Telemetry Link: ACTIVE
         </div>
       </div>
       
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="ec-grid-stats">
         {[
           { label: "Gross Platform Traffic", value: totalViews, icon: Eye, color: "blue", sub: "Aggregated Views" },
           { label: "Active Deployments", value: analyticsData.length, icon: Activity, color: "indigo", sub: "Managed Events" },
           { label: "Average Engagement", value: avgViews, icon: Users, color: "pink", sub: "Avg Views / Event" },
           { label: "Unique Reach", value: uniqueVisitors, icon: Smartphone, color: "amber", sub: "Estimated Terminals" }
-        ].map((card, i) => (
-          <div key={i} className="relative group">
-            <div className={`absolute inset-0 ${CARD_COLORS[card.color].glow} blur-[40px] opacity-0 group-hover:opacity-100 transition-opacity duration-700`} />
-            <div className="p-8 bg-white/[0.02] rounded-[2.5rem] border border-white/[0.08] relative z-10 backdrop-blur-3xl shadow-2xl transition-all duration-500 group-hover:translate-y-[-8px] group-hover:border-white/20 group-hover:bg-white/[0.04]">
-              <div className="flex items-center justify-between mb-8">
-                <p className="text-white/20 text-[10px] font-black uppercase tracking-[0.3em]">{card.label}</p>
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border shadow-lg transition-all duration-500 group-hover:scale-110 ${CARD_COLORS[card.color].icon}`}>
-                  <card.icon size={22} />
+        ].map((card, i) => {
+          const colors = CARD_COLORS[card.color];
+          return (
+            <div key={i} className="relative group">
+              <div className={`absolute inset-0 ${colors.glow} blur-2xl opacity-0 group-hover:opacity-60 transition-opacity duration-500 rounded-2xl`} />
+              <div className="ec-stat-card relative z-10">
+                <div className="ec-stat-accent" style={{ background: colors.accent }} />
+                <div className="ec-stat-icon" style={{ background: colors.iconBg }}>
+                  <card.icon size={20} style={{ color: colors.accent }} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="ec-stat-label">{card.label}</div>
+                  <div className="ec-stat-value" style={{ color: colors.accent }}>
+                    {card.value.toLocaleString()}
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
+                    <p className="text-xs font-medium" style={{ color: "var(--text-tertiary)" }}>{card.sub}</p>
+                  </div>
                 </div>
               </div>
-              <p className="text-5xl font-black text-white tracking-tighter leading-none mb-4 group-hover:text-blue-400 transition-colors">
-                {card.value.toLocaleString()}
-              </p>
-              <div className="flex items-center gap-2.5">
-                <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_8px_rgba(255,255,255,0.2)] ${CARD_COLORS[card.color].dot}`} />
-                <p className="text-[9px] text-white/30 font-black uppercase tracking-[0.2em]">{card.sub}</p>
-              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Deep Analytics Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Performance Breakdown */}
-        <div className="lg:col-span-3 bg-white/[0.015] p-10 lg:p-14 rounded-[3.5rem] border border-white/[0.08] backdrop-blur-3xl shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-20 opacity-[0.02] pointer-events-none rotate-12">
-            <TrendingUp size={300} />
+        <div className="lg:col-span-3 ec-card ec-analytics-leaderboard relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-16 opacity-[0.04] pointer-events-none rotate-12 text-blue-600">
+            <TrendingUp size={240} />
           </div>
           
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-14 gap-6 relative z-10">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6 relative z-10">
             <div>
-              <h3 className="text-xl font-black text-white flex items-center gap-4 tracking-tight">
-                <div className="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 shadow-lg shadow-blue-500/5">
-                  <TrendingUp size={20} className="text-blue-400"/>
+              <h3 className="text-lg font-bold flex items-center gap-3 tracking-tight" style={{ color: "var(--foreground)" }}>
+                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center border border-blue-200">
+                  <TrendingUp size={20} className="text-blue-600"/>
                 </div>
                 Event Views Leaderboard
               </h3>
-              <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.4em] mt-2 ml-14">Top ranking events by view count</p>
+              <p className="text-xs font-medium uppercase tracking-wide mt-2 ml-[52px]" style={{ color: "var(--text-tertiary)" }}>Top ranking events by view count</p>
             </div>
-            <div className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] bg-white/[0.03] px-6 py-3 rounded-2xl border border-white/[0.06]">
+            <div className="text-xs font-semibold uppercase tracking-wide px-4 py-2 rounded-xl border border-gray-200 bg-gray-50" style={{ color: "var(--text-secondary)" }}>
               Real-time Ranking Engine
             </div>
           </div>
 
-          <div className="space-y-6 relative z-10">
-            {analyticsData.sort((a,b) => (b.view_count||0) - (a.view_count||0)).map((event, idx) => (
-              <div 
-                key={event.id} 
-                onClick={() => setSelectedEventId(event.id)}
-                className="flex items-center justify-between p-6 lg:p-8 bg-white/[0.02] rounded-[2rem] hover:bg-white/[0.06] cursor-pointer hover:shadow-2xl transition-all duration-500 border border-white/[0.05] hover:border-blue-500/40 group relative overflow-hidden active:scale-[0.99]"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-600/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="flex items-center gap-8 relative z-10">
-                  <div className="w-14 h-14 bg-white/[0.03] rounded-2xl flex items-center justify-center font-black text-white/20 border border-white/[0.08] shadow-2xl group-hover:scale-110 group-hover:text-blue-400 group-hover:border-blue-500/40 transition-all duration-700 text-lg">
-                    {String(idx + 1).padStart(2, '0')}
-                  </div>
-                  <div>
-                    <p className="font-black text-white text-xl tracking-tight group-hover:text-blue-400 transition-all duration-500">
-                      {event.groom_name || event.celebrant_name}
-                      {event.bride_name && event.bride_name.toLowerCase() !== 'family' && (
-                        <span className="text-white/40 font-medium"> & {event.bride_name}</span>
-                      )}
-                    </p>
-                    <div className="flex items-center gap-4 mt-2">
-                      <span className="text-[9px] font-black text-blue-500/80 uppercase tracking-[0.2em] bg-blue-500/10 px-3 py-1 rounded-lg border border-blue-500/20">{event.event_type}</span>
-                      <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] flex items-center gap-2">
-                        <Clock size={12} /> {event.event_date}
-                      </span>
+          <div className="ec-analytics-leaderboard-list relative z-10">
+            {analyticsData.sort((a,b) => (b.view_count||0) - (a.view_count||0)).map((event, idx) => {
+              const intensityPct = Math.round(((event.view_count || 0) / Math.max(1, analyticsData[0]?.view_count || 1)) * 100);
+              return (
+                <div 
+                  key={event.id} 
+                  onClick={() => setSelectedEventId(event.id)}
+                  className="ec-analytics-leaderboard-row group"
+                >
+                  <div className="ec-analytics-leaderboard-main">
+                    <div className="w-11 h-11 bg-gray-50 rounded-xl flex items-center justify-center font-bold border border-gray-200 text-sm group-hover:scale-105 group-hover:text-blue-600 group-hover:border-blue-300 group-hover:bg-blue-50 transition-all duration-300 shrink-0" style={{ color: "var(--text-tertiary)" }}>
+                      {String(idx + 1).padStart(2, '0')}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-lg tracking-tight truncate group-hover:text-blue-700 transition-colors" style={{ color: "var(--foreground)" }}>
+                        {event.groom_name || event.celebrant_name}
+                        {event.bride_name && event.bride_name.toLowerCase() !== 'family' && (
+                          <span className="font-medium" style={{ color: "var(--text-secondary)" }}> & {event.bride_name}</span>
+                        )}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-3 mt-2">
+                        <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-200">{event.event_type}</span>
+                        <span className="text-xs font-medium uppercase tracking-wide flex items-center gap-1.5" style={{ color: "var(--text-tertiary)" }}>
+                          <Clock size={12} /> {event.event_date}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                
-                <div className="text-right flex items-center gap-14 relative z-10">
-                  <div className="hidden lg:flex flex-col items-end gap-3 w-56">
-                    <div className="flex justify-between w-full text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">
+                  
+                  <div className="ec-analytics-leaderboard-intensity">
+                    <div className="flex justify-between w-full text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-tertiary)" }}>
                       <span>Intensity</span>
-                      <span className="text-blue-400">{Math.round(((event.view_count || 0) / Math.max(1, analyticsData[0]?.view_count || 1)) * 100)}%</span>
+                      <span className="text-blue-600">{intensityPct}%</span>
                     </div>
-                    <div className="w-full bg-white/[0.03] h-2 rounded-full overflow-hidden border border-white/[0.08] shadow-inner p-[1px]">
+                    <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden border border-gray-200">
                       <div 
-                        className="bg-gradient-to-r from-blue-600 to-indigo-500 h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(37,99,235,0.4)]" 
-                        style={{ width: `${Math.min(100, ((event.view_count || 0) / Math.max(1, analyticsData[0]?.view_count || 1)) * 100)}%` }} 
+                        className="bg-blue-500 h-full rounded-full transition-all duration-1000 ease-out" 
+                        style={{ width: `${Math.min(100, intensityPct)}%` }} 
                       />
                     </div>
                   </div>
-                  <div className="min-w-[100px]">
-                    <p className="font-black text-white text-3xl tracking-tighter leading-none group-hover:scale-110 transition-transform duration-500 group-hover:text-blue-400">{(event.view_count || 0).toLocaleString()}</p>
-                    <p className="text-[10px] font-black text-white/10 uppercase tracking-[0.3em] mt-2.5">Total Views</p>
+                  <div className="ec-analytics-leaderboard-views">
+                    <p className="font-black text-xl md:text-2xl tracking-tight leading-none group-hover:text-blue-600 transition-colors" style={{ color: "var(--foreground)" }}>{(event.view_count || 0).toLocaleString()}</p>
+                    <p className="text-xs font-medium uppercase tracking-wide mt-1" style={{ color: "var(--text-tertiary)" }}>Total Views</p>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

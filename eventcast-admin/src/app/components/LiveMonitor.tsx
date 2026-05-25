@@ -126,18 +126,18 @@ interface MetricPillProps {
 }
 
 const pillColors: Record<PillStatus, string> = {
-  healthy: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  warning: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  error: "bg-red-500/15 text-red-400 border-red-500/30",
-  neutral: "bg-slate-500/10 text-slate-500 border-slate-600/30",
+  healthy: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  warning: "bg-amber-50 text-amber-700 border-amber-200",
+  error: "bg-red-50 text-red-600 border-red-200",
+  neutral: "bg-slate-100 text-slate-600 border-[var(--border)]",
 };
 
 const MetricPill: React.FC<MetricPillProps> = ({ label, value, status, icon }) => (
   <div
-    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold ${pillColors[status]}`}
+    className={`ec-badge flex items-center gap-1.5 ${pillColors[status]}`}
   >
     {icon}
-    <span className="opacity-60">{label}</span>
+    <span style={{ opacity: 0.7 }}>{label}</span>
     <span>{value}</span>
   </div>
 );
@@ -158,15 +158,16 @@ const YouTubeToggle: React.FC<YouTubeToggleProps> = ({
   loading,
 }) => (
   <button
+    type="button"
     onClick={() => !disabled && !loading && onToggle(!enabled)}
     disabled={disabled || loading}
     title={disabled ? "No YouTube key configured" : enabled ? "Disable YouTube relay" : "Enable YouTube relay"}
     className={[
-      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 border",
+      "ec-btn",
       enabled
-        ? "bg-red-500/20 border-red-500/40 text-red-400 hover:bg-red-500/30"
-        : "bg-slate-800/60 border-slate-700/60 text-slate-400 hover:bg-slate-700/80",
-      disabled || loading ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+        ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
+        : "ec-btn-secondary",
+      disabled || loading ? "opacity-50 cursor-not-allowed" : "",
     ].join(" ")}
   >
     {loading ? (
@@ -177,7 +178,7 @@ const YouTubeToggle: React.FC<YouTubeToggleProps> = ({
     <span>YouTube</span>
     <div
       className={`relative w-7 h-3.5 rounded-full transition-colors duration-300 ${
-        enabled ? "bg-red-500" : "bg-slate-600"
+        enabled ? "bg-red-500" : "bg-slate-300"
       }`}
     >
       <div
@@ -278,16 +279,13 @@ const StreamCard: React.FC<StreamCardProps> = ({ stream, event }) => {
   return (
     <div
       className={[
-        "relative rounded-2xl overflow-hidden border transition-all duration-500",
-        "bg-white/[0.03] backdrop-blur-2xl",
-        isRunning
-          ? "border-red-500/20 shadow-[0_0_32px_rgba(239,68,68,0.08)]"
-          : "border-white/[0.06]",
+        "ec-card relative overflow-hidden transition-all duration-500 p-0",
+        isRunning ? "border-red-300 ring-1 ring-red-100 shadow-md" : "",
       ].join(" ")}
     >
-      {/* Top glow line when live */}
+      {/* Top accent line when live */}
       {isRunning && (
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-red-500/60 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-red-400 to-transparent" />
       )}
 
       {/* ── Video Preview ───────────────────────────────── */}
@@ -306,14 +304,14 @@ const StreamCard: React.FC<StreamCardProps> = ({ stream, event }) => {
         {/* LIVE / state badge */}
         <div className="absolute top-2.5 left-2.5 z-20">
           {isRunning ? (
-            <div className="flex items-center gap-1.5 bg-black/70 backdrop-blur-sm px-2.5 py-1 rounded-full border border-red-500/40">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.9)]" />
-              <span className="text-[10px] font-black text-red-400 tracking-widest">LIVE</span>
+            <div className="flex items-center gap-1.5 bg-black/80 px-2.5 py-1 rounded-full border border-red-400/50">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-[10px] font-black text-red-300 tracking-widest">LIVE</span>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 bg-black/70 backdrop-blur-sm px-2.5 py-1 rounded-full border border-slate-600/40">
-              <span className="w-2 h-2 rounded-full bg-slate-600" />
-              <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">
+            <div className="flex items-center gap-1.5 bg-black/80 px-2.5 py-1 rounded-full border border-slate-500/50">
+              <span className="w-2 h-2 rounded-full bg-slate-400" />
+              <span className="text-[10px] font-black text-slate-300 tracking-widest uppercase">
                 {rawState}
               </span>
             </div>
@@ -323,12 +321,12 @@ const StreamCard: React.FC<StreamCardProps> = ({ stream, event }) => {
         {/* Uptime / view count overlay */}
         <div className="absolute top-2.5 right-2.5 z-20 flex flex-col items-end gap-1">
           {uptimeSec > 0 && (
-            <div className="bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] font-mono text-slate-300 font-bold">
+            <div className="bg-black/80 px-2 py-0.5 rounded text-[10px] font-mono text-slate-200 font-bold">
               ↑ {uptimeLabel}
             </div>
           )}
           {(event?.view_count ?? 0) > 0 && (
-            <div className="bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] font-mono text-blue-400 font-bold">
+            <div className="bg-black/80 px-2 py-0.5 rounded text-[10px] font-mono text-blue-300 font-bold">
               {event.view_count} views
             </div>
           )}
@@ -342,14 +340,14 @@ const StreamCard: React.FC<StreamCardProps> = ({ stream, event }) => {
       <div className="p-4 space-y-3">
         {/* Name */}
         <div>
-          <h3 className="text-sm font-black text-white tracking-tight leading-tight">
+          <h3 className="text-sm font-black text-[var(--foreground)] tracking-tight leading-tight">
             {eventName}
             {brideName ? ` & ${brideName}` : ""}
           </h3>
           {subtitle && (
-            <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>
+            <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">{subtitle}</p>
           )}
-          <p className="text-[10px] font-mono text-slate-700 mt-1">{slug}</p>
+          <p className="text-[10px] font-mono text-[var(--text-tertiary)] mt-1">{slug}</p>
         </div>
 
         {/* Metrics */}
@@ -374,17 +372,18 @@ const StreamCard: React.FC<StreamCardProps> = ({ stream, event }) => {
         </div>
 
         {/* Controls */}
-        <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/[0.04]">
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--border)]">
           <button
+            type="button"
             onClick={handleRestart}
             disabled={isRestarting}
             className={[
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 border",
+              "ec-btn",
               restartStatus === "ok"
-                ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
+                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
                 : restartStatus === "fail"
-                ? "bg-red-500/20 border-red-500/40 text-red-400"
-                : "bg-slate-800/60 border-slate-700/60 text-slate-300 hover:bg-slate-700/80 hover:text-white",
+                ? "bg-red-50 border-red-200 text-red-600"
+                : "ec-btn-secondary",
               isRestarting ? "opacity-60 cursor-not-allowed" : "",
             ].join(" ")}
           >
@@ -502,95 +501,92 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
   }).length;
 
   return (
-    <div className="min-h-[900px] text-slate-100 rounded-[3.5rem] overflow-hidden relative border backdrop-blur-3xl shadow-2xl" style={{ background: "rgba(255,255,255,0.01)", borderColor: "rgba(255,255,255,0.08)" }}>
+    <div className="w-full space-y-8 pb-20 ec-animate-in">
 
-      {/* Ambient glow orbs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
-        <div className="absolute -top-40 -left-40 w-[30rem] h-[30rem] bg-red-600/[0.04] rounded-full blur-[150px]" />
-        <div className="absolute -bottom-40 -right-40 w-[30rem] h-[30rem] bg-blue-600/[0.04] rounded-full blur-[150px]" />
-        {liveCount > 0 && (
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[40rem] h-[40rem] bg-red-500/[0.02] rounded-full blur-[120px] animate-pulse" />
-        )}
-      </div>
-
-      {/* ── Top Bar ───────────────────────────────────── */}
-      <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between px-12 py-10 border-b border-white/[0.06] gap-10 bg-white/[0.02]">
-        <div className="flex items-center gap-8">
-          <div className="w-16 h-16 rounded-[1.5rem] bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0 shadow-2xl shadow-red-500/10 group">
-            <Monitor size={32} className="text-red-500 group-hover:scale-110 transition-transform duration-500" />
+      {/* ── Header ───────────────────────────────────── */}
+      <div className="ec-live-monitor-header">
+        <div className="flex items-start gap-5">
+          <div
+            className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: "var(--error-50)", color: "var(--error)", border: "2px solid #FECDD3" }}
+          >
+            <Monitor size={28} />
           </div>
           <div>
-            <h2 className="text-3xl font-black tracking-tighter text-white">
-              Live <span className="text-red-500">Monitor</span> Hub
+            <h2 className="ec-page-title">
+              Live <span style={{ color: "var(--error)" }}>Monitor</span>
             </h2>
-            <div className="flex items-center gap-5 mt-2.5">
-              {systemStatus === 'initializing' && (
-                <span className="flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.3em] text-white/20">
-                  <div className="w-2 h-2 rounded-full bg-white/20 animate-pulse" />
-                  Connecting to Media Server…
+            <div className="flex flex-wrap items-center gap-3 mt-2">
+              {systemStatus === "initializing" && (
+                <span className="ec-badge" style={{ background: "var(--surface-hover)", color: "var(--text-tertiary)" }}>
+                  <span className="w-2 h-2 rounded-full bg-slate-300 animate-pulse" />
+                  Connecting to media server…
                 </span>
               )}
-              {systemStatus === 'online' && (
-                <span className="flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400 bg-emerald-500/10 px-4 py-1.5 rounded-full border border-emerald-500/20 shadow-lg shadow-emerald-500/5">
+              {systemStatus === "online" && (
+                <span className="ec-badge" style={{ background: "var(--success-50)", color: "var(--success)", border: "1px solid #A7F3D0" }}>
                   <Radio size={12} className="animate-pulse" />
-                  Connection: Stable
+                  Connection stable
                 </span>
               )}
-              {systemStatus === 'degraded' && (
-                <span className="flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.3em] text-amber-400 bg-amber-500/10 px-4 py-1.5 rounded-full border border-amber-500/20">
+              {systemStatus === "degraded" && (
+                <span className="ec-badge ec-badge-amber">
                   <Radio size={12} className="animate-pulse" />
-                  Connection Unstable
+                  Connection unstable
                 </span>
               )}
-              {systemStatus === 'offline' && (
-                <span className="flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.3em] text-red-400 bg-red-500/10 px-4 py-1.5 rounded-full border border-red-500/20">
+              {systemStatus === "offline" && (
+                <span className="ec-badge" style={{ background: "var(--error-50)", color: "var(--error)", border: "1px solid #FECDD3" }}>
                   <WifiOff size={12} />
-                  Media Server Offline
+                  Media server offline
                 </span>
               )}
               {liveCount > 0 && (
-                <div className="flex items-center gap-3 bg-red-500/10 px-4 py-1.5 rounded-full border border-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.1)]">
-                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_12px_rgba(239,68,68,1)]" />
-                  <span className="text-[10px] font-black text-red-500 uppercase tracking-[0.3em]">{liveCount} STREAMS LIVE</span>
-                </div>
+                <span className="ec-badge ec-badge-live" style={{ fontSize: "12px", padding: "6px 14px" }}>
+                  {liveCount} stream{liveCount !== 1 ? "s" : ""} live
+                </span>
               )}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-12">
+        <div className="ec-live-monitor-header-tools">
           {lastUpdated && (
             <div className="flex flex-col items-end gap-2">
               <button
+                type="button"
                 onClick={fetchLiveStatus}
                 disabled={isRefreshing}
-                className="group flex items-center gap-4 text-[10px] font-black text-white/30 hover:text-white transition-all bg-white/[0.03] px-6 py-3 rounded-2xl border border-white/5 hover:border-blue-500/40 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="ec-btn ec-btn-secondary group"
               >
                 <RefreshCw
-                  size={16}
-                  className={isRefreshing ? "animate-spin text-blue-400" : "group-hover:rotate-180 transition-transform duration-1000"}
+                  size={18}
+                  className={isRefreshing ? "animate-spin text-[var(--primary)]" : "group-hover:rotate-180 transition-transform duration-700"}
                 />
-                <span className="font-mono tracking-widest uppercase">
-                  {isRefreshing ? "SYNCING…" : `SYNC ${lastUpdated.toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                    hour12: false
-                  })}`}
-                </span>
+                {isRefreshing
+                  ? "Syncing…"
+                  : `Sync ${lastUpdated.toLocaleTimeString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                      hour12: false,
+                    })}`}
               </button>
               {!isRefreshing && (
-                <div className="flex items-center gap-2 pr-1">
+                <div className="flex items-center gap-2">
                   <div
-                    className="h-0.5 bg-white/[0.06] rounded-full overflow-hidden"
-                    style={{ width: "120px" }}
+                    className="h-1 rounded-full overflow-hidden"
+                    style={{ width: "120px", background: "var(--border-subtle)" }}
                   >
                     <div
-                      className="h-full bg-blue-500/60 rounded-full transition-all duration-1000 ease-linear"
-                      style={{ width: `${((POLL_INTERVAL_MS / 1000 - nextRefreshIn) / (POLL_INTERVAL_MS / 1000)) * 100}%` }}
+                      className="h-full rounded-full transition-all duration-1000 ease-linear"
+                      style={{
+                        width: `${((POLL_INTERVAL_MS / 1000 - nextRefreshIn) / (POLL_INTERVAL_MS / 1000)) * 100}%`,
+                        background: "var(--primary)",
+                      }}
                     />
                   </div>
-                  <span className="text-[9px] font-black font-mono text-white/15 uppercase tracking-widest tabular-nums">
+                  <span className="text-[11px] font-mono font-bold text-[var(--text-tertiary)] tabular-nums">
                     {nextRefreshIn}s
                   </span>
                 </div>
@@ -599,88 +595,75 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
           )}
 
           <div className="text-right">
-            <div className="text-5xl font-black font-mono tracking-tighter text-white tabular-nums drop-shadow-2xl leading-none">
+            <div className="text-4xl font-black font-mono tracking-tight text-[var(--foreground)] tabular-nums leading-none">
               {currentTime.toLocaleTimeString("en-US", {
                 hour: "2-digit",
                 minute: "2-digit",
                 second: "2-digit",
-                hour12: false
+                hour12: false,
               })}
             </div>
-            <div className="text-[10px] font-black text-white/20 uppercase tracking-[0.4em] mt-3">
+            <p className="ec-section-sub mt-2 font-semibold uppercase tracking-wider text-[11px]">
               {currentTime.toLocaleDateString("en-US", {
                 weekday: "long",
                 month: "short",
                 day: "numeric",
               })}
-            </div>
+            </p>
           </div>
         </div>
       </div>
 
       {/* ── Main Grid ─────────────────────────────────── */}
-      <div className="relative z-10 p-12 grid grid-cols-1 xl:grid-cols-4 gap-12">
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
 
         {/* Left column: streams + upcoming */}
-        <div className="xl:col-span-3 space-y-16">
+        <div className="xl:col-span-3 space-y-10">
 
           {/* Active Broadcasts */}
           <section>
-            <div className="flex items-center justify-between mb-10">
-              <div className="flex items-center gap-5">
-                <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-white/30">
-                  Active Live Streams
-                </h3>
-                <div className="h-px w-20 bg-white/[0.06]" />
-                <span className="text-[11px] font-black text-white/10 tabular-nums uppercase tracking-widest">
-                  {activeStreams.length} ACTIVE STREAMS
-                </span>
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+              <div>
+                <h3 className="ec-section-title">Active live streams</h3>
+                <p className="ec-section-sub">{activeStreams.length} active stream{activeStreams.length !== 1 ? "s" : ""}</p>
               </div>
-              <div className="flex items-center gap-3">
-                {systemStatus === 'online' && (
-                  <>
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]" />
-                    <span className="text-[10px] font-black text-emerald-500/40 uppercase tracking-[0.3em]">System Healthy</span>
-                  </>
+              <div className="flex items-center gap-2">
+                {systemStatus === "online" && (
+                  <span className="ec-badge" style={{ background: "var(--success-50)", color: "var(--success)", border: "1px solid #A7F3D0" }}>
+                    System healthy
+                  </span>
                 )}
-                {systemStatus === 'degraded' && (
-                  <>
-                    <div className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.8)] animate-pulse" />
-                    <span className="text-[10px] font-black text-amber-500/60 uppercase tracking-[0.3em]">Degraded Signal</span>
-                  </>
+                {systemStatus === "degraded" && (
+                  <span className="ec-badge ec-badge-amber">Degraded signal</span>
                 )}
-                {systemStatus === 'offline' && (
-                  <>
-                    <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.8)]" />
-                    <span className="text-[10px] font-black text-red-500/60 uppercase tracking-[0.3em]">Server Offline</span>
-                  </>
+                {systemStatus === "offline" && (
+                  <span className="ec-badge" style={{ background: "var(--error-50)", color: "var(--error)", border: "1px solid #FECDD3" }}>
+                    Server offline
+                  </span>
                 )}
-                {systemStatus === 'initializing' && (
-                  <>
-                    <div className="w-2 h-2 rounded-full bg-white/20 animate-pulse" />
-                    <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Initializing…</span>
-                  </>
+                {systemStatus === "initializing" && (
+                  <span className="ec-badge" style={{ color: "var(--text-tertiary)" }}>Initializing…</span>
                 )}
               </div>
             </div>
 
             {activeStreams.length === 0 ? (
-              <div className="rounded-[3.5rem] border border-white/[0.05] bg-white/[0.015] py-32 flex flex-col items-center justify-center gap-8 backdrop-blur-3xl shadow-inner relative overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-b from-blue-500/[0.01] to-transparent" />
-                <div className="w-24 h-24 rounded-[2.5rem] bg-white/[0.03] border border-white/[0.06] flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:border-blue-500/30 transition-all duration-700 relative z-10">
-                  <Signal size={40} className="text-white/5 group-hover:text-blue-500/40 transition-colors" />
+              <div className="ec-card py-24 flex flex-col items-center justify-center gap-6 text-center">
+                <div
+                  className="w-20 h-20 rounded-2xl flex items-center justify-center"
+                  style={{ background: "var(--info-50)", color: "var(--info)", border: "2px solid #BFDBFE" }}
+                >
+                  <Signal size={36} />
                 </div>
-                <div className="text-center relative z-10">
-                  <p className="text-2xl font-black text-white/20 tracking-tight">
-                    Waiting for Live Streams
+                <div>
+                  <p className="text-xl font-black text-[var(--foreground)] tracking-tight">
+                    Waiting for live streams
                   </p>
-                  <p className="text-[10px] font-black text-white/10 uppercase tracking-[0.4em] mt-3">
-                    Awaiting video feed from streaming software
-                  </p>
+                  <p className="ec-section-sub mt-2">Awaiting video feed from streaming software</p>
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {activeStreams.map((stream) => (
                   <StreamCard
                     key={stream.id}
@@ -694,42 +677,54 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
 
           {/* Upcoming Today */}
           {upcomingToday.length > 0 && (
-            <section className="animate-in slide-in-from-bottom-6 duration-1000 delay-300">
-              <div className="flex items-center gap-5 mb-10">
-                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shadow-lg shadow-blue-500/5">
-                  <Clock size={24} className="text-blue-400" />
+            <section className="animate-in slide-in-from-bottom-4 duration-700">
+              <div className="flex items-center gap-4 mb-6">
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: "var(--info-50)", color: "var(--info)", border: "2px solid #BFDBFE" }}
+                >
+                  <Clock size={22} />
                 </div>
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-[0.3em] text-white/30">
-                    Upcoming Events
-                  </h3>
-                  <p className="text-[10px] font-black text-white/10 mt-1 uppercase tracking-[0.4em]">Scheduled today: {upcomingToday.length} Events</p>
+                  <h3 className="ec-section-title">Upcoming events</h3>
+                  <p className="ec-section-sub">Scheduled today · {upcomingToday.length} event{upcomingToday.length !== 1 ? "s" : ""}</p>
                 </div>
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {upcomingToday.map((event) => (
-                  <div
-                    key={event.id}
-                    className="flex items-center justify-between p-8 rounded-[2rem] bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.05] hover:border-blue-500/40 transition-all duration-500 shadow-2xl group relative overflow-hidden"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-600/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="min-w-0 mr-8 relative z-10">
-                      <h4 className="font-black text-xl text-white tracking-tight group-hover:text-blue-400 transition-all duration-500">
+                  <div key={event.id} className="ec-card flex items-center justify-between gap-4 p-6 group">
+                    <div className="min-w-0">
+                      <h4 className="font-black text-lg text-[var(--foreground)] tracking-tight group-hover:text-[var(--primary)] transition-colors">
                         {event.groom_name || event.celebrant_name}
-                        {event.bride_name && event.bride_name.toLowerCase() !== 'family' && (
-                          <span className="text-white/40 font-medium"> & {event.bride_name}</span>
+                        {event.bride_name && event.bride_name.toLowerCase() !== "family" && (
+                          <span className="text-[var(--text-secondary)] font-medium"> & {event.bride_name}</span>
                         )}
                       </h4>
-                      <div className="flex items-center gap-4 mt-3">
-                         <span className="text-[9px] font-black text-blue-500/60 uppercase tracking-[0.2em] bg-blue-500/10 px-3 py-1 rounded-lg border border-blue-500/20">{event.event_type}</span>
-                         {event.venue_name && <span className="text-[10px] font-black text-white/20 uppercase tracking-widest truncate max-w-[200px] flex items-center gap-2"><MapPin size={12} /> {event.venue_name}</span>}
+                      <div className="flex flex-wrap items-center gap-3 mt-2">
+                        <span
+                          className="ec-badge"
+                          style={{ background: "var(--info-50)", color: "var(--info)", border: "1px solid #BFDBFE" }}
+                        >
+                          {event.event_type}
+                        </span>
+                        {event.venue_name && (
+                          <span className="text-[12px] font-semibold text-[var(--text-secondary)] flex items-center gap-1.5 truncate max-w-[200px]">
+                            <MapPin size={14} />
+                            {event.venue_name}
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2 flex-shrink-0 relative z-10">
-                       <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Scheduled Time</span>
-                       <span className="font-mono text-blue-400 font-black text-2xl bg-blue-500/10 border border-blue-500/20 px-6 py-2 rounded-2xl shadow-2xl shadow-blue-500/10 group-hover:scale-105 transition-transform">
-                         {event.timer_target_time || event.event_time || "—:—"}
-                       </span>
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
+                        Scheduled
+                      </span>
+                      <span
+                        className="font-mono font-black text-xl px-4 py-2 rounded-xl"
+                        style={{ background: "var(--info-50)", color: "var(--info)", border: "1px solid #BFDBFE" }}
+                      >
+                        {event.timer_target_time || event.event_time || "—:—"}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -740,58 +735,66 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
 
         {/* Right column: Wishes Feed */}
         <div className="xl:col-span-1">
-          <div className="rounded-[3rem] border border-white/[0.08] bg-white/[0.015] overflow-hidden flex flex-col h-full backdrop-blur-3xl shadow-[0_0_50px_rgba(0,0,0,0.3)] sticky top-12">
-            <div className="p-10 border-b border-white/[0.06] bg-white/[0.02]">
-              <div className="flex items-center gap-5 mb-2">
-                <div className="w-12 h-12 rounded-2xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center shadow-lg shadow-pink-500/5">
-                  <Heart size={24} className="text-pink-400" />
+          <div className="ec-card overflow-hidden flex flex-col sticky top-12" style={{ padding: 0 }}>
+            <div className="p-6 border-b border-[var(--border)]">
+              <div className="flex items-center gap-4">
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: "#FDF2F8", color: "#DB2777", border: "2px solid #FBCFE8" }}
+                >
+                  <Heart size={22} />
                 </div>
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-[0.3em] text-white/30">
-                    Recent Guest Wishes
-                  </h3>
-                  <p className="text-[10px] text-white/10 font-black uppercase tracking-[0.4em] mt-1.5">
-                    Today · {todayWishes.length} WISHES
-                  </p>
+                  <h3 className="ec-section-title" style={{ fontSize: "16px" }}>Recent guest wishes</h3>
+                  <p className="ec-section-sub">Today · {todayWishes.length} wish{todayWishes.length !== 1 ? "es" : ""}</p>
                 </div>
               </div>
             </div>
 
             <div
-              className="overflow-y-auto p-8 space-y-6 custom-scrollbar flex-1"
+              className="overflow-y-auto p-6 space-y-4 custom-scrollbar flex-1"
               style={{ maxHeight: "700px" }}
             >
               {todayWishes.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-24 gap-6 text-center">
-                  <div className="w-20 h-20 rounded-[2.5rem] bg-white/[0.01] border border-dashed border-white/10 flex items-center justify-center group hover:border-pink-500/30 transition-all duration-700">
-                    <Heart size={32} className="text-white/5 group-hover:text-pink-500/20 transition-colors" />
+                <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
+                  <div
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center border-2 border-dashed"
+                    style={{ borderColor: "var(--border)", color: "var(--text-tertiary)" }}
+                  >
+                    <Heart size={28} />
                   </div>
-                  <p className="text-[11px] font-black text-white/10 uppercase tracking-[0.4em]">
-                    Waiting for guest wishes
-                  </p>
+                  <p className="ec-section-sub font-semibold">Waiting for guest wishes</p>
                 </div>
               ) : (
                 todayWishes.map((wish, idx) => (
                   <div
                     key={idx}
-                    className="p-6 rounded-[2.5rem] bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.05] hover:border-pink-500/30 transition-all duration-500 shadow-2xl group animate-in slide-in-from-right-4 duration-700"
+                    className="ec-panel p-5 transition-all duration-300 hover:border-pink-200 group animate-in slide-in-from-right-4 duration-500"
                     style={{ animationDelay: `${idx * 100}ms` }}
                   >
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500/20 to-blue-500/20 border border-white/10 flex items-center justify-center text-sm font-black text-pink-400 flex-shrink-0 shadow-lg shadow-pink-500/10 group-hover:scale-110 transition-transform duration-500">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0"
+                        style={{ background: "#FDF2F8", color: "#DB2777", border: "1px solid #FBCFE8" }}
+                      >
                         {wish.name?.[0]?.toUpperCase() ?? "?"}
                       </div>
-                      <h4 className="font-black text-sm text-white tracking-tight group-hover:text-pink-400 transition-colors">
+                      <h4 className="font-bold text-sm text-[var(--foreground)] group-hover:text-pink-600 transition-colors">
                         {wish.name}
                       </h4>
                     </div>
-                    <p className="text-white/50 text-[14px] leading-relaxed font-medium italic">
+                    <p className="text-[var(--text-secondary)] text-[14px] leading-relaxed font-medium italic">
                       &ldquo;{wish.message}&rdquo;
                     </p>
                     {wish.events && (
-                      <div className="flex items-center justify-end gap-3 mt-5 pt-5 border-t border-white/[0.04]">
-                        <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.2em]">Target:</span>
-                        <span className="text-[9px] font-black text-pink-500/60 uppercase tracking-[0.2em] truncate max-w-[140px]">{wish.events.groom_name || wish.events.celebrant_name}</span>
+                      <div className="flex items-center justify-end gap-2 mt-4 pt-4 border-t border-[var(--border-subtle)]">
+                        <span className="text-[11px] font-semibold text-[var(--text-tertiary)]">Target:</span>
+                        <span
+                          className="ec-badge truncate max-w-[140px]"
+                          style={{ background: "#FDF2F8", color: "#DB2777", border: "1px solid #FBCFE8" }}
+                        >
+                          {wish.events.groom_name || wish.events.celebrant_name}
+                        </span>
                       </div>
                     )}
                   </div>

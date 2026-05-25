@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Camera, Loader2, Trash2, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface GuestPhoto {
@@ -41,17 +42,16 @@ function getEventLabel(e: EventOption): string {
 }
 
 export default function GuestPhotoModeration() {
-  const [events, setEvents]         = useState<EventOption[]>([]);
+  const [events, setEvents] = useState<EventOption[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string>('');
-  const [photos, setPhotos]         = useState<GuestPhoto[]>([]);
+  const [photos, setPhotos] = useState<GuestPhoto[]>([]);
   const [photoLimit, setPhotoLimit] = useState<number>(50);
-  const [loading, setLoading]       = useState(false);
-  const [deleting, setDeleting]     = useState<string | null>(null);
-  const [error, setError]           = useState<string | null>(null);
-  const [lightbox, setLightbox]     = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<GuestPhoto | null>(null);
 
-  // Load events list on mount
   useEffect(() => {
     const loadEvents = async () => {
       const { data } = await supabase
@@ -64,7 +64,6 @@ export default function GuestPhotoModeration() {
     loadEvents();
   }, []);
 
-  // Load photos when event selected
   const loadPhotos = useCallback(async (eventId: string) => {
     if (!eventId) return;
     setLoading(true);
@@ -73,7 +72,7 @@ export default function GuestPhotoModeration() {
 
     try {
       const session = await supabase.auth.getSession();
-      const token   = session.data.session?.access_token;
+      const token = session.data.session?.access_token;
 
       const res = await fetch(`/api/guest-photos/list?event_id=${eventId}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -83,8 +82,8 @@ export default function GuestPhotoModeration() {
       if (!json.success) throw new Error(json.error);
       setPhotos(json.photos);
       setPhotoLimit(json.limit);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load photos');
     } finally {
       setLoading(false);
     }
@@ -99,273 +98,156 @@ export default function GuestPhotoModeration() {
     setDeleting(photo.id);
     try {
       const session = await supabase.auth.getSession();
-      const token   = session.data.session?.access_token;
+      const token = session.data.session?.access_token;
 
       const res = await fetch('/api/guest-photos/delete', {
         method: 'DELETE',
         headers: {
-          'Content-Type':  'application/json',
-          Authorization:   `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ photo_id: photo.id }),
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error);
 
-      setPhotos(prev => prev.filter(p => p.id !== photo.id));
-    } catch (err: any) {
-      setError(err.message);
+      setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Delete failed');
     } finally {
       setDeleting(null);
     }
   };
 
-  const totalBytes = photos.reduce((sum, p) => sum + (p.file_size_bytes ?? 0), 0);
-  const usedCount  = photos.length;
+  const usedCount = photos.length;
+  const capacityPct = Math.min(100, (usedCount / photoLimit) * 100);
 
   return (
-    <div style={{ padding: '24px', fontFamily: 'var(--font-geist, Inter, sans-serif)' }}>
-
-      {/* Header */}
-      <div style={{ marginBottom: '28px' }}>
-        <h2 style={{
-          fontSize: '1.5rem', fontWeight: 700, color: '#fff',
-          display: 'flex', alignItems: 'center', gap: '10px', margin: 0
-        }}>
-          <span style={{ fontSize: '1.4rem' }}>📸</span> Guest Photo Wall
-        </h2>
-        <p style={{ color: 'rgba(255,255,255,0.5)', margin: '6px 0 0', fontSize: '0.85rem' }}>
-          View and moderate guest-uploaded photos for your events
-        </p>
+    <div className="w-full space-y-8 ec-animate-in">
+      <div className="ec-section-header" style={{ marginBottom: 0 }}>
+        <div className="flex items-center gap-4">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: 'var(--error-50)', color: 'var(--error)', border: '2px solid #FECDD3' }}
+          >
+            <Camera size={22} />
+          </div>
+          <div>
+            <h2 className="ec-page-title" style={{ fontSize: '24px' }}>Guest Photo Wall</h2>
+            <p className="ec-section-sub">View and moderate guest-uploaded photos for your events</p>
+          </div>
+        </div>
       </div>
 
-      {/* Event Selector */}
-      <div style={{
-        background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: '14px',
-        padding: '20px',
-        marginBottom: '24px',
-        backdropFilter: 'blur(12px)',
-      }}>
-        <label style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', display: 'block', marginBottom: '8px' }}>
-          SELECT EVENT
-        </label>
+      <div className="ec-card">
+        <label className="ec-label" htmlFor="guest-wall-event">Select event</label>
         <select
+          id="guest-wall-event"
           value={selectedEventId}
-          onChange={e => setSelectedEventId(e.target.value)}
-          style={{
-            width: '100%',
-            background: 'rgba(0,0,0,0.4)',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,0.12)',
-            borderRadius: '10px',
-            padding: '10px 14px',
-            fontSize: '0.9rem',
-            outline: 'none',
-            cursor: 'pointer',
-          }}
+          onChange={(e) => setSelectedEventId(e.target.value)}
+          className="ec-input"
+          style={{ cursor: 'pointer' }}
         >
           <option value="">— Choose an event —</option>
-          {events.map(ev => (
+          {events.map((ev) => (
             <option key={ev.id} value={ev.id}>{getEventLabel(ev)}</option>
           ))}
         </select>
       </div>
 
-      {/* No event selected */}
       {!selectedEventId && (
-        <div style={{
-          textAlign: 'center', padding: '60px 20px',
-          color: 'rgba(255,255,255,0.3)', fontSize: '0.9rem'
-        }}>
-          <div style={{ fontSize: '3rem', marginBottom: '12px' }}>📷</div>
-          Select an event to view guest photos
+        <div className="ec-card text-center" style={{ padding: '48px 24px' }}>
+          <Camera size={48} className="mx-auto mb-4 opacity-30" style={{ color: 'var(--text-tertiary)' }} />
+          <p style={{ color: 'var(--text-secondary)' }}>Select an event to view guest photos</p>
         </div>
       )}
 
-      {/* Stats Bar */}
       {selectedEventId && !loading && (
-        <div style={{
-          display: 'flex', gap: '16px', marginBottom: '20px', flexWrap: 'wrap'
-        }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: 'Photos', value: `${usedCount} / ${photoLimit}` },
-            { label: 'Storage Used', value: formatBytes(totalBytes) },
-            { label: 'Slots Remaining', value: `${Math.max(0, photoLimit - usedCount)}` },
-          ].map(stat => (
-            <div key={stat.label} style={{
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '12px',
-              padding: '14px 20px',
-              backdropFilter: 'blur(12px)',
-              flex: '1 1 140px',
-            }}>
-              <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.72rem', marginBottom: '4px' }}>
-                {stat.label.toUpperCase()}
-              </div>
-              <div style={{ color: '#fff', fontWeight: 600, fontSize: '1.1rem' }}>
-                {stat.value}
-              </div>
+            { label: 'Storage used', value: formatBytes(photos.reduce((s, p) => s + (p.file_size_bytes ?? 0), 0)) },
+            { label: 'Slots remaining', value: `${Math.max(0, photoLimit - usedCount)}` },
+          ].map((stat) => (
+            <div key={stat.label} className="ec-card ec-card-sm">
+              <p className="ec-label" style={{ marginBottom: '8px' }}>{stat.label}</p>
+              <p className="text-xl font-bold" style={{ color: 'var(--foreground)' }}>{stat.value}</p>
             </div>
           ))}
-
-          {/* Progress bar */}
-          <div style={{
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '12px',
-            padding: '14px 20px',
-            backdropFilter: 'blur(12px)',
-            flex: '1 1 260px',
-            display: 'flex', flexDirection: 'column', justifyContent: 'center',
-          }}>
-            <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.72rem', marginBottom: '8px' }}>
-              PHOTO WALL CAPACITY
-            </div>
-            <div style={{
-              height: '6px', borderRadius: '99px',
-              background: 'rgba(255,255,255,0.1)', overflow: 'hidden',
-            }}>
-              <div style={{
-                height: '100%',
-                borderRadius: '99px',
-                width: `${Math.min(100, (usedCount / photoLimit) * 100)}%`,
-                background: usedCount >= photoLimit
-                  ? 'linear-gradient(90deg,#ef4444,#dc2626)'
-                  : 'linear-gradient(90deg,#10b981,#34d399)',
-                transition: 'width 0.4s ease',
-              }} />
+          <div className="ec-card ec-card-sm lg:col-span-1 sm:col-span-2">
+            <p className="ec-label" style={{ marginBottom: '10px' }}>Photo wall capacity</p>
+            <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${capacityPct}%`,
+                  background: usedCount >= photoLimit
+                    ? 'var(--error)'
+                    : 'linear-gradient(90deg, var(--success), #34D399)',
+                }}
+              />
             </div>
           </div>
         </div>
       )}
 
-      {/* Loading */}
       {loading && (
-        <div style={{ textAlign: 'center', padding: '60px', color: 'rgba(255,255,255,0.4)' }}>
-          <div style={{
-            width: '36px', height: '36px', margin: '0 auto 16px',
-            border: '3px solid rgba(255,255,255,0.1)',
-            borderTopColor: '#10b981', borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite',
-          }} />
-          Loading photos...
+        <div className="ec-card flex flex-col items-center justify-center gap-4" style={{ padding: '48px' }}>
+          <Loader2 className="animate-spin" size={36} style={{ color: 'var(--primary)' }} />
+          <p style={{ color: 'var(--text-secondary)' }}>Loading photos…</p>
         </div>
       )}
 
-      {/* Error */}
       {error && (
-        <div style={{
-          background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-          borderRadius: '12px', padding: '16px 20px', color: '#fca5a5',
-          marginBottom: '20px', fontSize: '0.85rem'
-        }}>
-          ⚠️ {error}
+        <div
+          className="ec-card"
+          style={{ background: 'var(--error-50)', borderColor: '#FECDD3', color: 'var(--error)' }}
+        >
+          {error}
         </div>
       )}
 
-      {/* Empty state */}
       {selectedEventId && !loading && photos.length === 0 && !error && (
-        <div style={{
-          textAlign: 'center', padding: '60px 20px',
-          color: 'rgba(255,255,255,0.3)', fontSize: '0.9rem'
-        }}>
-          <div style={{ fontSize: '3rem', marginBottom: '12px' }}>🖼️</div>
-          No guest photos yet for this event
+        <div className="ec-card text-center" style={{ padding: '48px 24px' }}>
+          <p style={{ color: 'var(--text-secondary)' }}>No guest photos yet for this event</p>
         </div>
       )}
 
-      {/* Photo Grid */}
       {photos.length > 0 && (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-          gap: '14px',
-        }}>
-          {photos.map(photo => (
+        <div className="ec-photo-grid grid gap-4">
+          {photos.map((photo) => (
             <div
               key={photo.id}
-              style={{
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: '14px',
-                overflow: 'hidden',
-                backdropFilter: 'blur(12px)',
-                position: 'relative',
-                transition: 'transform 0.2s, border-color 0.2s',
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
-                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.18)';
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
-                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)';
-              }}
+              className="ec-card overflow-hidden"
+              style={{ padding: 0 }}
             >
-              {/* Photo Thumbnail */}
-              <div
-                style={{ aspectRatio: '1', overflow: 'hidden', cursor: 'zoom-in', position: 'relative' }}
+              <button
+                type="button"
+                className="w-full aspect-square overflow-hidden block cursor-zoom-in border-0 p-0"
                 onClick={() => setLightbox(photo.photo_url)}
               >
                 <img
                   src={photo.photo_url}
                   alt={`Photo by ${photo.uploader_name}`}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  className="w-full h-full object-cover"
                   loading="lazy"
                 />
-              </div>
-
-              {/* Info */}
-              <div style={{ padding: '10px 12px 12px' }}>
-                <div style={{
-                  color: '#fff', fontWeight: 600, fontSize: '0.82rem',
-                  marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-                }}>
+              </button>
+              <div style={{ padding: '14px 16px 16px' }}>
+                <p className="font-semibold truncate" style={{ color: 'var(--foreground)' }}>
                   {photo.uploader_name}
-                </div>
-                <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.7rem', marginBottom: '10px' }}>
+                </p>
+                <p className="text-sm mt-1 mb-3" style={{ color: 'var(--text-tertiary)' }}>
                   {formatTime(photo.created_at)} · {formatBytes(photo.file_size_bytes)}
-                </div>
-
-                {/* Delete button */}
+                </p>
                 <button
-                  id={`delete-photo-${photo.id}`}
+                  type="button"
                   onClick={() => setConfirmDelete(photo)}
                   disabled={deleting === photo.id}
-                  style={{
-                    width: '100%',
-                    padding: '7px',
-                    background: deleting === photo.id
-                      ? 'rgba(239,68,68,0.2)'
-                      : 'rgba(239,68,68,0.1)',
-                    border: '1px solid rgba(239,68,68,0.25)',
-                    borderRadius: '8px',
-                    color: '#fca5a5',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    cursor: deleting === photo.id ? 'not-allowed' : 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
-                    transition: 'all 0.2s',
-                  }}
-                  onMouseEnter={e => {
-                    if (deleting !== photo.id) {
-                      (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.25)';
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (deleting !== photo.id) {
-                      (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)';
-                    }
-                  }}
+                  className="ec-btn ec-btn-danger w-full ec-btn-sm"
                 >
-                  {deleting === photo.id ? (
-                    '⏳ Deleting...'
-                  ) : (
-                    '🗑️ Delete'
-                  )}
+                  <Trash2 size={16} />
+                  {deleting === photo.id ? 'Deleting…' : 'Delete photo'}
                 </button>
               </div>
             </div>
@@ -373,93 +255,59 @@ export default function GuestPhotoModeration() {
         </div>
       )}
 
-      {/* Lightbox */}
       {lightbox && (
         <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-6"
+          style={{ background: 'rgba(0,0,0,0.9)' }}
           onClick={() => setLightbox(null)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
-            background: 'rgba(0,0,0,0.92)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'zoom-out',
-          }}
+          role="dialog"
+          aria-modal
         >
           <img
             src={lightbox}
             alt="Photo preview"
-            style={{
-              maxWidth: '90vw', maxHeight: '90vh',
-              borderRadius: '12px', boxShadow: '0 0 60px rgba(0,0,0,0.8)',
-            }}
+            className="max-w-[90vw] max-h-[90vh] rounded-xl object-contain"
+            onClick={(e) => e.stopPropagation()}
           />
           <button
+            type="button"
             onClick={() => setLightbox(null)}
-            style={{
-              position: 'absolute', top: '20px', right: '24px',
-              background: 'rgba(255,255,255,0.1)', border: 'none',
-              color: '#fff', fontSize: '1.2rem', padding: '8px 14px',
-              borderRadius: '10px', cursor: 'pointer',
-            }}
+            className="ec-icon-btn absolute top-5 right-6"
+            style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)' }}
+            aria-label="Close preview"
           >
-            ✕
+            <X size={20} />
           </button>
         </div>
       )}
 
-      {/* Confirm Delete Dialog */}
       {confirmDelete && (
         <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9998,
-            background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
+          className="fixed inset-0 z-[9998] flex items-center justify-center p-6"
+          style={{ background: 'rgba(0,0,0,0.5)' }}
         >
-          <div style={{
-            background: 'rgba(15,15,20,0.98)',
-            border: '1px solid rgba(239,68,68,0.3)',
-            borderRadius: '18px', padding: '28px',
-            maxWidth: '380px', width: '90%',
-            boxShadow: '0 0 60px rgba(239,68,68,0.15)',
-          }}>
-            <h3 style={{ color: '#fff', margin: '0 0 10px', fontSize: '1.1rem' }}>Delete Photo?</h3>
-            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem', margin: '0 0 20px', lineHeight: 1.5 }}>
-              This will permanently remove the photo by <strong style={{ color: '#fff' }}>{confirmDelete.uploader_name}</strong> from both storage and the event wall. This action cannot be undone.
+          <div className="ec-card max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--foreground)' }}>Delete photo?</h3>
+            <p className="mb-6" style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              This permanently removes the photo by{' '}
+              <strong style={{ color: 'var(--foreground)' }}>{confirmDelete.uploader_name}</strong>{' '}
+              from storage and the event wall.
             </p>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                onClick={() => setConfirmDelete(null)}
-                style={{
-                  flex: 1, padding: '10px',
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  borderRadius: '10px', color: '#fff',
-                  fontSize: '0.85rem', cursor: 'pointer',
-                }}
-              >
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setConfirmDelete(null)} className="ec-btn ec-btn-secondary flex-1">
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={() => handleDelete(confirmDelete)}
-                style={{
-                  flex: 1, padding: '10px',
-                  background: 'rgba(239,68,68,0.8)',
-                  border: '1px solid rgba(239,68,68,0.6)',
-                  borderRadius: '10px', color: '#fff',
-                  fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
-                }}
+                className="ec-btn ec-btn-danger flex-1"
               >
-                🗑️ Delete
+                <Trash2 size={16} /> Delete
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* CSS animation for spinner */}
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
     </div>
   );
 }
