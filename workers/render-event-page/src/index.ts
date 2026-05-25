@@ -36,12 +36,12 @@ export default {
     if (request.method !== 'GET') {
       return new Response('Method Not Allowed', { status: 405 });
     }
-    const eventMatch = url.pathname.match(/^\/events\/([^/]+)$/);
-    const manifestMatch = url.pathname.match(/^\/events\/([^/]+)\/manifest\.json$/);
-    const swMatch = url.pathname.match(/^\/events\/([^/]+)\/sw\.js$/);
+    const eventMatch = url.pathname.match(/^\/events\/([^/]+?)\/?$/);
+    const manifestMatch = url.pathname.match(/^\/events\/([^/]+?)\/manifest\.json$/);
+    const swMatch = url.pathname.match(/^\/events\/([^/]+?)\/sw\.js$/);
 
     if (!eventMatch && !manifestMatch && !swMatch) {
-      return new Response('Not Found', { status: 404 });
+      return fetch(request);
     }
 
     const slug = decodeURIComponent(eventMatch ? eventMatch[1] : (manifestMatch ? manifestMatch[1] : swMatch![1]));
@@ -130,7 +130,7 @@ self.addEventListener('fetch', (event) => {
       // -----------------------------------------------------------------------
       // 2. Fetch event row + related photographer in one PostgREST call
       // -----------------------------------------------------------------------
-      const eventRes = await fetch(
+      let eventRes = await fetch(
         `${env.SUPABASE_URL}/rest/v1/events` +
           `?slug=eq.${encodeURIComponent(slug)}` +
           `&studio_id=eq.${studioId}` +
@@ -138,7 +138,22 @@ self.addEventListener('fetch', (event) => {
           `&limit=1`,
         { headers: sbHeaders },
       );
-      const events: EventRow[] = await eventRes.json();
+      let events: EventRow[] = await eventRes.json();
+
+      if (!events || events.length === 0) {
+        const hyphenatedSlug = slug.replace(/\s+/g, '-');
+        if (hyphenatedSlug !== slug) {
+          eventRes = await fetch(
+            `${env.SUPABASE_URL}/rest/v1/events` +
+              `?slug=eq.${encodeURIComponent(hyphenatedSlug)}` +
+              `&studio_id=eq.${studioId}` +
+              `&select=*,photographers(*)` +
+              `&limit=1`,
+            { headers: sbHeaders },
+          );
+          events = await eventRes.json();
+        }
+      }
 
       if (!events || events.length === 0) {
         return htmlError(404, `Event "${slug}" not found`);
@@ -457,6 +472,9 @@ window.WEDDING_CONFIG = {
 </script>`;
 
   let html = templateHtml;
+
+  // --- Inject base tag for relative assets ---
+  html = html.replace(/<head>/i, `<head>\n    <base href="/events/${encodeURIComponent(slug)}/">`);
 
   // --- SEO meta tags ---
   html = html.replace(/<title>.*?<\/title>/gs,       `<title>${displayTitle}</title>`);
