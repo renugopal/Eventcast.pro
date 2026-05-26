@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
+export const runtime = 'edge';
+
 export async function GET(req: Request, { params }: { params: Promise<{ templateId: string; file: string[] }> }) {
   try {
     const resolvedParams = await params;
