@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
+export const runtime = 'edge';
+
 // ─── Hero section dimensions (used for px → % conversion) ──────────────────
 // The GrapesJS editor uses the "Mobile" device which is 390px wide.
 // The hero section has aspect-ratio 2369:5122.
@@ -37,6 +39,9 @@ function convertInlinePxToPercent(html: string): string {
 }
 
 export async function GET(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production' || process.env.CF_PAGES === '1') {
+    return NextResponse.json({ error: 'Local sync is not available in production' }, { status: 403 });
+  }
   const searchParams = request.nextUrl.searchParams;
   const slug = searchParams.get('slug');
   if (!slug) {
@@ -76,6 +81,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production' || process.env.CF_PAGES === '1') {
+    return NextResponse.json({ error: 'Local sync is not available in production' }, { status: 403 });
+  }
   try {
     const { slug, html } = await request.json();
     // NOTE: We intentionally ignore the `css` field from GrapesJS.
