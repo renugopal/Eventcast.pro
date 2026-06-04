@@ -342,7 +342,10 @@ body.gjs-no-select #loader, body[class*="gjs-"] #loader {
     margin-top:6px;
 }
 .countdown-divider {
-    display:none;
+    width: 1px;
+    height: 35px;
+    background-color: rgba(204, 167, 98, 0.4);
+    display: block;
 }
 .mosque-silhouette svg {
     width:100%;
@@ -792,120 +795,106 @@ footer::before {
     font-weight:600;
 }
 #ifj49 {
-    left:24px;
-    top:158px;
-    position:absolute;
-    width:432px;
-    height:45px;
+    left: 5%;
+    top: 15.4%;
+    position: absolute;
+    width: 90%;
+    height: 4.4%;
 }
 #i4t7s {
-    left:24px;
-    top:273px;
-    position:absolute;
-    width:432px;
-    height:45px;
+    left: 5%;
+    top: 26.6%;
+    position: absolute;
+    width: 90%;
+    height: 4.4%;
 }
 #monogram-id {
-    left:211px;
-    top:415px;
-    position:absolute;
-    width:58px;
-    height:22px;
+    left: 44%;
+    top: 40.5%;
+    position: absolute;
+    width: 12%;
+    height: 2.2%;
 }
 .top-live-badge {
-    position:absolute;
-    top:7.5%;
-    left:calc(50% - 100px);
-    background-color:var(--primary-green);
-    border-top-left-radius:30px;
-    border-top-right-radius:30px;
-    border-bottom-right-radius:30px;
-    border-bottom-left-radius:30px;
-    padding-top:6px;
-    padding-right:18px;
-    padding-bottom:6px;
-    padding-left:18px;
-    display:flex;
-    align-items:center;
-    column-gap:10px;
-    row-gap:10px;
-    z-index:20;
-    box-shadow:rgba(0, 0, 0, 0.15) 0px 4px 15px;
-    letter-spacing:1px;
+    position: absolute;
+    top: 11.2%;
+    left: 29%;
+    width: 42%;
+    background-color: var(--primary-green);
+    border-radius: 30px;
+    padding: 6px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    column-gap: 8px;
+    z-index: 20;
+    box-shadow: rgba(0, 0, 0, 0.15) 0px 4px 15px;
+    letter-spacing: 1px;
 }
 .live-dot {
-    width:10px;
-    height:10px;
-    background-color:rgb(255, 59, 48);
-    border-top-left-radius:50%;
-    border-top-right-radius:50%;
-    border-bottom-right-radius:50%;
-    border-bottom-left-radius:50%;
-    display:inline-block;
-    animation-duration:1.6s;
-    animation-timing-function:ease;
-    animation-delay:0s;
-    animation-iteration-count:infinite;
-    animation-direction:normal;
-    animation-fill-mode:none;
-    animation-play-state:running;
-    animation-name:pulse-red;
-    animation-timeline:auto;
-    animation-range-start:normal;
-    animation-range-end:normal;
+    width: 8px;
+    height: 8px;
+    background-color: rgb(255, 59, 48);
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse-red 1.6s ease infinite;
 }
 .live-text {
-    font-size:0.6rem;
-    font-weight:600;
-    letter-spacing:1.5px;
-    color:var(--white);
-    font-family:Inter, sans-serif;
+    font-size: 0.58rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--white);
+    font-family: Inter, sans-serif;
 }
 #top-live-badge {
-    left:138px;
-    top:115px;
-    position:absolute;
-    width:202.281px;
-    height:23px;
+    left: 29%;
+    top: 11.2%;
+    position: absolute;
+    width: 42%;
+    height: 2.2%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 #add-to-calendar-btn {
-    width:324px;
-    height:36px;
-    top:-13px;
-    left:54px;
-    position:absolute;
+    width: 75%;
+    height: 38px;
+    top: 0px;
+    left: 12.5%;
+    position: absolute;
 }
 #ivxuo {
-    width:384px;
-    height:24px;
-    top:353px;
-    left:48px;
+    width: 90%;
+    height: 2.4%;
+    top: 34.4%;
+    left: 5%;
 }
 #i6n16r {
-    width:432px;
-    height:36px;
-    top:731.641px;
-    left:24px;
+    width: 90%;
+    height: 38px;
+    top: 71.5%;
+    left: 5%;
 }
 #top-live-text {
-    width:145.531px;
-    height:11px;
+    width: auto;
+    height: auto;
 }
 #ilx7p {
-    width:116.328px;
-    height:80.1562px;
+    width: auto;
+    height: auto;
 }
 #i05ra {
-    top:478px;
-    left:35px;
-    position:absolute;
+    top: 46.5%;
+    left: 7%;
+    position: absolute;
+    width: 86%;
 }
 #isphc {
-    top:600px;
-    left:67px;
-    position:absolute;
-    width:347px;
-    height:109px;
+    top: 58.5%;
+    left: 8%;
+    position: absolute;
+    width: 84%;
+    height: 105px;
 }
 .detail-value {
     font-size:17px;
