@@ -315,37 +315,35 @@ body.gjs-no-select #loader, body[class*="gjs-"] #loader {
     margin-bottom:12px;
 }
 .countdown-grid {
-    display:flex;
-    justify-content:space-around;
-    align-items:center;
-    z-index:2;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 2;
+    padding: 0 15px;
 }
 .time-unit {
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    min-width:45px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 45px;
 }
 .time-num {
-    font-family:"Bodoni Moda", serif;
-    font-size:38px;
-    font-weight:600;
-    color:rgb(255, 255, 255);
-    line-height:1;
+    font-family: "Bodoni Moda", serif;
+    font-size: 38px;
+    font-weight: 600;
+    color: rgb(255, 255, 255);
+    line-height: 1;
 }
 .time-label {
-    font-family:Montserrat, sans-serif;
-    font-size:10px;
-    font-weight:600;
-    letter-spacing:1px;
-    color:rgb(200, 169, 107);
-    margin-top:6px;
+    font-family: Montserrat, sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: rgb(200, 169, 107);
+    margin-top: 6px;
 }
 .countdown-divider {
-    width: 1px;
-    height: 35px;
-    background-color: rgba(204, 167, 98, 0.4);
-    display: block;
+    display: none;
 }
 .mosque-silhouette svg {
     width:100%;
