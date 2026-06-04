@@ -52,6 +52,45 @@ body {
 body.gjs-no-select #loader, body[class*="gjs-"] #loader {
     display: none !important;
 }
+#loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: var(--bg-cream);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    transition: opacity 0.6s ease, visibility 0.6s ease;
+}
+.loader-content {
+    text-align: center;
+}
+.logo-text {
+    font-family: Marcellus, serif;
+    font-size: 2.2rem;
+    color: var(--primary-green);
+    margin-bottom: 10px;
+    letter-spacing: 4px;
+}
+.loader-sub {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.1rem;
+    color: var(--accent-gold);
+    margin-bottom: 25px;
+    letter-spacing: 2px;
+}
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(7, 51, 36, 0.1);
+    border-top: 3px solid var(--accent-gold);
+    border-radius: 50%;
+    margin: 0 auto;
+    animation: spin 1s linear infinite;
+}
 .desktop-bg-blur {
     display: none;
     position: fixed;
