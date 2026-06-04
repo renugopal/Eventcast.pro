@@ -404,6 +404,56 @@ export function GrapesEditor() {
   // ─── Save Handler ─────────────────────────────────────────────────────────
   const handleSaveLocalRef = useRef<(() => void) | null>(null);
 
+  /**
+   * Strip inline top/left/position overrides from hero overlay elements.
+   *
+   * GrapesJS absolute drag-mode writes pixel-based inline styles when
+   * elements are moved. These override the CSS class % positions and
+   * break mobile layout. We strip them here before saving so that the
+   * CSS file's percentage-based positions always apply.
+   *
+   * Text edits and other inline styles (font-size, color, etc.) are preserved.
+   */
+  const sanitizeHtmlBeforeSave = (html: string): string => {
+    // IDs of hero overlay elements whose position must come from CSS only
+    const heroOverlayIds = [
+      'top-live-badge', 'ifj49', 'i4t7s', 'ivxuo',
+      'monogram-id', 'i05ra', 'isphc', 'i6n16r',
+    ];
+
+    let clean = html;
+
+    // 1. Remove inline top/left/position from named overlay elements
+    for (const id of heroOverlayIds) {
+      // Matches the style="..." attribute on elements with this id
+      clean = clean.replace(
+        new RegExp(`(id="${id}"[^>]*?)\\s*style="([^"]*)"`, 'g'),
+        (_match: string, beforeStyle: string, styleStr: string) => {
+          const stripped = styleStr
+            .replace(/\btop\s*:\s*[^;]+;?\s*/gi, '')
+            .replace(/\bleft\s*:\s*[^;]+;?\s*/gi, '')
+            .replace(/\bposition\s*:\s*[^;]+;?\s*/gi, '')
+            .replace(/\bwidth\s*:\s*\d+(?:\.\d+)?px\s*;?\s*/gi, '')
+            .replace(/\bheight\s*:\s*\d+(?:\.\d+)?px\s*;?\s*/gi, '')
+            .trim()
+            .replace(/;$/, '');
+          return stripped
+            ? `${beforeStyle} style="${stripped}"`
+            : beforeStyle;
+        }
+      );
+    }
+
+    // 2. Strip inline background-image URLs that GrapesJS may have resolved
+    //    to absolute /api/local-sync/assets/... paths (breaks on GitHub Pages)
+    clean = clean.replace(
+      /\bbackground-image\s*:\s*url\(['"]?[^'")\s]*['"]?\)\s*;?\s*/gi,
+      ''
+    );
+
+    return clean;
+  };
+
   const handleSaveLocal = useCallback(async () => {
     if (!editorInstance) return;
     setSaving(true);
@@ -412,15 +462,16 @@ export function GrapesEditor() {
     const slugParam = params.get('slug');
 
     if (slugParam) {
-      const html = editorInstance.getHtml();
-      // Get ALL CSS that GrapesJS manages (includes the full loaded stylesheet)
-      const css = editorInstance.getCss({ avoidProtected: false } as any);
+      const rawHtml = editorInstance.getHtml();
+      // Sanitise: strip position/background-image overrides that GrapesJS adds
+      const html = sanitizeHtmlBeforeSave(rawHtml);
+      // CSS is intentionally NOT sent — style.css is protected and managed manually
 
       try {
         const res = await fetch('/api/local-sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug: slugParam, html, css }),
+          body: JSON.stringify({ slug: slugParam, html }),
         });
         const data = await res.json();
         if (data.success) {
