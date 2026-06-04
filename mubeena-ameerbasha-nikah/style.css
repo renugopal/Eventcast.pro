@@ -153,7 +153,7 @@ body[class*="gjs-"] #loader {
 .top-live-badge,
 #top-live-badge {
     position: absolute;
-    top: 9.6%;
+    top: 10.2%;
     left: 50%;
     transform: translateX(-50%);
     background-color: var(--primary-green);
