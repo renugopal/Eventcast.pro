@@ -268,7 +268,7 @@ body.gjs-no-select #loader, body[class*="gjs-"] #loader {
     left:48px;
     width:383px;
     height:125px;
-    background-image:url("countdown-bg.png");
+    background-image:url("countdown-bg.webp");
     background-size:100% 100%;
     background-repeat:no-repeat;
     background-color:transparent;
