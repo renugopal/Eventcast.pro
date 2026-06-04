@@ -24,12 +24,18 @@ document.addEventListener("DOMContentLoaded", () => {
     // 1. LOADER FUNCTIONALITY
     const loader = document.getElementById("loader");
     if (loader) {
-        window.addEventListener("load", () => {
+        const hideLoader = () => {
             setTimeout(() => {
                 loader.style.opacity = "0";
                 loader.style.visibility = "hidden";
             }, 600); // Smooth fade out after 600ms
-        });
+        };
+        
+        if (document.readyState === "complete") {
+            hideLoader();
+        } else {
+            window.addEventListener("load", hideLoader);
+        }
     }
 
     // 2. COUNTDOWN TIMER
