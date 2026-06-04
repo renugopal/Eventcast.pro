@@ -153,7 +153,7 @@ body[class*="gjs-"] #loader {
 .top-live-badge,
 #top-live-badge {
     position: absolute;
-    top: 8%;
+    top: 9.6%;
     left: 50%;
     transform: translateX(-50%);
     background-color: var(--primary-green);
@@ -347,16 +347,16 @@ body[class*="gjs-"] #loader {
 .countdown-card,
 #isphc {
     position: absolute;
-    top: 59%;
-    left: 5%;
-    width: 90%;
-    height: 125px;
+    top: 57.5%;
+    left: 10%;
+    width: 80%;
+    height: 115px;
     background-image: url("countdown-bg.webp");
     background-size: 100% 100%;
     background-repeat: no-repeat;
     background-color: transparent;
     border: none;
-    padding: 25px 15px 15px 15px;
+    padding: 22px 12px 12px 12px;
     box-shadow: rgba(0, 0, 0, 0.15) 0px 10px 30px;
     display: flex;
     flex-direction: column;
@@ -380,7 +380,7 @@ body[class*="gjs-"] #loader {
 
 .time-num {
     font-family: "Bodoni Moda", serif;
-    font-size: 38px;
+    font-size: 32px;
     font-weight: 600;
     color: rgb(255, 255, 255);
     line-height: 1;
@@ -388,7 +388,7 @@ body[class*="gjs-"] #loader {
 
 .time-label {
     font-family: Montserrat, sans-serif;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 600;
     letter-spacing: 1px;
     color: rgb(200, 169, 107);
@@ -397,7 +397,7 @@ body[class*="gjs-"] #loader {
 
 .countdown-divider {
     width: 1px;
-    height: 35px;
+    height: 28px;
     background-color: rgba(204, 167, 98, 0.4);
     display: block;
 }
@@ -451,7 +451,7 @@ body[class*="gjs-"] #loader {
 .calendar-btn-wrapper,
 #i6n16r {
     position: absolute;
-    top: 73.5%;
+    top: 70.5%;
     left: 5%;
     width: 90%;
     display: flex;
@@ -466,11 +466,11 @@ body[class*="gjs-"] #loader {
 }
 
 .calendar-btn {
-    width: 80%;
-    height: 48px;
+    width: 65%;
+    height: 42px;
     background-color: rgb(253, 251, 247);
     border-radius: 20px;
-    padding: 0 18px;
+    padding: 0 14px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
