@@ -31,6 +31,7 @@ const PUBLIC_PREFIXES = [
   '/api/resolve-url',            // Cloudflare Worker domain resolver
   '/api/billing/webhook',        // Payment provider webhooks (use own signature)
   '/api/guest-photos/upload',    // Guest Photo Wall — guests upload without login
+  '/api/local-sync',             // Local template builder sync — no login required
 ];
 
 // ─── Routes that are fully public (non-API) ───────────────────────────────────

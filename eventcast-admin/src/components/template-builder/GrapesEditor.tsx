@@ -405,38 +405,87 @@ export function GrapesEditor() {
   const handleSaveLocalRef = useRef<(() => void) | null>(null);
 
   /**
-   * Strip inline top/left/position overrides from hero overlay elements.
+   * Convert pixel-based vertical offsets to responsive percentage-based positions,
+   * while stripping horizontal offsets (left/position/width/height) to preserve
+   * the horizontal centering and styling defined in the CSS stylesheet.
    *
-   * GrapesJS absolute drag-mode writes pixel-based inline styles when
-   * elements are moved. These override the CSS class % positions and
-   * break mobile layout. We strip them here before saving so that the
-   * CSS file's percentage-based positions always apply.
-   *
-   * Text edits and other inline styles (font-size, color, etc.) are preserved.
+   * This allows the user to drag elements up and down in GrapesJS (absolute drag mode)
+   * and save their layout changes safely without breaking mobile responsiveness or centering.
    */
   const sanitizeHtmlBeforeSave = (html: string): string => {
-    // IDs of hero overlay elements whose position must come from CSS only
+    // IDs of hero overlay elements whose positions are managed
     const heroOverlayIds = [
       'top-live-badge', 'ifj49', 'i4t7s', 'ivxuo',
       'monogram-id', 'i05ra', 'isphc', 'i6n16r',
     ];
 
+    // Detect actual dimensions from the active GrapesJS editor preview canvas
+    let cardHeight = 0;
+    try {
+      if (editorInstance) {
+        const iframeBody = editorInstance.Canvas.getBody();
+        const heroContent = iframeBody?.querySelector('.hero-content') || iframeBody?.querySelector('.hero-section');
+        if (heroContent) {
+          cardHeight = heroContent.clientHeight;
+        }
+      }
+    } catch (e) {
+      console.warn('Error reading canvas dimensions:', e);
+    }
+
+    // Default fallback calculation if canvas isn't fully drawn
+    if (!cardHeight && editorInstance) {
+      try {
+        const iframeBody = editorInstance.Canvas.getBody();
+        const heroContent = iframeBody?.querySelector('.hero-content') || iframeBody?.querySelector('.hero-section');
+        const cardWidth = heroContent?.clientWidth || 390;
+        cardHeight = Math.round(cardWidth * 5122 / 2369);
+      } catch (e) {
+        cardHeight = 843; // Absolute fallback for 390px width
+      }
+    }
+
     let clean = html;
 
-    // 1. Remove inline top/left/position from named overlay elements
+    // 1. Process inline styles for named overlay elements
     for (const id of heroOverlayIds) {
       // Matches the style="..." attribute on elements with this id
       clean = clean.replace(
         new RegExp(`(id="${id}"[^>]*?)\\s*style="([^"]*)"`, 'g'),
         (_match: string, beforeStyle: string, styleStr: string) => {
-          const stripped = styleStr
+          let topValue = '';
+          const topMatch = styleStr.match(/\btop\s*:\s*([^;]+)/i);
+
+          if (topMatch && cardHeight > 0) {
+            const val = topMatch[1].trim();
+            if (val.endsWith('px')) {
+              const px = parseFloat(val);
+              if (!isNaN(px)) {
+                // Convert pixels to percentage relative to active canvas height
+                topValue = `top: ${(px / cardHeight * 100).toFixed(2)}%;`;
+              }
+            } else if (val.endsWith('%')) {
+              // Keep pre-existing percentage values
+              topValue = `top: ${val};`;
+            }
+          }
+
+          // Strip position properties that break horizontal centering or sizes
+          let stripped = styleStr
             .replace(/\btop\s*:\s*[^;]+;?\s*/gi, '')
             .replace(/\bleft\s*:\s*[^;]+;?\s*/gi, '')
             .replace(/\bposition\s*:\s*[^;]+;?\s*/gi, '')
             .replace(/\bwidth\s*:\s*\d+(?:\.\d+)?px\s*;?\s*/gi, '')
             .replace(/\bheight\s*:\s*\d+(?:\.\d+)?px\s*;?\s*/gi, '')
-            .trim()
-            .replace(/;$/, '');
+            .trim();
+
+          // Prepend converted top position
+          if (topValue) {
+            stripped = topValue + (stripped ? ' ' + stripped : '');
+          }
+
+          stripped = stripped.trim().replace(/;$/, '');
+
           return stripped
             ? `${beforeStyle} style="${stripped}"`
             : beforeStyle;
