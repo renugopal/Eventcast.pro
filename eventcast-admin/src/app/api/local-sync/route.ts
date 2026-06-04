@@ -2,6 +2,40 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
+// ─── Hero section dimensions (used for px → % conversion) ──────────────────
+// The GrapesJS editor uses the "Mobile" device which is 390px wide.
+// The hero section has aspect-ratio 2369:5122.
+// So at 390px width: hero height = 390 * 5122 / 2369 ≈ 843px
+// At 480px width: hero height = 480 * 5122 / 2369 ≈ 1037px
+// We normalise against 480px (the max-width of the card).
+const CANVAS_WIDTH = 480;
+const CANVAS_HEIGHT = Math.round(480 * 5122 / 2369); // ≈ 1037
+
+/**
+ * Convert inline px top/left values to percentage for hero overlay elements.
+ * When a user drags an element in GrapesJS (absolute drag mode), it adds
+ * style="top: Xpx; left: Ypx" as inline HTML attributes. These pixel values
+ * are relative to the editor's 480px canvas. Converting to % makes the layout
+ * responsive across all screen sizes.
+ */
+function convertInlinePxToPercent(html: string): string {
+  return html.replace(
+    /\bstyle="([^"]*)"/g,
+    (_match: string, styleStr: string) => {
+      let s = styleStr;
+      // top: Xpx → top: Y%
+      s = s.replace(/\btop\s*:\s*(-?\d+(?:\.\d+)?)px/g, (_m: string, px: string) =>
+        `top:${(parseFloat(px) / CANVAS_HEIGHT * 100).toFixed(2)}%`
+      );
+      // left: Xpx → left: Y%
+      s = s.replace(/\bleft\s*:\s*(-?\d+(?:\.\d+)?)px/g, (_m: string, px: string) =>
+        `left:${(parseFloat(px) / CANVAS_WIDTH * 100).toFixed(2)}%`
+      );
+      return `style="${s}"`;
+    }
+  );
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const slug = searchParams.get('slug');
@@ -21,14 +55,12 @@ export async function GET(request: NextRequest) {
     const html = fs.readFileSync(htmlPath, 'utf8');
     const css = fs.existsSync(cssPath) ? fs.readFileSync(cssPath, 'utf8') : '';
 
-    // Extract body content using a greedy match (handles nested tags correctly)
+    // Extract body content
     const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
     let bodyContent = bodyMatch ? bodyMatch[1].trim() : html;
 
-    // Remove the loader block (flexible regex for any structure)
+    // Remove the loader block so GrapesJS doesn't show it in editor
     bodyContent = bodyContent.replace(/<div\s+id=["']loader["'][^>]*>[\s\S]*?<div\s+class=["']spinner["'][^>]*><\/div>\s*<\/div>\s*<\/div>/i, '');
-
-    // Remove orphan loader comments
     bodyContent = bodyContent.replace(/<!--\s*Loader\s*-->/gi, '');
 
     // Remove script tags (GrapesJS should not execute them in canvas)
@@ -45,7 +77,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { slug, html, css } = await request.json();
+    const { slug, html } = await request.json();
+    // NOTE: We intentionally ignore the `css` field from GrapesJS.
+    // GrapesJS getCss() output is destructive: it minifies the stylesheet,
+    // converts percentage positions to pixels, and mangles background-image
+    // URLs to absolute editor paths that break in production.
+    // The style.css file is PROTECTED — edited manually or via direct edits only.
 
     if (!slug) {
       return NextResponse.json({ error: 'Slug is required' }, { status: 400 });
@@ -53,7 +90,6 @@ export async function POST(request: NextRequest) {
 
     const eventDir = path.join(process.cwd(), '..', slug);
     const htmlPath = path.join(eventDir, 'index.html');
-    const cssPath = path.join(eventDir, 'style.css');
 
     if (!fs.existsSync(htmlPath)) {
       return NextResponse.json({ error: `index.html not found for slug: ${slug}` }, { status: 404 });
@@ -66,7 +102,7 @@ export async function POST(request: NextRequest) {
     const headMatch = originalHtml.match(/<head[\s\S]*?<\/head>/i);
     const headContent = headMatch ? headMatch[0] : '<head><meta charset="UTF-8"></head>';
 
-    // ── Preserve loader block ────────────────────────────────────────────────
+    // ── Preserve loader block (always re-inject, even if GrapesJS stripped it)
     const loaderMatch = originalHtml.match(/<!--\s*Loader\s*-->[\s\S]*?<div\s+id=["']loader["'][^>]*>[\s\S]*?<div\s+class=["']spinner["'][^>]*><\/div>\s*<\/div>\s*<\/div>/i);
     const loaderHtml = loaderMatch ? loaderMatch[0].trim() : `<!-- Loader -->
     <div id="loader">
@@ -77,27 +113,32 @@ export async function POST(request: NextRequest) {
         </div>
     </div>`;
 
-    // ── Preserve script references ───────────────────────────────────────────
+    // ── Preserve all <script src="..."> tags ─────────────────────────────────
     const scriptMatches = originalHtml.match(/<script\b[^>]*src=["'][^"']*["'][^>]*><\/script>/gi) || [];
     const scriptTags = scriptMatches.join('\n    ');
 
-    // ── Strip any <html>, <head>, <body> wrappers GrapesJS may inject ────────
-    // GrapesJS getHtml() sometimes wraps content in <body> or <html> tags
+    // ── Clean the GrapesJS HTML output ───────────────────────────────────────
     let innerHtml = html || '';
-    // Remove <html>...</html> wrapper if present
+
+    // Strip any <html>, <head>, <body> wrappers GrapesJS may inject
     const gjsHtmlWrap = innerHtml.match(/<html[^>]*>([\s\S]*)<\/html>/i);
     if (gjsHtmlWrap) innerHtml = gjsHtmlWrap[1].trim();
-    // Remove <head>...</head> block if present (keep only body content)
     innerHtml = innerHtml.replace(/<head[\s\S]*?<\/head>/gi, '').trim();
-    // Remove <body>...</body> wrapper if present
     const gjsBodyWrap = innerHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
     if (gjsBodyWrap) innerHtml = gjsBodyWrap[1].trim();
-    // Remove any leftover loader blocks (they are re-added below)
+
+    // Remove any loader blocks injected by GrapesJS (re-added below cleanly)
     innerHtml = innerHtml.replace(/<!--\s*Loader\s*-->[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/gi, '').trim();
-    // Remove script tags (they are re-added from originalHtml)
+
+    // Remove script tags (re-added from original below)
     innerHtml = innerHtml.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '').trim();
 
-    // ── Assemble new HTML ────────────────────────────────────────────────────
+    // ── Convert inline px positions → percentage ──────────────────────────────
+    // GrapesJS absolute drag-mode adds style="top: Xpx; left: Ypx" to dragged
+    // elements. Convert these to % so the layout is responsive on all devices.
+    innerHtml = convertInlinePxToPercent(innerHtml);
+
+    // ── Assemble clean HTML ──────────────────────────────────────────────────
     const newHtml = `<!DOCTYPE html>
 <html lang="en">
 ${headContent}
@@ -113,43 +154,12 @@ ${headContent}
 
 </html>`;
 
-    // ── Backup original before overwriting ───────────────────────────────────
-    const backupPath = path.join(eventDir, `index.html.bak`);
+    // ── Backup and write ─────────────────────────────────────────────────────
+    const backupPath = path.join(eventDir, 'index.html.bak');
     fs.writeFileSync(backupPath, originalHtml, 'utf8');
-
-    // ── Write HTML ───────────────────────────────────────────────────────────
     fs.writeFileSync(htmlPath, newHtml, 'utf8');
 
-    // ── Write CSS — stripping dangerous pixel overrides GrapesJS injects ─────
-    if (css && css.trim()) {
-      // List of overlay element IDs that must use % positioning, not px.
-      // GrapesJS sometimes injects pixel-based top/left overrides for these.
-      const overlayIds = ['top-live-badge', 'ifj49', 'i4t7s', 'ivxuo', 'monogram-id', 'i05ra', 'isphc', 'i6n16r'];
-      let cleanCss = css;
-      for (const id of overlayIds) {
-        // Remove pixel-based top overrides like: #id { top: 487px; ... }
-        // Replace with a comment marker — the CSS file's own rules take precedence
-        cleanCss = cleanCss.replace(
-          new RegExp(`(#${id}\\s*\\{[^}]*?)\\btop\\s*:\\s*-?\\d+(?:\\.\\d+)?px\\s*;?`, 'g'),
-          '$1'
-        );
-        cleanCss = cleanCss.replace(
-          new RegExp(`(#${id}\\s*\\{[^}]*?)\\bleft\\s*:\\s*-?\\d+(?:\\.\\d+)?px\\s*;?`, 'g'),
-          '$1'
-        );
-        // Also clean up pixel-based positioning for add-to-calendar-btn
-        cleanCss = cleanCss.replace(
-          /(#add-to-calendar-btn\s*\{[^}]*?)\btop\s*:\s*-?\d+(?:\.\d+)?px\s*;?/g,
-          '$1'
-        );
-        cleanCss = cleanCss.replace(
-          /(#add-to-calendar-btn\s*\{[^}]*?)\bleft\s*:\s*-?\d+(?:\.\d+)?px\s*;?/g,
-          '$1'
-        );
-        // Remove position:absolute overrides that GrapesJS adds (already set in class)
-      }
-      fs.writeFileSync(cssPath, cleanCss, 'utf8');
-    }
+    // NOTE: style.css is intentionally NOT written here. See comment above.
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
