@@ -77,6 +77,30 @@ document.addEventListener("DOMContentLoaded", () => {
                 statusBadge.style.backgroundColor = "#f6ffed";
                 statusBadge.style.borderColor = "#b7eb8f";
             }
+
+            // Hide countdown grid and show Watch Live button container
+            const countdownGrid = document.getElementById("countdown");
+            if (countdownGrid) {
+                countdownGrid.style.display = "none";
+            }
+            const watchLiveContainer = document.getElementById("watch-live-container");
+            if (watchLiveContainer) {
+                watchLiveContainer.style.display = "flex";
+            }
+
+            // Add smooth scroll click handler to the Watch Live button
+            const watchLiveBtn = document.getElementById("watch-live-btn");
+            if (watchLiveBtn) {
+                watchLiveBtn.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    document.getElementById("livestream")?.scrollIntoView({ behavior: "smooth" });
+                });
+            }
+
+            // Optional: Auto-scroll to livestream after a small delay
+            setTimeout(() => {
+                document.getElementById("livestream")?.scrollIntoView({ behavior: "smooth" });
+            }, 2000);
         }
     }, 1000);
 
