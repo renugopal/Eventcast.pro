@@ -10,9 +10,9 @@ document.addEventListener("DOMContentLoaded", () => {
         venue: "ASR Convention, Lalpuram, Chilakaluripeta Road, Beside NH Road, Guntur, Andhra Pradesh",
         youtubeId: "9V-TMCzFtVw",
         restreamerUrl: "", // Disabled for direct YouTube stream
-        supabaseUrl: 'https://ntjqjmuripwexwlhfrny.supabase.co',
-        supabaseKey: 'sb_publishable_vi_vz9qfKMJnEymw3WaPpg_2A6SeSWR',
-        eventId: 'mubeena-ameerbasha-nikah',
+        supabaseUrl: 'https://lteogzqeuuoxlekhofow.supabase.co',
+        supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0ZW9nenFldXVveGxla2hvZm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxOTc0ODIsImV4cCI6MjA5Mjc3MzQ4Mn0.eaGIKI5O17PI-bh52IiDDpPr4vqlBOU1Bq_NuAkYZXE',
+        eventId: '881139ac-9dfd-4c17-86d5-538537a0d4f9',
         eventType: 'Nikah Ceremony'
     };
 
