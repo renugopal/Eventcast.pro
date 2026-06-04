@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
         groom: "Ameer Basha",
         bride: "Mubeena",
         date: "Friday, June 5th",
-        time: "10:00 AM",
+        time: "10:30 AM",
         timerTarget: "2026-06-05T10:00:00+05:30",
         venue: "ASR Convention, Lalpuram, Chilakaluripeta Road, Beside NH Road, Guntur, Andhra Pradesh",
         youtubeId: "9V-TMCzFtVw",
@@ -115,7 +115,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (addToCalendarBtn) {
         addToCalendarBtn.addEventListener("click", () => {
             const title = encodeURIComponent(`${CONFIG.groom} & ${CONFIG.bride} ${CONFIG.eventType}`);
-            const startEndDates = "20260605T043000Z/20260605T080000Z";
+            const startEndDates = "20260605T050000Z/20260605T083000Z";
             const details = encodeURIComponent("Witness the beautiful wedding live stream of Shaik Mubeena Roshini & Tummalagodu Ameer Basha. Live streaming links and wishes wall available on Eventcast.");
             const location = encodeURIComponent(CONFIG.venue);
             
