@@ -1,0 +1,816 @@
+/* =========================================================
+   Mubeena & Ameer Basha — Nikah Ceremony | style.css
+   =========================================================
+   ⚠️  DO NOT EDIT via GrapesJS — CSS is protected.
+       GrapesJS only saves HTML. Position changes use
+       inline % styles in HTML; color/font via inline HTML.
+   ========================================================= */
+
+/* ─── CSS Variables ──────────────────────────────────────── */
+:root {
+    --primary-green: #073324;
+    --primary-green-rgb: 7, 51, 36;
+    --accent-gold: #cca762;
+    --accent-gold-light: rgba(204, 167, 98, 0.4);
+    --bg-cream: #fbf9f4;
+    --bg-cream-trans: rgba(251, 249, 244, 0.85);
+    --text-dark: #1f352e;
+    --text-muted: #5e6b66;
+    --white: #ffffff;
+    --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.05);
+    --shadow-gold: 0 10px 25px rgba(204, 167, 98, 0.15);
+}
+
+/* ─── Reset ──────────────────────────────────────────────── */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    scroll-behavior: smooth;
+}
+
+html, body {
+    background-color: var(--bg-cream);
+    font-family: Inter, sans-serif;
+    color: var(--text-dark);
+    overflow-x: hidden;
+}
+
+/* ─── Loader (Intro Screen) ──────────────────────────────── */
+/* Hide loader inside GrapesJS editor */
+body.gjs-no-select #loader,
+body[class*="gjs-"] #loader {
+    display: none !important;
+}
+
+#loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: var(--bg-cream);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    transition: opacity 0.6s ease, visibility 0.6s ease;
+}
+
+.loader-content {
+    text-align: center;
+}
+
+.logo-text {
+    font-family: Marcellus, serif;
+    font-size: 2.2rem;
+    color: var(--primary-green);
+    margin-bottom: 10px;
+    letter-spacing: 4px;
+}
+
+.loader-sub {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.1rem;
+    color: var(--accent-gold);
+    margin-bottom: 25px;
+    letter-spacing: 2px;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(7, 51, 36, 0.1);
+    border-top: 3px solid var(--accent-gold);
+    border-radius: 50%;
+    margin: 0 auto;
+    animation: spin 1s linear infinite;
+}
+
+/* ─── Desktop Blur Background ────────────────────────────── */
+.desktop-bg-blur {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-image: url("Template.webp");
+    background-size: cover;
+    background-position: center;
+    filter: blur(25px) brightness(0.3);
+    transform: scale(1.1);
+    z-index: 1;
+}
+
+/* ─── App Container ──────────────────────────────────────── */
+.app-container {
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    z-index: 2;
+}
+
+/* ─── Invitation Card ────────────────────────────────────── */
+.invitation-card {
+    width: 100%;
+    max-width: 480px;
+    background-color: var(--bg-cream);
+    box-shadow: rgba(0, 0, 0, 0.6) 0px 0px 80px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* ─── Hero Section ───────────────────────────────────────── */
+.hero-section {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 2369 / 5122;
+    background-image: url("Template.webp");
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-color: var(--bg-cream);
+    overflow: hidden;
+}
+
+.hero-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+/* ─── Overlay Elements ───────────────────────────────────────
+   ALL use percentage-based top/left for mobile responsiveness.
+   The hero section's height scales proportionally with width
+   (aspect-ratio 2369:5122), so % values work on all devices.
+   ──────────────────────────────────────────────────────────── */
+
+/* Live Event Streaming Badge — centered at top */
+.top-live-badge,
+#top-live-badge {
+    position: absolute;
+    top: 10.2%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--primary-green);
+    border-radius: 30px;
+    padding: 6px 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    column-gap: 8px;
+    z-index: 20;
+    box-shadow: rgba(0, 0, 0, 0.15) 0px 4px 15px;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    width: auto;
+    height: auto;
+}
+
+.live-dot {
+    width: 8px;
+    height: 8px;
+    background-color: rgb(255, 59, 48);
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse-red 1.6s ease infinite;
+}
+
+.live-text {
+    font-size: 0.58rem;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    color: var(--white);
+    font-family: Inter, sans-serif;
+}
+
+/* Bride Name */
+.bride-name-overlay,
+#ifj49 {
+    position: absolute;
+    top: 13.5%;
+    left: 5%;
+    width: 90%;
+    text-align: center;
+    font-family: "Cormorant Garamond", serif;
+    color: var(--primary-green);
+    font-size: 50px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.5px;
+}
+
+/* Groom Name */
+.groom-name-overlay,
+#i4t7s {
+    position: absolute;
+    top: 25.5%;
+    left: 5%;
+    width: 90%;
+    text-align: center;
+    font-family: "Cormorant Garamond", serif;
+    color: var(--primary-green);
+    font-size: 50px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.5px;
+}
+
+/* Nikah Ceremony Text */
+.nikah-ceremony-overlay,
+#ivxuo {
+    position: absolute;
+    top: 34%;
+    left: 10%;
+    width: 80%;
+    text-align: center;
+    font-family: "Cormorant Garamond", serif;
+    color: var(--primary-green);
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: capitalize;
+}
+
+/* Monogram M ♥ A */
+.monogram-overlay,
+#monogram-id {
+    position: absolute;
+    top: 39.4%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: transparent;
+    color: var(--accent-gold);
+    font-family: "Cormorant Garamond", serif;
+    font-size: 16px;
+    font-weight: 700;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 58px;
+    height: 22px;
+    z-index: 10;
+    letter-spacing: 0.5px;
+}
+
+/* Details Card (Date / Time / Venue) */
+.details-card,
+#i05ra {
+    position: absolute;
+    top: 44.5%;
+    left: 5%;
+    width: 90%;
+    height: 110px;
+    background-color: rgb(253, 251, 247);
+    border: 1px solid rgba(204, 167, 98, 0.45);
+    border-radius: 16px;
+    padding: 12px 10px;
+    backdrop-filter: blur(5px);
+    box-shadow: rgba(204, 167, 98, 0.12) 0px 8px 25px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.details-grid {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.detail-item {
+    flex: 1 1 0%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.icon-circle {
+    color: var(--accent-gold);
+    font-size: 1.3rem;
+    margin-bottom: 4px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.detail-label {
+    font-family: Montserrat, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    color: rgb(200, 169, 107);
+    margin-bottom: 3px;
+}
+
+.detail-value {
+    font-family: "Cormorant Garamond", serif;
+    font-size: 17px;
+    font-weight: 600;
+    color: rgb(15, 61, 51);
+    line-height: 1.2;
+}
+
+.detail-subvalue {
+    font-family: Inter, sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    color: rgb(102, 102, 102);
+    margin-top: 2px;
+}
+
+.vertical-divider {
+    width: 1px;
+    height: 52px;
+    background-color: rgba(204, 167, 98, 0.3);
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.divider-dot {
+    width: 5px;
+    height: 5px;
+    background-color: var(--accent-gold);
+    transform: rotate(45deg);
+    position: absolute;
+}
+
+/* Countdown Card */
+.countdown-card,
+#isphc {
+    position: absolute;
+    top: 57.5%;
+    left: 10%;
+    width: 80%;
+    height: 115px;
+    background-image: url("countdown-bg.webp");
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    background-color: transparent;
+    border: none;
+    padding: 22px 12px 12px 12px;
+    box-shadow: rgba(0, 0, 0, 0.15) 0px 10px 30px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.countdown-grid {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 2;
+    padding: 0 15px;
+}
+
+.time-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 45px;
+}
+
+.time-num {
+    font-family: "Bodoni Moda", serif;
+    font-size: 32px;
+    font-weight: 600;
+    color: rgb(255, 255, 255);
+    line-height: 1;
+}
+
+.time-label {
+    font-family: Montserrat, sans-serif;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: rgb(200, 169, 107);
+    margin-top: 6px;
+}
+
+.countdown-divider {
+    width: 1px;
+    height: 28px;
+    background-color: rgba(204, 167, 98, 0.4);
+    display: block;
+}
+
+/* Watch Live Button — HIDDEN until countdown = 0 */
+#watch-live-container {
+    display: none;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding-top: 10px;
+}
+
+.watch-live-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background-color: var(--primary-green);
+    color: var(--white);
+    border: 2px solid var(--accent-gold);
+    padding: 10px 24px;
+    border-radius: 30px;
+    font-family: Marcellus, serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-decoration: none;
+    cursor: pointer;
+    box-shadow: 0 0 15px rgba(204, 167, 98, 0.3);
+    transition: all 0.3s ease;
+    animation: gold-pulse 2s infinite;
+}
+
+.watch-live-btn:hover {
+    background-color: var(--accent-gold);
+    color: var(--primary-green);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(204, 167, 98, 0.6);
+}
+
+.watch-live-btn i {
+    font-size: 1.1rem;
+    color: var(--accent-gold);
+    transition: all 0.3s ease;
+}
+
+.watch-live-btn:hover i { color: var(--primary-green); }
+
+/* Add to Calendar Button */
+.calendar-btn-wrapper,
+#i6n16r {
+    position: absolute;
+    top: 70.5%;
+    left: 5%;
+    width: 90%;
+    display: flex;
+    justify-content: center;
+}
+
+/* Remove any GrapesJS pixel overrides on the calendar button itself */
+#add-to-calendar-btn {
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+}
+
+.calendar-btn {
+    width: 65%;
+    height: 42px;
+    background-color: rgb(253, 251, 247);
+    border-radius: 20px;
+    padding: 0 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    column-gap: 8px;
+    cursor: pointer;
+    font-family: Inter, sans-serif;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--primary-green);
+    letter-spacing: 1.5px;
+    border: 1px solid rgba(204, 167, 98, 0.3);
+    box-shadow: rgba(204, 167, 98, 0.1) 0px 4px 12px;
+    transition: all 0.3s ease;
+}
+
+.calendar-btn:hover {
+    background-color: var(--primary-green);
+    color: var(--white);
+    box-shadow: rgba(7, 51, 36, 0.3) 0px 6px 18px;
+}
+
+.calendar-icon {
+    font-size: 0.8rem;
+    color: var(--accent-gold);
+}
+
+.btn-decor-left,
+.btn-decor-right {
+    color: var(--accent-gold);
+    font-size: 8px;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* ─── Sections ───────────────────────────────────────────── */
+.section-divider {
+    width: calc(100% - 40px);
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(204, 167, 98, 0.3), transparent);
+    margin: 15px auto 10px auto;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 0 20px;
+    flex-wrap: nowrap;
+}
+
+.section-title {
+    font-family: Marcellus, serif;
+    color: var(--primary-green);
+    font-size: 1.1rem;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 0;
+    white-space: nowrap;
+}
+
+.section-title::after { display: none; }
+
+.section-subtitle {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+
+.livestream-section {
+    padding: 0 20px 10px 20px;
+    background-color: var(--bg-cream);
+}
+
+.status-badge {
+    background-color: rgb(255, 241, 240);
+    border: 1px solid rgb(255, 204, 199);
+    color: rgb(255, 77, 79);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.pulse-dot {
+    width: 6px;
+    height: 6px;
+    background-color: rgb(255, 77, 79);
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse-red 1.6s ease infinite;
+}
+
+.video-card {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow-soft);
+    margin-bottom: 15px;
+    padding: 6px;
+}
+
+/* ─── Wishes Section ─────────────────────────────────────── */
+.wishes-section {
+    padding: 0 20px 25px 20px;
+    background-color: var(--bg-cream);
+}
+
+.wishes-form-card {
+    background-color: var(--white);
+    border: 1px solid rgba(204, 167, 98, 0.3);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--shadow-soft);
+    margin-bottom: 25px;
+}
+
+.form-group { margin-bottom: 15px; }
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    background-color: rgb(250, 249, 246);
+    border: 1px solid rgba(7, 51, 36, 0.12);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: Inter, sans-serif;
+    font-size: 0.8rem;
+    color: var(--text-dark);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    box-shadow: rgba(204, 167, 98, 0.1) 0px 0px 0px 3px;
+    background-color: var(--white);
+}
+
+.form-group textarea { resize: none; }
+
+.submit-btn {
+    width: 100%;
+    background-color: var(--primary-green);
+    color: var(--white);
+    border: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    cursor: pointer;
+    font-family: Inter, sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: rgba(7, 51, 36, 0.15) 0px 4px 10px;
+    transition: all 0.3s ease;
+}
+
+.submit-btn:hover {
+    background-color: var(--accent-gold);
+    color: var(--primary-green);
+    box-shadow: var(--shadow-gold);
+}
+
+.wishes-list-container { width: 100%; }
+.wishes-list { display: flex; flex-direction: column; gap: 12px; }
+
+.wish-card {
+    background-color: var(--white);
+    border: 1px solid rgba(204, 167, 98, 0.2);
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: var(--shadow-soft);
+    animation: slideIn 0.4s ease;
+}
+
+.wish-name {
+    font-family: Marcellus, serif;
+    font-size: 0.85rem;
+    color: var(--primary-green);
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.wish-message {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+/* ─── Venue Section ──────────────────────────────────────── */
+.venue-info-card {
+    background-color: var(--white);
+    border: 1px solid rgba(204, 167, 98, 0.3);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: var(--shadow-soft);
+}
+
+.venue-title {
+    font-family: Marcellus, serif;
+    color: var(--primary-green);
+    font-size: 0.85rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.venue-title i { color: var(--accent-gold); }
+
+.venue-address {
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+    margin-bottom: 15px;
+}
+
+.maps-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background-color: var(--primary-green);
+    color: var(--white);
+    text-decoration: none;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 10px 18px;
+    border-radius: 30px;
+    box-shadow: rgba(7, 51, 36, 0.15) 0px 4px 10px;
+    transition: all 0.3s ease;
+}
+
+.maps-btn:hover {
+    background-color: var(--accent-gold);
+    color: var(--primary-green);
+    box-shadow: var(--shadow-gold);
+}
+
+/* ─── Footer ─────────────────────────────────────────────── */
+footer {
+    background: linear-gradient(135deg, #05261a 0%, #02140e 100%);
+    color: var(--white);
+    padding: 30px 20px 20px 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+footer::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image:
+        radial-gradient(circle at 50% -20%, rgba(204, 167, 98, 0.25) 0%, transparent 65%),
+        radial-gradient(rgba(204, 167, 98, 0.08) 1px, transparent 1px);
+    background-size: 100% 100%, 16px 16px;
+    pointer-events: none;
+    opacity: 0.8;
+}
+
+.footer-decor {
+    color: var(--accent-gold);
+    font-size: 1rem;
+    margin-bottom: 10px;
+}
+
+/* ─── Lantern effect ─────────────────────────────────────── */
+.lantern-light {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 235, 180, 0.95) 0%, rgba(255, 160, 20, 0.55) 35%, rgba(255, 110, 0, 0.1) 65%, transparent 80%);
+    box-shadow: 0 0 10px rgba(255, 160, 20, 0.35);
+    pointer-events: none;
+    z-index: 15;
+    animation: lantern-glow 2.2s ease-in-out infinite alternate;
+}
+
+/* ─── Animations ─────────────────────────────────────────── */
+@keyframes spin {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse-red {
+    0%   { transform: scale(0.92); box-shadow: rgba(255, 59, 48, 0.75) 0px 0px 0px 0px; }
+    70%  { transform: scale(1.08); box-shadow: rgba(255, 59, 48, 0) 0px 0px 0px 6px; }
+    100% { transform: scale(0.92); box-shadow: rgba(255, 59, 48, 0) 0px 0px 0px 0px; }
+}
+
+@keyframes gold-pulse {
+    0%   { box-shadow: rgba(204, 167, 98, 0.5) 0px 0px 0px 0px; }
+    70%  { box-shadow: rgba(204, 167, 98, 0) 0px 0px 0px 10px; }
+    100% { box-shadow: rgba(204, 167, 98, 0) 0px 0px 0px 0px; }
+}
+
+@keyframes lantern-glow {
+    0%   { opacity: 0.35; transform: scale(0.9); box-shadow: 0 0 8px rgba(255, 160, 20, 0.25); }
+    100% { opacity: 0.85; transform: scale(1.05); box-shadow: 0 0 20px rgba(255, 180, 40, 0.65), 0 0 8px rgba(255, 255, 255, 0.5); }
+}
+
+@keyframes slideIn {
+    0%   { opacity: 0; transform: translateY(10px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Desktop (> 480px) ──────────────────────────────────── */
+@media (min-width: 481px) {
+    .desktop-bg-blur  { display: block; }
+    .app-container    { padding: 40px 0; }
+    .invitation-card  {
+        border-radius: 24px;
+        overflow: hidden;
+        min-height: auto;
+    }
+}
+
+/* ─── Mobile (≤ 480px) ───────────────────────────────────── */
+@media (max-width: 480px) {
+    .detail-label    { font-size: 11px; }
+    .detail-value    { font-size: 17px; }
+    .detail-subvalue { font-size: 12px; }
+    .time-num        { font-size: 28px; }
+    .time-unit       { min-width: 40px; }
+}
