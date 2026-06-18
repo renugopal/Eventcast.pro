@@ -36,12 +36,14 @@ export const CreateEventFlow = ({
   studioSlug, 
   initialData = null, 
   isEditing = false,
+  editingId = null,
   onComplete
 }: { 
   studioId: string; 
   studioSlug: string; 
   initialData?: any; 
   isEditing?: boolean;
+  editingId?: string | null;
   onComplete: () => void;
 }) => {
   const { success, error: toastError } = useToast();
@@ -208,7 +210,7 @@ export const CreateEventFlow = ({
         body: JSON.stringify({ 
           ...formData, 
           isEditing, 
-          editingId: initialData?.id,
+          editingId,
           // Gallery array formatting expected by backend
           galleryUrls: formData.galleryUrls.split('\n').filter((url: string) => url.trim())
         }),

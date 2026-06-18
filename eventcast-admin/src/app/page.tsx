@@ -1104,6 +1104,7 @@ export default function AdminDashboard() {
             studioSlug={studioSlug!}
             initialData={isEditing ? formData : null}
             isEditing={isEditing}
+            editingId={editingId}
             onComplete={() => {
               setActiveTab("list");
               fetchEvents();
