@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     // Photo limit: free_trial → 20, all other plans → 50
     const guestPhotoLimit = tier === 'free_trial' ? 20 : 50;
 
-    if (isNewEvent) {
+    if (isNewEvent && !auth.isSuperAdmin) {
       if (!isSubscribed) {
         // Must charge prepaid event fee: ₹499 (49900 paise)
         const { data: wallet, error: walletError } = await supabase
