@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { 
   Heart, Star, PartyPopper, Cake, Crown, ChevronLeft, ChevronRight,
   Globe, Layout, Clock, MapPin, UploadCloud, Shield, Search, Zap,
-  Image as ImageIcon, Loader2, CheckCircle2, Film, X
+  Image as ImageIcon, Loader2, CheckCircle2, Film, X, Camera
 } from "lucide-react";
 import { uploadToR2, compressFilesForR2 } from "@/lib/uploadHelpers";
 import { authFetch } from "@/lib/client-auth";
@@ -70,6 +70,9 @@ export const CreateEventFlow = ({
     galleryUrls: "",
     privacyStatus: "Public (Visible Everywhere)",
     youtubePrivacy: "unlisted",
+    photographerName: "",
+    photographerPhone: "",
+    photographerInsta: "",
     notes: "",
     templateId: ""
   });
@@ -386,7 +389,28 @@ export const CreateEventFlow = ({
             </div>
           </div>
 
-          {/* Section 4: Media Assets */}
+          {/* Section 4: Photography Details */}
+          <div className="ec-card p-6 space-y-6 border-l-4 border-l-amber-500">
+            <h3 className="ec-section-title flex items-center gap-2">
+              <Camera size={16} className="text-amber-500" /> Photography Details
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="col-span-1 md:col-span-2">
+                <label className="ec-label">Studio / Photographer Name</label>
+                <input type="text" name="photographerName" value={formData.photographerName} onChange={handleInputChange} className="ec-input w-full" placeholder="e.g. Dream Captures" />
+              </div>
+              <div>
+                <label className="ec-label">Contact Phone</label>
+                <input type="tel" name="photographerPhone" value={formData.photographerPhone} onChange={handleInputChange} className="ec-input w-full" placeholder="Phone number" />
+              </div>
+              <div>
+                <label className="ec-label">Instagram Link</label>
+                <input type="url" name="photographerInsta" value={formData.photographerInsta} onChange={handleInputChange} className="ec-input w-full" placeholder="https://instagram.com/..." />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 5: Media Assets */}
           <div className="ec-card p-6 space-y-6 border-l-4 border-l-indigo-500">
             <h3 className="ec-section-title flex items-center gap-2">
               <ImageIcon size={16} className="text-indigo-500" /> Media & Uploads

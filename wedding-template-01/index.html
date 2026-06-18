@@ -177,7 +177,75 @@
             </div>
         </section>
 
-        <!-- PHOTO GALLERY SLIDESHOW SECTION -->
+<!-- CHAT / WISHES SECTION -->
+        <section id="chat-section" class="reveal">
+            <div class="content-card">
+                <h2 class="section-title" data-i18n="wishes_wall">Wishes Wall</h2>
+                <p class="section-subtitle" data-i18n="wishes_subtitle">Send your blessings to the happy couple</p>
+
+                <form id="wishes-form">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <input type="text" id="wish-name" placeholder="Your Name" data-i18n="name_placeholder" required>
+                        </div>
+                        <div class="input-group">
+                            <textarea id="wish-message" rows="3" placeholder="Write your message here..."
+                                data-i18n="message_placeholder" required></textarea>
+                        </div>
+                        <button type="submit" class="btn primary-btn"><span data-i18n="send_message">Send Message</span> <i
+                                class="fas fa-paper-plane"></i></button>
+                    </div>
+                </form>
+
+                <div id="wishes-list" class="wishes-scroll-area">
+                    <!-- Wishes will appear here -->
+                </div>
+            </div>
+        </section>
+
+<!-- GUEST PHOTO WALL SECTION -->
+        <section id="guest-photo-wall" class="reveal" style="display:none;">
+            <div class="content-card">
+                <h2 class="section-title">📸 Guest Memories</h2>
+                <p class="section-subtitle">Share your special moments with the couple</p>
+
+                <!-- Upload Area -->
+                <div id="gpw-upload-area" class="gpw-upload-area">
+                    <label for="gpw-file-input" class="gpw-upload-label" id="gpw-upload-label">
+                        <i class="fas fa-camera" style="font-size:2.5rem; margin-bottom:15px; color:var(--gold, #D4AF37);"></i>
+                        <span style="font-weight:600; font-size:1.1rem; color:var(--primary); margin-bottom:10px;">Tap to share a photo</span>
+                        <div class="btn primary-btn" style="padding: 8px 24px; font-size: 0.9rem; pointer-events: none;">Upload Photo</div>
+                        <small style="opacity:0.5; font-size:0.8rem; margin-top:10px; display:block; color:var(--primary);">Auto-optimized • Instant upload</small>
+                    </label>
+                    <input type="file" id="gpw-file-input" accept="image/*" capture="environment" style="display:none">
+                </div>
+
+                <!-- Name + Submit (shown after file selected) -->
+                <div id="gpw-name-area" style="display:none; margin-top:14px;">
+                    <input type="text" id="gpw-uploader-name" placeholder="Your name *" maxlength="60"
+                        style="width:100%; padding:12px 16px; background:rgba(0,0,0,0.03); border:1px solid rgba(0,0,0,0.1); border-radius:12px; color:var(--primary); font-size:0.95rem; outline:none; margin-bottom:10px; box-sizing:border-box;">
+                    <button id="gpw-submit-btn" class="btn primary-btn" style="width:100%;">
+                        <i class="fas fa-paper-plane"></i> Share Your Memory
+                    </button>
+                </div>
+
+                <!-- Progress -->
+                <div id="gpw-progress" style="display:none; text-align:center; padding:16px; color:rgba(0,0,0,0.6);">
+                    <div class="spinner" style="margin:0 auto 10px;"></div>
+                    <span id="gpw-progress-text">Uploading your photo...</span>
+                </div>
+
+                <!-- Photo limit reached message -->
+                <div id="gpw-limit-msg" style="display:none; text-align:center; padding:20px; color:rgba(0,0,0,0.5); font-size:0.9rem;">
+                    📷 The photo wall is full. Thank you for being part of this celebration! 🎉
+                </div>
+
+                <!-- Photo Grid -->
+                <div id="gpw-grid" class="gpw-grid" style="margin-top:20px;"></div>
+            </div>
+        </section>
+
+<!-- PHOTO GALLERY SLIDESHOW SECTION -->
         <section id="photo-gallery" class="reveal">
             <h2 class="section-title" id="gallery-title" data-i18n="memories">Memories</h2>
             <div class="slideshow-container">
@@ -215,91 +283,7 @@
 
 
 
-
-        <!-- CHAT / WISHES SECTION -->
-        <section id="chat-section" class="reveal">
-            <div class="content-card">
-                <h2 class="section-title" data-i18n="wishes_wall">Wishes Wall</h2>
-                <p class="section-subtitle" data-i18n="wishes_subtitle">Send your blessings to the happy couple</p>
-
-                <form id="wishes-form">
-                    <div class="form-grid">
-                        <div class="input-group">
-                            <input type="text" id="wish-name" placeholder="Your Name" data-i18n="name_placeholder" required>
-                        </div>
-                        <div class="input-group">
-                            <textarea id="wish-message" rows="3" placeholder="Write your message here..."
-                                data-i18n="message_placeholder" required></textarea>
-                        </div>
-                        <button type="submit" class="btn primary-btn"><span data-i18n="send_message">Send Message</span> <i
-                                class="fas fa-paper-plane"></i></button>
-                    </div>
-                </form>
-
-                <div id="wishes-list" class="wishes-scroll-area">
-                    <!-- Wishes will appear here -->
-                </div>
-            </div>
-        </section>
-
-        <!-- GUEST PHOTO WALL SECTION -->
-        <section id="guest-photo-wall" class="reveal" style="display:none;">
-            <div class="content-card">
-                <h2 class="section-title">📸 Guest Memories</h2>
-                <p class="section-subtitle">Share your special moments with the couple</p>
-
-                <!-- Upload Area -->
-                <div id="gpw-upload-area" class="gpw-upload-area">
-                    <label for="gpw-file-input" class="gpw-upload-label" id="gpw-upload-label">
-                        <i class="fas fa-camera" style="font-size:2rem; margin-bottom:10px; opacity:0.7;"></i>
-                        <span style="font-weight:600; font-size:1rem;">Tap to share a photo</span>
-                        <small style="opacity:0.5; font-size:0.8rem;">Auto-optimized • Instant upload</small>
-                    </label>
-                    <input type="file" id="gpw-file-input" accept="image/*" capture="environment" style="display:none">
-                </div>
-
-                <!-- Name + Submit (shown after file selected) -->
-                <div id="gpw-name-area" style="display:none; margin-top:14px;">
-                    <input type="text" id="gpw-uploader-name" placeholder="Your name *" maxlength="60"
-                        style="width:100%; padding:12px 16px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:12px; color:#fff; font-size:0.95rem; outline:none; margin-bottom:10px; box-sizing:border-box;">
-                    <button id="gpw-submit-btn" class="btn primary-btn" style="width:100%;">
-                        <i class="fas fa-paper-plane"></i> Share Your Memory
-                    </button>
-                </div>
-
-                <!-- Progress -->
-                <div id="gpw-progress" style="display:none; text-align:center; padding:16px; color:rgba(255,255,255,0.6);">
-                    <div class="spinner" style="margin:0 auto 10px;"></div>
-                    <span id="gpw-progress-text">Uploading your photo...</span>
-                </div>
-
-                <!-- Photo limit reached message -->
-                <div id="gpw-limit-msg" style="display:none; text-align:center; padding:20px; color:rgba(255,255,255,0.5); font-size:0.9rem;">
-                    📷 The photo wall is full. Thank you for being part of this celebration! 🎉
-                </div>
-
-                <!-- Photo Grid -->
-                <div id="gpw-grid" class="gpw-grid" style="margin-top:20px;"></div>
-            </div>
-        </section>
-
-        <!-- MAP SECTION -->
-        <section id="map-section" class="reveal">
-            <h2 class="section-title" data-i18n="locate_venue">Locate the Venue</h2>
-            <div class="map-container">
-                <iframe
-                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1917.0467720586541!2d80.14708175416443!3d16.06063485008458!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a4a63adef6520c9%3A0x458efdaf0f2c3d7c!2sSri%20Prasannanjaneyavari%20Kalyanamandapam!5e0!3m2!1sen!2sin!4v1776448044250!5m2!1sen!2sin"
-                    width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy"
-                    referrerpolicy="no-referrer-when-downgrade"></iframe>
-            </div>
-            <div class="action-buttons">
-                <a href="https://maps.app.goo.gl/h3vr859mEzQZXaEL7" target="_blank" class="btn map-btn">
-                    <i class="fas fa-location-dot"></i><span data-i18n="open_maps"> Open in Google Maps</span>
-                </a>
-            </div>
-        </section>
-
-        <!-- FOOTER & PHOTOGRAPHER -->
+<!-- FOOTER & PHOTOGRAPHER -->
         <footer>
             <div class="photographer-section">
                 <img src="" alt="Studio Logo" id="footer-logo">

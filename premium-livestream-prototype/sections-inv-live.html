@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>Invitation &amp; Live — Aravind &amp; Meghana</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,200;0,300;0,400;0,500;1,200;1,300;1,400&family=Jost:wght@300;400;500;600&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet"/>
+
+  <style>
+  /* ═══════════════════════════════════════════════
+     DESIGN TOKENS  (matches approved Hero)
+  ═══════════════════════════════════════════════ */
+  :root {
+    /* Brand colours */
+    --ivory:        #fdf8f1;
+    --cream:        #f7f0e3;
+    --cream-deep:   #f0e6d0;
+    --gold:         #b8922f;
+    --gold-mid:     #c9a84c;
+    --gold-light:   #d4aa5a;
+    --gold-pale:    #e8d5a3;
+    --rust:         #7b4b1c;
+    --text-dark:    #281608;
+    --text-warm:    #3a2412;
+    --text-body:    #52341e;
+    --text-muted:   #7a5e44;
+    --text-faint:   #a08868;
+    --border:       rgba(184,146,47,0.22);
+    --border-mid:   rgba(184,146,47,0.32);
+
+    /* Player dark palette */
+    --player-bg:    #130b04;
+    --player-mid:   #1e1008;
+    --player-glow:  rgba(184,146,47,0.08);
+
+    /* Typography */
+    --serif:   'Cormorant Garamond', Georgia, serif;
+    --italic:  'IM Fell English', Georgia, serif;
+    --sans:    'Jost', system-ui, sans-serif;
+
+    /* Motion */
+    --ease:      cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --ease-out:  cubic-bezier(0.16, 1, 0.3,  1);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--ivory);
+    color: var(--text-body);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  img { display: block; max-width: 100%; }
+
+  /* ═══════════════════════════════════════════════
+     SHARED LAYOUT UTILITIES
+  ═══════════════════════════════════════════════ */
+  .container {
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* Section spacing */
+  .section { padding: 64px 0 56px; }
+  .section-alt { background: var(--cream); }
+
+  /* Section header */
+  .section-eyebrow {
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--gold);
+    text-align: center;
+    margin-bottom: 9px;
+  }
+  .section-title {
+    font-family: var(--serif);
+    font-size: clamp(24px, 6.5vw, 32px);
+    font-weight: 400;
+    color: var(--text-dark);
+    text-align: center;
+    line-height: 1.2;
+    margin-bottom: 10px;
+  }
+  .section-sub {
+    font-size: 13.5px;
+    font-weight: 300;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.72;
+    max-width: 300px;
+    margin: 0 auto 28px;
+  }
+
+  /* Thin ornamental divider */
+  .ornament {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 auto 28px;
+  }
+  .ornament::before,
+  .ornament::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--gold-light), transparent);
+  }
+  .ornament-icon {
+    flex-shrink: 0;
+    color: var(--gold-mid);
+    font-size: 14px;
+    line-height: 1;
+    opacity: 0.75;
+  }
+
+  /* ─── Scroll-driven fade-up ─── */
+  .fade-up {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.8s var(--ease-out), transform 0.8s var(--ease-out);
+  }
+  .fade-up.visible { opacity: 1; transform: none; }
+  .fade-up.d1 { transition-delay: 0.12s; }
+  .fade-up.d2 { transition-delay: 0.24s; }
+  .fade-up.d3 { transition-delay: 0.36s; }
+  .fade-up.d4 { transition-delay: 0.52s; }
+
+  /* ═══════════════════════════════════════════════
+     HERO STUB (approved hero context — simplified)
+  ═══════════════════════════════════════════════ */
+  #hero-stub {
+    width: 100%;
+    height: 100svh;
+    background:
+      linear-gradient(180deg, rgba(245,232,213,0.96) 0%, rgba(240,225,200,0.98) 100%),
+      url('./assets/hero_bg.png') center center / cover no-repeat;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0 28px;
+    position: relative;
+  }
+  #hero-stub .stub-label {
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+  #hero-stub .stub-names {
+    font-family: var(--serif);
+    font-size: clamp(56px, 16vw, 76px);
+    font-weight: 300;
+    color: var(--text-dark);
+    line-height: 0.92;
+  }
+  #hero-stub .stub-weds {
+    font-family: var(--italic);
+    font-style: italic;
+    font-size: 15px;
+    color: var(--gold);
+    letter-spacing: 0.26em;
+    display: block;
+    margin: 8px 0;
+  }
+  #hero-stub .stub-note {
+    margin-top: 12px;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  /* Scroll cue on hero stub */
+  #hero-stub .stub-scroll {
+    position: absolute;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 8.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  #hero-stub .stub-mouse {
+    width: 19px; height: 30px;
+    border: 1.5px solid rgba(184,146,47,0.42);
+    border-radius: 10px;
+    display: flex; justify-content: center; padding-top: 5px;
+  }
+  #hero-stub .stub-mouse::after {
+    content: '';
+    width: 2.5px; height: 5px;
+    background: var(--gold); border-radius: 2px;
+    animation: bob 2s ease-in-out infinite;
+  }
+  @keyframes bob {
+    0%,100% { transform: translateY(0); opacity: 1; }
+    60%      { transform: translateY(6px); opacity: 0.3; }
+  }
+
+
+  /* ═══════════════════════════════════════════════
+     ① INVITATION VIDEO SECTION
+  ═══════════════════════════════════════════════ */
+  #invitation { background: var(--ivory); }
+
+  /*
+     The video container IS the design.
+     No card, no thumbnail overlay chrome —
+     just the 16:9 frame itself, with quiet shadow
+     and a single clean border.
+  */
+  .inv-video-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--player-bg);
+    box-shadow:
+      0 8px 40px rgba(44, 20, 4, 0.16),
+      0 1px 0 rgba(184,146,47,0.28) inset;
+  }
+
+  /* Actual <video> element */
+  .inv-video {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: 16px;
+  }
+
+  /*
+     Placeholder frame shown in prototype
+     (replaces video when no src available).
+     Uses the exact wedding palette — feels
+     like a paused frame, not a UI component.
+  */
+  .inv-placeholder {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 70% 60% at 50% 45%, rgba(184,146,47,0.09) 0%, transparent 100%),
+      linear-gradient(160deg, #1e1208 0%, #2c1a0a 55%, #1a0f05 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .inv-ph-om {
+    font-size: 20px;
+    color: rgba(184,146,47,0.55);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .inv-ph-title {
+    font-family: var(--serif);
+    font-size: clamp(14px, 4vw, 17px);
+    font-weight: 300;
+    color: rgba(253,248,241,0.80);
+    letter-spacing: 0.06em;
+    text-align: center;
+  }
+  .inv-ph-sub {
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(184,146,47,0.50);
+  }
+
+  /*
+     PLAY OVERLAY — appears after video loops complete,
+     or on pause. NOT a large circle. A slim pill at
+     the bottom of the frame, with a tiny play icon.
+  */
+  .inv-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 16px;
+    background: rgba(20, 10, 3, 0.28);
+    opacity: 0;
+    transition: opacity 0.5s var(--ease);
+    pointer-events: none;
+    border-radius: 16px;
+  }
+  .inv-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  /* The elegant slim play pill */
+  .inv-play-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: rgba(253,248,241,0.90);
+    border: 1px solid rgba(184,146,47,0.35);
+    border-radius: 30px;
+    padding: 8px 18px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.18);
+  }
+  .inv-play-pill:hover,
+  .inv-play-pill:focus-visible {
+    background: rgba(253,248,241,0.98);
+    box-shadow: 0 4px 22px rgba(184,146,47,0.28);
+  }
+  .inv-play-pill svg { flex-shrink: 0; }
+  .inv-play-pill span {
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-warm);
+  }
+
+  /* Corner badge: "Invitation" */
+  .inv-badge {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(253,248,241,0.88);
+    border: 1px solid rgba(184,146,47,0.28);
+    border-radius: 20px;
+    padding: 5px 11px;
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--gold);
+    backdrop-filter: blur(6px);
+  }
+  .inv-badge-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--gold-mid);
+    flex-shrink: 0;
+  }
+
+  /* Below-frame metadata line */
+  .inv-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12px;
+    padding: 0 2px;
+  }
+  .inv-meta-title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 13.5px;
+    color: var(--text-body);
+    letter-spacing: 0.04em;
+  }
+  .inv-meta-duration {
+    font-size: 11px;
+    font-weight: 300;
+    color: var(--text-faint);
+    letter-spacing: 0.08em;
+  }
+
+
+  /* ═══════════════════════════════════════════════
+     ② LIVE STREAM SECTION
+  ═══════════════════════════════════════════════ */
+  #livestream { background: var(--cream); }
+
+  /*
+     The "LIVE" section header has an extra visual cue —
+     a pulsing red live indicator beside the eyebrow.
+  */
+  .live-eyebrow-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 9px;
+  }
+  .live-eyebrow-label {
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  @keyframes pulseLive {
+    0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.75); }
+    60%      { box-shadow: 0 0 0 7px rgba(239,68,68,0);  }
+  }
+  .live-indicator {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #ef4444;
+    animation: pulseLive 1.8s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  /*
+     PLAYER WRAPPER — the 16:9 frame.
+     Gets extra shadow treatment for prominence.
+  */
+  .player-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow:
+      0 12px 56px rgba(44, 20, 4, 0.20),
+      0 2px 0  rgba(184,146,47,0.22) inset,
+      0 0 0 1px rgba(184,146,47,0.14);
+    background: var(--player-bg);
+  }
+
+  /* ─ PRE-EVENT STATE ─────────────────────────── */
+  .player-pre {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 18px;
+    gap: 0;
+    /* Warm deep dark with very subtle gold glow */
+    background:
+      radial-gradient(ellipse 75% 55% at 50% 48%, rgba(184,146,47,0.07) 0%, transparent 100%),
+      radial-gradient(ellipse 50% 35% at 50% 85%, rgba(184,146,47,0.04) 0%, transparent 100%),
+      linear-gradient(165deg, #1e1208 0%, #2e1c0c 50%, #1a0f05 100%);
+    transition: opacity 0.6s var(--ease);
+    z-index: 1;
+  }
+  /* Subtle top-edge warm glow line */
+  .player-pre::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 15%; right: 15%; height: 1px;
+    background: linear-gradient(to right, transparent, rgba(184,146,47,0.35), transparent);
+    border-radius: 1px;
+  }
+
+  /* Status tag inside the player */
+  .pre-status-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid rgba(184,146,47,0.28);
+    border-radius: 20px;
+    padding: 4px 12px;
+    margin-bottom: 12px;
+  }
+  .pre-status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: rgba(184,146,47,0.55);
+    flex-shrink: 0;
+  }
+  .pre-status-text {
+    font-size: 8.5px;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(184,146,47,0.65);
+  }
+
+  /* Main pre-event heading */
+  .pre-heading {
+    font-family: var(--serif);
+    font-size: clamp(17px, 4.8vw, 22px);
+    font-weight: 300;
+    color: rgba(253,248,241,0.90);
+    text-align: center;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+    margin-bottom: 4px;
+  }
+  .pre-heading em {
+    font-style: italic;
+    color: rgba(212,170,90,0.85);
+  }
+
+  /* Date row inside player */
+  .pre-date-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 14px;
+  }
+  .pre-date-row span {
+    font-size: 10.5px;
+    font-weight: 300;
+    letter-spacing: 0.14em;
+    color: rgba(253,248,241,0.45);
+  }
+  .pre-date-row .pdot {
+    width: 2.5px; height: 2.5px;
+    border-radius: 50%;
+    background: rgba(184,146,47,0.4);
+    flex-shrink: 0;
+  }
+
+  /* In-player countdown tiles */
+  .pre-cd-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 14px;
+  }
+  .pre-cd-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .pre-cd-num {
+    font-family: var(--serif);
+    font-size: clamp(24px, 7vw, 32px);
+    font-weight: 300;
+    line-height: 1;
+    color: rgba(253,248,241,0.90);
+    /* Glass tile — small inside player */
+    background: rgba(253,248,241,0.07);
+    border: 1px solid rgba(184,146,47,0.22);
+    border-radius: 8px;
+    width:  clamp(44px, 12.5vw, 54px);
+    height: clamp(44px, 12.5vw, 54px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.07);
+  }
+  .pre-cd-label {
+    font-size: 7px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(184,146,47,0.50);
+  }
+  .pre-cd-sep {
+    font-family: var(--serif);
+    font-size: 22px;
+    color: rgba(184,146,47,0.30);
+    align-self: flex-start;
+    margin-top: 10px;
+    flex-shrink: 0;
+  }
+
+  /* Sub-note inside player */
+  .pre-note {
+    font-size: 9.5px;
+    font-weight: 300;
+    letter-spacing: 0.14em;
+    color: rgba(253,248,241,0.30);
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  /* ─ LIVE PLAYER STATE (iframe) ─────────────── */
+  .player-live {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s var(--ease);
+    z-index: 2;
+  }
+  .player-live iframe {
+    width: 100%; height: 100%;
+    border: none; display: block;
+    border-radius: 18px;
+  }
+  /* When live is active */
+  .player-wrap.is-live .player-pre  { opacity: 0; pointer-events: none; }
+  .player-wrap.is-live .player-live { opacity: 1; pointer-events: auto; }
+
+  /* LIVE badge — shown only when live */
+  .player-live-badge {
+    position: absolute;
+    top: 12px; left: 12px;
+    z-index: 3;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    background: rgba(220,38,38,0.88);
+    border-radius: 20px;
+    padding: 5px 11px;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 2px 10px rgba(220,38,38,0.35);
+  }
+  .player-wrap.is-live .player-live-badge { display: flex; }
+  .live-badge-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #fff;
+    animation: pulseLive 1.5s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  .live-badge-text {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #fff;
+  }
+
+  /* ─ STATUS STRIP below player ───────────────── */
+  .player-status-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 13px;
+    padding: 0 2px;
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(44,20,4,0.06);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 13px;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .status-pill.live-pill {
+    background: rgba(220,38,38,0.06);
+    border-color: rgba(220,38,38,0.22);
+    color: #c53030;
+  }
+  .status-pill .sp-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-faint);
+    flex-shrink: 0;
+  }
+  .status-pill.live-pill .sp-dot {
+    background: #ef4444;
+    animation: pulseLive 1.5s ease-in-out infinite;
+  }
+
+  .viewers-count {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 300;
+    color: var(--text-muted);
+  }
+  .viewers-count svg { flex-shrink: 0; opacity: 0.6; }
+
+  .quality-tag {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--gold);
+    background: rgba(184,146,47,0.08);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 3px 8px;
+  }
+
+  /* ─ NOTIFY CTA (pre-event) ──────────────────── */
+  .notify-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: 20px;
+  }
+  .notify-text {
+    font-size: 12.5px;
+    font-weight: 300;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.6;
+    max-width: 280px;
+  }
+  .notify-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1.5px solid var(--border-mid);
+    border-radius: 30px;
+    padding: 10px 22px;
+    font-family: var(--sans);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold);
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+  }
+  .notify-btn:hover, .notify-btn:focus-visible {
+    background: rgba(184,146,47,0.05);
+    box-shadow: 0 2px 12px rgba(184,146,47,0.15);
+  }
+
+  /* ─ DEMO TOGGLE (prototype only) ───────────── */
+  .demo-toggle-wrap {
+    display: flex;
+    justify-content: center;
+    margin-top: 16px;
+  }
+  .demo-toggle {
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    background: transparent;
+    border: 1px dashed rgba(184,146,47,0.25);
+    border-radius: 20px;
+    padding: 6px 16px;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .demo-toggle:hover { color: var(--gold); border-color: rgba(184,146,47,0.45); }
+  .demo-toggle-note {
+    font-size: 9.5px;
+    color: var(--text-faint);
+    text-align: center;
+    margin-top: 6px;
+    letter-spacing: 0.08em;
+    opacity: 0.6;
+  }
+
+
+  /* ═══════════════════════════════════════════════
+     RESPONSIVE
+  ═══════════════════════════════════════════════ */
+  @media (max-width: 360px) {
+    .pre-heading { font-size: 15px; }
+    .pre-cd-num  { font-size: 22px; width: 40px; height: 40px; }
+  }
+  @media (min-width: 520px) {
+    .container { padding: 0 32px; }
+  }
+  </style>
+</head>
+
+<body>
+
+  <!-- ══ Hero (approved — context only) ═════════════════ -->
+  <section id="hero-stub" aria-label="Hero — approved design, shown for context">
+    <div>
+      <p class="stub-label">20 June 2026 · Saturday · 8:45 AM</p>
+      <div class="stub-names">
+        Aravind<span class="stub-weds">weds</span>Meghana
+      </div>
+      <p class="stub-note">Sri Satyanarayana Kalyana Mandapam · Hyderabad</p>
+    </div>
+    <div class="stub-scroll" aria-hidden="true">
+      <span>Scroll</span>
+      <div class="stub-mouse"></div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════
+       ① INVITATION VIDEO SECTION
+  ══════════════════════════════════════════════════════ -->
+  <section id="invitation" class="section" aria-labelledby="inv-title">
+    <div class="container">
+
+      <!-- Header -->
+      <p class="section-eyebrow fade-up">Our Invitation</p>
+      <h2 class="section-title fade-up d1" id="inv-title">Watch Our Invitation</h2>
+      <p class="section-sub fade-up d2">
+        A heartfelt message from our families to each of you — wherever you are in the world.
+      </p>
+
+      <!-- Thin gold ornament -->
+      <div class="ornament fade-up d2" aria-hidden="true">
+        <span class="ornament-icon">✦</span>
+      </div>
+
+      <!-- ── VIDEO FRAME ── -->
+      <div class="inv-video-wrap fade-up d3" id="inv-wrap">
+
+        <!-- Corner badge -->
+        <div class="inv-badge" aria-hidden="true">
+          <span class="inv-badge-dot"></span>
+          Invitation
+        </div>
+
+        <!--
+          The <video> element.
+          • autoplay + muted: browser allows autoplay when muted.
+          • playsinline: prevents iOS full-screen takeover.
+          • No loop attr — we control looping in JS (max 3 loops).
+          • poster: warm placeholder frame.
+          Replace src with actual invitation video URL.
+        -->
+        <video
+          id="inv-video"
+          class="inv-video"
+          src=""
+          muted
+          playsinline
+          preload="auto"
+          aria-label="Wedding invitation video"
+          style="display:none"
+        ></video>
+
+        <!-- Prototype placeholder frame (hidden when real video plays) -->
+        <div class="inv-placeholder" id="inv-placeholder" aria-hidden="true">
+          <div class="inv-ph-om">ॐ</div>
+          <p class="inv-ph-title">Aravind &amp; Meghana</p>
+          <p class="inv-ph-sub">Wedding Invitation</p>
+        </div>
+
+        <!-- Play overlay — appears after loops complete, or on pause -->
+        <div
+          class="inv-overlay visible"
+          id="inv-overlay"
+          role="group"
+          aria-label="Video paused"
+        >
+          <button
+            class="inv-play-pill"
+            id="inv-play-btn"
+            aria-label="Play the invitation video"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--gold)" aria-hidden="true">
+              <path d="M5 3l14 9-14 9V3z"/>
+            </svg>
+            <span>Play Invitation</span>
+          </button>
+        </div>
+
+      </div><!-- /inv-video-wrap -->
+
+      <!-- Below-frame metadata -->
+      <div class="inv-meta fade-up d4">
+        <span class="inv-meta-title">Our Wedding Invitation</span>
+        <span class="inv-meta-duration">2 min 14 sec</span>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════
+       ② LIVE STREAM SECTION
+  ══════════════════════════════════════════════════════ -->
+  <section id="livestream" class="section section-alt" aria-labelledby="live-title">
+    <div class="container">
+
+      <!-- Header with live indicator -->
+      <div class="live-eyebrow-row fade-up">
+        <span class="live-indicator" aria-hidden="true"></span>
+        <span class="live-eyebrow-label">Live Stream</span>
+      </div>
+      <h2 class="section-title fade-up d1" id="live-title">Watch The Celebration</h2>
+      <p class="section-sub fade-up d2">
+        Join us live as two families unite in the sacred Vivaha ceremony. The stream begins at Sumuhurtham.
+      </p>
+
+      <div class="ornament fade-up d2" aria-hidden="true">
+        <span class="ornament-icon">✦</span>
+      </div>
+
+      <!-- ── PLAYER FRAME ── -->
+      <div class="player-wrap fade-up d3" id="player-wrap" role="region" aria-label="Wedding livestream player">
+
+        <!-- PRE-EVENT STATE — default before go-live -->
+        <div class="player-pre" id="player-pre" aria-live="polite">
+
+          <!-- Offline / coming-soon tag -->
+          <div class="pre-status-tag">
+            <span class="pre-status-dot"></span>
+            <span class="pre-status-text">Stream Begins Soon</span>
+          </div>
+
+          <!-- Main headline -->
+          <h3 class="pre-heading">
+            Aravind &amp; Meghana<br>
+            <em>Vivaha Ceremony</em>
+          </h3>
+
+          <!-- Event date row -->
+          <div class="pre-date-row" aria-label="Saturday, 20 June 2026, 8:45 AM IST">
+            <span>Saturday</span>
+            <span class="pdot" aria-hidden="true"></span>
+            <span>20 June 2026</span>
+            <span class="pdot" aria-hidden="true"></span>
+            <span>8:45 AM IST</span>
+          </div>
+
+          <!-- In-player countdown -->
+          <div class="pre-cd-row" role="timer" aria-label="Stream countdown">
+            <div class="pre-cd-block">
+              <div class="pre-cd-num" id="live-d">00</div>
+              <div class="pre-cd-label">Days</div>
+            </div>
+            <span class="pre-cd-sep" aria-hidden="true">:</span>
+            <div class="pre-cd-block">
+              <div class="pre-cd-num" id="live-h">00</div>
+              <div class="pre-cd-label">Hours</div>
+            </div>
+            <span class="pre-cd-sep" aria-hidden="true">:</span>
+            <div class="pre-cd-block">
+              <div class="pre-cd-num" id="live-m">00</div>
+              <div class="pre-cd-label">Mins</div>
+            </div>
+            <span class="pre-cd-sep" aria-hidden="true">:</span>
+            <div class="pre-cd-block">
+              <div class="pre-cd-num" id="live-s">00</div>
+              <div class="pre-cd-label">Secs</div>
+            </div>
+          </div>
+
+          <p class="pre-note">Sri Satyanarayana Kalyana Mandapam · Hyderabad</p>
+
+        </div><!-- /player-pre -->
+
+        <!-- LIVE STATE — swap in when stream goes live -->
+        <div class="player-live" id="player-live" aria-label="Live stream player" aria-hidden="true">
+          <!--
+            Replace src with your actual stream embed URL.
+            YouTube: https://www.youtube.com/embed/LIVE_VIDEO_ID?autoplay=1
+            Vimeo:   https://player.vimeo.com/video/VIDEO_ID?autoplay=1
+          -->
+          <iframe
+            id="live-iframe"
+            src="about:blank"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowfullscreen
+            title="Aravind and Meghana wedding live stream"
+          ></iframe>
+        </div>
+
+        <!-- LIVE badge (shown only when live) -->
+        <div class="player-live-badge" aria-label="Stream is live" aria-hidden="true">
+          <span class="live-badge-dot"></span>
+          <span class="live-badge-text">Live</span>
+        </div>
+
+      </div><!-- /player-wrap -->
+
+      <!-- Status strip -->
+      <div class="player-status-strip fade-up d3">
+        <div class="status-pill" id="status-pill" aria-live="polite">
+          <span class="sp-dot"></span>
+          <span id="status-text">Stream Offline</span>
+        </div>
+        <div class="viewers-count" aria-label="Viewer count">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          <span id="viewer-count">—</span>
+        </div>
+        <div class="quality-tag" aria-label="Stream quality: HD">HD</div>
+      </div>
+
+      <!-- Pre-event: notify + reminder -->
+      <div class="notify-row fade-up d4" id="notify-row">
+        <p class="notify-text">
+          The stream will begin at Sumuhurtham on 20 June 2026.<br>
+          Set a reminder so you don't miss a moment.
+        </p>
+        <button class="notify-btn" id="notify-btn" aria-label="Set a reminder for the live stream">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          Set Reminder
+        </button>
+      </div>
+
+      <!-- Prototype demo toggle -->
+      <div class="demo-toggle-wrap">
+        <button class="demo-toggle" id="demo-go-live" aria-label="Toggle live state for demonstration">
+          ⚡ Demo: Toggle Live State
+        </button>
+      </div>
+      <p class="demo-toggle-note">Prototype only — tap to preview the live player state</p>
+
+    </div>
+  </section>
+
+
+  <script>
+  'use strict';
+
+  /* ════════════════════════════════════════════════
+     SHARED: Intersection Observer for fade-up
+  ════════════════════════════════════════════════ */
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -32px 0px' });
+
+  document.querySelectorAll('.fade-up').forEach(el => io.observe(el));
+
+
+  /* ════════════════════════════════════════════════
+     COUNTDOWN — Wedding: 20 June 2026, 08:45 AM IST
+  ════════════════════════════════════════════════ */
+  const WEDDING = new Date('2026-06-20T08:45:00+05:30');
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  (function tick() {
+    const diff = Math.max(0, WEDDING - Date.now());
+    const d = Math.floor(diff / 86400000);
+    const h = Math.floor((diff % 86400000) / 3600000);
+    const m = Math.floor((diff % 3600000)  / 60000);
+    const s = Math.floor((diff % 60000)    / 1000);
+
+    const dEl = document.getElementById('live-d');
+    const hEl = document.getElementById('live-h');
+    const mEl = document.getElementById('live-m');
+    const sEl = document.getElementById('live-s');
+    if (dEl) dEl.textContent = pad(d);
+    if (hEl) hEl.textContent = pad(h);
+    if (mEl) mEl.textContent = pad(m);
+    if (sEl) sEl.textContent = pad(s);
+
+    setTimeout(tick, 1000);
+  })();
+
+
+  /* ════════════════════════════════════════════════
+     INVITATION VIDEO — autoplay + loop limit
+  ════════════════════════════════════════════════ */
+  (function initInvVideo() {
+    const video   = document.getElementById('inv-video');
+    const overlay = document.getElementById('inv-overlay');
+    const playBtn = document.getElementById('inv-play-btn');
+    const ph      = document.getElementById('inv-placeholder');
+    const wrap    = document.getElementById('inv-wrap');
+
+    const MAX_LOOPS = 3;   // stop after 3 complete loops
+    let loopCount   = 0;
+    let hasVideo    = false;
+
+    /* Check if a real video source is attached */
+    if (video.src && video.src !== window.location.href && !video.src.endsWith('blank')) {
+      hasVideo = true;
+      video.style.display = 'block';
+      ph.style.display = 'none';
+    }
+
+    /* Autoplay when video enters viewport */
+    const videoObserver = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting && hasVideo) {
+          playVideo();
+          videoObserver.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.5 });
+
+    if (hasVideo) videoObserver.observe(wrap);
+
+    function playVideo() {
+      overlay.classList.remove('visible');
+      video.play().catch(() => {
+        /* Autoplay blocked — show overlay */
+        overlay.classList.add('visible');
+      });
+    }
+
+    /* Track loop completions */
+    video.addEventListener('ended', () => {
+      loopCount += 1;
+      if (loopCount < MAX_LOOPS) {
+        video.currentTime = 0;
+        video.play();
+      } else {
+        /* Loops done — show elegant play pill */
+        overlay.classList.add('visible');
+        loopCount = 0;  // reset for manual replay
+      }
+    });
+
+    /* Manual play / replay on pill tap */
+    playBtn.addEventListener('click', () => {
+      if (hasVideo) {
+        loopCount = 0;
+        playVideo();
+      } else {
+        /* Prototype: briefly animate the placeholder */
+        overlay.classList.remove('visible');
+        setTimeout(() => overlay.classList.add('visible'), 2400);
+      }
+    });
+
+    /* Pause handler — show overlay */
+    video.addEventListener('pause', () => {
+      if (!video.ended) overlay.classList.add('visible');
+    });
+
+  })();
+
+
+  /* ════════════════════════════════════════════════
+     LIVE PLAYER — go-live logic + demo toggle
+  ════════════════════════════════════════════════ */
+  (function initLivePlayer() {
+    const playerWrap  = document.getElementById('player-wrap');
+    const iframe      = document.getElementById('live-iframe');
+    const statusPill  = document.getElementById('status-pill');
+    const statusText  = document.getElementById('status-text');
+    const viewerEl    = document.getElementById('viewer-count');
+    const notifyRow   = document.getElementById('notify-row');
+    const playerLive  = document.getElementById('player-live');
+
+    let isLive = false;
+
+    /*
+      goLive(streamUrl):
+      Call this function with your embed URL when the
+      stream actually starts. Example:
+        goLive('https://www.youtube.com/embed/LIVE_ID?autoplay=1');
+    */
+    window.goLive = function(streamUrl) {
+      iframe.src = streamUrl || '';
+      playerWrap.classList.add('is-live');
+      playerLive.setAttribute('aria-hidden', 'false');
+
+      statusPill.classList.add('live-pill');
+      statusText.textContent = 'Live Now';
+      viewerEl.textContent   = '1,248';
+      notifyRow.style.display = 'none';
+      isLive = true;
+    };
+
+    window.goOffline = function() {
+      playerWrap.classList.remove('is-live');
+      playerLive.setAttribute('aria-hidden', 'true');
+      iframe.src = 'about:blank';
+
+      statusPill.classList.remove('live-pill');
+      statusText.textContent = 'Stream Offline';
+      viewerEl.textContent   = '—';
+      notifyRow.style.display = '';
+      isLive = false;
+    };
+
+    /* Prototype demo toggle */
+    document.getElementById('demo-go-live').addEventListener('click', () => {
+      if (isLive) {
+        goOffline();
+      } else {
+        goLive('about:blank');   // swap with real URL in production
+      }
+    });
+
+    /* Notify / reminder button */
+    document.getElementById('notify-btn').addEventListener('click', function() {
+      this.textContent = '✓ Reminder Set';
+      this.style.color        = '#2a7a2a';
+      this.style.borderColor  = 'rgba(42,122,42,0.35)';
+      this.disabled = true;
+    });
+
+  })();
+  </script>
+
+</body>
+</html>

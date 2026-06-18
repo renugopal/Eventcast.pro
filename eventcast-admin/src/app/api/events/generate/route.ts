@@ -86,6 +86,39 @@ export async function POST(req: Request) {
     const slug = `${groom.toLowerCase().replace(/\s+/g, '-')}-${bride.toLowerCase().replace(/\s+/g, '-')}-${type.toLowerCase()}`;
     // --- NEW: Database First to get Event ID ---
     eventId = event.editingId as string | undefined;
+
+    // --- NEW: Handle Photographer Details ---
+    let finalPhotographerId = event.photographer_id || event.photographerId || null;
+    const { photographerName, photographerPhone, photographerInsta } = event;
+    
+    if (photographerName || photographerPhone || photographerInsta) {
+      // Find existing photographer for this studio or insert a new one
+      const { data: existingPhotographers } = await supabase
+        .from('photographers')
+        .select('id')
+        .eq('studio_id', studioId)
+        .limit(1);
+
+      const existingId = existingPhotographers?.[0]?.id;
+
+      const { data: pData, error: pError } = await supabase
+        .from('photographers')
+        .upsert({
+          ...(existingId ? { id: existingId } : {}),
+          studio_id: studioId,
+          name: photographerName || null,
+          phone_number: photographerPhone || null,
+          instagram_url: photographerInsta || null,
+          studio_name: photographerName || null // Fallback
+        })
+        .select()
+        .single();
+        
+      if (!pError && pData) {
+        finalPhotographerId = pData.id;
+      }
+    }
+
     const dbPayload = {
       event_type: event.event_type || event.eventType,
       groom_name: event.groom_name || event.groomName,
@@ -116,7 +149,7 @@ export async function POST(req: Request) {
       vod_link: event.vod_link || event.vodLink,
       template_id: event.template_id || event.templateId,
       slug: slug,
-      photographer_id: event.photographer_id || event.photographerId || null,
+      photographer_id: finalPhotographerId,
       // base_design is optional - ensure column exists in Supabase
       ...(event.base_design || event.baseDesign ? { base_design: event.base_design || event.baseDesign } : {}),
       ...(event.youtube_broadcast_id ? { youtube_broadcast_id: event.youtube_broadcast_id } : {}),

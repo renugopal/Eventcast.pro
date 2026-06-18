@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>Hero Variations — Aravind &amp; Meghana Livestream</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,200;0,300;0,400;0,500;1,200;1,300;1,400;1,500&family=Jost:wght@300;400;500;600&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet"/>
+
+  <style>
+  /* ═══════════════════════════════════════════════════════
+     ROOT TOKENS
+  ═══════════════════════════════════════════════════════ */
+  :root {
+    --gold:         #b8922f;
+    --gold-mid:     #c9a84c;
+    --gold-light:   #d4aa5a;
+    --gold-pale:    #e8d5a3;
+    --gold-glow:    rgba(184,146,47,0.4);
+    --ivory:        #fdf8f1;
+    --cream-90:     rgba(253,248,241,0.90);
+    --cream-82:     rgba(253,248,241,0.82);
+    --cream-70:     rgba(253,248,241,0.70);
+    --cream-55:     rgba(253,248,241,0.55);
+    --rust:         #7b4b1c;
+    --brown-rich:   #2c1a0a;
+    --brown-deep:   #1e1208;
+    --text-dark:    #281608;
+    --text-warm:    #3a2412;
+    --text-body:    #52341e;
+    --text-muted:   #7a5e44;
+    --text-faint:   #9e8068;
+    --ease:         cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --ease-out:     cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring:  cubic-bezier(0.34, 1.56, 0.64, 1);
+    --serif:        'Cormorant Garamond', Georgia, serif;
+    --italic:       'IM Fell English', Georgia, serif;
+    --sans:         'Jost', system-ui, sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; min-height: 100%; }
+
+  body {
+    font-family: var(--sans);
+    background: #2c1a08;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     VARIATION SWITCHER
+  ═══════════════════════════════════════════════════════ */
+  .switcher {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 16px;
+    padding-top: max(10px, env(safe-area-inset-top, 10px));
+    background: rgba(18,10,4,0.94);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(184,146,47,0.18);
+  }
+  .sw-label {
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(232,213,163,0.38);
+    margin-right: 2px;
+  }
+  .sw-btn {
+    font-family: var(--sans);
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(232,213,163,0.45);
+    padding: 7px 15px;
+    border-radius: 30px;
+    border: 1px solid rgba(184,146,47,0.18);
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.28s var(--ease);
+  }
+  .sw-btn.on {
+    background: linear-gradient(135deg,#c9a43a,#b8922f);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 4px 18px rgba(184,146,47,0.38);
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     HERO PANEL BASE
+  ═══════════════════════════════════════════════════════ */
+  .hero {
+    display: none;
+    position: relative;
+    width: 100%;
+    min-height: 100svh;
+    overflow: hidden;
+    flex-direction: column;
+    /* Push content down past switcher */
+    padding-top: 44px;
+  }
+  .hero.on { display: flex; }
+
+  /* Background — exact supplied image, unmodified */
+  .bg {
+    position: absolute;
+    inset: 0;
+    background-image: url('./assets/hero_bg.png');
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    z-index: 0;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     SHARED KEYFRAMES
+  ═══════════════════════════════════════════════════════ */
+  @keyframes fuD  { from{opacity:0;transform:translateY(-18px)} to{opacity:1;transform:none} }
+  @keyframes fuU  { from{opacity:0;transform:translateY(22px)}  to{opacity:1;transform:none} }
+  @keyframes fIn  { from{opacity:0}                             to{opacity:1} }
+  @keyframes glow {
+    0%,100% { box-shadow:0 8px 32px rgba(184,146,47,0.38),0 2px 0 rgba(255,255,255,0.10) inset; }
+    50%      { box-shadow:0 14px 52px rgba(184,146,47,0.60),0 2px 0 rgba(255,255,255,0.16) inset; }
+  }
+  @keyframes shimmer {
+    0%       { left:-110%; }
+    40%,100% { left: 160%; }
+  }
+  @keyframes pulseDot {
+    0%,100% { box-shadow:0 0 0 0 rgba(239,68,68,0.75); }
+    60%      { box-shadow:0 0 0 8px rgba(239,68,68,0); }
+  }
+  @keyframes scrollBob {
+    0%,100% { transform:translateY(0); opacity:1; }
+    60%      { transform:translateY(8px); opacity:0.3; }
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     SHARED UI ATOMS
+  ═══════════════════════════════════════════════════════ */
+  .live-dot {
+    width:9px; height:9px; border-radius:50%;
+    background:#ef4444; flex-shrink:0;
+    animation: pulseDot 1.8s ease-in-out infinite;
+  }
+  .scroll-mouse {
+    width:21px; height:34px; border-radius:12px;
+    display:flex; justify-content:center; padding-top:7px;
+    border:1.5px solid rgba(184,146,47,0.45);
+  }
+  .scroll-mouse::after {
+    content:''; width:3px; height:7px;
+    background:var(--gold); border-radius:2px;
+    animation: scrollBob 2s ease-in-out infinite;
+  }
+  .scroll-label {
+    font-size:8.5px; font-weight:500;
+    letter-spacing:0.24em; text-transform:uppercase;
+    color:var(--text-muted);
+  }
+
+
+  /* ╔════════════════════════════════════════════════════╗
+     ║  VARIATION A — "SOVEREIGN CENTER"                 ║
+     ║  Philosophy: Every element centered in the open   ║
+     ║  golden sky. Names fill the sky like a monolith.  ║
+     ║  Countdown as four tall frosted-glass columns.    ║
+     ╚════════════════════════════════════════════════════╝ */
+
+  #va .inner {
+    position: relative; z-index: 2;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    /* top padding lands content just below top floral decor */
+    padding: 8px 28px 0;
+  }
+
+  /* OM + Blessing — topmost, delicate */
+  #va .a-blessing {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 5px;
+    margin-bottom: 14px;
+    opacity:0; animation: fuD 1.1s var(--ease-out) 0.1s forwards;
+  }
+  #va .a-om {
+    font-size: 26px; line-height: 1;
+    color: var(--gold-mid);
+  }
+  #va .a-blessing-text {
+    font-family: var(--serif); font-style: italic;
+    font-size: 12.5px; font-weight: 300;
+    color: var(--rust); letter-spacing: 0.12em;
+  }
+
+  /* Thin ornamental rule */
+  #va .a-rule {
+    width: 0; height: 1px;
+    background: linear-gradient(to right, transparent, var(--gold-light), transparent);
+    margin-bottom: 18px;
+    opacity:0;
+    animation: fIn 1.2s var(--ease) 0.5s forwards,
+               ruleExpand 1s var(--ease-out) 0.5s forwards;
+  }
+  @keyframes ruleExpand {
+    from { width: 0 }
+    to   { width: 80px }
+  }
+
+  /* THE NAMES — supreme element */
+  #va .a-names {
+    opacity:0; animation: fuU 1.4s var(--ease-out) 0.55s forwards;
+    margin-bottom: 18px;
+  }
+  #va .a-name {
+    font-family: var(--serif);
+    font-size: clamp(72px, 20.5vw, 96px);
+    font-weight: 300;
+    color: var(--text-dark);
+    line-height: 0.92;
+    letter-spacing: -0.02em;
+    display: block;
+  }
+  #va .a-weds {
+    font-family: var(--italic);
+    font-style: italic;
+    font-size: clamp(16px, 4.5vw, 20px);
+    color: var(--gold);
+    letter-spacing: 0.28em;
+    display: block;
+    margin: 10px 0 8px;
+    position: relative;
+  }
+  /* flanking lines on "weds" */
+  #va .a-weds::before,
+  #va .a-weds::after {
+    content: '';
+    position: absolute;
+    top: 50%; width: 22px; height: 1px;
+    background: rgba(184,146,47,0.45);
+  }
+  #va .a-weds::before { right: calc(50% + 32px); }
+  #va .a-weds::after  { left:  calc(50% + 32px); }
+
+  /* Date + Sumuhurtham + Venue block */
+  #va .a-event {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 5px;
+    margin-bottom: 22px;
+    opacity:0; animation: fuU 1.1s var(--ease-out) 0.85s forwards;
+  }
+  #va .a-date-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--cream-82);
+    border: 1px solid rgba(184,146,47,0.30);
+    border-radius: 50px; padding: 9px 22px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 2px 14px rgba(44,20,4,0.07), inset 0 1px 0 rgba(255,255,255,0.6);
+  }
+  #va .a-date-pill span {
+    font-size: 12.5px; font-weight: 400;
+    letter-spacing: 0.13em; color: var(--text-warm);
+  }
+  #va .a-date-pill .dp {
+    width:3px; height:3px; border-radius:50%;
+    background: var(--gold-mid); flex-shrink:0;
+  }
+  #va .a-muhu {
+    font-family: var(--serif); font-style: italic;
+    font-size: 13.5px; font-weight: 300;
+    color: var(--rust); letter-spacing: 0.08em;
+  }
+  #va .a-venue {
+    font-size: 10px; font-weight: 400;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--text-muted);
+    max-width: 240px; line-height: 1.5;
+  }
+
+  /* COUNTDOWN — four tall frosted columns */
+  #va .a-cd {
+    display: flex; gap: 10px; justify-content: center;
+    margin-bottom: 22px;
+    opacity:0; animation: fuU 1.1s var(--ease-out) 1.1s forwards;
+  }
+  #va .a-cd-block {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 6px;
+  }
+  #va .a-cd-num {
+    font-family: var(--serif);
+    font-size: clamp(38px, 11vw, 52px);
+    font-weight: 300; line-height: 1;
+    color: var(--text-dark);
+    background: var(--cream-90);
+    border: 1px solid rgba(184,146,47,0.28);
+    border-radius: 16px;
+    width: clamp(68px, 19.5vw, 82px);
+    height: clamp(68px, 19.5vw, 82px);
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 4px 20px rgba(44,20,4,0.10),
+                inset 0 1px 0 rgba(255,255,255,0.70),
+                inset 0 -1px 0 rgba(184,146,47,0.08);
+  }
+  #va .a-cd-label {
+    font-size: 8.5px; font-weight: 500;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  #va .a-cd-sep {
+    font-family: var(--serif); font-size: 30px;
+    color: rgba(184,146,47,0.5);
+    align-self: flex-start; margin-top: 16px; flex-shrink:0;
+  }
+
+  /* WATCH LIVE — primary CTA */
+  #va .a-cta {
+    display: inline-flex; align-items: center;
+    justify-content: center; gap: 12px;
+    padding: 18px 48px;
+    background: linear-gradient(135deg, #d4aa5a 0%, #b8922f 55%, #9e7820 100%);
+    color: #fff;
+    font-family: var(--sans); font-size: 13.5px; font-weight: 500;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    border-radius: 60px; border: none;
+    text-decoration: none; cursor: pointer;
+    box-shadow: 0 8px 38px rgba(184,146,47,0.44),
+                inset 0 1px 0 rgba(255,255,255,0.18);
+    animation: fuU 1.1s var(--ease-out) 1.35s forwards,
+               glow 3.5s ease-in-out 2.6s infinite;
+    opacity:0;
+    position: relative; overflow: hidden;
+  }
+  #va .a-cta::after {
+    content:''; position:absolute;
+    top:0; left:-110%; width:55%; height:100%;
+    background: linear-gradient(90deg,transparent,rgba(255,255,255,0.14),transparent);
+    animation: shimmer 3.8s ease-in-out 3s infinite;
+  }
+
+  /* Footer */
+  #va .a-footer {
+    position: relative; z-index: 2;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 8px;
+    padding-bottom: max(28px, env(safe-area-inset-bottom,24px));
+    padding-top: 14px;
+    opacity:0; animation: fIn 1.2s var(--ease) 1.9s forwards;
+  }
+
+
+  /* ╔════════════════════════════════════════════════════╗
+     ║  VARIATION B — "EDITORIAL GRANDEUR"               ║
+     ║  Philosophy: Left-aligned editorial power.        ║
+     ║  Names break the full viewport width — raw scale. ║
+     ║  Countdown is a wide 4-column open grid.          ║
+     ║  CTA is full-width with strong rectangular form.  ║
+     ╚════════════════════════════════════════════════════╝ */
+
+  #vb .inner {
+    position: relative; z-index: 2;
+    flex: 1;
+    display: flex; flex-direction: column;
+    padding: 10px 26px 0;
+  }
+
+  /* Top row: OM left | Date chip right */
+  #vb .b-top {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    opacity:0; animation: fuD 1.1s var(--ease-out) 0.1s forwards;
+  }
+  #vb .b-om {
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  #vb .b-om-sym {
+    font-size: 24px; color: var(--gold-mid); line-height: 1;
+  }
+  #vb .b-om-text {
+    font-family: var(--serif); font-style: italic;
+    font-size: 11px; font-weight: 300;
+    color: var(--rust); letter-spacing: 0.08em;
+  }
+  #vb .b-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--cream-82);
+    border: 1px solid rgba(184,146,47,0.28);
+    border-radius: 30px; padding: 7px 14px;
+    backdrop-filter: blur(8px);
+  }
+  #vb .b-chip svg { flex-shrink:0; }
+  #vb .b-chip span {
+    font-size: 11px; font-weight: 400;
+    letter-spacing: 0.11em; color: var(--text-warm);
+  }
+
+  /* NAMES — left-aligned, maximum scale */
+  #vb .b-names {
+    opacity:0; animation: fuU 1.4s var(--ease-out) 0.38s forwards;
+    margin-bottom: 8px;
+  }
+  #vb .b-name {
+    font-family: var(--serif);
+    font-size: clamp(76px, 21.5vw, 100px);
+    font-weight: 300; line-height: 0.88;
+    letter-spacing: -0.03em;
+    color: var(--text-dark);
+    display: block;
+  }
+  #vb .b-row {
+    display: flex; align-items: center;
+    gap: 14px; margin-top: 4px;
+  }
+  #vb .b-and {
+    font-family: var(--italic); font-style: italic;
+    font-size: 30px; color: var(--gold);
+    padding-bottom: 8px; flex-shrink:0;
+  }
+
+  /* Sumuhurtham + Venue strip */
+  #vb .b-info {
+    display: flex; align-items: center;
+    flex-wrap: wrap; gap: 8px;
+    margin-bottom: 28px;
+    opacity:0; animation: fuU 1s var(--ease-out) 0.72s forwards;
+  }
+  #vb .b-info em {
+    font-family: var(--serif); font-style: italic;
+    font-size: 14px; color: var(--rust); letter-spacing: 0.05em;
+  }
+  #vb .b-dot {
+    width: 3px; height: 3px; border-radius: 50%;
+    background: var(--gold-light); flex-shrink: 0;
+  }
+  #vb .b-info span {
+    font-size: 11.5px; font-weight: 300;
+    color: var(--text-muted); letter-spacing: 0.08em;
+  }
+
+  /* COUNTDOWN — header label + full-width grid */
+  #vb .b-cd-wrap {
+    margin-bottom: 22px;
+    opacity:0; animation: fuU 1.1s var(--ease-out) 0.95s forwards;
+  }
+  #vb .b-cd-head {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 12px;
+  }
+  #vb .b-cd-head-label {
+    font-size: 9px; font-weight: 500;
+    letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--gold); white-space: nowrap;
+  }
+  #vb .b-cd-head::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(to right, rgba(184,146,47,0.45), transparent);
+  }
+  #vb .b-cd {
+    display: grid; grid-template-columns: repeat(4,1fr);
+    gap: 9px;
+  }
+  #vb .b-cd-block {
+    background: var(--cream-90);
+    border: 1px solid rgba(184,146,47,0.28);
+    border-radius: 16px;
+    padding: 16px 8px 12px;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 5px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 4px 20px rgba(44,20,4,0.09),
+                inset 0 1px 0 rgba(255,255,255,0.68);
+    position: relative;
+  }
+  /* Top accent line per block */
+  #vb .b-cd-block::before {
+    content: ''; position: absolute;
+    top: 0; left: 20%; right: 20%; height: 2px;
+    border-radius: 0 0 2px 2px;
+    background: linear-gradient(to right, transparent, var(--gold-light), transparent);
+  }
+  #vb .b-cd-num {
+    font-family: var(--serif);
+    font-size: clamp(40px, 11.5vw, 56px);
+    font-weight: 300; line-height: 1;
+    color: var(--text-dark);
+  }
+  #vb .b-cd-unit {
+    font-size: 8px; font-weight: 600;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  /* WATCH LIVE — full-width rectangular block */
+  #vb .b-cta {
+    display: flex; align-items: center;
+    justify-content: center; gap: 13px;
+    width: 100%;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, #d4aa5a 0%, #b8922f 55%, #9e7820 100%);
+    color: #fff;
+    font-family: var(--sans); font-size: 14px; font-weight: 500;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    border-radius: 18px; border: none;
+    text-decoration: none; cursor: pointer;
+    box-shadow: 0 10px 42px rgba(184,146,47,0.46),
+                inset 0 1px 0 rgba(255,255,255,0.20);
+    animation: fuU 1.1s var(--ease-out) 1.22s forwards,
+               glow 3.5s ease-in-out 2.5s infinite;
+    opacity:0;
+    position: relative; overflow: hidden;
+  }
+  #vb .b-cta::after {
+    content:''; position:absolute;
+    top:0; left:-110%; width:55%; height:100%;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,0.13),transparent);
+    animation: shimmer 3.8s ease-in-out 3s infinite;
+  }
+  #vb .b-cta-sub {
+    font-size: 10.5px; font-weight: 300;
+    letter-spacing: 0.14em; color: rgba(255,255,255,0.65);
+    margin-top: 2px; display: block;
+  }
+  #vb .b-cta-inner {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 3px;
+  }
+
+  /* Footer */
+  #vb .b-footer {
+    position: relative; z-index: 2;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 8px;
+    padding-bottom: max(28px, env(safe-area-inset-bottom,24px));
+    padding-top: 16px;
+    opacity:0; animation: fIn 1.2s var(--ease) 1.9s forwards;
+  }
+  #vb .b-venue {
+    font-size: 9.5px; font-weight: 400;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--text-muted); text-align: center;
+    margin-bottom: 4px;
+  }
+
+
+  /* ╔════════════════════════════════════════════════════╗
+     ║  VARIATION C — "SACRED DUALITY"                  ║
+     ║  Philosophy: mirrors the background's own         ║
+     ║  natural split — open golden sky (top ~62%) vs    ║
+     ║  temple earth (bottom ~38%). Content follows.     ║
+     ║                                                   ║
+     ║  SKY ZONE: OM header + giant names centered.     ║
+     ║  DIVIDER:  ornamental triple rule.               ║
+     ║  EARTH ZONE: countdown + CTA float above temple. ║
+     ╚════════════════════════════════════════════════════╝ */
+
+  #vc .inner {
+    position: relative; z-index: 2;
+    flex: 1;
+    display: flex; flex-direction: column;
+    padding: 0 28px;
+  }
+
+  /* ── SKY ZONE ── */
+  #vc .c-sky {
+    flex: 0 0 auto;
+    display: flex; flex-direction: column;
+    align-items: center; text-align: center;
+    padding-top: 6px;
+    padding-bottom: 0;
+  }
+
+  /* OM header */
+  #vc .c-header {
+    display: flex; align-items: center;
+    gap: 10px; margin-bottom: 16px;
+    opacity:0; animation: fuD 1.1s var(--ease-out) 0.1s forwards;
+  }
+  #vc .c-header-line {
+    flex: 1; height: 1px;
+    background: linear-gradient(to right, transparent, rgba(184,146,47,0.35));
+  }
+  #vc .c-header-line.r {
+    background: linear-gradient(to left, transparent, rgba(184,146,47,0.35));
+  }
+  #vc .c-header-center {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 4px;
+  }
+  #vc .c-om {
+    font-size: 22px; color: var(--gold-mid); line-height: 1;
+  }
+  #vc .c-blessing {
+    font-family: var(--serif); font-style: italic;
+    font-size: 11.5px; font-weight: 300;
+    color: var(--rust); letter-spacing: 0.1em;
+  }
+
+  /* THE NAMES — fills the golden sky */
+  #vc .c-names {
+    opacity:0; animation: fuU 1.5s var(--ease-out) 0.38s forwards;
+    margin-bottom: 0;
+  }
+  #vc .c-name {
+    font-family: var(--serif);
+    font-size: clamp(74px, 20.8vw, 98px);
+    font-weight: 300; line-height: 0.91;
+    letter-spacing: -0.025em;
+    color: var(--text-dark);
+    display: block;
+  }
+  #vc .c-weds {
+    font-family: var(--italic); font-style: italic;
+    font-size: clamp(17px, 4.8vw, 22px);
+    color: var(--gold); letter-spacing: 0.26em;
+    display: block; margin: 11px 0 9px;
+  }
+
+  /* ── ORNAMENTAL DIVIDER ── */
+  #vc .c-divider {
+    display: flex; align-items: center; gap: 8px;
+    padding: 16px 0 12px;
+    opacity:0; animation: fIn 1.2s var(--ease) 0.9s forwards;
+  }
+  #vc .c-div-line {
+    flex: 1; height: 1px;
+    background: linear-gradient(to right, transparent, rgba(184,146,47,0.42), transparent);
+  }
+  #vc .c-div-lozenge {
+    width: 6px; height: 6px;
+    background: var(--gold-light); border-radius: 1px;
+    transform: rotate(45deg); flex-shrink:0;
+  }
+
+  /* Event info 3-column */
+  #vc .c-info-row {
+    display: flex; align-items: stretch;
+    justify-content: center; gap: 0;
+    margin-bottom: 18px;
+    opacity:0; animation: fIn 1s var(--ease) 1.05s forwards;
+    background: var(--cream-70);
+    border: 1px solid rgba(184,146,47,0.24);
+    border-radius: 14px; overflow: hidden;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 2px 16px rgba(44,20,4,0.08);
+  }
+  #vc .c-info-cell {
+    flex: 1; padding: 12px 8px;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 3px;
+  }
+  #vc .c-info-cell + .c-info-cell {
+    border-left: 1px solid rgba(184,146,47,0.2);
+  }
+  #vc .c-info-val {
+    font-family: var(--serif); font-size: 14px;
+    font-weight: 400; color: var(--text-dark);
+    letter-spacing: 0.03em; text-align: center;
+    line-height: 1.2;
+  }
+  #vc .c-info-lbl {
+    font-size: 8.5px; font-weight: 500;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--text-muted); text-align: center;
+  }
+
+  /* ── EARTH ZONE — Countdown + CTA ── */
+  #vc .c-earth {
+    flex: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding-bottom: 8px;
+  }
+
+  /* COUNTDOWN — tall cards, fill width */
+  #vc .c-cd {
+    display: flex; gap: 8px;
+    width: 100%; margin-bottom: 20px;
+    opacity:0; animation: fuU 1.1s var(--ease-out) 1.28s forwards;
+  }
+  #vc .c-cd-block {
+    flex: 1;
+    background: linear-gradient(180deg, var(--cream-90) 0%, rgba(247,240,227,0.85) 100%);
+    border: 1px solid rgba(184,146,47,0.30);
+    border-radius: 18px;
+    padding: 16px 6px 12px;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 5px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 6px 28px rgba(44,20,4,0.11),
+                inset 0 1px 0 rgba(255,255,255,0.72);
+    position: relative;
+  }
+  /* Gold top accent */
+  #vc .c-cd-block::before {
+    content:''; position:absolute;
+    top:0; left:18%; right:18%; height:2.5px;
+    border-radius:0 0 3px 3px;
+    background:linear-gradient(to right, transparent, var(--gold-mid), transparent);
+  }
+  #vc .c-cd-num {
+    font-family: var(--serif);
+    font-size: clamp(40px, 11.5vw, 56px);
+    font-weight: 300; line-height: 1;
+    color: var(--text-dark);
+  }
+  #vc .c-cd-unit {
+    font-size: 8px; font-weight: 600;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--gold);
+  }
+
+  /* WATCH LIVE — centered pill, strong presence */
+  #vc .c-cta-wrap {
+    width: 100%; display: flex;
+    flex-direction: column; align-items: center; gap: 10px;
+    opacity:0; animation: fuU 1.1s var(--ease-out) 1.55s forwards;
+  }
+  #vc .c-cta {
+    display: inline-flex; align-items: center;
+    justify-content: center; gap: 13px;
+    width: 100%; padding: 19px 32px;
+    background: linear-gradient(135deg, #d4aa5a 0%, #b8922f 55%, #9e7820 100%);
+    color: #fff;
+    font-family: var(--sans); font-size: 14px; font-weight: 500;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    border-radius: 60px; border: none;
+    text-decoration: none; cursor: pointer;
+    box-shadow: 0 10px 44px rgba(184,146,47,0.48),
+                inset 0 1px 0 rgba(255,255,255,0.22);
+    animation: glow 3.5s ease-in-out 2.8s infinite;
+    position: relative; overflow: hidden;
+  }
+  #vc .c-cta::after {
+    content:''; position:absolute;
+    top:0; left:-110%; width:55%; height:100%;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,0.14),transparent);
+    animation: shimmer 3.8s ease-in-out 3.2s infinite;
+  }
+  #vc .c-cta-note {
+    font-size: 10.5px; font-weight: 300;
+    letter-spacing: 0.14em;
+    color: var(--text-muted);
+  }
+
+  /* Footer */
+  #vc .c-footer {
+    position: relative; z-index: 2;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 8px;
+    padding-bottom: max(28px, env(safe-area-inset-bottom,24px));
+    padding-top: 12px;
+    opacity:0; animation: fIn 1.2s var(--ease) 2.1s forwards;
+  }
+  #vc .c-venue {
+    font-size: 9.5px; font-weight: 400;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--text-muted); text-align: center;
+    margin-bottom: 6px;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     MOBILE BREAKPOINTS
+  ═══════════════════════════════════════════════════════ */
+  @media (max-width: 360px) {
+    #va .a-name { font-size: 64px; }
+    #vb .b-name { font-size: 68px; }
+    #vc .c-name { font-size: 66px; }
+    #va .a-cd-num, #vb .b-cd-num, #vc .c-cd-num { font-size: 34px; }
+    #va .a-cd-num { width:60px; height:60px; }
+  }
+  @media (min-height: 860px) {
+    #va .inner { padding-top: 12px; }
+    #vb .inner { padding-top: 12px; }
+    #vc .inner { padding-top: 8px; }
+  }
+  </style>
+</head>
+<body>
+
+  <!-- ══ Switcher ══ -->
+  <nav class="switcher" aria-label="Hero layout selector">
+    <span class="sw-label">Var</span>
+    <button class="sw-btn on"  id="btn-a" onclick="show('a')">A — Sovereign</button>
+    <button class="sw-btn"     id="btn-b" onclick="show('b')">B — Editorial</button>
+    <button class="sw-btn"     id="btn-c" onclick="show('c')">C — Sacred Split</button>
+  </nav>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+       VARIATION A — SOVEREIGN CENTER
+       ══════════════════════════════════════════════════════════ -->
+  <section class="hero on" id="va" aria-label="Variation A: Sovereign Center">
+    <div class="bg" role="img" aria-label="Wedding celebration background"></div>
+
+    <div class="inner">
+      <!-- OM + Blessing -->
+      <div class="a-blessing">
+        <span class="a-om" aria-label="Om">ॐ</span>
+        <span class="a-blessing-text">Sri Maha Ganapataye Namah</span>
+      </div>
+
+      <!-- Ornamental rule -->
+      <div class="a-rule" aria-hidden="true"></div>
+
+      <!-- NAMES — Supreme Element -->
+      <div class="a-names" aria-label="Aravind weds Meghana">
+        <span class="a-name">Aravind</span>
+        <span class="a-weds" aria-hidden="true">weds</span>
+        <span class="a-name">Meghana</span>
+      </div>
+
+      <!-- Event Details -->
+      <div class="a-event">
+        <div class="a-date-pill">
+          <span>Saturday</span>
+          <span class="dp" aria-hidden="true"></span>
+          <span>20 June 2026</span>
+          <span class="dp" aria-hidden="true"></span>
+          <span>8:45 AM</span>
+        </div>
+        <p class="a-muhu">Sumuhurtham · Vivaha Ceremony</p>
+        <p class="a-venue">Sri Satyanarayana Kalyana Mandapam<br>Hyderabad</p>
+      </div>
+
+      <!-- COUNTDOWN -->
+      <div class="a-cd" role="timer" aria-label="Wedding countdown">
+        <div class="a-cd-block">
+          <div class="a-cd-num" id="a-d">00</div>
+          <div class="a-cd-label">Days</div>
+        </div>
+        <span class="a-cd-sep" aria-hidden="true">:</span>
+        <div class="a-cd-block">
+          <div class="a-cd-num" id="a-h">00</div>
+          <div class="a-cd-label">Hours</div>
+        </div>
+        <span class="a-cd-sep" aria-hidden="true">:</span>
+        <div class="a-cd-block">
+          <div class="a-cd-num" id="a-m">00</div>
+          <div class="a-cd-label">Mins</div>
+        </div>
+        <span class="a-cd-sep" aria-hidden="true">:</span>
+        <div class="a-cd-block">
+          <div class="a-cd-num" id="a-s">00</div>
+          <div class="a-cd-label">Secs</div>
+        </div>
+      </div>
+
+      <!-- WATCH LIVE -->
+      <a href="#stream" class="a-cta">
+        <span class="live-dot" aria-hidden="true"></span>
+        Watch Live
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
+    </div>
+
+    <!-- Scroll Indicator -->
+    <div class="a-footer">
+      <span class="scroll-label">Scroll</span>
+      <div class="scroll-mouse" aria-label="Scroll down"></div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+       VARIATION B — EDITORIAL GRANDEUR
+       ══════════════════════════════════════════════════════════ -->
+  <section class="hero" id="vb" aria-label="Variation B: Editorial Grandeur">
+    <div class="bg" role="img" aria-label="Wedding celebration background"></div>
+
+    <div class="inner">
+      <!-- Top strip -->
+      <div class="b-top">
+        <div class="b-om">
+          <span class="b-om-sym" aria-label="Om">ॐ</span>
+          <span class="b-om-text">Sri Maha Ganapataye Namah</span>
+        </div>
+        <div class="b-chip">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          <span>Saturday · 20 June 2026</span>
+        </div>
+      </div>
+
+      <!-- NAMES -->
+      <div class="b-names" aria-label="Aravind and Meghana">
+        <span class="b-name">Aravind</span>
+        <div class="b-row">
+          <span class="b-and" aria-hidden="true">&amp;</span>
+          <span class="b-name">Meghana</span>
+        </div>
+      </div>
+
+      <!-- Sumuhurtham + Venue -->
+      <div class="b-info">
+        <em>Sumuhurtham: 8:45 AM</em>
+        <span class="b-dot" aria-hidden="true"></span>
+        <span>Vivaha</span>
+        <span class="b-dot" aria-hidden="true"></span>
+        <span>Hyderabad</span>
+      </div>
+
+      <!-- COUNTDOWN -->
+      <div class="b-cd-wrap" role="timer" aria-label="Wedding countdown">
+        <div class="b-cd-head">
+          <span class="b-cd-head-label">Begins in</span>
+        </div>
+        <div class="b-cd">
+          <div class="b-cd-block">
+            <div class="b-cd-num" id="b-d">00</div>
+            <div class="b-cd-unit">Days</div>
+          </div>
+          <div class="b-cd-block">
+            <div class="b-cd-num" id="b-h">00</div>
+            <div class="b-cd-unit">Hours</div>
+          </div>
+          <div class="b-cd-block">
+            <div class="b-cd-num" id="b-m">00</div>
+            <div class="b-cd-unit">Mins</div>
+          </div>
+          <div class="b-cd-block">
+            <div class="b-cd-num" id="b-s">00</div>
+            <div class="b-cd-unit">Secs</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WATCH LIVE -->
+      <a href="#stream" class="b-cta">
+        <span class="live-dot" aria-hidden="true"></span>
+        <span class="b-cta-inner">
+          <span>Watch Live</span>
+          <span class="b-cta-sub">Stream begins at Sumuhurtham</span>
+        </span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="rgba(255,255,255,0.22)" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 3l14 9-14 9V3z"/></svg>
+      </a>
+    </div>
+
+    <!-- Footer -->
+    <div class="b-footer">
+      <p class="b-venue">Sri Satyanarayana Kalyana Mandapam, Hyderabad</p>
+      <div class="scroll-mouse" aria-label="Scroll down"></div>
+      <span class="scroll-label">Scroll</span>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+       VARIATION C — SACRED DUALITY
+       ══════════════════════════════════════════════════════════ -->
+  <section class="hero" id="vc" aria-label="Variation C: Sacred Duality">
+    <div class="bg" role="img" aria-label="Wedding celebration background"></div>
+
+    <div class="inner">
+
+      <!-- ── SKY ZONE ── -->
+      <div class="c-sky">
+        <!-- OM Header -->
+        <div class="c-header">
+          <div class="c-header-line" aria-hidden="true"></div>
+          <div class="c-header-center">
+            <span class="c-om" aria-label="Om">ॐ</span>
+            <span class="c-blessing">Sri Maha Ganapataye Namah</span>
+          </div>
+          <div class="c-header-line r" aria-hidden="true"></div>
+        </div>
+
+        <!-- NAMES -->
+        <div class="c-names" aria-label="Aravind weds Meghana">
+          <span class="c-name">Aravind</span>
+          <span class="c-weds" aria-hidden="true">weds</span>
+          <span class="c-name">Meghana</span>
+        </div>
+      </div>
+
+      <!-- ── DIVIDER ── -->
+      <div class="c-divider" aria-hidden="true">
+        <div class="c-div-line"></div>
+        <div class="c-div-lozenge"></div>
+        <div class="c-div-lozenge"></div>
+        <div class="c-div-lozenge"></div>
+        <div class="c-div-line"></div>
+      </div>
+
+      <!-- Event info row -->
+      <div class="c-info-row" role="group" aria-label="Event details">
+        <div class="c-info-cell">
+          <span class="c-info-val">20 June 2026</span>
+          <span class="c-info-lbl">Date</span>
+        </div>
+        <div class="c-info-cell">
+          <span class="c-info-val">8:45 AM</span>
+          <span class="c-info-lbl">Sumuhurtham</span>
+        </div>
+        <div class="c-info-cell">
+          <span class="c-info-val">Hyderabad</span>
+          <span class="c-info-lbl">Venue City</span>
+        </div>
+      </div>
+
+      <!-- ── EARTH ZONE ── -->
+      <div class="c-earth">
+        <!-- COUNTDOWN -->
+        <div class="c-cd" role="timer" aria-label="Wedding countdown">
+          <div class="c-cd-block">
+            <div class="c-cd-num" id="c-d">00</div>
+            <div class="c-cd-unit">Days</div>
+          </div>
+          <div class="c-cd-block">
+            <div class="c-cd-num" id="c-h">00</div>
+            <div class="c-cd-unit">Hours</div>
+          </div>
+          <div class="c-cd-block">
+            <div class="c-cd-num" id="c-m">00</div>
+            <div class="c-cd-unit">Mins</div>
+          </div>
+          <div class="c-cd-block">
+            <div class="c-cd-num" id="c-s">00</div>
+            <div class="c-cd-unit">Secs</div>
+          </div>
+        </div>
+
+        <!-- WATCH LIVE -->
+        <div class="c-cta-wrap">
+          <a href="#stream" class="c-cta">
+            <span class="live-dot" aria-hidden="true"></span>
+            Watch Live
+          </a>
+          <span class="c-cta-note">Stream begins at Sumuhurtham · 8:45 AM</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="c-footer">
+      <p class="c-venue">Sri Satyanarayana Kalyana Mandapam · Hyderabad</p>
+      <span class="scroll-label">Scroll</span>
+      <div class="scroll-mouse" aria-label="Scroll down"></div>
+    </div>
+  </section>
+
+
+  <script>
+  'use strict';
+
+  /* ── Countdown target: 20 June 2026, 8:45 AM IST ── */
+  const WEDDING = new Date('2026-06-20T08:45:00+05:30');
+
+  function pad(n){ return String(n).padStart(2,'0'); }
+
+  function tick(){
+    const diff = Math.max(0, WEDDING - Date.now());
+    const d = Math.floor(diff / 86400000);
+    const h = Math.floor((diff % 86400000) / 3600000);
+    const m = Math.floor((diff % 3600000)  / 60000);
+    const s = Math.floor((diff % 60000)    / 1000);
+    ['a','b','c'].forEach(v => {
+      const dEl = document.getElementById(v+'-d');
+      const hEl = document.getElementById(v+'-h');
+      const mEl = document.getElementById(v+'-m');
+      const sEl = document.getElementById(v+'-s');
+      if(dEl) dEl.textContent = pad(d);
+      if(hEl) hEl.textContent = pad(h);
+      if(mEl) mEl.textContent = pad(m);
+      if(sEl) sEl.textContent = pad(s);
+    });
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  /* ── Variation switcher with animation replay ── */
+  function show(v){
+    ['a','b','c'].forEach(id => {
+      const panel = document.getElementById('v' + id);
+      const btn   = document.getElementById('btn-' + id);
+      const isOn  = id === v;
+      panel.classList.toggle('on', isOn);
+      btn.classList.toggle('on', isOn);
+      if(isOn){
+        /* Re-trigger CSS animations by forcing reflow */
+        const els = panel.querySelectorAll('[style*="animation"], .a-blessing, .a-rule, .a-names, .a-event, .a-cd, .a-cta, .a-footer, .b-top, .b-names, .b-info, .b-cd-wrap, .b-cta, .b-footer, .c-header, .c-names, .c-divider, .c-info-row, .c-cd, .c-cta-wrap, .c-footer');
+        panel.style.display = 'none';
+        void panel.offsetHeight;
+        panel.style.display = '';
+        /* Restart countdown display */
+        tick();
+      }
+    });
+    /* Scroll to top */
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
+  /* Prevent CTA scroll on demo page */
+  document.querySelectorAll('a[href="#stream"]').forEach(a =>
+    a.addEventListener('click', e => e.preventDefault())
+  );
+  </script>
+</body>
+</html>

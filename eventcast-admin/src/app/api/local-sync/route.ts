@@ -1,116 +1,171 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-
-export const runtime = 'edge';
+import {
+  resolveCssPath,
+  resolveTemplateDir,
+  type TemplateDirRef,
+} from '@/lib/localSyncPaths';
 
 // ─── Hero section dimensions (used for px → % conversion) ──────────────────
-// The GrapesJS editor uses the "Mobile" device which is 390px wide.
-// The hero section has aspect-ratio 2369:5122.
-// So at 390px width: hero height = 390 * 5122 / 2369 ≈ 843px
-// At 480px width: hero height = 480 * 5122 / 2369 ≈ 1037px
-// We normalise against 480px (the max-width of the card).
 const CANVAS_WIDTH = 480;
-const CANVAS_HEIGHT = Math.round(480 * 5122 / 2369); // ≈ 1037
+const CANVAS_HEIGHT = Math.round(480 * 5122 / 2369);
 
-/**
- * Convert inline px top/left values to percentage for hero overlay elements.
- * When a user drags an element in GrapesJS (absolute drag mode), it adds
- * style="top: Xpx; left: Ypx" as inline HTML attributes. These pixel values
- * are relative to the editor's 480px canvas. Converting to % makes the layout
- * responsive across all screen sizes.
- */
 function convertInlinePxToPercent(html: string): string {
   return html.replace(
     /\bstyle="([^"]*)"/g,
     (_match: string, styleStr: string) => {
       let s = styleStr;
-      // top: Xpx → top: Y%
       s = s.replace(/\btop\s*:\s*(-?\d+(?:\.\d+)?)px/g, (_m: string, px: string) =>
-        `top:${(parseFloat(px) / CANVAS_HEIGHT * 100).toFixed(2)}%`
+        `top:${(parseFloat(px) / CANVAS_HEIGHT * 100).toFixed(2)}%`,
       );
-      // left: Xpx → left: Y%
       s = s.replace(/\bleft\s*:\s*(-?\d+(?:\.\d+)?)px/g, (_m: string, px: string) =>
-        `left:${(parseFloat(px) / CANVAS_WIDTH * 100).toFixed(2)}%`
+        `left:${(parseFloat(px) / CANVAS_WIDTH * 100).toFixed(2)}%`,
       );
       return `style="${s}"`;
-    }
+    },
   );
 }
 
+const MANUAL_EDIT_BUFFER_MS = 2000;
+
+function parseLegacyHtmlBody(html: string): string {
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  let bodyContent = bodyMatch ? bodyMatch[1].trim() : html;
+
+  bodyContent = bodyContent.replace(
+    /<div\s+id=["']loader["'][^>]*>[\s\S]*?<div\s+class=["']spinner["'][^>]*><\/div>\s*<\/div>\s*<\/div>/i,
+    '',
+  );
+  bodyContent = bodyContent.replace(/<!--\s*Loader\s*-->/gi, '');
+  bodyContent = bodyContent.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+  bodyContent = bodyContent.replace(/\n{3,}/g, '\n\n').trim();
+
+  return bodyContent;
+}
+
+function loadLegacyMode(htmlPath: string, cssReadPath: string | null) {
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  const css = cssReadPath && fs.existsSync(cssReadPath) ? fs.readFileSync(cssReadPath, 'utf8') : '';
+  const bodyContent = parseLegacyHtmlBody(html);
+
+  return NextResponse.json({
+    html: bodyContent,
+    css,
+    mode: 'legacy',
+  });
+}
+
+function readTemplateInput(searchParams: URLSearchParams, body?: Record<string, unknown>) {
+  return resolveTemplateDir({
+    slug: (body?.slug as string) ?? searchParams.get('slug'),
+    path: (body?.path as string) ?? searchParams.get('path'),
+    templateKey: (body?.templateKey as string) ?? searchParams.get('templateKey'),
+  });
+}
+
+function withTemplateMeta(ref: TemplateDirRef, payload: Record<string, unknown>) {
+  return NextResponse.json({
+    templateKey: ref.templateKey,
+    label: ref.label,
+    templatePath: ref.dir,
+    ...payload,
+  });
+}
+
+/**
+ * GET /api/local-sync?slug=... | ?path=... | ?templateKey=...
+ */
 export async function GET(request: NextRequest) {
   if (process.env.NODE_ENV === 'production' || process.env.CF_PAGES === '1') {
     return NextResponse.json({ error: 'Local sync is not available in production' }, { status: 403 });
   }
-  const searchParams = request.nextUrl.searchParams;
-  const slug = searchParams.get('slug');
-  if (!slug) {
-    return NextResponse.json({ error: 'Slug is required' }, { status: 400 });
-  }
-
-  const eventDir = path.join(process.cwd(), '..', slug);
-  const htmlPath = path.join(eventDir, 'index.html');
-  const cssPath = path.join(eventDir, 'style.css');
-
-  if (!fs.existsSync(htmlPath)) {
-    return NextResponse.json({ error: `index.html not found for slug: ${slug}` }, { status: 404 });
-  }
 
   try {
-    const html = fs.readFileSync(htmlPath, 'utf8');
-    const css = fs.existsSync(cssPath) ? fs.readFileSync(cssPath, 'utf8') : '';
+    const ref = readTemplateInput(request.nextUrl.searchParams);
+    const htmlPath = path.join(ref.dir, 'index.html');
+    const projectPath = path.join(ref.dir, 'gjs-project.json');
+    const { readPath: cssReadPath } = resolveCssPath(ref.dir);
 
-    // Extract body content
-    const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-    let bodyContent = bodyMatch ? bodyMatch[1].trim() : html;
+    if (!fs.existsSync(htmlPath)) {
+      return NextResponse.json({ error: `index.html not found at: ${ref.dir}` }, { status: 404 });
+    }
 
-    // Remove the loader block so GrapesJS doesn't show it in editor
-    bodyContent = bodyContent.replace(/<div\s+id=["']loader["'][^>]*>[\s\S]*?<div\s+class=["']spinner["'][^>]*><\/div>\s*<\/div>\s*<\/div>/i, '');
-    bodyContent = bodyContent.replace(/<!--\s*Loader\s*-->/gi, '');
+    const hasProject = fs.existsSync(projectPath);
 
-    // Remove script tags (GrapesJS should not execute them in canvas)
-    bodyContent = bodyContent.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+    if (hasProject) {
+      const projectStats = fs.statSync(projectPath);
+      const htmlStats = fs.statSync(htmlPath);
+      const cssStats = cssReadPath && fs.existsSync(cssReadPath) ? fs.statSync(cssReadPath) : null;
 
-    // Clean up excessive blank lines
-    bodyContent = bodyContent.replace(/\n{3,}/g, '\n\n').trim();
+      const htmlManuallyEdited =
+        htmlStats.mtimeMs > projectStats.mtimeMs + MANUAL_EDIT_BUFFER_MS;
+      const cssManuallyEdited =
+        cssStats != null &&
+        cssStats.mtimeMs > projectStats.mtimeMs + MANUAL_EDIT_BUFFER_MS;
 
-    return NextResponse.json({ html: bodyContent, css });
+      if (htmlManuallyEdited || cssManuallyEdited) {
+        console.log(
+          `🔄 Manual filesystem edits detected for "${ref.label}", loading HTML/CSS fallback`,
+        );
+        const legacy = await loadLegacyMode(htmlPath, cssReadPath);
+        const legacyData = await legacy.json();
+        return withTemplateMeta(ref, legacyData);
+      }
+
+      const projectData = JSON.parse(fs.readFileSync(projectPath, 'utf8'));
+      const css = cssReadPath && fs.existsSync(cssReadPath) ? fs.readFileSync(cssReadPath, 'utf8') : '';
+
+      console.log(`✅ Loaded template "${ref.label}" in LOSSLESS mode (gjs-project.json is current)`);
+
+      return withTemplateMeta(ref, {
+        projectData,
+        css,
+        mode: 'lossless',
+      });
+    }
+
+    console.log(`⚠️  Loaded template "${ref.label}" in LEGACY mode (gjs-project.json not found)`);
+    const legacy = await loadLegacyMode(htmlPath, cssReadPath);
+    const legacyData = await legacy.json();
+    return withTemplateMeta(ref, legacyData);
   } catch (error: any) {
+    console.error('❌ Error loading template:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
+/**
+ * POST /api/local-sync
+ * Body: { slug | path | templateKey, html, css, projectData }
+ */
 export async function POST(request: NextRequest) {
   if (process.env.NODE_ENV === 'production' || process.env.CF_PAGES === '1') {
     return NextResponse.json({ error: 'Local sync is not available in production' }, { status: 403 });
   }
+
   try {
-    const { slug, html } = await request.json();
-    // NOTE: We intentionally ignore the `css` field from GrapesJS.
-    // GrapesJS getCss() output is destructive: it minifies the stylesheet,
-    // converts percentage positions to pixels, and mangles background-image
-    // URLs to absolute editor paths that break in production.
-    // The style.css file is PROTECTED — edited manually or via direct edits only.
-
-    if (!slug) {
-      return NextResponse.json({ error: 'Slug is required' }, { status: 400 });
-    }
-
-    const eventDir = path.join(process.cwd(), '..', slug);
-    const htmlPath = path.join(eventDir, 'index.html');
+    const body = await request.json();
+    const ref = readTemplateInput(new URLSearchParams(), body);
+    const htmlPath = path.join(ref.dir, 'index.html');
+    const projectPath = path.join(ref.dir, 'gjs-project.json');
+    const { writePath: cssWritePath } = resolveCssPath(ref.dir);
+    const { html, css, projectData } = body;
 
     if (!fs.existsSync(htmlPath)) {
-      return NextResponse.json({ error: `index.html not found for slug: ${slug}` }, { status: 404 });
+      return NextResponse.json({ error: `index.html not found at: ${ref.dir}` }, { status: 404 });
     }
 
-    // Read original HTML to preserve <head> and structural elements
+    if (css) {
+      fs.writeFileSync(cssWritePath, css, 'utf8');
+      console.log(`✅ Saved ${path.basename(cssWritePath)} for "${ref.label}"`);
+    }
+
     const originalHtml = fs.readFileSync(htmlPath, 'utf8');
 
-    // ── Preserve HEAD ────────────────────────────────────────────────────────
     const headMatch = originalHtml.match(/<head[\s\S]*?<\/head>/i);
     const headContent = headMatch ? headMatch[0] : '<head><meta charset="UTF-8"></head>';
 
-    // ── Preserve loader block (always re-inject, even if GrapesJS stripped it)
     const loaderMatch = originalHtml.match(/<!--\s*Loader\s*-->[\s\S]*?<div\s+id=["']loader["'][^>]*>[\s\S]*?<div\s+class=["']spinner["'][^>]*><\/div>\s*<\/div>\s*<\/div>/i);
     const loaderHtml = loaderMatch ? loaderMatch[0].trim() : `<!-- Loader -->
     <div id="loader">
@@ -121,32 +176,21 @@ export async function POST(request: NextRequest) {
         </div>
     </div>`;
 
-    // ── Preserve all <script src="..."> tags ─────────────────────────────────
     const scriptMatches = originalHtml.match(/<script\b[^>]*src=["'][^"']*["'][^>]*><\/script>/gi) || [];
     const scriptTags = scriptMatches.join('\n    ');
 
-    // ── Clean the GrapesJS HTML output ───────────────────────────────────────
     let innerHtml = html || '';
 
-    // Strip any <html>, <head>, <body> wrappers GrapesJS may inject
     const gjsHtmlWrap = innerHtml.match(/<html[^>]*>([\s\S]*)<\/html>/i);
     if (gjsHtmlWrap) innerHtml = gjsHtmlWrap[1].trim();
     innerHtml = innerHtml.replace(/<head[\s\S]*?<\/head>/gi, '').trim();
     const gjsBodyWrap = innerHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
     if (gjsBodyWrap) innerHtml = gjsBodyWrap[1].trim();
 
-    // Remove any loader blocks injected by GrapesJS (re-added below cleanly)
     innerHtml = innerHtml.replace(/<!--\s*Loader\s*-->[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/gi, '').trim();
-
-    // Remove script tags (re-added from original below)
     innerHtml = innerHtml.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '').trim();
-
-    // ── Convert inline px positions → percentage ──────────────────────────────
-    // GrapesJS absolute drag-mode adds style="top: Xpx; left: Ypx" to dragged
-    // elements. Convert these to % so the layout is responsive on all devices.
     innerHtml = convertInlinePxToPercent(innerHtml);
 
-    // ── Assemble clean HTML ──────────────────────────────────────────────────
     const newHtml = `<!DOCTYPE html>
 <html lang="en">
 ${headContent}
@@ -162,15 +206,29 @@ ${headContent}
 
 </html>`;
 
-    // ── Backup and write ─────────────────────────────────────────────────────
-    const backupPath = path.join(eventDir, 'index.html.bak');
+    const backupPath = path.join(ref.dir, 'index.html.bak');
     fs.writeFileSync(backupPath, originalHtml, 'utf8');
     fs.writeFileSync(htmlPath, newHtml, 'utf8');
 
-    // NOTE: style.css is intentionally NOT written here. See comment above.
+    console.log(`✅ Saved index.html for "${ref.label}" (backup created)`);
 
-    return NextResponse.json({ success: true });
+    if (projectData) {
+      fs.writeFileSync(projectPath, JSON.stringify(projectData, null, 2), 'utf8');
+      console.log(`✅ Saved gjs-project.json for "${ref.label}"`);
+    }
+
+    return NextResponse.json({
+      success: true,
+      templateKey: ref.templateKey,
+      label: ref.label,
+      saved: {
+        html: true,
+        css: !!css,
+        projectData: !!projectData,
+      },
+    });
   } catch (error: any) {
+    console.error('❌ Error saving template:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

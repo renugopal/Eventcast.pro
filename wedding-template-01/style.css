@@ -1519,13 +1519,13 @@ google-cast-launcher:hover {
    GUEST PHOTO WALL STYLES
    ============================================================ */
 .gpw-upload-area {
-    border: 2px dashed rgba(255,255,255,0.2);
+    border: 2px dashed rgba(0,0,0,0.2);
     border-radius: 18px;
     padding: 30px 20px;
     text-align: center;
     cursor: pointer;
     transition: border-color 0.3s ease, background 0.3s ease;
-    background: rgba(255,255,255,0.03);
+    background: rgba(0,0,0,0.03);
 }
 
 .gpw-upload-area:hover {

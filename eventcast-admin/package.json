@@ -10,16 +10,25 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.104.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.4.2",
+    "grapesjs": "^0.23.1",
+    "grapesjs-blocks-basic": "^1.0.2",
+    "grapesjs-preset-webpage": "^1.0.3",
+    "grapesjs-rulers": "^1.0.8",
+    "grapesjs-tui-image-editor": "^1.0.2",
     "hls.js": "^1.6.16",
     "lucide-react": "^1.11.0",
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "@cloudflare/next-on-pages": "^1.13.16",
@@ -27,6 +36,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
