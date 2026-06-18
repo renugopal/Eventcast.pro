@@ -88,6 +88,19 @@ export const CreateEventFlow = ({
 
   const [previewHtml, setPreviewHtml] = useState<string>("");
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [savedPhotographers, setSavedPhotographers] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Fetch saved photographers
+    authFetch('/api/photographers')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.photographers) {
+          setSavedPhotographers(data.photographers);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -95,7 +108,18 @@ export const CreateEventFlow = ({
       const checked = (e.target as HTMLInputElement).checked;
       setFormData((prev: typeof formData) => ({ ...prev, [name]: checked }));
     } else {
-      setFormData((prev: typeof formData) => ({ ...prev, [name]: value }));
+      setFormData((prev: typeof formData) => {
+        const newData = { ...prev, [name]: value };
+        // Auto-fill photographer details if selecting from list
+        if (name === 'photographerName') {
+          const selected = savedPhotographers.find(p => p.name === value || p.studio_name === value);
+          if (selected) {
+            newData.photographerPhone = selected.phone_number || selected.phone || '';
+            newData.photographerInsta = selected.instagram_url || '';
+          }
+        }
+        return newData;
+      });
     }
   };
 
@@ -397,7 +421,21 @@ export const CreateEventFlow = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="col-span-1 md:col-span-2">
                 <label className="ec-label">Studio / Photographer Name</label>
-                <input type="text" name="photographerName" value={formData.photographerName} onChange={handleInputChange} className="ec-input w-full" placeholder="e.g. Dream Captures" />
+                <input 
+                  type="text" 
+                  name="photographerName" 
+                  value={formData.photographerName} 
+                  onChange={handleInputChange} 
+                  list="photographers-list"
+                  className="ec-input w-full" 
+                  placeholder="e.g. Dream Captures" 
+                  autoComplete="off"
+                />
+                <datalist id="photographers-list">
+                  {savedPhotographers.map((p) => (
+                    <option key={p.id} value={p.name || p.studio_name}>{p.phone_number ? `(${p.phone_number})` : ''}</option>
+                  ))}
+                </datalist>
               </div>
               <div>
                 <label className="ec-label">Contact Phone</label>

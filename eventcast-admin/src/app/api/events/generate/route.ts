@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { RestreamerClient } from '@/lib/restreamer';
+import { generateYoutubeSEO } from '@/lib/youtube-seo';
 import { requireAdmin } from '@/lib/auth';
 
 const supabase = createClient(
@@ -174,6 +175,56 @@ export async function POST(req: Request) {
         .update({ ...dbPayload, deployment_status: 'deploying', deployment_error: null })
         .eq('id', event.editingId);
       if (dbError) throw new Error("Database Update Error: " + dbError.message);
+
+      // --- Update YouTube Broadcast if it exists ---
+      if (event.youtube_broadcast_id) {
+        try {
+          const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+            method: "POST",
+            body: new URLSearchParams({
+              client_id: process.env.GOOGLE_CLIENT_ID!,
+              client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+              refresh_token: process.env.GOOGLE_REFRESH_TOKEN!,
+              grant_type: "refresh_token",
+            }),
+          });
+          if (tokenRes.ok) {
+            const tokenData = await tokenRes.json();
+            const accessToken = tokenData.access_token;
+            if (accessToken) {
+              const { title, description, tags } = generateYoutubeSEO({
+                groomName: dbPayload.groom_name,
+                brideName: dbPayload.bride_name,
+                eventType: dbPayload.event_type
+              });
+
+              const snippet = {
+                title,
+                description,
+                categoryId: '22',
+                tags,
+                scheduledStartTime: new Date(`${dbPayload.event_date}T${dbPayload.event_time || '09:00'}:00+05:30`).toISOString()
+              };
+
+              const updateRes = await fetch("https://youtube.googleapis.com/youtube/v3/liveBroadcasts?part=snippet", {
+                method: "PUT",
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ id: event.youtube_broadcast_id, snippet }),
+              });
+
+              if (!updateRes.ok) {
+                const data = await updateRes.json();
+                console.error("YouTube Broadcast Update Error:", data);
+              }
+            }
+          }
+        } catch (ytError) {
+          console.error("Failed to update YouTube Broadcast:", ytError);
+        }
+      }
     } else {
       const { data: dbData, error: dbError } = await supabase
         .from('events')

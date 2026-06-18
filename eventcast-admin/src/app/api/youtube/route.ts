@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
+import { generateYoutubeSEO } from '@/lib/youtube-seo';
 
 export const runtime = 'edge';
 
@@ -55,34 +56,16 @@ export async function POST(req: Request) {
       const suffix = (day % 10 === 1 && day !== 11) ? 'st' : (day % 10 === 2 && day !== 12) ? 'nd' : (day % 10 === 3 && day !== 13) ? 'rd' : 'th';
       formattedEventDate = fd.replace(String(day), day + suffix);
     }
-
     const isSinglePerson = !brideName || brideName.toLowerCase() === 'family';
     const mainName = isSinglePerson ? groomName : `${groomName} & ${brideName}`;
     const formattedEventType = eventType ? (eventType.charAt(0).toUpperCase() + eventType.slice(1)) : 'Event';
     
-    const displayTitle = `${heart} ${mainName} ${formattedEventType} Live | ${formattedEventDate}`;
-    
-    // Webpage Short Description (sent in payload for HTML generation)
-    const webpageDesc = `Join us live to celebrate this beautiful traditional occasion filled with blessings, happiness, culture, and family moments.`;
-
-    const cleanHashtagEventType = formattedEventType.replace(/\s+/g, '');
-    const cleanHashtagName = groomName.replace(/\s+/g, '');
-
-    // YouTube Long Description
-    const displayDescription = `Welcome to the official livestream of
-${heart} ${mainName} ${formattedEventType} ${heart}
-
-Join us live to celebrate this beautiful traditional occasion filled with blessings, happiness, culture, and family moments.
-
-Thank you for being part of our special day and showering your love and blessings on ${groomName}.
-
-📡 Live Streaming
-🪔 Traditional ${formattedEventType}
-💖 Telugu Family Celebration
-
-Please Like, Share & Subscribe for more traditional event livestreams and memorable family celebrations.
-
-#${cleanHashtagEventType} #${cleanHashtagName} #LiveStreaming #TraditionalFunction #TeluguEvent`;
+    // Generate dynamic SEO
+    const { title: displayTitle, description: displayDescription, tags } = generateYoutubeSEO({
+      groomName,
+      brideName,
+      eventType
+    });
 
     // 1. Create Live Broadcast
     const broadcastRes = await fetch("https://youtube.googleapis.com/youtube/v3/liveBroadcasts?part=snippet,status,contentDetails", {
@@ -94,28 +77,7 @@ Please Like, Share & Subscribe for more traditional event livestreams and memora
           description: displayDescription,
           scheduledStartTime: new Date(`${eventDate}T${targetTime || '09:00'}:00+05:30`).toISOString(),
           categoryId: '22',
-          tags: [
-            mainName.toLowerCase(),
-            formattedEventType.toLowerCase(),
-            `${formattedEventType.toLowerCase()} function`,
-            'panchakattu function',
-            `${formattedEventType.toLowerCase()} live`,
-            'traditional ceremony',
-            'telugu function live',
-            'live streaming',
-            'family function live',
-            'south indian ceremony',
-            'traditional event',
-            'telugu family event',
-            'indian traditional function',
-            `${formattedEventType.toLowerCase()} event live`,
-            'youtube livestream',
-            'ceremony live',
-            `${mainName.toLowerCase()} ${formattedEventType.toLowerCase()}`,
-            'cultural ceremony',
-            'live family event',
-            'traditional livestream'
-          ].filter(Boolean)
+          tags
         },
         status: {
           privacyStatus: privacy || 'public',

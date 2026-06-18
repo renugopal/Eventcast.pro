@@ -386,8 +386,8 @@ function renderEvent(
   const isSinglePerson = !bride || bride.toLowerCase() === 'family';
   const mainName   = isSinglePerson ? groom : `${groom} & ${bride}`;
   const typeLabel  = type.charAt(0).toUpperCase() + type.slice(1);
-  const displayTitle = `✨ ${mainName} ${typeLabel} Live | ${formattedDate}`;
-  const displayDesc  = 'Join us live to celebrate this beautiful traditional occasion filled with blessings, happiness, culture, and family moments.';
+  const displayTitle = `${mainName} ${typeLabel} Live | `;
+  const displayDesc  = `Join us live and be part of this beautiful ${typeLabel.toLowerCase()} celebration filled with love and joy.`;
 
   // Gallery
   const galleryArray: string[] = (() => {
