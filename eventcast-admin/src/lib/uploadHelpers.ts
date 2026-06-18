@@ -39,6 +39,24 @@ export const compressImage = async (file: File): Promise<Blob | File> => {
   });
 };
 
+/**
+ * Compresses all images in a FileList and returns a FileList-compatible array of Files.
+ * Used before uploading images to R2 (replaces Cloudinary eager transforms).
+ */
+export async function compressFilesForR2(files: FileList): Promise<FileList> {
+  const compressed: File[] = [];
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const blob = await compressImage(file);
+    const outputFile = blob instanceof File ? blob : new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
+    compressed.push(outputFile);
+  }
+  // Return as a DataTransfer FileList (browser-compatible)
+  const dt = new DataTransfer();
+  compressed.forEach(f => dt.items.add(f));
+  return dt.files;
+}
+
 export async function uploadToR2(files: FileList, folder: string): Promise<string[]> {
   const uploadedUrls: string[] = [];
   for (let i = 0; i < files.length; i++) {
@@ -61,6 +79,8 @@ export async function uploadToR2(files: FileList, folder: string): Promise<strin
   return uploadedUrls;
 }
 
+// ─── Cloudinary kept for reference only (old URLs still served from Cloudinary CDN) ───
+// New uploads go to Cloudflare R2. Do not use this for new features.
 export async function uploadImageToCloudinary(files: FileList, folder: string): Promise<string[]> {
   const uploadedUrls: string[] = [];
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -101,7 +121,6 @@ export async function uploadImageToCloudinary(files: FileList, folder: string): 
       });
       const data = await res.json();
       if (data.secure_url) {
-        // Use pre-transformed eager URL if available, else construct it
         const finalUrl = data.eager?.[0]?.secure_url || data.secure_url.replace('/upload/', `/upload/${eager}/`);
         uploadedUrls.push(finalUrl);
       }

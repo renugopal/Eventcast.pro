@@ -475,7 +475,7 @@ export default function AdminDashboard() {
     });
   };
 
-  // ─── Upload Video → Cloudflare R2 (Zero Egress Fees) ────────────────────────
+  // ─── Upload Media → Cloudflare R2 (Zero Egress Fees) ────────────────────────
   async function uploadToR2(files: FileList, folder: string): Promise<string[]> {
     const uploadedUrls: string[] = [];
     for (let i = 0; i < files.length; i++) {
@@ -498,7 +498,22 @@ export default function AdminDashboard() {
     return uploadedUrls;
   }
 
-  // ─── Upload Image → Cloudinary (Eager Transformation, once on upload) ────────
+  // Compress a FileList of images in-browser before uploading to R2
+  async function compressFilesForR2(files: FileList): Promise<FileList> {
+    const compressed: File[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const blob = await compressImage(file);
+      const outputFile = blob instanceof File ? blob : new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
+      compressed.push(outputFile);
+    }
+    const dt = new DataTransfer();
+    compressed.forEach(f => dt.items.add(f));
+    return dt.files;
+  }
+
+  // ─── Upload Image → Cloudinary (Legacy — kept for reference only) ─────────────
+  // New uploads go to Cloudflare R2. Cloudinary used only for old existing URLs.
   async function uploadImageToCloudinary(files: FileList, type: string, folder: string): Promise<string[]> {
     const uploadedUrls: string[] = [];
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -551,8 +566,8 @@ export default function AdminDashboard() {
   }
 
   // ─── Smart Upload Dispatcher ──────────────────────────────────────────────────
-  // Videos → Cloudflare R2 (zero bandwidth cost)
-  // Images → Cloudinary (eager transforms, once per upload)
+  // All media (Videos + Images) → Cloudflare R2 (zero egress fees, no 3rd-party dependency)
+  // Images are compressed in-browser before upload for optimal size
   async function uploadToCloudinary(files: FileList | null, type: string) {
     if (!files || files.length === 0) return;
     setIsUploading(type);
@@ -564,11 +579,12 @@ export default function AdminDashboard() {
     let uploadedUrls: string[] = [];
 
     if (type === 'video') {
-      // ✅ Videos → Cloudflare R2 (no bandwidth charges, no transformation needed)
+      // Videos → R2 directly (no compression needed)
       uploadedUrls = await uploadToR2(files, folder);
     } else {
-      // ✅ Images → Cloudinary (eager transform once, free tier safe)
-      uploadedUrls = await uploadImageToCloudinary(files, type, folder);
+      // Images → compress first, then upload to R2
+      const compressedFiles = await compressFilesForR2(files);
+      uploadedUrls = await uploadToR2(compressedFiles, folder);
     }
 
     // Save results to form state

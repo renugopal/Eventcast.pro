@@ -6,7 +6,7 @@ import {
   Globe, Layout, Clock, MapPin, UploadCloud, Shield, Search, Zap,
   Image as ImageIcon, Loader2, CheckCircle2, Film, X
 } from "lucide-react";
-import { uploadToR2, uploadImageToCloudinary } from "@/lib/uploadHelpers";
+import { uploadToR2, compressFilesForR2 } from "@/lib/uploadHelpers";
 import { authFetch } from "@/lib/client-auth";
 import { useToast } from "./Toast";
 
@@ -147,7 +147,9 @@ export const CreateEventFlow = ({
       if (type === 'video') {
         urls = await uploadToR2(files, folder);
       } else {
-        urls = await uploadImageToCloudinary(files, folder);
+        // Compress images in-browser, then upload to R2
+        const compressed = await compressFilesForR2(files);
+        urls = await uploadToR2(compressed, folder);
       }
 
       if (type === 'thumbnail') setFormData((p: typeof formData) => ({ ...p, thumbnailUrl: urls[0] }));
