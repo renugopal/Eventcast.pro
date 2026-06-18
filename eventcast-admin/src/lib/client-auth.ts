@@ -45,7 +45,9 @@ export async function authFetch(
 
   // Set Content-Type for requests that send a body (unless caller overrides it)
   if (options.body !== undefined && !headers['Content-Type']) {
-    headers['Content-Type'] = 'application/json';
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
   }
 
   return fetch(url, { ...options, headers });
