@@ -1,3 +1,5 @@
+import { authFetch } from './client-auth';
+
 export const compressImage = async (file: File): Promise<Blob | File> => {
   if (file.type.startsWith('video/')) return file; // Skip for videos
   if (file.size < 2 * 1024 * 1024) return file; // Skip if less than 2MB
@@ -65,7 +67,7 @@ export async function uploadToR2(files: FileList, folder: string): Promise<strin
     fd.append('file', file);
     fd.append('folder', folder);
     try {
-      const res = await fetch('/api/r2-upload', { method: 'POST', body: fd });
+      const res = await authFetch('/api/r2-upload', { method: 'POST', body: fd });
       const data = await res.json();
       if (data.success && data.url) {
         uploadedUrls.push(data.url);
