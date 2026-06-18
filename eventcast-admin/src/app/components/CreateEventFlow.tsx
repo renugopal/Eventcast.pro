@@ -19,16 +19,16 @@ const EVENT_TYPES = [
   { id: "Birthday", label: "Birthday", icon: Cake, color: "text-pink-500", bg: "bg-pink-50", border: "border-pink-100" },
 ];
 
-const TEMPLATES: Record<string, { id: string, name: string }[]> = {
+const TEMPLATES: Record<string, { id: string, name: string, image?: string }[]> = {
   "Wedding": [
-    { id: "wedding-template-01", name: "Pink & Gold Floral" },
-    { id: "wedding-template", name: "Modern Sage" },
+    { id: "wedding-template-01", name: "Wedding Template 01", image: "/templates/wedding-template-01.jpeg" },
+    { id: "wedding-template", name: "Wedding Template" },
     { id: "wedding", name: "Traditional Maroon" }
   ],
   "Half Saree": [{ id: "half-saree-template-01", name: "Emerald Tradition" }],
   "Dhoti Ceremony": [{ id: "dhoti-ceremony-template-01", name: "Royal Blue Heritage" }],
   "Engagement": [{ id: "engagement-template-01", name: "Lavender Magic" }],
-  "default": [{ id: "wedding-template-01", name: "Classic Theme" }]
+  "default": [{ id: "wedding-template-01", name: "Wedding Template 01", image: "/templates/wedding-template-01.jpeg" }]
 };
 
 export const CreateEventFlow = ({ 
@@ -243,15 +243,26 @@ export const CreateEventFlow = ({
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {templates.map((tpl) => (
-            <div key={tpl.id} className="ec-card overflow-hidden group cursor-pointer border-2 hover:border-[var(--primary)] transition-all" onClick={() => handleTemplateSelect(tpl.id)}>
+            <div key={tpl.id} className="ec-card overflow-hidden group cursor-pointer border-2 hover:border-[var(--primary)] transition-all relative" onClick={() => handleTemplateSelect(tpl.id)}>
               <div className="aspect-[9/16] relative overflow-hidden flex flex-col items-center justify-center gap-4" style={{ background: "var(--surface-hover)", color: "var(--text-tertiary)" }}>
-                <Layout size={48} className="opacity-20" />
-              <span className="text-xs font-semibold px-6 text-center" style={{ color: "var(--text-secondary)" }}>{tpl.name}</span>
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                {tpl.image ? (
+                  <img src={tpl.image} alt={tpl.name} className="absolute inset-0 w-full h-full object-cover" />
+                ) : (
+                  <>
+                    <Layout size={48} className="opacity-20" />
+                    <span className="text-xs font-semibold px-6 text-center" style={{ color: "var(--text-secondary)" }}>{tpl.name}</span>
+                  </>
+                )}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center z-10">
                   <button className="opacity-0 group-hover:opacity-100 ec-btn bg-[var(--primary)] text-white border-transparent transform translate-y-4 group-hover:translate-y-0 transition-all shadow-xl">
                     Use Template
                   </button>
                 </div>
+                {tpl.image && (
+                  <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent z-0">
+                    <span className="text-sm font-semibold text-white block text-center drop-shadow-md">{tpl.name}</span>
+                  </div>
+                )}
               </div>
             </div>
           ))}
