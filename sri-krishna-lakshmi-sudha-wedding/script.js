@@ -181,22 +181,9 @@ document.addEventListener('DOMContentLoaded', () => {
             introEl.innerHTML = lines.map(line => `<span style="display:block;text-align:center;">${line}</span>`).join('');
         }
     }
-
     // --- SEO & TITLE UPDATE ---
-    const pageTitle = `${CONFIG.groom} ${CONFIG.bride ? '❤️ ' + CONFIG.bride : ''} ${CONFIG.eventType} | Eventcast PRO`;
-    document.title = pageTitle;
-    const updateMeta = (property, content) => {
-        const el = document.querySelector(`meta[property="${property}"]`) || document.querySelector(`meta[name="${property}"]`);
-        if (el) el.setAttribute('content', content);
-    };
-    updateMeta('og:title', pageTitle);
-    updateMeta('og:description', `Join us live for the ${CONFIG.eventType} of ${CONFIG.groom} ${CONFIG.bride ? '& ' + CONFIG.bride : ''}.`);
-    updateMeta('description', `Join us live for the ${CONFIG.eventType} of ${CONFIG.groom} ${CONFIG.bride ? '& ' + CONFIG.bride : ''}.`);
-    if (CONFIG.thumbnail) {
-        updateMeta('og:image', CONFIG.thumbnail);
-        updateMeta('twitter:image', CONFIG.thumbnail);
-    }
-    updateMeta('og:url', window.location.href);
+    // Using index.html values
+    
 
     // --- DYNAMIC TITLES ---
     const invTitle = document.getElementById('invitation-title');

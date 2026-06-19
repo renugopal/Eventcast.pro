@@ -98,6 +98,7 @@ export async function POST(req: Request) {
         .from('photographers')
         .select('id')
         .eq('studio_id', studioId)
+        .ilike('name', photographerName)
         .limit(1);
 
       const existingId = existingPhotographers?.[0]?.id;

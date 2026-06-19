@@ -22,5 +22,10 @@ window.WEDDING_CONFIG = {
     ],
     supabaseUrl: 'https://lteogzqeuuoxlekhofow.supabase.co',
     supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0ZW9nenFldXVveGxla2hvZm93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxOTc0ODIsImV4cCI6MjA5Mjc3MzQ4Mn0.eaGIKI5O17PI-bh52IiDDpPr4vqlBOU1Bq_NuAkYZXE',
-    eventId: 'sri-krishna-lakshmi-sudha'
+    eventId: 'sri-krishna-lakshmi-sudha',
+    eventType: "Wedding",
+    photographer: {
+        name: "19th Babu",
+        logo_url: "assets/logo.jpeg"
+    }
 };
