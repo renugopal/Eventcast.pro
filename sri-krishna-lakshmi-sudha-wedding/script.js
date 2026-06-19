@@ -264,7 +264,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Invitation Video Section: Smart Control ---
     const invVideo = document.getElementById('main-invitation-video');
-    const videoOverlay = document.getElementById('video-play-overlay');
     const videoWrapper = document.getElementById('video-wrapper');
     const videoDotsContainer = document.getElementById('video-dots');
     const allVideos = (CONFIG.invitationVideos && CONFIG.invitationVideos.length > 0)
@@ -289,9 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // IntersectionObserver or a manual user tap — never on initial page load.
             if (videoSourceLoaded) {
                 invVideo.load();
-                if (videoOverlay && videoOverlay.style.display === 'none') {
-                    invVideo.play().catch(() => {});
-                }
+                invVideo.play().catch(() => {});
             }
 
             // Update dots
@@ -328,14 +325,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function stopVideoAndShowOverlay() {
             isLoopingEnabled = false;
-            if (videoOverlay) videoOverlay.style.display = 'flex';
             invVideo.pause();
         }
 
         function startVideoManually() {
             isLoopingEnabled = true;
             loopCount = 0;
-            if (videoOverlay) videoOverlay.style.display = 'none';
             if (!videoSourceLoaded) {
                 videoSourceLoaded = true;
                 const src = invVideo.querySelector('source');
@@ -343,10 +338,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 invVideo.load();
             }
             invVideo.play().catch(() => {});
-        }
-
-        if (videoOverlay) {
-            videoOverlay.addEventListener('click', startVideoManually);
         }
 
         // --- Intersection Observer: Lazy-load + play only when visible ---
@@ -377,7 +368,6 @@ document.addEventListener('DOMContentLoaded', () => {
             `).join('');
             window.playVideoAt_global = (i) => {
                 isLoopingEnabled = true;
-                if (videoOverlay) videoOverlay.style.display = 'none';
                 playVideoAt(i);
             };
         }
@@ -769,7 +759,8 @@ function onYouTubeIframeAPIReady() {
             playerVars: {
                 'playsinline': 1,
                 'rel': 0,
-                'modestbranding': 1
+                'modestbranding': 1,
+                'controls': 1
             },
             events: {
                 'onStateChange': onPlayerStateChange
