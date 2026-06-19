@@ -25,7 +25,7 @@ window.WEDDING_CONFIG = {
     eventId: 'sri-krishna-lakshmi-sudha',
     eventType: "Wedding",
     photographer: {
-        name: "19th Babu",
+        name: "",
         logo_url: "assets/logo.jpeg"
     }
 };

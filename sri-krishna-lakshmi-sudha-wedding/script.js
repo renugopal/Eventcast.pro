@@ -421,9 +421,11 @@ document.addEventListener('DOMContentLoaded', () => {
             logo.style.display = 'block';
         } else if (logo) logo.style.display = 'none';
 
-        if (name) {
+        if (name && CONFIG.photographer.name) {
             name.innerText = CONFIG.photographer.name;
             name.style.display = 'block';
+        } else if (name) {
+            name.style.display = 'none';
         }
         
         if (phone && CONFIG.photographer.phone_number) {
