@@ -733,6 +733,7 @@ export default function AdminDashboard() {
   const handleEditClick = (event: any) => {
     setIsEditing(true);
     setEditingId(event.id);
+    const pg = photographers.find((p: any) => p.id === event.photographer_id);
     setFormData({
       eventType: event.event_type || "Wedding",
       groomName: event.groom_name || "",
@@ -762,10 +763,12 @@ export default function AdminDashboard() {
       youtube_stream_key: event.youtube_stream_key || "",
       youtube_url: event.youtube_url || "",
       slug: event.slug || "",
+      photographerName: pg?.name || "",
+      photographerPhone: pg?.phone_number || "",
+      photographerInsta: pg?.instagram_url || "",
     });
     // Always set true when editing so auto-fill doesn't wipe existing values
     setHasManuallyEditedInitials(true);
-    const pg = photographers.find((p: any) => p.id === event.photographer_id);
     if (pg) setSelectedPhotographer(pg);
     setActiveTab("create");
   };

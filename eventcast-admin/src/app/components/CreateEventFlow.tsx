@@ -76,7 +76,12 @@ export const CreateEventFlow = ({
     photographerPhone: "",
     photographerInsta: "",
     notes: "",
-    templateId: ""
+    templateId: "",
+    youtube_broadcast_id: "",
+    youtube_stream_key: "",
+    youtube_url: "",
+    vodLink: "",
+    slug: ""
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -170,7 +175,10 @@ export const CreateEventFlow = ({
     if (!files || files.length === 0) return;
     setIsUploading(type);
     try {
-      const folder = studioSlug ? `events/${studioSlug}` : `events/temp`;
+      const folderName = formData.slug
+        ? formData.slug
+        : (formData.groomName || formData.celebrantName || 'temp').toLowerCase().replace(/\s+/g, '-');
+      const folder = `events/${folderName}`;
       let urls: string[] = [];
 
       if (type === 'video') {
@@ -203,17 +211,49 @@ export const CreateEventFlow = ({
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      let youtubeDetails = null;
+      if (!isEditing && formData.youtubePrivacy !== 'none') {
+        try {
+          const ytRes = await authFetch('/api/youtube', {
+            method: 'POST',
+            body: JSON.stringify({
+              groomName: formData.groomName,
+              brideName: formData.brideName,
+              celebrantName: formData.celebrantName,
+              eventType: formData.eventType,
+              eventDate: formData.eventDate,
+              targetTime: formData.timerTargetTime || formData.eventTime,
+              venueName: formData.venueName,
+              thumbnailUrl: formData.thumbnailUrl,
+              privacy: formData.youtubePrivacy,
+            }),
+          });
+          const ytData = await ytRes.json();
+          if (ytData.success) {
+            youtubeDetails = ytData;
+          }
+        } catch (ytErr) {
+          console.error("YouTube Automation Failed:", ytErr);
+        }
+      }
+
+      const payload = {
+        ...formData,
+        isEditing, 
+        editingId,
+        vodLink: youtubeDetails?.youtubeUrl || formData.vodLink,
+        youtube_broadcast_id: youtubeDetails?.broadcastId || formData.youtube_broadcast_id,
+        youtube_stream_key: youtubeDetails?.streamKey || formData.youtube_stream_key,
+        youtube_url: youtubeDetails?.youtubeUrl || formData.youtube_url,
+        // Gallery array formatting expected by backend
+        galleryUrls: formData.galleryUrls.split('\n').filter((url: string) => url.trim())
+      };
+
       // Create Event Logic API Call
       const res = await authFetch('/api/events/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          ...formData, 
-          isEditing, 
-          editingId,
-          // Gallery array formatting expected by backend
-          galleryUrls: formData.galleryUrls.split('\n').filter((url: string) => url.trim())
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
