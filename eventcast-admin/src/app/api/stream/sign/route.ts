@@ -38,7 +38,7 @@ export async function GET(req: Request) {
 
     // 2. Generate a secure signed URL valid for 5 minutes (300 seconds)
     // The player must request a new URL before this expires!
-    const signedUrl = generateSignedStreamUrl(slug, 300);
+    const signedUrl = await generateSignedStreamUrl(slug, 300);
 
     return NextResponse.json({
       success: true,

@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 
 export const runtime = 'edge';
 
@@ -13,41 +11,36 @@ export async function GET(req: Request, { params }: { params: Promise<{ template
       return new NextResponse('Missing parameters', { status: 400 });
     }
 
-    const projectRoot = process.cwd().replace(/eventcast-admin[\\/]?$/, '');
-    const relativePath = path.join(...file);
-    const filePath = path.join(projectRoot, templateId, relativePath);
-
-    // Prevent directory traversal attacks
-    const normalizedFilePath = path.normalize(filePath);
-    if (!normalizedFilePath.startsWith(path.join(projectRoot, templateId))) {
-      return new NextResponse('Forbidden', { status: 403 });
-    }
-
-    if (!fs.existsSync(normalizedFilePath)) {
+    const githubRawUrl = `https://raw.githubusercontent.com/renugopal/Eventcast.pro/main/${templateId}/${file.join('/')}`;
+    const res = await fetch(githubRawUrl);
+    
+    if (!res.ok) {
       return new NextResponse('Not found', { status: 404 });
     }
 
-    const buffer = fs.readFileSync(normalizedFilePath);
+    const buffer = await res.arrayBuffer();
     
-    const ext = path.extname(normalizedFilePath).toLowerCase();
-    let contentType = 'text/plain';
-    if (ext === '.css') contentType = 'text/css';
-    else if (ext === '.js') contentType = 'application/javascript';
-    else if (ext === '.png') contentType = 'image/png';
-    else if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
-    else if (ext === '.webp') contentType = 'image/webp';
-    else if (ext === '.svg') contentType = 'image/svg+xml';
-    else if (ext === '.woff2') contentType = 'font/woff2';
-    else if (ext === '.woff') contentType = 'font/woff';
-    else if (ext === '.ttf') contentType = 'font/ttf';
-    else if (ext === '.mp4') contentType = 'video/mp4';
+    const ext = file[file.length - 1].split('.').pop()?.toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      'css': 'text/css',
+      'js': 'application/javascript',
+      'png': 'image/png',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'gif': 'image/gif',
+      'svg': 'image/svg+xml',
+      'webp': 'image/webp',
+    };
+    
+    const contentType = mimeTypes[ext || ''] || 'application/octet-stream';
 
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=31536000'
+        'Cache-Control': 'public, max-age=3600'
       }
     });
+    
   } catch (error) {
     console.error('Template asset error:', error);
     return new NextResponse('Internal server error', { status: 500 });

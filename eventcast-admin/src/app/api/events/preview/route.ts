@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 
 export const runtime = 'edge';
 
@@ -9,16 +7,16 @@ export async function POST(req: Request) {
     const event = await req.json();
     const templateId = event.templateId || 'wedding-template-01';
 
-    // In local dev, read directly from the project root.
-    // In production, we'd fetch from R2 or where the templates are hosted.
-    const projectRoot = process.cwd().replace('eventcast-admin', '');
-    const templatePath = path.join(projectRoot, templateId, 'index.html');
+    // In Cloudflare Pages Edge Runtime, we cannot use fs or path.
+    // We fetch the template directly from the GitHub repository.
+    const githubRawUrl = `https://raw.githubusercontent.com/renugopal/Eventcast.pro/main/${templateId}/index.html`;
+    const res = await fetch(githubRawUrl);
     
-    if (!fs.existsSync(templatePath)) {
-      return NextResponse.json({ html: `<div style="color:red; padding: 20px;">Template ${templateId} not found at ${templatePath}</div>` });
+    if (!res.ok) {
+      return NextResponse.json({ html: `<div style="color:red; padding: 20px;">Template ${templateId} not found at ${githubRawUrl}</div>` });
     }
 
-    let html = fs.readFileSync(templatePath, 'utf8');
+    let html = await res.text();
 
     // ─── Do basic replacements for live preview ───
     const groom = event.groomName || event.celebrantName || 'Arjun';

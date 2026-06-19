@@ -1,5 +1,3 @@
-import crypto from 'crypto';
-
 /**
  * 🔐 EVENTCAST PRO - ANTI-THEFT HLS SIGNER
  * 
@@ -8,8 +6,19 @@ import crypto from 'crypto';
  */
 
 // We use a shared secret that MUST be kept in .env.local and exactly match the Cloudflare Worker secret.
-// For development fallback, we use a default string, but ALWAYS set HLS_SIGNING_SECRET in production.
 const SECRET_KEY = process.env.HLS_SIGNING_SECRET || 'eventcast_premium_b2b_secret_key_2026';
+
+// Helper to convert string to ArrayBuffer
+function strToBuffer(str: string): Uint8Array {
+  return new TextEncoder().encode(str);
+}
+
+// Helper to convert ArrayBuffer to Hex String
+function bufferToHex(buffer: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 /**
  * Generates a signed URL for a given stream slug.
@@ -18,39 +27,46 @@ const SECRET_KEY = process.env.HLS_SIGNING_SECRET || 'eventcast_premium_b2b_secr
  * @param ttlSeconds How long the link should be valid (default: 300 seconds / 5 mins)
  * @returns The full signed URL with ?token and &expires
  */
-export function generateSignedStreamUrl(slug: string, ttlSeconds: number = 300): string {
-  // 1. Calculate expiry timestamp
+export async function generateSignedStreamUrl(slug: string, ttlSeconds: number = 300): Promise<string> {
   const expires = Math.floor(Date.now() / 1000) + ttlSeconds;
-  
-  // 2. The path we are protecting
   const path = `/memfs/${slug}.m3u8`;
-  
-  // 3. Create the data string to sign: path + expires
   const dataToSign = `${path}:${expires}`;
   
-  // 4. Generate the HMAC SHA-256 signature
-  const hmac = crypto.createHmac('sha256', SECRET_KEY);
-  hmac.update(dataToSign);
-  const signature = hmac.digest('hex'); // We use hex for URL safety
+  const key = await crypto.subtle.importKey(
+    'raw',
+    strToBuffer(SECRET_KEY),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
   
-  // 5. Construct the final URL
+  const signatureBuffer = await crypto.subtle.sign('HMAC', key, strToBuffer(dataToSign));
+  const signature = bufferToHex(signatureBuffer);
+  
   const baseUrl = process.env.RESTREAMER_URL || 'https://media.eventcast.pro';
   return `${baseUrl}${path}?token=${signature}&expires=${expires}`;
 }
 
 /**
- * Validates a signed URL parameters (used if we want to verify on the Next.js side,
- * though normally this is done by the Cloudflare Edge Worker).
+ * Validates a signed URL parameters.
  */
-export function verifySignature(path: string, token: string, expires: number): boolean {
+export async function verifySignature(path: string, token: string, expires: number): Promise<boolean> {
   if (Math.floor(Date.now() / 1000) > expires) {
     return false; // Token expired
   }
   
   const dataToSign = `${path}:${expires}`;
-  const hmac = crypto.createHmac('sha256', SECRET_KEY);
-  hmac.update(dataToSign);
-  const expectedSignature = hmac.digest('hex');
   
-  return crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expectedSignature));
+  const key = await crypto.subtle.importKey(
+    'raw',
+    strToBuffer(SECRET_KEY),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['verify']
+  );
+  
+  // Convert hex token back to Uint8Array for verification
+  const tokenBytes = new Uint8Array(token.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []);
+  
+  return crypto.subtle.verify('HMAC', key, tokenBytes, strToBuffer(dataToSign));
 }
