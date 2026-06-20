@@ -10,7 +10,7 @@ window.WEDDING_CONFIG = {
     venueSubtext: "Guntur",
     youtubeId: "LvYyM9zM25A",
     invitationVideo: "assets/invitation.mp4",
-    thumbnail: "assets/seo_thumbnail.jpg",
+    thumbnail: "https://pub-fa013cc979d8410e9d307bd2c9e6ecf2.r2.dev/thumbnails/sravani-manoj-engagement/seo_thumbnail.jpg",
     gallery: [],
     supabaseUrl: 'https://ntjqjmuripwexwlhfrny.supabase.co',
     supabaseKey: 'sb_publishable_vi_vz9qfKMJnEymw3WaPpg_2A6SeSWR',
