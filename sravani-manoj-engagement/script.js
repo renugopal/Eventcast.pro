@@ -253,7 +253,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const subtexts = document.querySelectorAll('.info-subtext');
     if (subtexts[0]) subtexts[0].innerText = CONFIG.timeSubtext || '';
-    if (subtexts[1]) subtexts[1].innerText = CONFIG.venueSubtext || '';
+    if (subtexts[1]) {
+        const mapLink = CONFIG.venueMapLink || '';
+        const sub = CONFIG.venueSubtext || '';
+        if (mapLink && sub) {
+            subtexts[1].innerHTML = `<a href="${mapLink}" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">${sub}</a>`;
+        } else {
+            subtexts[1].innerText = sub;
+        }
+    }
 
     // Dynamic Time Label (e.g. 'Sumuhurtham' / 'Wedding' / 'Ceremony')
     const heroInfoItems = document.querySelectorAll('.hero-info-item');
@@ -280,6 +288,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         invVideo.setAttribute('poster', optimizeUrl(CONFIG.thumbnail));
 
+        invVideo.addEventListener('playing', () => {
+            if (videoOverlay) videoOverlay.style.display = 'none';
+        });
+        invVideo.addEventListener('error', () => {
+            if (videoOverlay) videoOverlay.style.display = 'flex';
+        });
+
         function playVideoAt(index) {
             currentVideoIndex = index;
             const src = invVideo.querySelector('source');
@@ -290,7 +305,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (videoSourceLoaded) {
                 invVideo.load();
                 if (videoOverlay && videoOverlay.style.display === 'none') {
-                    invVideo.play().catch(() => {});
+                    invVideo.play().catch(() => {
+                        if (videoOverlay) videoOverlay.style.display = 'flex';
+                    });
                 }
             }
 
@@ -309,7 +326,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Single video loop logic
                 loopCount++;
                 if (loopCount < MAX_LOOPS && isLoopingEnabled) {
-                    invVideo.play().catch(() => {});
+                    invVideo.play().catch(() => {
+                        if (videoOverlay) videoOverlay.style.display = 'flex';
+                    });
                 } else {
                     stopVideoAndShowOverlay();
                 }
@@ -342,7 +361,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (src) src.setAttribute('src', optimizeUrl(allVideos[currentVideoIndex]));
                 invVideo.load();
             }
-            invVideo.play().catch(() => {});
+            invVideo.play().catch(() => {
+                if (videoOverlay) videoOverlay.style.display = 'flex';
+            });
         }
 
         if (videoOverlay) {
@@ -360,7 +381,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (src) src.setAttribute('src', optimizeUrl(allVideos[currentVideoIndex]));
                         invVideo.load(); // First network request for video bytes happens here
                     }
-                    invVideo.play().catch(() => {});
+                    invVideo.play().catch(() => {
+                        if (videoOverlay) videoOverlay.style.display = 'flex';
+                    });
                 } else {
                     invVideo.pause();
                 }

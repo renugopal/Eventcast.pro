@@ -102,8 +102,8 @@
                     <div class="hero-info-item">
                         <i class="fas fa-house-chimney"></i>
                         <span class="info-label">Venue</span>
-                        <span class="info-text">Swarna Function Hall</span>
-                        <span class="info-subtext"><a href="https://maps.app.goo.gl/LtbuRvaKfCQVEyvNA" target="_blank" style="color: inherit; text-decoration: underline;">Guntur</a></span>
+                        <span class="info-text">Swagruha Funtion Hall</span>
+                        <span class="info-subtext"><a href="https://maps.app.goo.gl/45AQGeqo83r5jxvb7" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">Guntur.</a></span>
                     </div>
                 </div>
 
@@ -145,11 +145,11 @@
             <!-- Video progress dots: shown only if multiple videos -->
             <div id="video-dots" style="display:none; justify-content:center; gap:8px; margin-bottom:16px;"></div>
             <div class="invitation-container" id="video-wrapper">
-                <video id="main-invitation-video" class="invitation-video" muted playsinline preload="none" poster="https://pub-fa013cc979d8410e9d307bd2c9e6ecf2.r2.dev/thumbnails/sravani-manoj-engagement/seo_thumbnail.jpg">
-                    <source src="assets/invitation.mp4" type="video/mp4">
+                <video id="main-invitation-video" class="invitation-video" muted playsinline preload="metadata" controls poster="https://pub-fa013cc979d8410e9d307bd2c9e6ecf2.r2.dev/thumbnails/sravani-manoj-engagement/seo_thumbnail.jpg">
+                    <source src="https://pub-fa013cc979d8410e9d307bd2c9e6ecf2.r2.dev/events/sravani-manoj-engagement/invitation.mp4" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
-                <div id="video-play-overlay" class="video-overlay" style="display: none;">
+                <div id="video-play-overlay" class="video-overlay" style="display: flex;">
                     <div class="play-icon-circle">
                         <i class="fas fa-play"></i>
                     </div>
@@ -246,6 +246,22 @@
         </section>
 
 
+
+        <!-- MAP SECTION -->
+        <section id="map-section" class="reveal">
+            <h2 class="section-title" data-i18n="locate_venue">Locate the Venue</h2>
+            <div class="map-container">
+                <iframe
+                    src="https://maps.google.com/maps?q=16.3247,80.4376199&hl=en&z=17&output=embed"
+                    width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+            <div class="action-buttons">
+                <a href="https://maps.app.goo.gl/45AQGeqo83r5jxvb7" target="_blank" rel="noopener noreferrer" class="btn map-btn">
+                    <i class="fas fa-location-dot"></i><span data-i18n="open_maps"> Open in Google Maps</span>
+                </a>
+            </div>
+        </section>
 
 <!-- FOOTER & PHOTOGRAPHER -->
         <footer>
