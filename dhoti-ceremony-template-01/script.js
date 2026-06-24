@@ -860,8 +860,9 @@ const TRANSLATIONS = {
         gpw_step_choose: 'Choose photo',
         gpw_step_name: 'Enter your name',
         gpw_step_share: 'Share!',
-        gpw_upload_title: 'Tap to Upload Your Photo',
-        gpw_upload_hint: 'From gallery or take a new one',
+        gpw_upload_title: 'Share Your Photo',
+        gpw_take_photo: 'Take Photo',
+        gpw_from_gallery: 'From Gallery',
         gpw_upload_meta: 'JPEG/PNG • Auto-compressed • Appears instantly',
         gpw_name_placeholder: 'Your name *',
         gpw_submit: 'Upload Your Memory',
@@ -901,8 +902,9 @@ const TRANSLATIONS = {
         gpw_step_choose: 'ఫోటో ఎంచుకోండి',
         gpw_step_name: 'మీ పేరు రాయండి',
         gpw_step_share: 'షేర్ చేయండి!',
-        gpw_upload_title: 'మీ ఫోటో అప్‌లోడ్ చేయండి',
-        gpw_upload_hint: 'గ్యాలరీ నుండి లేదా కెమెరా తో తీయండి',
+        gpw_upload_title: 'మీ ఫోటో షేర్ చేయండి',
+        gpw_take_photo: 'ఫోటో తీయండి',
+        gpw_from_gallery: 'గ్యాలరీ నుండి',
         gpw_upload_meta: 'JPEG/PNG • ఆటో కంప్రెస్ • వెంటనే కనిపిస్తుంది',
         gpw_name_placeholder: 'మీ పేరు *',
         gpw_submit: 'మీ జ్ఞాపకం అప్‌లోడ్ చేయండి',
@@ -1004,7 +1006,8 @@ function initLiveViewerCount() {
 
     const section    = document.getElementById('guest-photo-wall');
     const uploadArea = document.getElementById('gpw-upload-area');
-    const fileInput  = document.getElementById('gpw-file-input');
+    const cameraInput = document.getElementById('gpw-file-camera');
+    const galleryInput = document.getElementById('gpw-file-gallery');
     const nameArea   = document.getElementById('gpw-name-area');
     const nameInput  = document.getElementById('gpw-uploader-name');
     const submitBtn  = document.getElementById('gpw-submit-btn');
@@ -1085,11 +1088,20 @@ function initLiveViewerCount() {
 
     function resetUploadFlow() {
         selectedFile = null;
-        fileInput.value = '';
+        if (cameraInput) cameraInput.value = '';
+        if (galleryInput) galleryInput.value = '';
         nameInput.value = '';
         nameArea.style.display = 'none';
         uploadArea.style.display = '';
         setGpwStep(1);
+    }
+
+    function handleFilePick(file) {
+        if (!file || !file.type.startsWith('image/')) return;
+        selectedFile = file;
+        nameArea.style.display = 'block';
+        setGpwStep(2);
+        nameInput.focus();
     }
 
     function compressToWebP(file) {
@@ -1115,13 +1127,11 @@ function initLiveViewerCount() {
         });
     }
 
-    fileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file || !file.type.startsWith('image/')) return;
-        selectedFile = file;
-        nameArea.style.display = 'block';
-        setGpwStep(2);
-        nameInput.focus();
+    cameraInput?.addEventListener('change', (e) => {
+        handleFilePick(e.target.files[0]);
+    });
+    galleryInput?.addEventListener('change', (e) => {
+        handleFilePick(e.target.files[0]);
     });
 
     submitBtn.addEventListener('click', async () => {
