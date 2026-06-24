@@ -748,6 +748,11 @@ footer {
     .live-card .video-wrapper {
         max-height: none;
     }
+
+    .live-card.media-card {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
     
     .time-box {
         width: 70px;
