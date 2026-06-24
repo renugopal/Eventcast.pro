@@ -136,7 +136,17 @@ section {
 
 /* Hero */
 #hero {
-    padding-top: 48px;
+    padding: 48px 0 8px;
+}
+
+#media-grid {
+    padding: 14px 0 32px;
+}
+
+.hero-media-divider {
+    height: 22px;
+    margin: 0;
+    opacity: 0.22;
 }
 
 .invite-header {
@@ -165,15 +175,18 @@ section {
 }
 
 .name-showcase {
-    margin-bottom: 8px;
-    line-height: 1.2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 4px;
+    line-height: 1.15;
 }
 
 .couple-name-line {
     font-family: 'Playfair Display', serif;
     font-size: clamp(1.85rem, 5.5vw, 2.65rem);
     color: var(--primary);
-    margin: 0;
+    margin: 8px 0;
     font-style: italic;
     font-weight: 700;
 }
@@ -183,7 +196,7 @@ section {
     align-items: center;
     justify-content: center;
     gap: 14px;
-    margin: 6px 0 28px;
+    margin: 4px 0 0;
     color: var(--accent);
     font-size: 0.75rem;
     opacity: 0.9;
@@ -199,16 +212,28 @@ section {
 
 .couple-amp {
     font-family: 'Great Vibes', cursive;
-    font-size: clamp(1.4rem, 4vw, 2rem);
+    font-size: clamp(2rem, 6.5vw, 3rem);
     color: var(--accent);
-    margin: 4px 0;
+    margin: 12px 0;
     line-height: 1;
+}
+
+.hero-meta-block {
+    margin-top: 32px;
+}
+
+.hero-meta-block .info-row {
+    margin-bottom: 16px;
+}
+
+.hero-meta-block .countdown-glass {
+    margin-bottom: 16px;
 }
 
 .info-row {
     display: flex;
     justify-content: center;
-    gap: 15px;
+    gap: 12px;
     flex-wrap: wrap;
     margin-bottom: 40px;
 }
@@ -337,7 +362,7 @@ section {
     flex-wrap: wrap;
     justify-content: center;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
 }
 
 .hero-cta-main,
@@ -687,6 +712,19 @@ footer {
 
 .mt-15 { margin-top: 15px; }
 
+.public-stats {
+    margin-top: 18px;
+    font-size: 0.8rem;
+    color: #888;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    padding-top: 14px;
+}
+
+.public-stats i {
+    color: var(--accent);
+    margin-right: 6px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .glass-container {
@@ -695,7 +733,7 @@ footer {
     }
     
     .couple-name-line { font-size: 1.55rem; }
-    .couple-amp { font-size: 1.35rem; }
+    .couple-amp { font-size: 2.1rem; margin: 10px 0; }
     .ceremony-title { font-size: 1.85rem; }
     
     #media-grid, #interactive-split {
