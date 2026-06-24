@@ -238,15 +238,16 @@ document.addEventListener('DOMContentLoaded', () => {
             // 1. Atomically insert this visit into page_views table
             //    (No race condition — each visit = 1 insert)
             if (_supabase) {
-                await _supabase
-                    .from('page_views')
-                    .insert([{
-                        event_id: CONFIG.eventId,
-                        device_type: deviceType,
-                        referrer: referrer,
-                        user_agent: userAgent,
-                        country: CONFIG.country || 'Unknown'
-                    }]);
+                const viewRow = {
+                    event_id: CONFIG.eventId,
+                    device_type: deviceType,
+                    referrer: referrer,
+                    user_agent: userAgent,
+                    country: CONFIG.country || 'Unknown',
+                };
+                if (CONFIG.studioId) viewRow.studio_id = CONFIG.studioId;
+
+                await _supabase.from('page_views').insert([viewRow]);
 
                 // 2. Count total visits (public RPC — direct SELECT blocked by RLS for anon)
                 let count = null;

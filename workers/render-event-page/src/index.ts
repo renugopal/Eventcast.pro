@@ -503,6 +503,7 @@ window.WEDDING_CONFIG = {
   supabaseUrl: "${esc(env.SUPABASE_URL)}",
   supabaseKey: "${esc(env.SUPABASE_ANON_KEY)}",
   eventId: "${esc(event.id)}",
+  studioId: "${esc(event.studio_id ?? '')}",
   eventDate: "${esc(event.event_date ?? '')}",
   eventType: "${esc(type)}",
   introText: "${esc(event.custom_top_title ?? '')}",
