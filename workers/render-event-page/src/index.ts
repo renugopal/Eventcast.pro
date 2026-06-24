@@ -1,4 +1,5 @@
 import weddingTemplate01 from '../templates/wedding-template-01/index.html';
+import { generateWeddingWebSEO } from './wedding-web-seo';
 import dhotiTemplate from '../templates/dhoti-ceremony-template-01/index.html';
 import halfSareeTemplate from '../templates/half-saree-template-01/index.html';
 import engagementTemplate from '../templates/harika-adithya-engagement/index.html';
@@ -387,8 +388,19 @@ function renderEvent(
   const isSinglePerson = !bride || bride.toLowerCase() === 'family';
   const mainName   = isSinglePerson ? groom : `${groom} & ${bride}`;
   const typeLabel  = type.charAt(0).toUpperCase() + type.slice(1);
-  const displayTitle = `${mainName} ${typeLabel} Live | `;
-  const displayDesc  = `Join us live and be part of this beautiful ${typeLabel.toLowerCase()} celebration filled with love and joy.`;
+  const templateId = event.template_id ?? DEFAULT_TEMPLATE_ID;
+  const isWeddingTemplate = templateId === 'wedding-template-01';
+  const weddingSeo = isWeddingTemplate
+    ? generateWeddingWebSEO({
+        groom,
+        bride: isSinglePerson ? undefined : bride,
+        eventType: type,
+        eventDate: event.event_date ?? '',
+      })
+    : null;
+  const displayTitle = weddingSeo?.title ?? `${mainName} ${typeLabel} Live | `;
+  const displayDesc  = weddingSeo?.description
+    ?? `Join us live and be part of this beautiful ${typeLabel.toLowerCase()} celebration filled with love and joy.`;
 
   // Gallery
   const galleryArray: string[] = (() => {
@@ -462,6 +474,7 @@ window.WEDDING_CONFIG = {
   supabaseUrl: "${esc(env.SUPABASE_URL)}",
   supabaseKey: "${esc(env.SUPABASE_ANON_KEY)}",
   eventId: "${esc(event.id)}",
+  eventDate: "${esc(event.event_date ?? '')}",
   eventType: "${esc(type)}",
   introText: "${esc(event.custom_top_title ?? '')}",
   photographer: ${JSON.stringify(photographer)},

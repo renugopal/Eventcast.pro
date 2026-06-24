@@ -183,15 +183,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- SEO & TITLE UPDATE ---
-    const pageTitle = `${CONFIG.groom} ${CONFIG.bride ? '❤️ ' + CONFIG.bride : ''} ${CONFIG.eventType} | Eventcast PRO`;
-    document.title = pageTitle;
+    const eventDate = CONFIG.eventDate || (CONFIG.timerTarget && CONFIG.timerTarget.split('T')[0]) || '';
+    const seo = typeof generateWeddingWebSEO === 'function'
+        ? generateWeddingWebSEO({
+            groom: CONFIG.groom || '',
+            bride: CONFIG.bride,
+            eventType: CONFIG.eventType || 'Wedding',
+            eventDate,
+        })
+        : { title: document.title, description: '' };
+    document.title = seo.title;
     const updateMeta = (property, content) => {
         const el = document.querySelector(`meta[property="${property}"]`) || document.querySelector(`meta[name="${property}"]`);
         if (el) el.setAttribute('content', content);
     };
-    updateMeta('og:title', pageTitle);
-    updateMeta('og:description', `Join us live for the ${CONFIG.eventType} of ${CONFIG.groom} ${CONFIG.bride ? '& ' + CONFIG.bride : ''}.`);
-    updateMeta('description', `Join us live for the ${CONFIG.eventType} of ${CONFIG.groom} ${CONFIG.bride ? '& ' + CONFIG.bride : ''}.`);
+    updateMeta('og:title', seo.title);
+    updateMeta('og:description', seo.description);
+    updateMeta('description', seo.description);
     if (CONFIG.thumbnail) {
         updateMeta('og:image', CONFIG.thumbnail);
         updateMeta('twitter:image', CONFIG.thumbnail);
