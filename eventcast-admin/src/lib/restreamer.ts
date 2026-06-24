@@ -205,7 +205,8 @@ export class RestreamerClient {
       ingestUrl: `rtmp://34.100.142.25/${slug}`,
       streamKey: 'live',
       hlsUrl: `${this.config.url}/memfs/${slug}.m3u8`,
-      playerUrl: `${this.config.url}/ui/player.html?query=memfs/${slug}.m3u8`
+      // Restreamer v3 removed /ui/player.html — use the HLS manifest directly.
+      playerUrl: `${this.config.url}/memfs/${slug}.m3u8`,
     };
   }
 

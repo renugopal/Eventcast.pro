@@ -17,18 +17,21 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    // Only protect the /memfs/ media directory where HLS streams live
+    // Only protect signed token URLs; always add CORS for browser HLS players on event pages.
     if (!url.pathname.startsWith('/memfs/')) {
-      // Allow other routes (like UI or API) to pass through to Restreamer
       return fetch(request);
     }
 
-    // 1. Get the token and expires params from the URL query
     const token = url.searchParams.get('token');
     const expiresStr = url.searchParams.get('expires');
 
     if (!token || !expiresStr) {
-      return new Response('Forbidden: Missing Security Token', { status: 403 });
+      const originResponse = await fetch(request);
+      const openResponse = new Response(originResponse.body, originResponse);
+      openResponse.headers.set('Access-Control-Allow-Origin', '*');
+      openResponse.headers.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+      openResponse.headers.set('Access-Control-Allow-Headers', '*');
+      return openResponse;
     }
 
     const expires = parseInt(expiresStr, 10);

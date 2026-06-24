@@ -337,12 +337,31 @@ function onYouTubeIframeAPIReady() {
                 isPlaying = false;
             };
 
+            const resolveHlsPlaybackUrl = async (baseUrl) => {
+                const res = await fetch(baseUrl, { cache: 'no-store' });
+                if (!res.ok) throw new Error('offline');
+                let text = await res.text();
+                if (!text.includes('#EXTM3U')) throw new Error('invalid');
+
+                let playbackUrl = baseUrl;
+                if (text.includes('#EXT-X-STREAM-INF')) {
+                    const variantLine = text.split('\n').map((l) => l.trim()).find((l) => l && !l.startsWith('#'));
+                    if (!variantLine) throw new Error('warming');
+                    playbackUrl = new URL(variantLine, baseUrl).href;
+                    const mediaRes = await fetch(playbackUrl, { cache: 'no-store' });
+                    if (!mediaRes.ok) throw new Error('warming');
+                    text = await mediaRes.text();
+                }
+
+                if (!text.includes('#EXTINF')) throw new Error('warming');
+                return playbackUrl;
+            };
+
             const tryLoadStream = () => {
                 if (isPlaying) return;
-                
-                fetch(CONFIG.restreamerUrl, { method: 'HEAD', cache: 'no-store' })
-                    .then(res => {
-                        if (res.ok) {
+
+                resolveHlsPlaybackUrl(CONFIG.restreamerUrl)
+                    .then((playbackUrl) => {
                             console.log("Stream detected! Initializing player...");
                             hideLoader();
                             isPlaying = true;
@@ -358,25 +377,17 @@ function onYouTubeIframeAPIReady() {
                                     enableWorker: true,
                                     lowLatencyMode: true
                                 });
-                                hls.loadSource(CONFIG.restreamerUrl);
+                                hls.loadSource(playbackUrl);
                                 hls.attachMedia(video);
 
                                 const checkStreamStatusOnDrop = () => {
                                     if (!isPlaying) return;
-                                    fetch(CONFIG.restreamerUrl, { method: 'HEAD', cache: 'no-store' })
-                                        .then(res => {
-                                            if (!res.ok) {
+                                    resolveHlsPlaybackUrl(CONFIG.restreamerUrl)
+                                        .catch(() => {
                                                 console.warn("Stream went offline. Reconnecting...");
                                                 destroyHls();
                                                 showLoader("Stream Interrupted. Reconnecting...");
                                                 startPolling();
-                                            }
-                                        })
-                                        .catch(() => {
-                                            console.warn("Stream check failed. Reconnecting...");
-                                            destroyHls();
-                                            showLoader("Stream Interrupted. Reconnecting...");
-                                            startPolling();
                                         });
                                 };
 
@@ -420,16 +431,16 @@ function onYouTubeIframeAPIReady() {
                                     }
                                 });
                             } else if (video && video.canPlayType('application/vnd.apple.mpegurl')) {
-                                video.src = CONFIG.restreamerUrl;
+                                video.src = playbackUrl;
                                 video.addEventListener('loadedmetadata', function() {
                                     video.play().catch(e => console.log("Autoplay prevented:", e));
                                 });
                             }
-                        } else {
-                            startPolling();
-                        }
                     })
-                    .catch(() => {
+                    .catch((err) => {
+                        if (err && err.message === 'warming') {
+                            showLoader('Stream starting… (HLS warms up a few seconds after YouTube)');
+                        }
                         startPolling();
                     });
             };
