@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@400;700&family=Inter:wght@300;400;500;600&family=Outfit:wght@300;400;600&family=Noto+Sans+Telugu:wght@400;600;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://eventcast.pro/dhoti-ceremony-template-01/style.css">
     <!-- Configuration -->
     <script src="config.js"></script>
     <!-- Supabase Client Library -->
@@ -160,37 +160,66 @@
 
         <!-- GUEST PHOTO WALL SECTION -->
         <section id="guest-photo-wall" class="fade-in" style="display:none;">
-            <div class="split-card" style="width:100%; max-width:700px; margin:0 auto;">
-                <h3><i class="fas fa-camera"></i> 📸 Guest Memories</h3>
-                <p class="subtitle">Share your special moments from this celebration</p>
+            <div class="split-card gpw-card">
+                <h3><i class="fas fa-camera"></i> <span data-i18n="gpw_title">Guest Memories</span></h3>
+                <p class="subtitle gpw-subtitle" data-i18n="gpw_subtitle">Share your special moments from this celebration</p>
+
+                <div class="gpw-steps" id="gpw-steps" aria-label="Upload steps">
+                    <div class="gpw-step gpw-step-active" data-step="1">
+                        <span class="gpw-step-num">1</span>
+                        <span data-i18n="gpw_step_choose">Choose photo</span>
+                    </div>
+                    <div class="gpw-step-divider" aria-hidden="true"></div>
+                    <div class="gpw-step" data-step="2">
+                        <span class="gpw-step-num">2</span>
+                        <span data-i18n="gpw_step_name">Enter your name</span>
+                    </div>
+                    <div class="gpw-step-divider" aria-hidden="true"></div>
+                    <div class="gpw-step" data-step="3">
+                        <span class="gpw-step-num">3</span>
+                        <span data-i18n="gpw_step_share">Share!</span>
+                    </div>
+                </div>
 
                 <div id="gpw-upload-area" class="gpw-upload-area">
                     <label for="gpw-file-input" class="gpw-upload-label">
-                        <i class="fas fa-camera" style="font-size:2rem; margin-bottom:10px; opacity:0.7;"></i>
-                        <span style="font-weight:600;">Tap to share a photo</span>
-                        <small style="opacity:0.5; font-size:0.8rem;">Auto-optimized • Instant upload</small>
+                        <div class="gpw-upload-icon-wrap">
+                            <i class="fas fa-camera gpw-upload-icon"></i>
+                            <i class="fas fa-plus gpw-upload-plus"></i>
+                        </div>
+                        <span class="gpw-upload-title" data-i18n="gpw_upload_title">Tap to Upload Your Photo</span>
+                        <span class="gpw-upload-hint" data-i18n="gpw_upload_hint">From gallery or take a new one</span>
+                        <small class="gpw-upload-meta" data-i18n="gpw_upload_meta">JPEG/PNG • Auto-compressed • Appears instantly</small>
                     </label>
                     <input type="file" id="gpw-file-input" accept="image/*" capture="environment" style="display:none">
                 </div>
 
-                <div id="gpw-name-area" style="display:none; margin-top:14px;">
-                    <input type="text" id="gpw-uploader-name" placeholder="Your name *" maxlength="60"
-                        style="width:100%; padding:10px 14px; background:rgba(0,0,0,0.06); border:1px solid rgba(184,134,11,0.3); border-radius:10px; font-size:0.95rem; outline:none; margin-bottom:10px; box-sizing:border-box;">
-                    <button id="gpw-submit-btn" class="btn solid-btn" style="width:100%;">
-                        <i class="fas fa-paper-plane"></i> Share Your Memory
+                <div id="gpw-name-area" class="gpw-name-area" style="display:none;">
+                    <input type="text" id="gpw-uploader-name" class="gpw-name-input" placeholder="Your name *" data-i18n="gpw_name_placeholder" maxlength="60">
+                    <button type="button" id="gpw-submit-btn" class="btn solid-btn gpw-submit-btn">
+                        <i class="fas fa-cloud-upload-alt"></i> <span data-i18n="gpw_submit">Upload Your Memory</span>
                     </button>
                 </div>
 
-                <div id="gpw-progress" style="display:none; text-align:center; padding:16px; opacity:0.7;">
-                    <div class="spinner" style="margin:0 auto 10px;"></div>
-                    <span id="gpw-progress-text">Uploading...</span>
+                <div id="gpw-progress" class="gpw-progress" style="display:none;">
+                    <div class="spinner"></div>
+                    <span id="gpw-progress-text" data-i18n="gpw_uploading">Uploading...</span>
                 </div>
 
-                <div id="gpw-limit-msg" style="display:none; text-align:center; padding:20px; opacity:0.6; font-size:0.9rem;">
-                    📷 The photo wall is full. Thank you for being part of this celebration! 🎉
+                <div id="gpw-limit-msg" class="gpw-limit-msg" style="display:none;">
+                    <span data-i18n="gpw_limit_msg">The photo wall is full. Thank you for being part of this celebration!</span>
                 </div>
 
-                <div id="gpw-grid" class="gpw-grid" style="margin-top:20px;"></div>
+                <div id="gpw-empty-state" class="gpw-empty-state">
+                    <div class="gpw-empty-tiles" aria-hidden="true">
+                        <div class="gpw-empty-tile"><i class="fas fa-image"></i></div>
+                        <div class="gpw-empty-tile"><i class="fas fa-image"></i></div>
+                        <div class="gpw-empty-tile"><i class="fas fa-image"></i></div>
+                    </div>
+                    <p data-i18n="gpw_empty_msg">Be the first to share a memory!</p>
+                </div>
+
+                <div id="gpw-grid" class="gpw-grid"></div>
             </div>
         </section>
 
@@ -215,7 +244,7 @@
     <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
     <!-- Google Cast SDK for Smart TV Casting -->
     <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
-    <script src="script.js"></script>
+    <script src="https://eventcast.pro/dhoti-ceremony-template-01/script.js"></script>
 
     <!-- Language Toggle Button -->
     <button id="lang-toggle-btn" class="lang-toggle-btn" aria-label="Toggle Language">

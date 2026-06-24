@@ -828,6 +828,21 @@ const TRANSLATIONS = {
         venue: ' Venue',
         open_maps: ' Open in Google Maps',
         people_visited: ' People visited this page',
+        gpw_title: 'Guest Memories',
+        gpw_subtitle: 'Share your special moments from this celebration',
+        gpw_step_choose: 'Choose photo',
+        gpw_step_name: 'Enter your name',
+        gpw_step_share: 'Share!',
+        gpw_upload_title: 'Tap to Upload Your Photo',
+        gpw_upload_hint: 'From gallery or take a new one',
+        gpw_upload_meta: 'JPEG/PNG • Auto-compressed • Appears instantly',
+        gpw_name_placeholder: 'Your name *',
+        gpw_submit: 'Upload Your Memory',
+        gpw_uploading: 'Uploading...',
+        gpw_compressing: 'Compressing your photo...',
+        gpw_limit_msg: 'The photo wall is full. Thank you for being part of this celebration!',
+        gpw_empty_msg: 'Be the first to share a memory!',
+        gpw_toast_success: 'Your memory is now live!',
     },
     te: {
         days: 'రోజులు', hours: 'గంటలు', min: 'నిమిషాలు', sec: 'సెకన్లు',
@@ -854,6 +869,21 @@ const TRANSLATIONS = {
         venue: ' వేదిక',
         open_maps: ' Google Maps లో తెరవండి',
         people_visited: ' మంది ఈ పేజీని సందర్శించారు',
+        gpw_title: 'అతిథి జ్ఞాపకాలు',
+        gpw_subtitle: 'ఈ సంబరాల నుండి మీ ప్రత్యేక క్షణాలను షేర్ చేయండి',
+        gpw_step_choose: 'ఫోటో ఎంచుకోండి',
+        gpw_step_name: 'మీ పేరు రాయండి',
+        gpw_step_share: 'షేర్ చేయండి!',
+        gpw_upload_title: 'మీ ఫోటో అప్‌లోడ్ చేయండి',
+        gpw_upload_hint: 'గ్యాలరీ నుండి లేదా కెమెరా తో తీయండి',
+        gpw_upload_meta: 'JPEG/PNG • ఆటో కంప్రెస్ • వెంటనే కనిపిస్తుంది',
+        gpw_name_placeholder: 'మీ పేరు *',
+        gpw_submit: 'మీ జ్ఞాపకం అప్‌లోడ్ చేయండి',
+        gpw_uploading: 'అప్‌లోడ్ అవుతోంది...',
+        gpw_compressing: 'ఫోటో కంప్రెస్ అవుతోంది...',
+        gpw_limit_msg: 'ఫోటో వాల్ నిండిపోయింది. ఈ సంబరంలో భాగమైనందుకు ధన్యవాదాలు!',
+        gpw_empty_msg: 'మొదటి జ్ఞాపకం షేర్ చేసేవారు మీరే!',
+        gpw_toast_success: 'మీ జ్ఞాపకం ఇప్పుడు లైవ్!',
     }
 };
 
@@ -954,6 +984,8 @@ function initLiveViewerCount() {
     const progress   = document.getElementById('gpw-progress');
     const progressTx = document.getElementById('gpw-progress-text');
     const limitMsg   = document.getElementById('gpw-limit-msg');
+    const emptyState = document.getElementById('gpw-empty-state');
+    const stepsEl    = document.getElementById('gpw-steps');
     const grid       = document.getElementById('gpw-grid');
 
     if (!section || !grid) return;
@@ -962,7 +994,27 @@ function initLiveViewerCount() {
     let selectedFile = null;
     let currentCount = 0;
 
+    function gpwT(key) {
+        const t = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
+        return t[key] || TRANSLATIONS.en[key] || key;
+    }
+
+    function setGpwStep(activeStep) {
+        if (!stepsEl) return;
+        stepsEl.querySelectorAll('.gpw-step').forEach((el) => {
+            const n = parseInt(el.dataset.step, 10);
+            el.classList.toggle('gpw-step-active', n === activeStep);
+            el.classList.toggle('gpw-step-done', n < activeStep);
+        });
+    }
+
+    function updateEmptyState() {
+        if (!emptyState) return;
+        emptyState.classList.toggle('gpw-hidden', currentCount > 0);
+    }
+
     section.style.display = '';
+    setGpwStep(1);
 
     async function loadPhotos() {
         if (!_supabase) return;
@@ -977,6 +1029,7 @@ function initLiveViewerCount() {
         grid.innerHTML = '';
         data.forEach(p => addPhotoCard(p, true));
         checkLimit();
+        updateEmptyState();
     }
 
     function addPhotoCard(photo, append) {
@@ -989,6 +1042,7 @@ function initLiveViewerCount() {
         `;
         if (append) grid.appendChild(card);
         else grid.insertBefore(card, grid.firstChild);
+        updateEmptyState();
     }
 
     function checkLimit() {
@@ -1000,6 +1054,15 @@ function initLiveViewerCount() {
             uploadArea.style.display = '';
             limitMsg.style.display = 'none';
         }
+    }
+
+    function resetUploadFlow() {
+        selectedFile = null;
+        fileInput.value = '';
+        nameInput.value = '';
+        nameArea.style.display = 'none';
+        uploadArea.style.display = '';
+        setGpwStep(1);
     }
 
     function compressToWebP(file) {
@@ -1030,6 +1093,7 @@ function initLiveViewerCount() {
         if (!file || !file.type.startsWith('image/')) return;
         selectedFile = file;
         nameArea.style.display = 'block';
+        setGpwStep(2);
         nameInput.focus();
     });
 
@@ -1047,12 +1111,13 @@ function initLiveViewerCount() {
         uploadArea.style.display = 'none';
         nameArea.style.display = 'none';
         progress.style.display = 'block';
-        if (progressTx) progressTx.textContent = 'Compressing your photo...';
+        setGpwStep(3);
+        if (progressTx) progressTx.textContent = gpwT('gpw_compressing');
         submitBtn.disabled = true;
 
         try {
             const compressed = await compressToWebP(selectedFile);
-            if (progressTx) progressTx.textContent = 'Uploading...';
+            if (progressTx) progressTx.textContent = gpwT('gpw_uploading');
 
             const fd = new FormData();
             fd.append('file', compressed, 'guest-photo.webp');
@@ -1069,21 +1134,19 @@ function initLiveViewerCount() {
                     alert('Upload failed: ' + (json.error || 'Unknown error'));
                     uploadArea.style.display = '';
                     nameArea.style.display = 'block';
+                    setGpwStep(2);
                 }
                 submitBtn.disabled = false;
                 return;
             }
 
-            selectedFile = null;
-            fileInput.value = '';
-            nameInput.value = '';
-            nameArea.style.display = 'none';
+            resetUploadFlow();
             currentCount++;
             checkLimit();
 
             const toast = document.createElement('div');
             toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(16,185,129,0.9);color:#fff;padding:12px 24px;border-radius:999px;font-size:0.9rem;font-weight:600;z-index:9999;';
-            toast.textContent = '\uD83D\uDCF8 Your memory is now live!';
+            toast.textContent = '\uD83D\uDCF8 ' + gpwT('gpw_toast_success');
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 3000);
 
@@ -1092,6 +1155,7 @@ function initLiveViewerCount() {
             progress.style.display = 'none';
             uploadArea.style.display = '';
             nameArea.style.display = 'block';
+            setGpwStep(2);
             alert('Something went wrong. Please try again.');
         }
         submitBtn.disabled = false;
@@ -1114,7 +1178,7 @@ function initLiveViewerCount() {
                 filter: `event_id=eq.${WEDDING_CONFIG.eventId}`
             }, (payload) => {
                 const card = grid.querySelector(`[data-photo-id="${payload.old.id}"]`);
-                if (card) { card.style.opacity = '0'; setTimeout(() => card.remove(), 300); currentCount--; checkLimit(); }
+                if (card) { card.style.opacity = '0'; setTimeout(() => card.remove(), 300); currentCount--; checkLimit(); updateEmptyState(); }
             })
             .subscribe();
     }

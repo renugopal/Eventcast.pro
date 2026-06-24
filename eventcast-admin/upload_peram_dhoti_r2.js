@@ -27,6 +27,11 @@ const FILES = [
     objectKey: `events/${EVENT_SLUG}/invitation.mp4`,
     contentType: 'video/mp4',
   },
+  {
+    filePath: path.resolve(`../events/bhargavaram-sasiram-chowdary-dhoti ceremony/assets/ashok_logo.png`),
+    objectKey: `events/${EVENT_SLUG}/ashok_logo.png`,
+    contentType: 'image/png',
+  },
 ];
 
 function sha256(data) { return crypto.createHash('sha256').update(data).digest('hex'); }
