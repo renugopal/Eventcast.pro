@@ -146,7 +146,6 @@ section {
 .hero-media-divider {
     height: 22px;
     margin: 0;
-    opacity: 0.22;
 }
 
 .invite-header {
@@ -399,9 +398,9 @@ section {
 /* Dividers */
 .ornamental-divider {
     height: 60px;
-    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 20" preserveAspectRatio="none"><path d="M0 10 Q 25 0, 50 10 T 100 10" fill="none" stroke="%23D4AF37" stroke-width="0.5" /></svg>') repeat-x;
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 20" preserveAspectRatio="none"><path d="M0 10 Q 25 0, 50 10 T 100 10" fill="none" stroke="%23D4AF37" stroke-width="0.85" /></svg>') repeat-x;
     background-size: 100px 20px;
-    opacity: 0.3;
+    opacity: 0.9;
 }
 
 .ornamental-divider.compact-divider {
