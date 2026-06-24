@@ -331,17 +331,29 @@ function formatTime(rawTime: string): string {
 // ---------------------------------------------------------------------------
 // Venue / map URL helpers
 // ---------------------------------------------------------------------------
+function parseVenueMapLinks(vMap: string | null | undefined): { navigate: string; embed: string } {
+  if (!vMap) return { navigate: '', embed: '' };
+  const lines = vMap.split('\n').map((s) => s.trim()).filter(Boolean);
+  const embed = lines.find((l) => /google\.com\/maps\/embed/i.test(l)) ?? '';
+  const navigate = lines.find((l) => !/google\.com\/maps\/embed/i.test(l)) ?? lines[0] ?? '';
+  return { navigate, embed };
+}
+
 function buildEmbedUrl(vMap: string | null | undefined, vName: string | null | undefined): string {
+  const { embed, navigate } = parseVenueMapLinks(vMap);
+  if (embed) return embed;
+
   const name = vName ?? '';
-  if (!vMap && !name) return '';
-  if (vMap && vMap.includes('<iframe')) {
-    const m = vMap.match(/src="([^"]+)"/);
+  if (!navigate && !name) return '';
+  if (navigate && navigate.includes('<iframe')) {
+    const m = navigate.match(/src="([^"]+)"/);
     return m ? m[1] : '';
   }
   let q = name;
-  if (vMap) {
+  const mapLine = navigate || vMap || '';
+  if (mapLine) {
     try {
-      const urlStr = vMap.startsWith('http') ? vMap : `https://${vMap}`;
+      const urlStr = mapLine.startsWith('http') ? mapLine : `https://${mapLine}`;
       const parsed = new URL(urlStr);
       const coords = parsed.pathname.match(/\/@(-?\d+\.\d+),(-?\d+\.\d+)/);
       if (coords) {
@@ -359,7 +371,8 @@ function buildEmbedUrl(vMap: string | null | undefined, vName: string | null | u
 }
 
 function buildNavigateUrl(vMap: string | null | undefined, vName: string | null | undefined): string {
-  if (vMap && !vMap.includes('<iframe')) return vMap;
+  const { navigate } = parseVenueMapLinks(vMap);
+  if (navigate && !navigate.includes('<iframe') && !/google\.com\/maps\/embed/i.test(navigate)) return navigate;
   if (vName) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(vName)}`;
   return '';
 }

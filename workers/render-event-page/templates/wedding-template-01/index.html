@@ -243,43 +243,72 @@
 
         <!-- GUEST PHOTO WALL SECTION -->
         <section id="guest-photo-wall" class="reveal" style="display:none;">
-            <div class="content-card">
-                <h2 class="section-title">📸 Guest Memories</h2>
-                <p class="section-subtitle">Share your special moments with the couple</p>
+            <div class="content-card gpw-card">
+                <h2 class="section-title"><i class="fas fa-camera"></i> Guest Memories</h2>
+                <p class="section-subtitle gpw-subtitle">Share your special moments with the couple</p>
+
+                <div class="gpw-steps" id="gpw-steps" aria-label="Upload steps">
+                    <div class="gpw-step gpw-step-active" data-step="1">
+                        <span class="gpw-step-num">1</span>
+                        <span>Choose photo</span>
+                    </div>
+                    <div class="gpw-step-divider" aria-hidden="true"></div>
+                    <div class="gpw-step" data-step="2">
+                        <span class="gpw-step-num">2</span>
+                        <span>Enter your name</span>
+                    </div>
+                    <div class="gpw-step-divider" aria-hidden="true"></div>
+                    <div class="gpw-step" data-step="3">
+                        <span class="gpw-step-num">3</span>
+                        <span>Share!</span>
+                    </div>
+                </div>
 
                 <div id="gpw-upload-area" class="gpw-upload-area">
-                    <label for="gpw-file-input" class="gpw-upload-label" id="gpw-upload-label">
-                        <i class="fas fa-camera" style="font-size:2rem; margin-bottom:10px; opacity:0.7;"></i>
-                        <span style="font-weight:600; font-size:1rem;">Tap to share a photo</span>
-                        <small style="opacity:0.5; font-size:0.8rem;">Auto-optimized • Instant upload</small>
+                    <label for="gpw-file-input" class="gpw-upload-label">
+                        <div class="gpw-upload-icon-wrap">
+                            <i class="fas fa-camera gpw-upload-icon"></i>
+                            <i class="fas fa-plus gpw-upload-plus"></i>
+                        </div>
+                        <span class="gpw-upload-title">Tap to Upload Your Photo</span>
+                        <span class="gpw-upload-hint">From gallery or take a new one</span>
+                        <small class="gpw-upload-meta">JPEG/PNG • Auto-compressed • Appears instantly</small>
                     </label>
                     <input type="file" id="gpw-file-input" accept="image/*" capture="environment" style="display:none">
                 </div>
 
-                <div id="gpw-name-area" style="display:none; margin-top:14px;">
-                    <input type="text" id="gpw-uploader-name" placeholder="Your name *" maxlength="60"
-                        style="width:100%; padding:12px 16px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:12px; color:#fff; font-size:0.95rem; outline:none; margin-bottom:10px; box-sizing:border-box;">
-                    <button id="gpw-submit-btn" class="btn primary-btn" style="width:100%;">
-                        <i class="fas fa-paper-plane"></i> Share Your Memory
+                <div id="gpw-name-area" class="gpw-name-area" style="display:none;">
+                    <input type="text" id="gpw-uploader-name" class="gpw-name-input" placeholder="Your name *" maxlength="60">
+                    <button type="button" id="gpw-submit-btn" class="btn primary-btn gpw-submit-btn">
+                        <i class="fas fa-cloud-upload-alt"></i> Upload Your Memory
                     </button>
                 </div>
 
-                <div id="gpw-progress" style="display:none; text-align:center; padding:16px; color:rgba(255,255,255,0.6);">
-                    <div class="spinner" style="margin:0 auto 10px;"></div>
-                    <span id="gpw-progress-text">Uploading your photo...</span>
+                <div id="gpw-progress" class="gpw-progress" style="display:none;">
+                    <div class="spinner"></div>
+                    <span id="gpw-progress-text">Uploading...</span>
                 </div>
 
-                <div id="gpw-limit-msg" style="display:none; text-align:center; padding:20px; color:rgba(255,255,255,0.5); font-size:0.9rem;">
-                    📷 The photo wall is full. Thank you for being part of this celebration! 🎉
+                <div id="gpw-limit-msg" class="gpw-limit-msg" style="display:none;">
+                    The photo wall is full. Thank you for being part of this celebration!
                 </div>
 
-                <div id="gpw-grid" class="gpw-grid" style="margin-top:20px;"></div>
+                <div id="gpw-empty-state" class="gpw-empty-state">
+                    <div class="gpw-empty-tiles" aria-hidden="true">
+                        <div class="gpw-empty-tile"><i class="fas fa-image"></i></div>
+                        <div class="gpw-empty-tile"><i class="fas fa-image"></i></div>
+                        <div class="gpw-empty-tile"><i class="fas fa-image"></i></div>
+                    </div>
+                    <p>Be the first to share a memory!</p>
+                </div>
+
+                <div id="gpw-grid" class="gpw-grid"></div>
             </div>
         </section>
 
         <!-- MAP SECTION -->
         <section id="map-section" class="reveal">
-            <h2 class="section-title" data-i18n="locate_venue">Locate the Venue</h2>
+            <h2 class="section-title">Locate the Venue</h2>
             <div class="map-container">
                 <iframe
                     src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1917.0467720586541!2d80.14708175416443!3d16.06063485008458!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a4a63adef6520c9%3A0x458efdaf0f2c3d7c!2sSri%20Prasannanjaneyavari%20Kalyanamandapam!5e0!3m2!1sen!2sin!4v1776448044250!5m2!1sen!2sin"
@@ -288,7 +317,7 @@
             </div>
             <div class="action-buttons">
                 <a href="https://maps.app.goo.gl/h3vr859mEzQZXaEL7" target="_blank" class="btn map-btn">
-                    <i class="fas fa-location-dot"></i><span data-i18n="open_maps"> Open in Google Maps</span>
+                    <i class="fas fa-location-dot"></i> Open in Google Maps
                 </a>
             </div>
         </section>
@@ -325,14 +354,6 @@
     <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
     <script src="https://eventcast.pro/wedding-template-01/wedding-web-seo.js"></script>
     <script src="https://eventcast.pro/wedding-template-01/script.js"></script>
-
-    <!-- Language Toggle Button -->
-    <button id="lang-toggle-btn" class="lang-toggle-btn" aria-label="Toggle Language">
-        <i class="fas fa-globe"></i>
-        <span id="lang-label-en" class="lang-active">EN</span>
-        <span class="lang-sep">|</span>
-        <span id="lang-label-te">తె</span>
-    </button>
 
     <!-- PWA Service Worker Registration -->
     <script>

@@ -270,7 +270,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     trackPageView();
     initLiveViewerCount();
-    initLangToggle();
     
     // Inject Info
     const infoItems = document.querySelectorAll('.info-text');
@@ -1035,99 +1034,6 @@ function escapeHTML(str) {
 
 fetchWishes();
 
-// --- LANGUAGE TOGGLE (EN / Telugu) ---
-const TRANSLATIONS = {
-    en: {
-        days: 'Days', hours: 'Hours', min: 'Min', sec: 'Sec',
-        save_calendar: ' Save to Calendar',
-        share_whatsapp: ' Share on WhatsApp',
-        watch_live: 'Watch Live',
-        join_live: ' Join Live Stream',
-        watch_live_stream: ' Watch Live Stream',
-        invitation_video: ' Invitation Video',
-        watch_invitation: 'Watch Invitation',
-        live_stream: 'Live Stream',
-        watching_now: ' Watching Now',
-        memories: 'Memories',
-        beautiful_memories: ' Beautiful Memories',
-        wishes_wall: 'Wishes Wall',
-        blessings: ' Blessings',
-        wishes_subtitle: 'Send your blessings to the happy couple',
-        name_placeholder: 'Your Name',
-        message_placeholder: 'Write your message here...',
-        blessings_placeholder: 'Write your blessings here...',
-        send_message: 'Send Message',
-        send_wishes: 'Send Wishes ',
-        locate_venue: 'Locate the Venue',
-        venue: ' Venue',
-        open_maps: ' Open in Google Maps',
-        people_visited: ' People visited this page',
-    },
-    te: {
-        days: 'రోజులు', hours: 'గంటలు', min: 'నిమిషాలు', sec: 'సెకన్లు',
-        save_calendar: ' క్యాలెండర్‌కు జోడించండి',
-        share_whatsapp: ' WhatsApp లో షేర్ చేయండి',
-        watch_live: 'లైవ్ చూడండి',
-        join_live: ' లైవ్ స్ట్రీమ్ లో చేరండి',
-        watch_live_stream: ' లైవ్ స్ట్రీమ్ చూడండి',
-        invitation_video: ' ఆహ్వాన వీడియో',
-        watch_invitation: 'ఆహ్వానం చూడండి',
-        live_stream: 'లైవ్ స్ట్రీమ్',
-        watching_now: ' చూస్తున్నారు',
-        memories: 'అందమైన జ్ఞాపకాలు',
-        beautiful_memories: ' అందమైన జ్ఞాపకాలు',
-        wishes_wall: 'శుభాకాంక్షలు',
-        blessings: ' ఆశీర్వాదాలు',
-        wishes_subtitle: 'జంటకు మీ శుభాకాంక్షలు తెలియజేయండి',
-        name_placeholder: 'మీ పేరు',
-        message_placeholder: 'మీ సందేశం ఇక్కడ రాయండి...',
-        blessings_placeholder: 'మీ ఆశీర్వాదాలు ఇక్కడ రాయండి...',
-        send_message: 'సందేశం పంపండి',
-        send_wishes: 'శుభాకాంక్షలు పంపండి ',
-        locate_venue: 'వేదిక స్థానం',
-        venue: ' వేదిక',
-        open_maps: ' Google Maps లో తెరవండి',
-        people_visited: ' మంది ఈ పేజీని సందర్శించారు',
-    }
-};
-
-let currentLang = localStorage.getItem('ec_lang') || 'en';
-
-function applyLocale(lang) {
-    currentLang = lang;
-    localStorage.setItem('ec_lang', lang);
-    const t = TRANSLATIONS[lang];
-
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-        const key = el.dataset.i18n;
-        if (t[key] === undefined) return;
-        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
-            el.placeholder = t[key];
-        } else {
-            el.textContent = t[key];
-        }
-    });
-
-    // Toggle gold highlight on active language
-    const enLabel = document.getElementById('lang-label-en');
-    const teLabel = document.getElementById('lang-label-te');
-    if (enLabel && teLabel) {
-        enLabel.classList.toggle('lang-active', lang === 'en');
-        teLabel.classList.toggle('lang-active', lang === 'te');
-    }
-
-    // Apply Telugu font class to body
-    document.body.classList.toggle('lang-te', lang === 'te');
-}
-
-function initLangToggle() {
-    const btn = document.getElementById('lang-toggle-btn');
-    if (btn) {
-        btn.addEventListener('click', () => applyLocale(currentLang === 'en' ? 'te' : 'en'));
-    }
-    applyLocale(currentLang);
-}
-
 // --- LIVE VIEWER COUNT (Supabase Realtime Presence) ---
 function initLiveViewerCount() {
     if (!_supabase || !CONFIG.eventId) return;
@@ -1251,6 +1157,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const progress   = document.getElementById('gpw-progress');
     const progressTx = document.getElementById('gpw-progress-text');
     const limitMsg   = document.getElementById('gpw-limit-msg');
+    const emptyState = document.getElementById('gpw-empty-state');
+    const stepsEl    = document.getElementById('gpw-steps');
     const grid       = document.getElementById('gpw-grid');
 
     if (!section || !grid) return;
@@ -1259,7 +1167,22 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedFile = null;
     let currentCount = 0;
 
+    function setGpwStep(activeStep) {
+        if (!stepsEl) return;
+        stepsEl.querySelectorAll('.gpw-step').forEach((el) => {
+            const n = parseInt(el.dataset.step, 10);
+            el.classList.toggle('gpw-step-active', n === activeStep);
+            el.classList.toggle('gpw-step-done', n < activeStep);
+        });
+    }
+
+    function updateEmptyState() {
+        if (!emptyState) return;
+        emptyState.classList.toggle('gpw-hidden', currentCount > 0);
+    }
+
     section.style.display = '';
+    setGpwStep(1);
 
     async function loadPhotos() {
         if (!_supabase) return;
@@ -1274,6 +1197,7 @@ document.addEventListener('DOMContentLoaded', () => {
         grid.innerHTML = '';
         data.forEach(p => addPhotoCard(p, true));
         checkLimit();
+        updateEmptyState();
     }
 
     function addPhotoCard(photo, append) {
@@ -1286,6 +1210,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         if (append) grid.appendChild(card);
         else grid.insertBefore(card, grid.firstChild);
+        updateEmptyState();
     }
 
     function checkLimit() {
@@ -1297,6 +1222,15 @@ document.addEventListener('DOMContentLoaded', () => {
             uploadArea.style.display = '';
             limitMsg.style.display = 'none';
         }
+    }
+
+    function resetUploadFlow() {
+        selectedFile = null;
+        fileInput.value = '';
+        nameInput.value = '';
+        nameArea.style.display = 'none';
+        uploadArea.style.display = '';
+        setGpwStep(1);
     }
 
     function compressToWebP(file) {
@@ -1327,6 +1261,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!file || !file.type.startsWith('image/')) return;
         selectedFile = file;
         nameArea.style.display = 'block';
+        setGpwStep(2);
         nameInput.focus();
     });
 
@@ -1344,6 +1279,7 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadArea.style.display = 'none';
         nameArea.style.display = 'none';
         progress.style.display = 'block';
+        setGpwStep(3);
         if (progressTx) progressTx.textContent = 'Compressing your photo...';
         submitBtn.disabled = true;
 
@@ -1366,15 +1302,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     alert('Upload failed: ' + (json.error || 'Unknown error'));
                     uploadArea.style.display = '';
                     nameArea.style.display = 'block';
+                    setGpwStep(2);
                 }
                 submitBtn.disabled = false;
                 return;
             }
 
-            selectedFile = null;
-            fileInput.value = '';
-            nameInput.value = '';
-            nameArea.style.display = 'none';
+            resetUploadFlow();
             currentCount++;
             checkLimit();
 
@@ -1389,6 +1323,7 @@ document.addEventListener('DOMContentLoaded', () => {
             progress.style.display = 'none';
             uploadArea.style.display = '';
             nameArea.style.display = 'block';
+            setGpwStep(2);
             alert('Something went wrong. Please try again.');
         }
         submitBtn.disabled = false;
@@ -1411,7 +1346,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 filter: `event_id=eq.${WEDDING_CONFIG.eventId}`
             }, (payload) => {
                 const card = grid.querySelector(`[data-photo-id="${payload.old.id}"]`);
-                if (card) { card.style.opacity = '0'; setTimeout(() => card.remove(), 300); currentCount--; checkLimit(); }
+                if (card) { card.style.opacity = '0'; setTimeout(() => card.remove(), 300); currentCount--; checkLimit(); updateEmptyState(); }
             })
             .subscribe();
     }
