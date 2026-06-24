@@ -37,6 +37,14 @@ function escapeHTML(str) {
     return div.innerHTML;
 }
 
+function shortVenueLabel(venue) {
+    if (!venue || venue === 'Venue TBA') return 'Venue TBA';
+    const parts = venue.replace(/\.\s*$/, '').split(',').map(s => s.trim()).filter(Boolean);
+    if (parts.length <= 1) return parts[0] || venue;
+    if (parts.length === 2) return parts.join(', ');
+    return `${parts[0]}, ${parts[parts.length - 1]}`;
+}
+
 // --- LOADER ---
 window.addEventListener('load', () => {
     const loader = document.getElementById('loader');
@@ -480,6 +488,8 @@ function updateCountdown() {
     if (hEl) hEl.innerText = h.toString().padStart(2, '0');
     if (mEl) mEl.innerText = m.toString().padStart(2, '0');
     if (sEl) sEl.innerText = s.toString().padStart(2, '0');
+
+    wrapper.classList.toggle('countdown-today', d === 0);
 }
 
 setInterval(updateCountdown, 1000);
@@ -630,7 +640,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     document.querySelectorAll('.config-date').forEach(el => el.innerText = CONFIG.date || "Date TBA");
     document.querySelectorAll('.config-time').forEach(el => el.innerText = CONFIG.time || "Time TBA");
-    document.querySelectorAll('.config-venue-short, .config-venue-full').forEach(el => el.innerText = CONFIG.venue || "Venue TBA");
+    document.querySelectorAll('.config-venue-short').forEach(el => el.innerText = shortVenueLabel(CONFIG.venue));
+    document.querySelectorAll('.config-venue-full').forEach(el => el.innerText = CONFIG.venue || "Venue TBA");
+
+    const venuePillLink = document.getElementById('venue-pill-link');
+    const venue = CONFIG.venue;
+    if (venuePillLink && venue && venue !== "Venue TBA") {
+        venuePillLink.href = CONFIG.venueNavigateUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue)}`;
+    }
+
+    const saveCalBtn = document.getElementById('save-calendar-btn');
+    if (saveCalBtn && CONFIG.timerTarget) {
+        const celebrant = brideName ? `${groomName} & ${brideName}` : groomName;
+        const calTitle = encodeURIComponent(`${celebrant} | ${CONFIG.eventType || 'Dhoti Ceremony'}`);
+        const calDate = new Date(CONFIG.timerTarget).toISOString().replace(/-|:|\.\d\d\d/g, '');
+        const calEndDate = new Date(new Date(CONFIG.timerTarget).getTime() + 3600000).toISOString().replace(/-|:|\.\d\d\d/g, '');
+        const calDetails = encodeURIComponent(`Join us live: ${window.location.href}`);
+        const calLoc = encodeURIComponent(venue || '');
+        saveCalBtn.href = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${calTitle}&dates=${calDate}/${calEndDate}&details=${calDetails}&location=${calLoc}`;
+    }
 
     if (CONFIG.introText) {
         const intro = document.querySelector('.invite-header');
@@ -644,7 +672,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Map
     const mapIframe = document.getElementById('venue-iframe');
     const mapBtn = document.getElementById('venue-nav-btn');
-    const venue = CONFIG.venue;
     if (venue && venue !== "Venue TBA") {
         if (mapIframe) mapIframe.src = `https://maps.google.com/maps?q=${encodeURIComponent(venue)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
         if (mapBtn) {
@@ -711,7 +738,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     trackView();
     initLiveViewerCount();
-    initLangToggle();
+    // initLangToggle() — disabled until multi-language is enabled
 
     // SEO METADATA
     const isSinglePerson = !CONFIG.bride || CONFIG.bride.toLowerCase() === 'family';
@@ -1185,4 +1212,18 @@ function initLiveViewerCount() {
 
     loadPhotos();
 })();
+
+// --- WHATSAPP SHARE ---
+document.getElementById('whatsapp-share-btn')?.addEventListener('click', () => {
+    const brideRaw = CONFIG.bride && CONFIG.bride.toLowerCase() !== 'family' ? CONFIG.bride : null;
+    const mainName = brideRaw ? `${CONFIG.groom} & ${CONFIG.bride}` : (CONFIG.groom || 'Our Event');
+    const shareTitle = `${mainName} | ${CONFIG.eventType || 'Dhoti Ceremony'}`;
+    const shareText = `Join us live and be part of this special celebration!\n${window.location.href}`;
+    if (navigator.share) {
+        navigator.share({ title: shareTitle, text: 'Join us live and be part of this special celebration!', url: window.location.href })
+            .catch(() => {});
+    } else {
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareTitle + '\n' + shareText)}`, '_blank');
+    }
+});
 

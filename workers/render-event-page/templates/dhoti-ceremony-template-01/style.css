@@ -135,6 +135,10 @@ section {
 }
 
 /* Hero */
+#hero {
+    padding-top: 48px;
+}
+
 .invite-header {
     font-size: 1rem;
     letter-spacing: 2px;
@@ -147,30 +151,50 @@ section {
 
 .ceremony-title {
     font-family: 'Cinzel', serif;
-    font-size: 3rem;
+    font-size: 2.15rem;
     color: var(--primary);
-    margin-bottom: 5px;
+    margin-bottom: 8px;
+    letter-spacing: 0.04em;
 }
 
 .of-connector {
     font-family: 'Great Vibes', cursive;
-    font-size: 2rem;
+    font-size: 1.85rem;
     color: var(--accent);
-    margin: -10px 0;
+    margin: 4px 0 8px;
 }
 
 .name-showcase {
-    margin-bottom: 30px;
+    margin-bottom: 8px;
     line-height: 1.2;
 }
 
 .couple-name-line {
     font-family: 'Playfair Display', serif;
-    font-size: clamp(1.6rem, 5vw, 2.35rem);
+    font-size: clamp(1.85rem, 5.5vw, 2.65rem);
     color: var(--primary);
     margin: 0;
     font-style: italic;
     font-weight: 700;
+}
+
+.hero-name-ornament {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin: 6px 0 28px;
+    color: var(--accent);
+    font-size: 0.75rem;
+    opacity: 0.9;
+}
+
+.hero-name-ornament::before,
+.hero-name-ornament::after {
+    content: '';
+    width: min(56px, 12vw);
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
 }
 
 .couple-amp {
@@ -204,6 +228,17 @@ section {
     margin-right: 8px;
 }
 
+.info-pill-link {
+    text-decoration: none;
+    transition: background 0.25s ease, border-color 0.25s ease, transform 0.2s ease;
+}
+
+.info-pill-link:hover {
+    background: rgba(26, 35, 126, 0.09);
+    border-color: rgba(212, 175, 55, 0.45);
+    transform: translateY(-1px);
+}
+
 /* Countdown */
 .countdown-glass {
     display: flex;
@@ -215,10 +250,21 @@ section {
 .time-box {
     width: 80px;
     padding: 15px 10px;
-    background: rgba(255,255,255,0.5);
-    border: 1px solid var(--glass-border);
+    background: linear-gradient(180deg, #ffffff 0%, #faf8f2 100%);
+    border: 1px solid rgba(212, 175, 55, 0.35);
     border-radius: 15px;
     text-align: center;
+    box-shadow: 0 4px 14px rgba(26, 35, 126, 0.08);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.countdown-glass.countdown-today .time-box {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.18), 0 6px 18px rgba(26, 35, 126, 0.1);
+}
+
+.countdown-glass.countdown-today .time-box span {
+    color: var(--accent);
 }
 
 .time-box span {
@@ -258,6 +304,61 @@ section {
 .primary-btn:hover {
     transform: translateY(-3px);
     box-shadow: 0 15px 25px rgba(26, 35, 126, 0.4);
+}
+
+.secondary-btn {
+    background: white;
+    color: var(--primary);
+    border: 1px solid rgba(212, 175, 55, 0.35);
+}
+
+.secondary-btn:hover {
+    border-color: var(--accent);
+    color: var(--primary);
+    background: #fffdf5;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(26, 35, 126, 0.08);
+}
+
+.whatsapp-btn {
+    background: #25d366 !important;
+    color: white !important;
+    border: none !important;
+}
+
+.whatsapp-btn:hover {
+    background: #128c7e !important;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(37, 211, 102, 0.28);
+}
+
+.hero-cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+}
+
+.hero-cta-main,
+.hero-cta-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 22px;
+    font-size: 0.92rem;
+    min-width: 0;
+}
+
+.hero-cta-main {
+    flex: 1 1 200px;
+    max-width: 260px;
+}
+
+.hero-cta-btn {
+    flex: 1 1 170px;
+    max-width: 220px;
 }
 
 .pulse-btn {
@@ -595,7 +696,7 @@ footer {
     
     .couple-name-line { font-size: 1.55rem; }
     .couple-amp { font-size: 1.35rem; }
-    .ceremony-title { font-size: 2.2rem; }
+    .ceremony-title { font-size: 1.85rem; }
     
     #media-grid, #interactive-split {
         grid-template-columns: 1fr;
@@ -617,6 +718,18 @@ footer {
     }
     
     .time-box span { font-size: 1.4rem; }
+
+    .hero-cta-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .hero-cta-main,
+    .hero-cta-btn {
+        width: 100%;
+        max-width: none;
+        flex: none;
+    }
 }
 
 /* ============================================================
@@ -703,6 +816,10 @@ footer {
 
 .lang-toggle-btn:active {
     transform: scale(0.96);
+}
+
+.lang-toggle-btn.lang-toggle-hidden {
+    display: none !important;
 }
 
 .lang-toggle-btn .lang-active {
