@@ -753,6 +753,21 @@ google-cast-launcher:hover {
     margin: 0 auto;
 }
 
+#guest-photo-wall {
+    padding: 24px 0 0;
+}
+
+#guest-photo-wall + .gpw-footer-divider {
+    height: 20px;
+    margin: 0;
+    opacity: 0.25;
+}
+
+#guest-photo-wall ~ #footer-section {
+    margin-top: 0;
+    padding-top: 24px;
+}
+
 .gpw-subtitle {
     margin-bottom: 18px;
 }
