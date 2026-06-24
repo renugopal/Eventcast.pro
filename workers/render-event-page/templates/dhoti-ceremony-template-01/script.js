@@ -504,7 +504,7 @@ function initWishes() {
 
     const renderWishes = (wishes) => {
         wishesList.innerHTML = wishes.length === 0 
-            ? '<p style="opacity:0.5; text-align:center; padding: 2rem;">Send your blessings to Aryan!</p>'
+            ? '<p style="opacity:0.5; text-align:center; padding: 2rem;">Send your blessings to the happy couple!</p>'
             : wishes.map(wish => `
                 <div class="wish-item">
                     <h4>${escapeHTML(wish.name)}</h4>
@@ -610,10 +610,24 @@ function startPetals() {
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
     // 1. INJECT DATA
-    const name = CONFIG.groom || "Celebrant";
-    
-    document.querySelectorAll('.logo-text').forEach(el => el.innerText = name);
-    document.querySelectorAll('.girl-name').forEach(el => el.innerText = name);
+    const groomName = CONFIG.groom || "Celebrant";
+    const brideName = (CONFIG.bride && CONFIG.bride.toLowerCase() !== 'family') ? CONFIG.bride : null;
+    const loaderLabel = CONFIG.customInitials || groomName;
+
+    document.querySelectorAll('.logo-text').forEach(el => el.innerText = loaderLabel);
+
+    const nameShowcase = document.querySelector('.name-showcase');
+    if (nameShowcase) {
+        if (brideName) {
+            nameShowcase.innerHTML = `
+                <h1 class="couple-name-line">${groomName}</h1>
+                <div class="couple-amp">&</div>
+                <h1 class="couple-name-line">${brideName}</h1>
+            `;
+        } else {
+            nameShowcase.innerHTML = `<h1 class="couple-name-line">${groomName}</h1>`;
+        }
+    }
     document.querySelectorAll('.config-date').forEach(el => el.innerText = CONFIG.date || "Date TBA");
     document.querySelectorAll('.config-time').forEach(el => el.innerText = CONFIG.time || "Time TBA");
     document.querySelectorAll('.config-venue-short, .config-venue-full').forEach(el => el.innerText = CONFIG.venue || "Venue TBA");
@@ -633,7 +647,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const venue = CONFIG.venue;
     if (venue && venue !== "Venue TBA") {
         if (mapIframe) mapIframe.src = `https://maps.google.com/maps?q=${encodeURIComponent(venue)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
-        if (mapBtn) mapBtn.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue)}`;
+        if (mapBtn) {
+            mapBtn.href = CONFIG.venueNavigateUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue)}`;
+        }
     } else {
         const mapCard = document.querySelector('.map-card');
         if (mapCard) mapCard.style.display = 'none';
@@ -670,9 +686,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (lCard) lCard.style.display = 'none';
     }
 
-    // Analytics
+    // Analytics (page view count only when footer display exists)
     const trackView = async () => {
         if (!_supabase || !EVENT_ID) return;
+        const display = document.getElementById('total-views-display');
+        if (!display) return;
         try {
             const userAgent = navigator.userAgent;
             const deviceType = /Mobi|Android/i.test(userAgent) ? 'Mobile' :
@@ -688,8 +706,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 country: CONFIG.country || 'Unknown'
             }]);
             const { count } = await _supabase.from('page_views').select('*', { count: 'exact', head: true }).eq('event_id', EVENT_ID);
-            const display = document.getElementById('total-views-display');
-            if (display && count !== null) display.innerText = count.toLocaleString();
+            if (count !== null) display.innerText = count.toLocaleString();
         } catch (e) {}
     };
     trackView();
@@ -708,8 +725,8 @@ document.addEventListener('DOMContentLoaded', () => {
         titleDate = CONFIG.date.replace(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s*/i, '');
     }
 
-    const pageTitle = `✨ ${mainName} ${formattedEventType} Live | ${titleDate}`;
-    const pageDesc = `Join us live to celebrate this beautiful traditional occasion filled with blessings, happiness, culture, and family moments.`;
+    const pageTitle = CONFIG.seoTitle || `✨ ${mainName} ${formattedEventType} Live | ${titleDate}`;
+    const pageDesc = CONFIG.seoDescription || `Join us live to celebrate this beautiful traditional occasion filled with blessings, happiness, culture, and family moments.`;
     
     document.title = pageTitle;
     const updateMeta = (property, content) => {
@@ -724,19 +741,63 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMeta('twitter:image', CONFIG.thumbnail);
     }
 
-    // Invitation Video
-    const video = document.getElementById('main-invitation-video');
-    const overlay = document.getElementById('video-play-overlay');
-    if (video && CONFIG.invitationVideo) {
-        video.querySelector('source').src = optimizeUrl(CONFIG.invitationVideo);
-        video.load();
-        overlay.addEventListener('click', () => {
-            overlay.style.display = 'none';
-            video.play();
+    // Invitation Video — play only when scrolled into view
+    const invVideo = document.getElementById('main-invitation-video');
+    const videoOverlay = document.getElementById('video-play-overlay');
+    const videoWrapper = document.getElementById('video-wrapper');
+    const invSrc = CONFIG.invitationVideo ? optimizeUrl(CONFIG.invitationVideo) : '';
+
+    if (invVideo && invSrc) {
+        let videoSourceLoaded = false;
+
+        invVideo.setAttribute('poster', optimizeUrl(CONFIG.thumbnail));
+
+        invVideo.addEventListener('playing', () => {
+            if (videoOverlay) videoOverlay.style.display = 'none';
         });
-        video.addEventListener('ended', () => {
-            overlay.style.display = 'flex';
+        invVideo.addEventListener('error', () => {
+            if (videoOverlay) videoOverlay.style.display = 'flex';
         });
+        invVideo.addEventListener('ended', () => {
+            if (videoOverlay) videoOverlay.style.display = 'flex';
+            invVideo.pause();
+        });
+
+        const loadVideoSource = () => {
+            if (videoSourceLoaded) return;
+            videoSourceLoaded = true;
+            const src = invVideo.querySelector('source');
+            if (src) src.setAttribute('src', invSrc);
+            invVideo.load();
+        };
+
+        const startVideoManually = () => {
+            if (videoOverlay) videoOverlay.style.display = 'none';
+            loadVideoSource();
+            invVideo.play().catch(() => {
+                if (videoOverlay) videoOverlay.style.display = 'flex';
+            });
+        };
+
+        if (videoOverlay) {
+            videoOverlay.addEventListener('click', startVideoManually);
+        }
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                    loadVideoSource();
+                    if (videoOverlay) videoOverlay.style.display = 'none';
+                    invVideo.play().catch(() => {
+                        if (videoOverlay) videoOverlay.style.display = 'flex';
+                    });
+                } else {
+                    invVideo.pause();
+                }
+            });
+        }, { threshold: 0.35 });
+
+        if (videoWrapper) observer.observe(videoWrapper);
     }
 });
 

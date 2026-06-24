@@ -278,6 +278,7 @@ interface EventRow {
   gallery_urls?: string[] | null;
   invitation_video_url?: string | null;
   vod_link?: string | null;
+  youtube_broadcast_id?: string | null;
   privacy_status?: string | null;
   custom_initials?: string | null;
   hide_loader_photo?: boolean | null;
@@ -427,7 +428,9 @@ function renderEvent(
   const timerTime = event.timer_target_time ?? event.event_time ?? '09:00';
 
   // YouTube
-  const youtubeId = (event.vod_link ?? '').split('/').pop() ?? '';
+  const youtubeId = event.youtube_broadcast_id
+    || ((event.vod_link ?? '').split('/').pop() ?? '')
+    || ((event.youtube_url ?? '').split('/').pop() ?? '');
 
   // Map URLs
   const embedUrl    = buildEmbedUrl(vMap, vName);

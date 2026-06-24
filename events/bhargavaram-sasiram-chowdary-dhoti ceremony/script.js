@@ -504,7 +504,7 @@ function initWishes() {
 
     const renderWishes = (wishes) => {
         wishesList.innerHTML = wishes.length === 0 
-            ? '<p style="opacity:0.5; text-align:center; padding: 2rem;">Send your blessings to the happy couple!</p>'
+            ? '<p style="opacity:0.5; text-align:center; padding: 2rem;">Send your blessings to Bhargavaram & Sasiram!</p>'
             : wishes.map(wish => `
                 <div class="wish-item">
                     <h4>${escapeHTML(wish.name)}</h4>
@@ -686,32 +686,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (lCard) lCard.style.display = 'none';
     }
 
-    // Analytics (page view count only when footer display exists)
-    const trackView = async () => {
-        if (!_supabase || !EVENT_ID) return;
-        const display = document.getElementById('total-views-display');
-        if (!display) return;
-        try {
-            const userAgent = navigator.userAgent;
-            const deviceType = /Mobi|Android/i.test(userAgent) ? 'Mobile' :
-                               /Tablet|iPad/i.test(userAgent) ? 'Tablet' : 'Desktop';
-            const referrer = document.referrer.includes('whatsapp') ? 'WhatsApp' :
-                             document.referrer.includes('instagram') ? 'Instagram' :
-                             document.referrer.includes('facebook') ? 'Facebook' : 'Direct';
-            await _supabase.from('page_views').insert([{
-                event_id: EVENT_ID,
-                device_type: deviceType,
-                referrer: referrer,
-                user_agent: userAgent,
-                country: CONFIG.country || 'Unknown'
-            }]);
-            const { count } = await _supabase.from('page_views').select('*', { count: 'exact', head: true }).eq('event_id', EVENT_ID);
-            if (count !== null) display.innerText = count.toLocaleString();
-        } catch (e) {}
-    };
-    trackView();
-    initLiveViewerCount();
-    initLangToggle();
+    // Analytics — page_views requires a registered event UUID in Supabase; omitted for this local page.
 
     // SEO METADATA
     const isSinglePerson = !CONFIG.bride || CONFIG.bride.toLowerCase() === 'family';
