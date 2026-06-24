@@ -364,6 +364,21 @@ function buildNavigateUrl(vMap: string | null | undefined, vName: string | null 
   return '';
 }
 
+function splitVenue(venueName: string): { main: string; subtext: string } {
+  const parts = venueName.split(',').map((s) => s.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    return { main: parts[0], subtext: parts.slice(1).join(', ') };
+  }
+  return { main: venueName, subtext: '' };
+}
+
+function getHeroTimeLabel(eventType: string): string {
+  const t = (eventType || '').toLowerCase();
+  if (t.includes('wedding') || t.includes('engagement')) return 'Sumuhurtham';
+  if (!eventType) return 'Event';
+  return eventType.charAt(0).toUpperCase() + eventType.slice(1);
+}
+
 // ---------------------------------------------------------------------------
 // Core renderer — mirrors every HTML mutation that used to happen in route.ts
 // ---------------------------------------------------------------------------
@@ -381,6 +396,7 @@ function renderEvent(
   const thumbnailUrl = event.thumbnail_url ?? '';
   const vName      = event.venue_name ?? '';
   const vMap       = event.venue_map_link ?? '';
+  const { main: venueMain, subtext: venueSubtext } = splitVenue(vName);
 
   const formattedDate = formatDate(event.event_date ?? '');
   const formattedTime = formatTime(event.event_time ?? '');
@@ -445,8 +461,8 @@ function renderEvent(
     || ((event.youtube_url ?? '').split('/').pop() ?? '');
 
   // Map URLs
-  const embedUrl    = buildEmbedUrl(vMap, vName);
-  const navigateUrl = buildNavigateUrl(vMap, vName);
+  const embedUrl    = buildEmbedUrl(vMap, venueMain || vName);
+  const navigateUrl = buildNavigateUrl(vMap, venueMain || vName);
 
   // Config object strings — escape for safe JS string literal embedding
   const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
@@ -457,11 +473,11 @@ window.WEDDING_CONFIG = {
   bride: "${esc(event.bride_name ?? 'Family')}",
   date: "${esc(formattedDate)}",
   time: "${esc(formattedTime)}",
-  timeLabel: "${esc(type)}",
+  timeLabel: "${esc(getHeroTimeLabel(type))}",
   timeSubtext: "",
   timerTarget: "${esc(event.event_date ?? '')}T${esc(timerTime)}",
-  venue: "${esc(vName)}",
-  venueSubtext: "",
+  venue: "${esc(venueMain)}",
+  venueSubtext: "${esc(venueSubtext)}",
   venueUrl: ${embedUrl ? JSON.stringify(embedUrl) : 'null'},
   venueNavigateUrl: ${navigateUrl ? JSON.stringify(navigateUrl) : 'null'},
   youtubeId: "${esc(youtubeId)}",

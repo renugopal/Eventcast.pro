@@ -248,16 +248,22 @@ document.addEventListener('DOMContentLoaded', () => {
                         country: CONFIG.country || 'Unknown'
                     }]);
 
-                // 2. Count total visits for this event accurately
-                const { count } = await _supabase
-                    .from('page_views')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('event_id', CONFIG.eventId);
+                // 2. Count total visits (public RPC — direct SELECT blocked by RLS for anon)
+                let count = null;
+                const { data: singleCount, error: singleErr } = await _supabase
+                    .rpc('get_public_event_view_count', { p_event_id: CONFIG.eventId });
+                if (!singleErr && singleCount !== null && singleCount !== undefined) {
+                    count = singleCount;
+                } else {
+                    const { data: allCounts } = await _supabase.rpc('get_event_view_counts');
+                    const row = (allCounts || []).find((r) => r.event_id === CONFIG.eventId);
+                    if (row) count = row.view_count;
+                }
 
                 // 3. Update UI with accurate count
                 const viewsDisplay = document.getElementById('total-views-display');
                 if (viewsDisplay && count !== null) {
-                    viewsDisplay.innerText = count.toLocaleString();
+                    viewsDisplay.innerText = Number(count).toLocaleString();
                 }
             }
         } catch (e) { console.error("Analytics error:", e); }
@@ -276,11 +282,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (subtexts[0]) subtexts[0].innerText = CONFIG.timeSubtext || '';
     if (subtexts[1]) subtexts[1].innerText = CONFIG.venueSubtext || '';
 
-    // Dynamic Time Label (e.g. 'Sumuhurtham' / 'Wedding' / 'Ceremony')
+    // Dynamic Time Label: Wedding/Engagement → Sumuhurtham; other events → event type name
     const heroInfoItems = document.querySelectorAll('.hero-info-item');
     if (heroInfoItems[1]) {
         const lbl = heroInfoItems[1].querySelector('.info-label');
-        if (lbl) lbl.innerText = CONFIG.timeLabel || 'Sumuhurtham';
+        if (lbl) {
+            const et = (CONFIG.eventType || '').toLowerCase();
+            const isWeddingOrEngagement = et.includes('wedding') || et.includes('engagement');
+            lbl.innerText = CONFIG.timeLabel || (isWeddingOrEngagement ? 'Sumuhurtham' : (CONFIG.eventType || 'Event'));
+        }
     }
 
     // --- Invitation Video Section: Smart Control ---
@@ -452,21 +462,16 @@ document.addEventListener('DOMContentLoaded', () => {
             logo.style.display = 'block';
         } else if (logo) logo.style.display = 'none';
 
-        if (name) {
-            name.innerText = CONFIG.photographer.name;
-            name.style.display = 'block';
-        }
-        
+        // Footer: logo + phone only (studio/person name kept in DB for reference)
+        if (name) name.style.display = 'none';
+
         if (phone && CONFIG.photographer.phone_number) {
-            phone.href = `tel:${CONFIG.photographer.phone_number}`;
+            phone.href = `tel:${CONFIG.photographer.phone_number.replace(/\s+/g, '')}`;
             phone.querySelector('span').innerText = CONFIG.photographer.phone_number;
             phone.style.display = 'block';
         } else if (phone) phone.style.display = 'none';
 
-        if (insta && CONFIG.photographer.instagram_url) {
-            insta.href = CONFIG.photographer.instagram_url;
-            insta.style.display = 'block';
-        } else if (insta) insta.style.display = 'none';
+        if (insta) insta.style.display = 'none';
     } else {
         // Hide all photographer specific elements but keep footer/stats
         if (logo) logo.style.display = 'none';
