@@ -1600,6 +1600,57 @@ google-cast-launcher:hover {
     box-shadow: 0 8px 24px rgba(212, 175, 55, 0.12);
 }
 
+.gpw-upload-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    color: var(--primary);
+    margin-bottom: 16px;
+}
+
+.gpw-upload-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
+}
+
+.gpw-pick-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 12px;
+    border-radius: 14px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    border: 1px solid transparent;
+    text-align: center;
+}
+
+.gpw-pick-camera {
+    background: linear-gradient(135deg, #df88b0 0%, #d4af37 100%);
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(212, 175, 55, 0.25);
+}
+
+.gpw-pick-gallery {
+    background: #fff;
+    color: var(--primary);
+    border-color: rgba(212, 175, 55, 0.35);
+}
+
+.gpw-pick-btn:active {
+    transform: scale(0.98);
+}
+
 .gpw-upload-label {
     display: flex;
     flex-direction: column;
@@ -1800,6 +1851,15 @@ google-cast-launcher:hover {
     .gpw-upload-area {
         min-height: 120px;
         padding: 22px 16px;
+    }
+
+    .gpw-upload-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .gpw-pick-btn {
+        width: 100%;
+        padding: 15px 14px;
     }
 
     .gpw-upload-title {

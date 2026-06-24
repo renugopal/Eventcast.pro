@@ -265,16 +265,24 @@
                 </div>
 
                 <div id="gpw-upload-area" class="gpw-upload-area">
-                    <label for="gpw-file-input" class="gpw-upload-label">
+                    <div class="gpw-upload-header">
                         <div class="gpw-upload-icon-wrap">
                             <i class="fas fa-camera gpw-upload-icon"></i>
                             <i class="fas fa-plus gpw-upload-plus"></i>
                         </div>
-                        <span class="gpw-upload-title">Tap to Upload Your Photo</span>
-                        <span class="gpw-upload-hint">Take a new photo or choose from gallery</span>
+                        <span class="gpw-upload-title">Share Your Photo</span>
                         <small class="gpw-upload-meta">JPEG/PNG • Auto-compressed • Appears instantly</small>
-                    </label>
-                    <input type="file" id="gpw-file-input" accept="image/*" style="display:none">
+                    </div>
+                    <div class="gpw-upload-actions">
+                        <label for="gpw-file-camera" class="gpw-pick-btn gpw-pick-camera">
+                            <i class="fas fa-camera"></i> Take Photo
+                        </label>
+                        <label for="gpw-file-gallery" class="gpw-pick-btn gpw-pick-gallery">
+                            <i class="fas fa-images"></i> From Gallery
+                        </label>
+                    </div>
+                    <input type="file" id="gpw-file-camera" accept="image/*" capture="environment" style="display:none">
+                    <input type="file" id="gpw-file-gallery" accept="image/*" style="display:none">
                 </div>
 
                 <div id="gpw-name-area" class="gpw-name-area" style="display:none;">

@@ -1151,7 +1151,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const section    = document.getElementById('guest-photo-wall');
     const uploadArea = document.getElementById('gpw-upload-area');
-    const fileInput  = document.getElementById('gpw-file-input');
+    const cameraInput = document.getElementById('gpw-file-camera');
+    const galleryInput = document.getElementById('gpw-file-gallery');
     const nameArea   = document.getElementById('gpw-name-area');
     const nameInput  = document.getElementById('gpw-uploader-name');
     const submitBtn  = document.getElementById('gpw-submit-btn');
@@ -1227,11 +1228,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetUploadFlow() {
         selectedFile = null;
-        fileInput.value = '';
+        if (cameraInput) cameraInput.value = '';
+        if (galleryInput) galleryInput.value = '';
         nameInput.value = '';
         nameArea.style.display = 'none';
         uploadArea.style.display = '';
         setGpwStep(1);
+    }
+
+    function handleFilePick(file) {
+        if (!file || !file.type.startsWith('image/')) return;
+        selectedFile = file;
+        nameArea.style.display = 'block';
+        setGpwStep(2);
+        nameInput.focus();
     }
 
     function compressToWebP(file) {
@@ -1257,13 +1267,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    fileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file || !file.type.startsWith('image/')) return;
-        selectedFile = file;
-        nameArea.style.display = 'block';
-        setGpwStep(2);
-        nameInput.focus();
+    cameraInput?.addEventListener('change', (e) => {
+        handleFilePick(e.target.files[0]);
+    });
+    galleryInput?.addEventListener('change', (e) => {
+        handleFilePick(e.target.files[0]);
     });
 
     submitBtn.addEventListener('click', async () => {
