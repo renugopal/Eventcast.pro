@@ -10,7 +10,7 @@ window.WEDDING_CONFIG = {
     venueSubtext: "Guntur.",
     venueMapLink: "https://maps.app.goo.gl/45AQGeqo83r5jxvb7",
     restreamerUrl: "https://media.eventcast.pro/memfs/sravani-manoj-engagement.m3u8",
-    restreamerPlayer: "https://media.eventcast.pro/ui/player.html?query=memfs/sravani-manoj-engagement.m3u8",
+    restreamerPlayer: "https://media.eventcast.pro/memfs/sravani-manoj-engagement.m3u8",
     youtubeId: "LvYyM9zM25A",
     invitationVideo: "https://pub-fa013cc979d8410e9d307bd2c9e6ecf2.r2.dev/events/sravani-manoj-engagement/invitation.mp4",
     thumbnail: "https://pub-fa013cc979d8410e9d307bd2c9e6ecf2.r2.dev/thumbnails/sravani-manoj-engagement/seo_thumbnail.jpg",

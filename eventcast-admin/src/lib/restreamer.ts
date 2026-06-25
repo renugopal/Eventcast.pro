@@ -112,18 +112,33 @@ export class RestreamerClient {
     const authHeader = await this.getAuthToken();
 
     // 1. Build outputs array
-    const outputs = [
+    const outputs: any[] = [
+      // 1. Live HLS (Sliding Window in RAM) for ultra-fast playback
       {
         "id": "hls",
         "address": "{memfs}/{processid}.m3u8",
         "options": [
-          "-c:v", "copy", 
-          "-c:a", "aac", "-b:a", "128k", "-ar", "44100", 
-          "-f", "hls", 
-          "-hls_time", "4", 
-          "-hls_list_size", "0", 
-          "-hls_playlist_type", "event",
-          "-hls_flags", "independent_segments"
+          "-map", "0:v:0",
+          "-map", "0:a:0",
+          "-c:v", "copy",
+          "-c:a", "copy",
+          "-f", "hls",
+          "-hls_time", "4",
+          "-hls_list_size", "10",
+          "-hls_flags", "independent_segments+delete_segments"
+        ]
+      },
+      // 2. VOD Recording (Single MP4 on Hard Disk)
+      {
+        "id": "vod-record",
+        "address": "{diskfs}/{processid}.mp4",
+        "options": [
+          "-map", "0:v:0",
+          "-map", "0:a:0",
+          "-c:v", "copy",
+          "-c:a", "copy",
+          "-f", "mp4",
+          "-movflags", "+faststart"
         ]
       }
     ];

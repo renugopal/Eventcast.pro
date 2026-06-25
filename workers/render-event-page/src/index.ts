@@ -40,13 +40,21 @@ export default {
     const eventMatch = url.pathname.match(/^\/events\/([^/]+?)\/?$/);
     const manifestMatch = url.pathname.match(/^\/events\/([^/]+?)\/manifest\.json$/);
     const swMatch = url.pathname.match(/^\/events\/([^/]+?)\/sw\.js$/);
+    const hlsMatch = url.pathname.match(/^\/events\/([^/]+)\/hls\/(.+)$/);
 
-    if (!eventMatch && !manifestMatch && !swMatch) {
+    if (!eventMatch && !manifestMatch && !swMatch && !hlsMatch) {
       return fetch(request);
     }
 
-    const slug = decodeURIComponent(eventMatch ? eventMatch[1] : (manifestMatch ? manifestMatch[1] : swMatch![1]));
+    const slug = decodeURIComponent(
+      eventMatch ? eventMatch[1] : (manifestMatch ? manifestMatch[1] : (swMatch ? swMatch[1] : hlsMatch![1])),
+    );
     const hostname = url.hostname;
+
+    // Proxy HLS through eventcast.pro so browser playback avoids cross-origin CORS on media.eventcast.pro
+    if (hlsMatch) {
+      return proxyHlsAsset(hlsMatch[2], url.search);
+    }
 
     // Handle sw.js immediately to save database queries
     if (swMatch) {
@@ -237,7 +245,7 @@ self.addEventListener('fetch', (event) => {
       // Falls back to 'Unknown' on local dev or if the header is absent.
       const countryCode = request.headers.get('CF-IPCountry') ?? 'Unknown';
 
-      const rendered = renderEvent(templateHtml, event, photographer, slug, env, countryCode);
+      const rendered = renderEvent(templateHtml, event, photographer, slug, env, countryCode, hostname);
 
       return new Response(rendered, {
         status: 200,
@@ -395,6 +403,30 @@ function getHeroTimeLabel(eventType: string): string {
 // ---------------------------------------------------------------------------
 // Core renderer — mirrors every HTML mutation that used to happen in route.ts
 // ---------------------------------------------------------------------------
+async function proxyHlsAsset(assetPath: string, search: string): Promise<Response> {
+  const upstream = `https://media.eventcast.pro/memfs/${assetPath}${search}`;
+  const upstreamRes = await fetch(upstream, {
+    headers: { Accept: '*/*' },
+    cf: { cacheTtl: 0 },
+  });
+
+  if (!upstreamRes.ok) {
+    return new Response(upstreamRes.body, { status: upstreamRes.status, statusText: upstreamRes.statusText });
+  }
+
+  const contentType = upstreamRes.headers.get('Content-Type')
+    ?? (assetPath.endsWith('.ts') ? 'video/MP2T' : 'application/vnd.apple.mpegurl');
+
+  return new Response(upstreamRes.body, {
+    status: upstreamRes.status,
+    headers: {
+      'Content-Type': contentType,
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
+}
+
 function renderEvent(
   templateHtml: string,
   event: EventRow,
@@ -402,6 +434,7 @@ function renderEvent(
   slug: string,
   env: Env,
   countryCode: string = 'Unknown',
+  hostname: string = 'eventcast.pro',
 ): string {
   const groom      = event.groom_name ?? event.celebrant_name ?? 'Event';
   const bride      = event.bride_name ?? 'Family';
@@ -494,8 +527,8 @@ window.WEDDING_CONFIG = {
   venueUrl: ${embedUrl ? JSON.stringify(embedUrl) : 'null'},
   venueNavigateUrl: ${navigateUrl ? JSON.stringify(navigateUrl) : 'null'},
   youtubeId: "${esc(youtubeId)}",
-  restreamerUrl: "${esc(event.restreamer_hls_url ?? '')}",
-  restreamerPlayer: "${esc(event.restreamer_player_url ?? '')}",
+  restreamerUrl: "${esc(event.restreamer_hls_url ? `https://${hostname}/events/${slug}/hls/${slug}.m3u8` : '')}",
+  restreamerPlayer: "${esc(event.restreamer_hls_url ? `https://${hostname}/events/${slug}/hls/${slug}.m3u8` : '')}",
   invitationVideo: "${esc(invitationVideos[0] ?? '')}",
   invitationVideos: ${JSON.stringify(invitationVideos)},
   thumbnail: "${esc(thumbnailUrl)}",

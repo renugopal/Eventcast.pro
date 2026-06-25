@@ -10,7 +10,7 @@ window.WEDDING_CONFIG = {
     venueSubtext: "",
     venueNavigateUrl: "https://maps.app.goo.gl/KX2uKJwadV17tgPi7",
     restreamerUrl: "https://media.eventcast.pro/memfs/bhargavaram-sasiram-chowdary-dhoti-ceremony.m3u8",
-    restreamerPlayer: "https://media.eventcast.pro/ui/player.html?query=memfs/bhargavaram-sasiram-chowdary-dhoti-ceremony.m3u8",
+    restreamerPlayer: "https://media.eventcast.pro/memfs/bhargavaram-sasiram-chowdary-dhoti-ceremony.m3u8",
     youtubeId: "xWoir_5jP7w",
     invitationVideo: "https://pub-fa013cc979d8410e9d307bd2c9e6ecf2.r2.dev/events/bhargavaram-sasiram-chowdary-dhoti-ceremony/invitation.mp4",
     invitationVideos: ["https://pub-fa013cc979d8410e9d307bd2c9e6ecf2.r2.dev/events/bhargavaram-sasiram-chowdary-dhoti-ceremony/invitation.mp4"],
