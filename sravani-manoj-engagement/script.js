@@ -653,6 +653,13 @@ function onYouTubeIframeAPIReady() {
             };
 
             const destroyHls = () => {
+                if (video && video._liveEdgeHandlers) {
+                    const h = video._liveEdgeHandlers;
+                    video.removeEventListener('play', h.onPlay);
+                    video.removeEventListener('pause', h.onPause);
+                    document.removeEventListener('visibilitychange', h.onVisibility);
+                    delete video._liveEdgeHandlers;
+                }
                 if (video && video._dropHandlers) {
                     video.removeEventListener('waiting', video._dropHandlers);
                     video.removeEventListener('stalled', video._dropHandlers);
@@ -668,6 +675,43 @@ function onYouTubeIframeAPIReady() {
                     hls = null;
                 }
                 isPlaying = false;
+            };
+
+            const seekToLiveEdge = () => {
+                if (!video) return;
+                try {
+                    if (hls && typeof hls.liveSyncPosition === 'number' && isFinite(hls.liveSyncPosition)) {
+                        video.currentTime = hls.liveSyncPosition;
+                        return;
+                    }
+                    if (video.seekable && video.seekable.length > 0) {
+                        const end = video.seekable.end(video.seekable.length - 1);
+                        if (isFinite(end) && end > 0) {
+                            video.currentTime = Math.max(0, end - 2);
+                        }
+                    }
+                } catch (_) { /* ignore seek errors during buffer transitions */ }
+            };
+
+            const bindLiveEdgeOnResume = () => {
+                if (!video || video._liveEdgeHandlers) return;
+                let userPaused = false;
+                const onPause = () => { userPaused = true; };
+                const onPlay = () => {
+                    if (userPaused) {
+                        userPaused = false;
+                        seekToLiveEdge();
+                    }
+                };
+                const onVisibility = () => {
+                    if (document.visibilityState === 'visible' && !video.paused) {
+                        seekToLiveEdge();
+                    }
+                };
+                video.addEventListener('pause', onPause);
+                video.addEventListener('play', onPlay);
+                document.addEventListener('visibilitychange', onVisibility);
+                video._liveEdgeHandlers = { onPause, onPlay, onVisibility };
             };
 
             const resolveHlsPlaybackUrl = async (baseUrl) => {
@@ -703,15 +747,18 @@ function onYouTubeIframeAPIReady() {
                             if (typeof Hls !== 'undefined' && Hls.isSupported()) {
                                 hls = new Hls({
                                     capLevelToPlayerSize: true,
-                                    maxBufferLength: 30,
-                                    maxMaxBufferLength: 60,
-                                    liveSyncDurationCount: 3,
-                                    liveMaxLatencyDurationCount: 10,
+                                    maxBufferLength: 15,
+                                    maxMaxBufferLength: 30,
+                                    liveSyncDurationCount: 2,
+                                    liveMaxLatencyDurationCount: 6,
+                                    backBufferLength: 0,
+                                    startPosition: -1,
                                     enableWorker: true,
                                     lowLatencyMode: false
                                 });
                                 hls.loadSource(playbackUrl);
                                 hls.attachMedia(video);
+                                bindLiveEdgeOnResume();
 
                                 const checkStreamStatusOnDrop = () => {
                                     if (!isPlaying) return;
@@ -765,6 +812,7 @@ function onYouTubeIframeAPIReady() {
                                 });
                             } else if (video && video.canPlayType('application/vnd.apple.mpegurl')) {
                                 video.src = playbackUrl;
+                                bindLiveEdgeOnResume();
                                 video.addEventListener('loadedmetadata', function() {
                                     video.play().catch(e => console.log("Autoplay prevented:", e));
                                 });

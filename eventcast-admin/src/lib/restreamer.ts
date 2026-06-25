@@ -111,6 +111,9 @@ export class RestreamerClient {
     console.log(`Setting up Restreamer channel for ${slug}...`);
     const authHeader = await this.getAuthToken();
 
+    // Remove stale VOD MP4 so FFmpeg never blocks on "file already exists"
+    await this.deleteDiskMp4(slug, authHeader);
+
     // 1. Build outputs array
     const outputs: any[] = [
       // 1. Live HLS (Sliding Window in RAM) for ultra-fast playback
@@ -172,7 +175,8 @@ export class RestreamerClient {
           "options": ["-fflags", "+genpts"]
         }
       ],
-      output: outputs
+      output: outputs,
+      options: ["-y"]
     };
 
     // Use POST to create the process
@@ -260,6 +264,28 @@ export class RestreamerClient {
       return res.ok;
     } catch (err) {
       console.error("Restreamer deletion failed:", err);
+      return false;
+    }
+  }
+
+  /**
+   * Delete the on-disk VOD MP4 for a channel (if present).
+   * Prevents FFmpeg from exiting when OBS reconnects after a test stream.
+   */
+  async deleteDiskMp4(slug: string, authHeader?: string): Promise<boolean> {
+    const token = authHeader ?? await this.getAuthToken();
+    const filename = `${slug}.mp4`;
+    try {
+      const res = await fetch(`${this.config.url}/api/v3/fs/disk/${encodeURIComponent(filename)}`, {
+        method: 'DELETE',
+        headers: { Authorization: token },
+      });
+      if (res.status === 401) { this.invalidateToken(); }
+      if (res.ok || res.status === 404) return true;
+      console.warn(`deleteDiskMp4 ${filename}: ${res.status}`);
+      return false;
+    } catch (err) {
+      console.warn(`deleteDiskMp4 ${filename} failed:`, err);
       return false;
     }
   }
