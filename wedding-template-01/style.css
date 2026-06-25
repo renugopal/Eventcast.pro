@@ -1879,3 +1879,22 @@ google-cast-launcher:hover {
         gap: 8px;
     }
 }
+
+/* GPU save: reduce compositor load during live playback / hidden tab */
+body.gpu-save #petal-canvas {
+    visibility: hidden;
+}
+
+body.gpu-save .wreath-img,
+body.gpu-save .status-badge,
+body.gpu-save .live-glow,
+body.gpu-save #floating-live-btn,
+body.gpu-save #heart-shower-btn,
+body.gpu-save .pulse {
+    animation: none !important;
+}
+
+body.gpu-save * {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}

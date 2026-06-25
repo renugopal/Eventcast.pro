@@ -491,6 +491,7 @@ window.addEventListener('load', () => {
         }, 500);
     }, 1200);
 
+    initGpuOptimizations();
     startPetals();
     initScrollReveal();
     initSlideshow();
@@ -626,6 +627,7 @@ function onYouTubeIframeAPIReady() {
             const video = document.getElementById('hls-video');
             const loader = document.getElementById('hls-loader');
             const loaderText = loader ? loader.querySelector('p') : null;
+            bindGpuSaveForVideo(video);
             let isPlaying = false;
             let hls = null;
             let player = null;
@@ -928,13 +930,81 @@ function initScrollReveal() {
     sr.reveal('.section-title', { origin: 'left', distance: '100px' });
 }
 
+// --- GPU SAVE MODE (petals, blur, pulse animations) ---
+let _liveSectionVisible = false;
+
+const GpuSave = {
+    _reasons: new Set(),
+    enable(reason) {
+        this._reasons.add(reason);
+        this._sync();
+    },
+    disable(reason) {
+        this._reasons.delete(reason);
+        this._sync();
+    },
+    _sync() {
+        const on = this._reasons.size > 0;
+        document.body.classList.toggle('gpu-save', on);
+        if (on) {
+            window.petalAnimation?.pause();
+        } else if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            window.petalAnimation?.resume();
+        }
+    }
+};
+
+function updateLiveGpuSave() {
+    const video = document.getElementById('hls-video');
+    if (_liveSectionVisible && video && !video.paused && video.readyState >= 2) {
+        GpuSave.enable('live-watch');
+    } else {
+        GpuSave.disable('live-watch');
+    }
+}
+
+function bindGpuSaveForVideo(videoEl) {
+    if (!videoEl || videoEl._gpuSaveBound) return;
+    ['play', 'pause', 'playing', 'waiting', 'loadeddata'].forEach((evt) => {
+        videoEl.addEventListener(evt, updateLiveGpuSave);
+    });
+    videoEl._gpuSaveBound = true;
+}
+
+function initGpuOptimizations() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        document.body.classList.add('gpu-save');
+        return;
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            GpuSave.enable('tab-hidden');
+        } else {
+            GpuSave.disable('tab-hidden');
+        }
+    });
+
+    const liveSection = document.getElementById('livestream');
+    if (liveSection) {
+        new IntersectionObserver((entries) => {
+            _liveSectionVisible = entries.some((e) => e.isIntersecting && e.intersectionRatio >= 0.15);
+            updateLiveGpuSave();
+        }, { threshold: [0, 0.15, 0.35] }).observe(liveSection);
+    }
+}
+
 // --- FALLING PETALS ANIMATION ---
 function startPetals() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
     const canvas = document.getElementById('petal-canvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
     let petalsArray = [];
+    let running = false;
+    let rafId = null;
     const petalColors = ['#FADADD', '#FFF0F5', '#FFC0CB', '#E0F2F1'];
 
     function resize() {
@@ -980,14 +1050,40 @@ function startPetals() {
     for (let i = 0; i < 50; i++) petalsArray.push(new Petal());
 
     function animate() {
+        if (!running) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        petalsArray.forEach(petal => {
+        petalsArray.forEach((petal) => {
             petal.update();
             petal.draw();
         });
-        requestAnimationFrame(animate);
+        rafId = requestAnimationFrame(animate);
     }
-    animate();
+
+    window.petalAnimation = {
+        pause() {
+            running = false;
+            if (rafId !== null) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+            canvas.style.visibility = 'hidden';
+        },
+        resume() {
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            if (document.body.classList.contains('gpu-save')) return;
+            if (running) return;
+            running = true;
+            canvas.style.visibility = 'visible';
+            animate();
+        }
+    };
+
+    if (document.body.classList.contains('gpu-save')) {
+        canvas.style.visibility = 'hidden';
+    } else {
+        running = true;
+        animate();
+    }
 }
 
 // --- MULTI VIDEO SWITCHER ---
