@@ -17,7 +17,11 @@ cd "$INSTALL_DIR"
 sudo npm install --omit=dev
 
 if [ ! -f "$INSTALL_DIR/.env" ]; then
-  sudo cp "$INSTALL_DIR/.env.example" "$INSTALL_DIR/.env"
+  if [ -f "$INSTALL_DIR/env.example" ]; then
+    sudo cp "$INSTALL_DIR/env.example" "$INSTALL_DIR/.env"
+  else
+    sudo touch "$INSTALL_DIR/.env"
+  fi
   echo ""
   echo "⚠️  Edit $INSTALL_DIR/.env with your credentials before starting:"
   echo "   sudo nano $INSTALL_DIR/.env"
