@@ -744,26 +744,51 @@ function onYouTubeIframeAPIReady() {
                             console.log("Stream detected! Initializing player...");
                             hideLoader();
                             isPlaying = true;
-                            updateStatus(true);
+
+                            // VOD vs Live detection: if vodArchiveUrl is used, treat as VOD
+                            const isVOD = CONFIG.vodArchiveUrl && CONFIG.restreamerUrl === CONFIG.vodArchiveUrl;
+                            
+                            if (isVOD) {
+                                console.log("VOD mode: Full archive playback");
+                                updateStatus(false); // Hide LIVE badge for VOD
+                            } else {
+                                console.log("Live mode: Low-latency streaming");
+                                updateStatus(true);
+                            }
 
                             if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-                                hls = new Hls({
-                                    capLevelToPlayerSize: true,
-                                    maxBufferLength: 15,
-                                    maxMaxBufferLength: 30,
-                                    liveSyncDurationCount: 2,
-                                    liveMaxLatencyDurationCount: 6,
-                                    backBufferLength: 0,
-                                    startPosition: -1,
-                                    enableWorker: true,
-                                    lowLatencyMode: false
-                                });
+                                const hlsConfig = isVOD 
+                                    ? {
+                                        // VOD: Standard buffering, full duration available
+                                        capLevelToPlayerSize: true,
+                                        maxBufferLength: 30,
+                                        maxMaxBufferLength: 60,
+                                        enableWorker: true
+                                    }
+                                    : {
+                                        // Live: Low latency, jump to edge on resume
+                                        capLevelToPlayerSize: true,
+                                        maxBufferLength: 15,
+                                        maxMaxBufferLength: 30,
+                                        liveSyncDurationCount: 2,
+                                        liveMaxLatencyDurationCount: 6,
+                                        backBufferLength: 0,
+                                        startPosition: -1,
+                                        enableWorker: true,
+                                        lowLatencyMode: false
+                                    };
+                                
+                                hls = new Hls(hlsConfig);
                                 hls.loadSource(playbackUrl);
                                 hls.attachMedia(video);
-                                bindLiveEdgeOnResume();
+                                
+                                // Only bind live edge behavior for live streams
+                                if (!isVOD) {
+                                    bindLiveEdgeOnResume();
+                                }
 
                                 const checkStreamStatusOnDrop = () => {
-                                    if (!isPlaying) return;
+                                    if (!isPlaying || isVOD) return; // Skip reconnect for VOD
                                     resolveHlsPlaybackUrl(CONFIG.restreamerUrl)
                                         .catch(() => {
                                                 console.warn("Stream went offline. Reconnecting...");
@@ -814,7 +839,9 @@ function onYouTubeIframeAPIReady() {
                                 });
                             } else if (video && video.canPlayType('application/vnd.apple.mpegurl')) {
                                 video.src = playbackUrl;
-                                bindLiveEdgeOnResume();
+                                if (!isVOD) {
+                                    bindLiveEdgeOnResume();
+                                }
                                 video.addEventListener('loadedmetadata', function() {
                                     video.play().catch(e => console.log("Autoplay prevented:", e));
                                 });
@@ -830,6 +857,10 @@ function onYouTubeIframeAPIReady() {
 
             const startPolling = () => {
                 if (pollInterval) return;
+                // Skip polling if VOD is active (stable archive, no reconnect needed)
+                const isVOD = CONFIG.vodArchiveUrl && CONFIG.restreamerUrl === CONFIG.vodArchiveUrl;
+                if (isVOD && isPlaying) return;
+                
                 pollInterval = setTimeout(() => {
                     pollInterval = null;
                     tryLoadStream();

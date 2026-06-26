@@ -8,9 +8,13 @@
     "build": "next build",
     "pages:build": "node -e \"const fs=require('fs'); fs.rmSync('./src/app/api/local-sync', {recursive:true, force:true})\" && npx @cloudflare/next-on-pages",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "archive-vod": "tsx scripts/archive-vod-to-r2.ts",
+    "vod-uploader": "node scripts/vod-uploader/live-uploader.mjs",
+    "finalize-vod": "node scripts/vod-uploader/finalize-vod.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.738.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",

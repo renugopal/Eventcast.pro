@@ -506,6 +506,11 @@ function renderEvent(
     || ((event.vod_link ?? '').split('/').pop() ?? '')
     || ((event.youtube_url ?? '').split('/').pop() ?? '');
 
+  // VOD / HLS playback URLs (prefer VOD archive if available, then live stream)
+  const vodArchiveUrl = event.vod_link ?? '';
+  const liveHlsUrl = event.restreamer_hls_url ? `https://${hostname}/events/${slug}/hls/${slug}.m3u8` : '';
+  const primaryHlsUrl = vodArchiveUrl || liveHlsUrl;
+
   // Map URLs
   const embedUrl    = buildEmbedUrl(vMap, venueMain || vName);
   const navigateUrl = buildNavigateUrl(vMap, venueMain || vName);
@@ -527,8 +532,9 @@ window.WEDDING_CONFIG = {
   venueUrl: ${embedUrl ? JSON.stringify(embedUrl) : 'null'},
   venueNavigateUrl: ${navigateUrl ? JSON.stringify(navigateUrl) : 'null'},
   youtubeId: "${esc(youtubeId)}",
-  restreamerUrl: "${esc(event.restreamer_hls_url ? `https://${hostname}/events/${slug}/hls/${slug}.m3u8` : '')}",
-  restreamerPlayer: "${esc(event.restreamer_hls_url ? `https://${hostname}/events/${slug}/hls/${slug}.m3u8` : '')}",
+  vodArchiveUrl: "${esc(vodArchiveUrl)}",
+  restreamerUrl: "${esc(primaryHlsUrl)}",
+  restreamerPlayer: "${esc(primaryHlsUrl)}",
   invitationVideo: "${esc(invitationVideos[0] ?? '')}",
   invitationVideos: ${JSON.stringify(invitationVideos)},
   thumbnail: "${esc(thumbnailUrl)}",

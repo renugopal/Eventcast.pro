@@ -1,0 +1,18 @@
+[Unit]
+Description=Eventcast Live VOD Segment Uploader (Restreamer → R2)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/eventcast/vod-uploader
+EnvironmentFile=/opt/eventcast/vod-uploader/.env
+ExecStart=/usr/bin/node /opt/eventcast/vod-uploader/live-uploader.mjs
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

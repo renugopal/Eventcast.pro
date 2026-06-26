@@ -131,7 +131,7 @@ export class RestreamerClient {
           "-hls_flags", "independent_segments+delete_segments"
         ]
       },
-      // 2. VOD Recording (Single MP4 on Hard Disk)
+      // 2. VOD Recording (Single MP4 on Hard Disk) - kept for fallback/single-file compatibility
       {
         "id": "vod-record",
         "address": "{diskfs}/{processid}.mp4",
@@ -142,6 +142,22 @@ export class RestreamerClient {
           "-c:a", "copy",
           "-f", "mp4",
           "-movflags", "+faststart"
+        ]
+      },
+      // 3. HLS Archive (Append-mode on Disk) - restart-safe, every segment preserved
+      {
+        "id": "hls-archive",
+        "address": "{diskfs}/recordings/{processid}/index.m3u8",
+        "options": [
+          "-map", "0:v:0",
+          "-map", "0:a:0",
+          "-c:v", "copy",
+          "-c:a", "copy",
+          "-f", "hls",
+          "-hls_time", "4",
+          "-hls_list_size", "0",
+          "-hls_flags", "append_list",
+          "-hls_segment_filename", "{diskfs}/recordings/{processid}/segment_%05d.ts"
         ]
       }
     ];
