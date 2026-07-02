@@ -34,6 +34,24 @@ export default {
     const url = new URL(request.url);
 
     // Only handle GET /events/:slug — pass everything else through unchanged.
+    const guestPhotoMatch = url.pathname.match(/^\/events\/([^/]+?)\/guest-photos\/upload$/);
+    if (guestPhotoMatch) {
+      if (request.method === 'OPTIONS') {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+          },
+        });
+      }
+      if (request.method !== 'POST') {
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+      return proxyGuestPhotoUpload(request);
+    }
+
     if (request.method !== 'GET') {
       return new Response('Method Not Allowed', { status: 405 });
     }
@@ -339,12 +357,15 @@ function formatTime(rawTime: string): string {
 // ---------------------------------------------------------------------------
 // Venue / map URL helpers
 // ---------------------------------------------------------------------------
-function parseVenueMapLinks(vMap: string | null | undefined): { navigate: string; embed: string } {
-  if (!vMap) return { navigate: '', embed: '' };
+function parseVenueMapLinks(vMap: string | null | undefined): { navigate: string; embed: string; timeSubtext: string } {
+  if (!vMap) return { navigate: '', embed: '', timeSubtext: '' };
   const lines = vMap.split('\n').map((s) => s.trim()).filter(Boolean);
-  const embed = lines.find((l) => /google\.com\/maps\/embed/i.test(l)) ?? '';
-  const navigate = lines.find((l) => !/google\.com\/maps\/embed/i.test(l)) ?? lines[0] ?? '';
-  return { navigate, embed };
+  const metaLine = lines.find((l) => l.startsWith('__timeSubtext__:'));
+  const timeSubtext = metaLine ? metaLine.slice('__timeSubtext__:'.length) : '';
+  const mapLines = lines.filter((l) => !l.startsWith('__timeSubtext__:'));
+  const embed = mapLines.find((l) => /google\.com\/maps\/embed/i.test(l)) ?? '';
+  const navigate = mapLines.find((l) => !/google\.com\/maps\/embed/i.test(l)) ?? mapLines[0] ?? '';
+  return { navigate, embed, timeSubtext };
 }
 
 function buildEmbedUrl(vMap: string | null | undefined, vName: string | null | undefined): string {
@@ -401,8 +422,28 @@ function getHeroTimeLabel(eventType: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Core renderer — mirrors every HTML mutation that used to happen in route.ts
+// Guest photo upload proxy — same-origin path on event pages → admin API
 // ---------------------------------------------------------------------------
+const ADMIN_API_BASE = 'https://eventcast-admin.pages.dev';
+
+async function proxyGuestPhotoUpload(request: Request): Promise<Response> {
+  const upstream = await fetch(`${ADMIN_API_BASE}/api/guest-photos/upload`, {
+    method: 'POST',
+    body: request.body,
+    headers: {
+      'Content-Type': request.headers.get('Content-Type') || 'multipart/form-data',
+    },
+  });
+  const body = await upstream.text();
+  return new Response(body, {
+    status: upstream.status,
+    headers: {
+      'Content-Type': upstream.headers.get('Content-Type') || 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
+}
+
 async function proxyHlsAsset(assetPath: string, search: string): Promise<Response> {
   const upstream = `https://media.eventcast.pro/memfs/${assetPath}${search}`;
   const upstreamRes = await fetch(upstream, {
@@ -442,6 +483,7 @@ function renderEvent(
   const thumbnailUrl = event.thumbnail_url ?? '';
   const vName      = event.venue_name ?? '';
   const vMap       = event.venue_map_link ?? '';
+  const { timeSubtext: mapTimeSubtext } = parseVenueMapLinks(vMap);
   const { main: venueMain, subtext: venueSubtext } = splitVenue(vName);
 
   const formattedDate = formatDate(event.event_date ?? '');
@@ -498,16 +540,22 @@ function renderEvent(
     ? loaderSrc.replace('/upload/', '/upload/f_auto,q_auto/')
     : loaderSrc;
 
-  // Timer
-  const timerTime = event.timer_target_time ?? event.event_time ?? '09:00';
+  // Timer — timer_target_time may be full ISO (e.g. 2026-07-03T01:45) for overnight muhurtham
+  const rawTimer = event.timer_target_time ?? event.event_time ?? '09:00';
+  const timerTarget = rawTimer.includes('T')
+    ? rawTimer
+    : `${event.event_date ?? ''}T${rawTimer}`;
 
   // YouTube
   const youtubeId = event.youtube_broadcast_id
     || ((event.vod_link ?? '').split('/').pop() ?? '')
     || ((event.youtube_url ?? '').split('/').pop() ?? '');
 
-  // VOD / HLS playback URLs (prefer VOD archive if available, then live stream)
-  const vodArchiveUrl = event.vod_link ?? '';
+  // VOD / HLS playback URLs (prefer R2 archive only; ignore YouTube URLs in vod_link)
+  const rawVodLink = event.vod_link ?? '';
+  const isR2ArchiveVod = /\.m3u8(\?|$)/i.test(rawVodLink)
+    || /r2\.dev|vod\.eventcast|cloudflarestorage\.com/i.test(rawVodLink);
+  const vodArchiveUrl = isR2ArchiveVod ? rawVodLink : '';
   const liveHlsUrl = event.restreamer_hls_url ? `https://${hostname}/events/${slug}/hls/${slug}.m3u8` : '';
   const primaryHlsUrl = vodArchiveUrl || liveHlsUrl;
 
@@ -525,8 +573,8 @@ window.WEDDING_CONFIG = {
   date: "${esc(formattedDate)}",
   time: "${esc(formattedTime)}",
   timeLabel: "${esc(getHeroTimeLabel(type))}",
-  timeSubtext: "",
-  timerTarget: "${esc(event.event_date ?? '')}T${esc(timerTime)}",
+  timeSubtext: "${esc(mapTimeSubtext)}",
+  timerTarget: "${esc(timerTarget)}",
   venue: "${esc(venueMain)}",
   venueSubtext: "${esc(venueSubtext)}",
   venueUrl: ${embedUrl ? JSON.stringify(embedUrl) : 'null'},
