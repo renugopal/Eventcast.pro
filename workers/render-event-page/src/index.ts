@@ -1,5 +1,5 @@
 import weddingTemplate01 from '../templates/wedding-template-01/index.html';
-import { generateWeddingWebSEO } from './wedding-web-seo';
+import { generateWeddingWebSEO, generateCeremonyWebSEO, getLoaderLabel } from './wedding-web-seo';
 import dhotiTemplate from '../templates/dhoti-ceremony-template-01/index.html';
 import halfSareeTemplate from '../templates/half-saree-template-01/index.html';
 import engagementTemplate from '../templates/harika-adithya-engagement/index.html';
@@ -502,9 +502,21 @@ function renderEvent(
         eventDate: event.event_date ?? '',
       })
     : null;
-  const displayTitle = weddingSeo?.title ?? `${mainName} ${typeLabel} Live | `;
-  const displayDesc  = weddingSeo?.description
-    ?? `Join us live and be part of this beautiful ${typeLabel.toLowerCase()} celebration filled with love and joy.`;
+  const ceremonySeo =
+    !isWeddingTemplate && isSinglePerson
+      ? generateCeremonyWebSEO({
+          name: groom,
+          eventType: type,
+          eventDate: event.event_date ?? '',
+          venueMain,
+          venueSubtext,
+        })
+      : null;
+  const pageSeo = weddingSeo ?? ceremonySeo;
+  const displayTitle = pageSeo?.title ?? `${mainName} ${typeLabel} Live | `;
+  const displayDesc =
+    pageSeo?.description ??
+    `Join us live and be part of this beautiful ${typeLabel.toLowerCase()} celebration filled with love and joy.`;
 
   // Gallery
   const galleryArray: string[] = (() => {
@@ -531,6 +543,12 @@ function renderEvent(
     ? `${groomInitial} & ${brideInitial}`
     : groomInitial || brideInitial || 'E';
   const finalInitials = customInitials || autoInitials;
+  const loaderLabel = getLoaderLabel({
+    groom,
+    bride: isSinglePerson ? undefined : bride,
+    eventType: type,
+    customInitials,
+  });
 
   // Loader photo
   const hideLoaderPhoto = event.hide_loader_photo ?? false;
@@ -594,6 +612,8 @@ window.WEDDING_CONFIG = {
   eventDate: "${esc(event.event_date ?? '')}",
   eventType: "${esc(type)}",
   introText: "${esc(event.custom_top_title ?? '')}",
+  seoTitle: "${esc(pageSeo?.title ?? '')}",
+  seoDescription: "${esc(pageSeo?.description ?? '')}",
   photographer: ${JSON.stringify(photographer)},
   customInitials: "${esc(customInitials)}",
   hideLoaderPhoto: ${hideLoaderPhoto ? 'true' : 'false'},
@@ -611,6 +631,7 @@ window.WEDDING_CONFIG = {
 
   // --- SEO meta tags ---
   html = html.replace(/<title>.*?<\/title>/gs,       `<title>${displayTitle}</title>`);
+  html = html.replace(/<h2 class="ceremony-title">[^<]*<\/h2>/, `<h2 class="ceremony-title">${typeLabel}</h2>`);
   html = html.replace(/<meta property="og:title" content=".*?">/g,       `<meta property="og:title" content="${displayTitle}">`);
   html = html.replace(/<meta name="description" content=".*?">/g,        `<meta name="description" content="${displayDesc}">`);
   html = html.replace(/<meta property="og:description" content=".*?">/g, `<meta property="og:description" content="${displayDesc}">`);
@@ -710,7 +731,7 @@ window.WEDDING_CONFIG = {
   html = html.replace(/<script\s+src=["']config\.js["'][^>]*><\/script>/g, '');
 
   // --- Logo / initials ---
-  html = html.replace(/<h1 class="logo-text">.*?<\/h1>/gs,   `<h1 class="logo-text">${finalInitials}</h1>`);
+  html = html.replace(/<h1 class="logo-text">.*?<\/h1>/gs,   `<h1 class="logo-text">${loaderLabel}</h1>`);
   html = html.replace(/<div class="initials">.*?<\/div>/gs,  `<div class="initials">${finalInitials}</div>`);
 
   // --- Loader photo ---
@@ -736,6 +757,25 @@ window.WEDDING_CONFIG = {
     html = html.replace(/id="venue-nav-btn" href="#"/g, `id="venue-nav-btn" href="${navigateUrl}"`);
     html = html.replace(/href="https:\/\/(www\.)?google\.com\/maps[^"]*"/g, `href="${navigateUrl}"`);
     html = html.replace(/href="https:\/\/maps\.app\.goo\.gl[^"]*"/g,        `href="${navigateUrl}"`);
+  }
+
+  if (invitationVideos.length > 0) {
+    html = html.replace(
+      '</body>',
+      `<script>
+document.addEventListener('DOMContentLoaded',function(){
+  var v=document.getElementById('main-invitation-video');
+  var w=document.getElementById('video-wrapper');
+  if(!v||!w)return;
+  v.addEventListener('loadedmetadata',function(){
+    var portrait=v.videoHeight>v.videoWidth;
+    w.classList.toggle('portrait-wrapper',portrait);
+    if(portrait){w.style.width='min(100%, 320px)';w.style.maxHeight='560px';}
+    else{w.style.width='100%';w.style.maxHeight='min(72vw, 440px)';w.style.aspectRatio='16 / 9';}
+  });
+});
+</script></body>`,
+    );
   }
 
   return html;

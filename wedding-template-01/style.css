@@ -790,6 +790,14 @@ footer {
     color: white;
 }
 
+.photographer-section .photographer-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0 0 12px;
+    color: var(--gold);
+    letter-spacing: 2px;
+}
+
 .photographer-contact {
     color: var(--gold);
     font-size: 0.9rem;

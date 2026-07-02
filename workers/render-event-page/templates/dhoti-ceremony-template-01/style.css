@@ -93,10 +93,13 @@ body {
 
 .logo-text {
     font-family: 'Cinzel', serif;
-    font-size: 1.8rem;
+    font-size: 1.25rem;
     color: var(--primary);
     margin-bottom: 15px;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
+    line-height: 1.35;
+    max-width: min(92vw, 300px);
+    text-wrap: balance;
 }
 
 .spinner {

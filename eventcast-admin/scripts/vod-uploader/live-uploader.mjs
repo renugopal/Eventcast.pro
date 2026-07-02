@@ -12,8 +12,14 @@
  *   npm start
  */
 
-import 'dotenv/config';
+import { config } from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import fs from 'fs/promises';
+
+// Load .env from script directory (robust for systemd service)
+const __dirname = dirname(fileURLToPath(import.meta.url));
+config({ path: join(__dirname, '.env') });
 import {
   loadConfig,
   createS3Client,

@@ -628,12 +628,30 @@ function startPetals() {
     animate();
 }
 
+function getLoaderLabelFromConfig() {
+    const groomName = CONFIG.groom || 'Celebrant';
+    const brideRaw = CONFIG.bride || '';
+    const custom = (CONFIG.customInitials || '').trim();
+    if (custom.length > 2) return custom;
+    const isSingle = !brideRaw || brideRaw.toLowerCase() === 'family';
+    if (isSingle && CONFIG.eventType) {
+        const parts = groomName.trim().split(/\s+/).filter(Boolean);
+        const shortName = parts[parts.length - 1] || groomName;
+        const typeLabel = CONFIG.eventType
+            .split(/\s+/)
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+            .join(' ');
+        return `${shortName} ${typeLabel}`;
+    }
+    return custom || groomName;
+}
+
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
     // 1. INJECT DATA
     const groomName = CONFIG.groom || "Celebrant";
     const brideName = (CONFIG.bride && CONFIG.bride.toLowerCase() !== 'family') ? CONFIG.bride : null;
-    const loaderLabel = CONFIG.customInitials || groomName;
+    const loaderLabel = getLoaderLabelFromConfig();
 
     document.querySelectorAll('.logo-text').forEach(el => el.innerText = loaderLabel);
 
@@ -649,6 +667,11 @@ document.addEventListener('DOMContentLoaded', () => {
             nameShowcase.innerHTML = `<h1 class="couple-name-line">${groomName}</h1>`;
         }
     }
+    const ceremonyTitleEl = document.querySelector('.ceremony-title');
+    if (ceremonyTitleEl && CONFIG.eventType) {
+        ceremonyTitleEl.innerText = CONFIG.eventType;
+    }
+
     document.querySelectorAll('.config-date').forEach(el => el.innerText = CONFIG.date || "Date TBA");
     document.querySelectorAll('.config-time').forEach(el => el.innerText = CONFIG.time || "Time TBA");
     document.querySelectorAll('.config-venue-short').forEach(el => el.innerText = shortVenueLabel(CONFIG.venue));
@@ -788,7 +811,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (invVideo && invSrc) {
         let videoSourceLoaded = false;
 
-        invVideo.setAttribute('poster', optimizeUrl(CONFIG.thumbnail));
+        invVideo.addEventListener('loadedmetadata', () => {
+            const wrapper = document.getElementById('video-wrapper');
+            if (!wrapper) return;
+            const isPortrait = invVideo.videoHeight > invVideo.videoWidth;
+            wrapper.classList.toggle('portrait-wrapper', isPortrait);
+            if (isPortrait) {
+                wrapper.style.width = 'min(100%, 320px)';
+                wrapper.style.maxHeight = '560px';
+            } else {
+                wrapper.style.width = '100%';
+                wrapper.style.maxHeight = 'min(72vw, 440px)';
+                wrapper.style.aspectRatio = '16 / 9';
+            }
+        });
 
         invVideo.addEventListener('playing', () => {
             if (videoOverlay) videoOverlay.style.display = 'none';

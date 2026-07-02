@@ -18,6 +18,16 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+}
+
 // ─── Web Crypto AWS Sig V4 (same pattern as /api/r2-upload) ──────────────────
 async function sha256Hex(data: ArrayBuffer | Uint8Array | string): Promise<string> {
   const buffer =
@@ -132,20 +142,20 @@ export async function POST(req: NextRequest) {
     const uploaderName = (formData.get('uploader_name') as string | null)?.trim();
 
     // ── Validation ────────────────────────────────────────────────────────────
-    if (!file)         return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
-    if (!eventId)      return NextResponse.json({ success: false, error: 'event_id is required' }, { status: 400 });
-    if (!uploaderName) return NextResponse.json({ success: false, error: 'Your name is required to share a photo' }, { status: 400 });
-    if (uploaderName.length > 60) return NextResponse.json({ success: false, error: 'Name too long (max 60 chars)' }, { status: 400 });
+    if (!file)         return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400, headers: CORS_HEADERS });
+    if (!eventId)      return NextResponse.json({ success: false, error: 'event_id is required' }, { status: 400, headers: CORS_HEADERS });
+    if (!uploaderName) return NextResponse.json({ success: false, error: 'Your name is required to share a photo' }, { status: 400, headers: CORS_HEADERS });
+    if (uploaderName.length > 60) return NextResponse.json({ success: false, error: 'Name too long (max 60 chars)' }, { status: 400, headers: CORS_HEADERS });
 
     // File type guard — must be an image
     if (!file.type.startsWith('image/')) {
-      return NextResponse.json({ success: false, error: 'Only image files are allowed' }, { status: 415 });
+      return NextResponse.json({ success: false, error: 'Only image files are allowed' }, { status: 415, headers: CORS_HEADERS });
     }
 
     // File size guard — 12 MB max (browser should compress, but guard anyway)
     const MAX_BYTES = 12 * 1024 * 1024;
     if (file.size > MAX_BYTES) {
-      return NextResponse.json({ success: false, error: 'File too large. Max 12 MB.' }, { status: 413 });
+      return NextResponse.json({ success: false, error: 'File too large. Max 12 MB.' }, { status: 413, headers: CORS_HEADERS });
     }
 
     // ── Supabase — service role for count queries ─────────────────────────────
@@ -162,7 +172,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (eventErr || !eventRow) {
-      return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404, headers: CORS_HEADERS });
     }
 
     const photoLimit: number = eventRow.guest_photo_limit ?? 50;
@@ -176,7 +186,7 @@ export async function POST(req: NextRequest) {
 
     if (countErr) {
       console.error('[guest-photos/upload] Count error:', countErr);
-      return NextResponse.json({ success: false, error: 'Could not check photo count' }, { status: 500 });
+      return NextResponse.json({ success: false, error: 'Could not check photo count' }, { status: 500, headers: CORS_HEADERS });
     }
 
     if ((existingCount ?? 0) >= photoLimit) {
@@ -184,7 +194,7 @@ export async function POST(req: NextRequest) {
         success: false,
         error: `Photo wall is full (${photoLimit} photos max). Thank you for being part of this celebration! 🎉`,
         limitReached: true,
-      }, { status: 429 });
+      }, { status: 429, headers: CORS_HEADERS });
     }
 
     // ── Upload to R2 ──────────────────────────────────────────────────────────
@@ -213,17 +223,17 @@ export async function POST(req: NextRequest) {
 
     if (insertErr) {
       console.error('[guest-photos/upload] Insert error:', insertErr);
-      return NextResponse.json({ success: false, error: 'Failed to save photo record' }, { status: 500 });
+      return NextResponse.json({ success: false, error: 'Failed to save photo record' }, { status: 500, headers: CORS_HEADERS });
     }
 
     return NextResponse.json({
       success:   true,
       photo_url: publicUrl,
       photo_id:  photoRow.id,
-    });
+    }, { headers: CORS_HEADERS });
 
   } catch (err: any) {
     console.error('[guest-photos/upload] Error:', err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: err.message }, { status: 500, headers: CORS_HEADERS });
   }
 }

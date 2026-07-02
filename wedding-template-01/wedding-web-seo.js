@@ -24,14 +24,15 @@ function generateWeddingWebSEO({ groom, bride, eventType, eventDate }) {
   const shortDate = formatShortEventDate(eventDate);
   const dateSuffix = shortDate ? ` | ${shortDate}` : '';
   const isSinglePerson = !bride || bride.toLowerCase() === 'family';
-  const separator = typeLower.includes('wedding') ? '❤️' : '✨';
+  const separator = typeLower.includes('wedding') || typeLower.includes('engagement') ? '❤️' : '✨';
 
   const title = isSinglePerson
     ? `${groom} ${separator} ${typeLabel} Live${dateSuffix}`
     : `${groom} ${separator} ${bride} ${typeLabel} Live${dateSuffix}`;
 
-  const description =
-    `Join us live and be part of this beautiful ${typeLower} celebration filled with love, joy, and cherished memories.`;
+  const description = typeLower.includes('engagement')
+    ? 'Join us live and be a part of this beautiful engagement celebration as the couple begins a wonderful new chapter in their lives.'
+    : `Join us live and be part of this beautiful ${typeLower} celebration filled with love, joy, and cherished memories.`;
 
   return { title, description };
 }
