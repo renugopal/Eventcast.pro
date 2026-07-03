@@ -7,13 +7,14 @@ package config
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/logging"
 )
 
 // Supported environment variables. This is the complete set for the
-// Phase 0 skeleton; no other environment variables are read.
+// current baseline; no other environment variables are read.
 const (
 	EnvNodeID   = "EVENTCAST_NODE_ID"
 	EnvHTTPAddr = "EVENTCAST_MEDIA_AGENT_HTTP_ADDR"
@@ -76,9 +77,19 @@ func (c Config) Validate() error {
 	if len(c.NodeID) > maxNodeIDLength {
 		return fmt.Errorf("config: %s exceeds maximum length of %d", EnvNodeID, maxNodeIDLength)
 	}
+	if !isSafeNodeID(c.NodeID) {
+		return fmt.Errorf("config: %s may contain only ASCII letters, digits, '.', '_', and '-'", EnvNodeID)
+	}
 
-	if _, _, err := net.SplitHostPort(c.HTTPAddr); err != nil {
+	_, port, err := net.SplitHostPort(c.HTTPAddr)
+	if err != nil {
 		return fmt.Errorf("config: %s is not a valid host:port address", EnvHTTPAddr)
+	}
+	// SplitHostPort alone accepts empty, non-numeric, signed, and
+	// out-of-range ports; an explicit digits-only port keeps the bind
+	// deterministic (port 0 would select an ephemeral port at startup).
+	if n, err := strconv.ParseUint(port, 10, 16); err != nil || n == 0 {
+		return fmt.Errorf("config: %s port must be a number between 1 and 65535", EnvHTTPAddr)
 	}
 
 	if _, err := logging.ParseLevel(c.LogLevel); err != nil {
@@ -86,4 +97,23 @@ func (c Config) Validate() error {
 	}
 
 	return nil
+}
+
+// isSafeNodeID reports whether the node identifier uses only characters
+// that are safe to embed in log fields, metric labels, and filesystem
+// paths in later phases. Multi-byte characters fail the per-byte check,
+// which correctly restricts the identifier to printable ASCII.
+func isSafeNodeID(id string) bool {
+	for i := 0; i < len(id); i++ {
+		b := id[i]
+		switch {
+		case b >= 'a' && b <= 'z':
+		case b >= 'A' && b <= 'Z':
+		case b >= '0' && b <= '9':
+		case b == '.' || b == '_' || b == '-':
+		default:
+			return false
+		}
+	}
+	return true
 }

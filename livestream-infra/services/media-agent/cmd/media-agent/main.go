@@ -1,6 +1,6 @@
 // Command media-agent is the EventCast Media Agent entrypoint. This
-// Phase 0 skeleton starts an HTTP server exposing GET /healthz and the
-// SRS callback routes (on-publish, on-hls, on-unpublish); the durable
+// baseline starts an HTTP server exposing GET /healthz and the SRS
+// callback routes (on-publish, on-hls, on-unpublish); the durable
 // spool, the SQLite queue, R2/Wasabi upload, and relay logic are
 // implemented in later phases.
 package main
@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -22,30 +23,43 @@ import (
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/srs"
 )
 
-// healthCheckTimeout bounds the self-check request issued by the
-// "healthcheck" subcommand, used by the container HEALTHCHECK
-// instruction so the runtime image needs no extra HTTP client tool.
-const healthCheckTimeout = 3 * time.Second
+const (
+	// healthCheckTimeout bounds the self-check request issued by the
+	// "healthcheck" subcommand, used by the container HEALTHCHECK
+	// instruction so the runtime image needs no extra HTTP client tool.
+	healthCheckTimeout = 3 * time.Second
+
+	// shutdownTimeout bounds graceful drain of in-flight requests after
+	// a termination signal.
+	shutdownTimeout = 10 * time.Second
+)
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
-		if err := runHealthCheck(); err != nil {
+		if err := runHealthCheck(os.Getenv); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		os.Exit(0)
+		return
 	}
 
-	if err := run(); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx, os.Getenv, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
-	bootstrapLogger := logging.New(os.Stdout, slog.LevelInfo)
+// run starts the Media Agent HTTP server and blocks until ctx is
+// cancelled (normal termination) or the server fails. It is separated
+// from main, with the environment and log destination injected, so
+// tests can drive a complete startup/shutdown cycle in-process.
+func run(ctx context.Context, getenv func(string) string, stdout io.Writer) error {
+	bootstrapLogger := logging.New(stdout, slog.LevelInfo)
 
-	cfg, err := config.Load(os.Getenv)
+	cfg, err := config.Load(getenv)
 	if err != nil {
 		bootstrapLogger.Error("invalid configuration", slog.String("error", err.Error()))
 		return err
@@ -56,7 +70,7 @@ func run() error {
 		bootstrapLogger.Error("invalid configuration", slog.String("error", err.Error()))
 		return err
 	}
-	logger := logging.New(os.Stdout, level)
+	logger := logging.New(stdout, level)
 
 	logger.Info("media-agent starting",
 		slog.String("node_id", cfg.NodeID),
@@ -78,10 +92,10 @@ func run() error {
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,
 		IdleTimeout:       60 * time.Second,
+		// Route the server's internal error messages (bad TLS
+		// handshakes, handler panics) through the structured logger.
+		ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelError),
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	serveErr := make(chan error, 1)
 	go func() {
@@ -104,12 +118,20 @@ func run() error {
 		return nil
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("graceful shutdown failed", slog.String("error", err.Error()))
 		return fmt.Errorf("shutdown: %w", err)
+	}
+
+	// Surface a listener failure that raced the termination signal;
+	// without this drain, a failed bind concurrent with shutdown would
+	// be misreported as a clean stop.
+	if err := <-serveErr; err != nil {
+		logger.Error("http server failed", slog.String("error", err.Error()))
+		return fmt.Errorf("http server: %w", err)
 	}
 
 	logger.Info("media-agent stopped cleanly")
@@ -121,8 +143,8 @@ func run() error {
 // EVENTCAST_MEDIA_AGENT_HTTP_ADDR the server binds to and issues a
 // single GET /healthz request against it, avoiding the need for curl
 // or wget in the minimal runtime image.
-func runHealthCheck() error {
-	cfg, err := config.Load(os.Getenv)
+func runHealthCheck(getenv func(string) string) error {
+	cfg, err := config.Load(getenv)
 	if err != nil {
 		return fmt.Errorf("healthcheck: %w", err)
 	}

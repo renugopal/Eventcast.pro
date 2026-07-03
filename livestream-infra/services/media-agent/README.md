@@ -6,7 +6,7 @@ Home of the EventCast Media Agent, the Go service that owns durability and orche
 
 ## Status
 
-Phase 0, task 3 (`06_IMPLEMENTATION_ROADMAP.md`): builds on the task 1 skeleton by adding the three SRS HTTP callback routes. It provides typed, validated startup configuration, structured JSON logging with reusable secret redaction, a `GET /healthz` endpoint, graceful shutdown, and minimal `on-publish`/`on-hls`/`on-unpublish` handlers that validate and log each callback. It does not yet implement the durable spool, the SQLite queue, R2/Wasabi upload, YouTube relay, publish authorization, or any business workflow logic — see "Expected responsibilities" below for what remains.
+v1.2 Phase 1 baseline: the complete production-quality service baseline and container build. It provides typed, validated startup configuration (including strict node-id and port validation), structured JSON logging with reusable secret redaction, a `GET /healthz` endpoint with build-time version injection, graceful shutdown with a bounded drain and listener-failure detection, unit tests for every package including the entry point, and minimal `on-publish`/`on-hls`/`on-unpublish` handlers that validate and log each callback (added in Phase 0, task 3). It does not yet implement the durable spool, the SQLite queue, R2/Wasabi upload, YouTube relay, publish authorization, or any business workflow logic — see "Expected responsibilities" below for what remains.
 
 ## Go toolchain
 
@@ -24,19 +24,19 @@ Only these environment variables are read:
 
 | Variable | Required | Default | Notes |
 |---|---|---|---|
-| `EVENTCAST_NODE_ID` | yes | — | Non-secret node identifier. Startup fails if empty. |
-| `EVENTCAST_MEDIA_AGENT_HTTP_ADDR` | no | `127.0.0.1:8085` | Must be a valid `host:port`. Default is loopback-only. |
+| `EVENTCAST_NODE_ID` | yes | — | Non-secret node identifier. Startup fails if empty, longer than 128 characters, or containing anything other than ASCII letters, digits, `.`, `_`, `-`. |
+| `EVENTCAST_MEDIA_AGENT_HTTP_ADDR` | no | `127.0.0.1:8085` | Must be a valid `host:port` with an explicit numeric port between 1 and 65535 (port `0` is rejected so the bind stays deterministic). Default is loopback-only. |
 | `EVENTCAST_LOG_LEVEL` | no | `info` | One of `debug`, `info`, `warn`, `error`. |
 
 Configuration is validated eagerly at startup (`internal/config`); invalid configuration causes the process to exit non-zero with a structured JSON error log and no secret values echoed. See `.env.example`.
 
 ## Local validation (Docker only)
 
-Go is intentionally not installed on the host running this repository, and Go must not be installed on deployment hosts either. All build/vet/test/runtime validation goes through the pinned `golang:1.26.4` image and the Dockerfile below — see the Phase 0 task 1 completion report for the exact commands and results run for this skeleton.
+Go is intentionally not installed on the host running this repository, and Go must not be installed on deployment hosts either. All build/vet/test/runtime validation goes through the pinned `golang:1.26.4` image and the Dockerfile below (`gofmt -l`, `go vet ./...`, `go build ./...`, `go test ./...`, then a production image build, container start, healthcheck, invalid-configuration, and graceful-shutdown check).
 
 ## Docker image
 
-`Dockerfile` is a two-stage build: the pinned `golang:1.26.4` builder produces a static binary (`CGO_ENABLED=0`), copied into a pinned `gcr.io/distroless/static-debian12:nonroot` runtime stage. The container runs as the non-root `nonroot` user, exposes no public bind by default, and self-checks via `/media-agent healthcheck` (no curl/wget needed in the minimal runtime image).
+`Dockerfile` is a two-stage build: the pinned `golang:1.26.4` builder produces a static binary (`CGO_ENABLED=0`), copied into a pinned `gcr.io/distroless/static-debian12:nonroot` runtime stage. The container runs as the non-root `nonroot` user, exposes no public bind by default, and self-checks via `/media-agent healthcheck` (no curl/wget needed in the minimal runtime image). The build accepts an optional `MEDIA_AGENT_VERSION` build argument (default `dev`, must be a single whitespace-free token) that is injected into `internal/health.Version` and reported by `GET /healthz`.
 
 ## Governing documents
 
@@ -61,6 +61,14 @@ Read before implementing anything here, in this order:
 - `POST /internal/srs/on-publish`, `POST /internal/srs/on-hls`, `POST /internal/srs/on-unpublish` (`internal/srs`)
 - Each handler: rejects non-`POST` methods (`405`), enforces a 1 MiB request body ceiling (`413`), rejects malformed JSON with a non-secret JSON error body (`400`), validates that the minimum identifying fields (`action`, `stream`) are present (`400` otherwise), logs the callback as structured JSON without the `param` value (which may carry the RTMP publish token) or any other secret, and returns the SRS-compatible `{"code":0}` success body (`200`) otherwise
 - No database, authorization, session validation, or business-state logic yet — every well-formed callback with the required fields succeeds; that scope belongs to a later phase (see "Expected responsibilities")
+
+## Implemented (Phase 1 baseline hardening)
+
+- Strict configuration validation: explicit numeric port range 1–65535 (rejects empty/non-numeric/ephemeral port values that `net.SplitHostPort` alone accepts) and a safe node-id character set (`internal/config`)
+- Graceful-shutdown correctness: a listener failure that races the termination signal is surfaced instead of being reported as a clean stop (`cmd/media-agent`)
+- Structured `http.Server` internal error logging through the JSON logger
+- Build-time version injection via the `MEDIA_AGENT_VERSION` Docker build argument
+- Entry-point unit tests: full in-process startup/health/graceful-shutdown cycle, bind-failure and invalid-configuration failure paths, and the `healthcheck` subcommand against healthy, unhealthy, and unreachable servers (`cmd/media-agent/main_test.go`)
 
 ## Expected responsibilities (not yet implemented)
 
