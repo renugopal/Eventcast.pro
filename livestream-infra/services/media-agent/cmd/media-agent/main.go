@@ -1,7 +1,8 @@
 // Command media-agent is the EventCast Media Agent entrypoint. This
-// Phase 0 skeleton starts an HTTP server exposing GET /healthz only;
-// SRS callbacks, the durable spool, the SQLite queue, R2/Wasabi
-// upload, and relay logic are implemented in later phases.
+// Phase 0 skeleton starts an HTTP server exposing GET /healthz and the
+// SRS callback routes (on-publish, on-hls, on-unpublish); the durable
+// spool, the SQLite queue, R2/Wasabi upload, and relay logic are
+// implemented in later phases.
 package main
 
 import (
@@ -18,6 +19,7 @@ import (
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/config"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/health"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/logging"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/srs"
 )
 
 // healthCheckTimeout bounds the self-check request issued by the
@@ -65,6 +67,9 @@ func run() error {
 
 	mux := http.NewServeMux()
 	mux.Handle("/healthz", health.Handler())
+	mux.Handle("/internal/srs/on-publish", srs.NewOnPublishHandler(logger))
+	mux.Handle("/internal/srs/on-hls", srs.NewOnHLSHandler(logger))
+	mux.Handle("/internal/srs/on-unpublish", srs.NewOnUnpublishHandler(logger))
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,

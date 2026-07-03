@@ -6,7 +6,7 @@ Home of the EventCast Media Agent, the Go service that owns durability and orche
 
 ## Status
 
-Phase 0, task 1 (`06_IMPLEMENTATION_ROADMAP.md`): a minimal skeleton exists. It provides typed, validated startup configuration, structured JSON logging with reusable secret redaction, a `GET /healthz` endpoint, and graceful shutdown. It does not yet implement SRS callbacks, the durable spool, the SQLite queue, R2/Wasabi upload, YouTube relay, or any business workflow logic — see "Expected responsibilities" below for what remains.
+Phase 0, task 3 (`06_IMPLEMENTATION_ROADMAP.md`): builds on the task 1 skeleton by adding the three SRS HTTP callback routes. It provides typed, validated startup configuration, structured JSON logging with reusable secret redaction, a `GET /healthz` endpoint, graceful shutdown, and minimal `on-publish`/`on-hls`/`on-unpublish` handlers that validate and log each callback. It does not yet implement the durable spool, the SQLite queue, R2/Wasabi upload, YouTube relay, publish authorization, or any business workflow logic — see "Expected responsibilities" below for what remains.
 
 ## Go toolchain
 
@@ -56,9 +56,15 @@ Read before implementing anything here, in this order:
 - Loopback-default HTTP server with production-appropriate timeouts and graceful shutdown on SIGINT/SIGTERM (`cmd/media-agent`)
 - Two-stage, non-root, digest-pinned Docker image with a self-contained health check
 
+## Implemented (Phase 0, task 3)
+
+- `POST /internal/srs/on-publish`, `POST /internal/srs/on-hls`, `POST /internal/srs/on-unpublish` (`internal/srs`)
+- Each handler: rejects non-`POST` methods (`405`), enforces a 1 MiB request body ceiling (`413`), rejects malformed JSON with a non-secret JSON error body (`400`), validates that the minimum identifying fields (`action`, `stream`) are present (`400` otherwise), logs the callback as structured JSON without the `param` value (which may carry the RTMP publish token) or any other secret, and returns the SRS-compatible `{"code":0}` success body (`200`) otherwise
+- No database, authorization, session validation, or business-state logic yet — every well-formed callback with the required fields succeeds; that scope belongs to a later phase (see "Expected responsibilities")
+
 ## Expected responsibilities (not yet implemented)
 
-- SRS callback handlers: `on_publish`, `on_hls`, `on_unpublish`
+- Publish authorization / ingest-secret validation, session tracking, and rejection responses for `on-publish`
 - Durable spool capture (hard-link or atomic copy + fsync) ahead of upload
 - SQLite WAL-backed queue: `cached_event_assignments`, `ingest_sessions`, `segment_jobs`, `manifest_generations`, `youtube_relays`, `archive_jobs`, `agent_outbox`
 - Ordered upload to Cloudflare R2 with SHA-256 verification
@@ -79,7 +85,7 @@ services/media-agent/
   internal/config/        typed env config, startup validation               [implemented]
   internal/logging/       structured JSON logging, Secret redaction type     [implemented]
   internal/health/        GET /healthz handler                               [implemented]
-  internal/srs/           SRS callback handlers                              [not yet created]
+  internal/srs/           SRS callback handlers (on-publish/on-hls/on-unpublish) [implemented]
   internal/spool/         durable local capture                              [not yet created]
   internal/queue/         SQLite WAL queue                                   [not yet created]
   internal/upload/        R2 upload + manifest publication                   [not yet created]
