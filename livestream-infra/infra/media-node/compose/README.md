@@ -14,6 +14,7 @@ Docker Compose stack wiring the pinned SRS container (`infra/media-node/srs`, co
 
 - `docker-compose.yml` — the two-service stack.
 - `.env.example` — non-secret Compose variables (`EVENTCAST_NODE_ID`, `EVENTCAST_LOG_LEVEL`). Copy to `.env` for local use only; never commit a real `.env`.
+- `smoke-test.sh` — automated, repeatable end-to-end validation of this stack (Phase 0 Task 4). See "Automated smoke test" below.
 
 ## Images
 
@@ -81,6 +82,22 @@ docker images                                    # confirm srs/media-agent image
 ```
 
 Validated on the GCP VM for this task: `docker compose config` produced a clean resolved config; `docker compose up -d` started both containers, and both reported `healthy` (Media Agent first, then SRS per the dependency gate); `GET http://127.0.0.1:8085/healthz` returned `200` on VM loopback; `1935/tcp` was listening publicly (`0.0.0.0`/`[::]`) while `1985`/`9972` had no host binding at all and `8085` was loopback-only. A synthetic ~20s FFmpeg RTMP publish reached SRS (RTMP handshake succeeded); SRS called `on_publish` once, `on_hls` 30 times, and `on_unpublish` once against the real `media-agent:phase0-task3` container, and every callback returned HTTP `200 {"code":0}`; the SRS output volume contained a valid `local.m3u8` playlist referencing 30 `.ts` segments. `docker compose restart` brought both services back to `healthy`. `docker compose down` removed exactly this stack's two containers and its network, leaving all other host state, the pulled/built images, and the persistent `data/srs` and `data/spool` directories untouched; the temporary synthetic-stream output under `data/srs/live` was removed afterward as test cleanup, not by Compose itself.
+
+## Automated smoke test
+
+`smoke-test.sh` (Phase 0 Task 4) automates everything under "GCP VM validation commands" above into a single repeatable, non-interactive script. It must run on the GCP VM only (it requires Docker, Docker Compose, and FFmpeg); it never installs or requires any of those on the local Git/SSH control workstation.
+
+```bash
+cd /opt/eventcast/media-node/app/compose
+./smoke-test.sh
+echo "exit code: $?"   # 0 = every check passed
+```
+
+What it does, in order: validates `docker compose config`; starts the stack; waits (bounded, default 60s) for both containers' Docker healthchecks to report `healthy`; verifies `GET http://127.0.0.1:8085/healthz` returns `200`; verifies `1935/tcp` is listening publicly, `8085/tcp` is loopback-only (`127.0.0.1`, not `0.0.0.0`), and `1985/tcp`/`9972/tcp` are not published at all; runs a synthetic FFmpeg RTMP publish to a uniquely-named test stream (`smoketest-<unix-timestamp>`) bounded by both `-t 15` (the expected clean stop — placed as an output option immediately before `-f flv <url>`, not after the URL, which was the placement bug in the original manual validation that let a publish run past its intended duration) and an outer `timeout` hard cap (25s, force-kill after 5 more); verifies the real Media Agent's logs show a successful `on_publish`, at least one successful `on_hls`, and a successful `on_unpublish` for that stream; verifies a non-empty `local.m3u8` HLS playlist and at least one `.ts` segment were written; restarts the stack and re-waits (bounded, default 60s) for both containers healthy again.
+
+A `trap` on `EXIT`/`INT`/`TERM` always runs cleanup regardless of pass or fail: `docker compose down --remove-orphans` (removes only this stack's containers and network) and deletion of only that run's own `data/srs/live/smoketest-<timestamp>/` output directory. Docker images and the persistent `data/srs`/`data/spool` directory structure are never touched by cleanup. Any failed check prints a `[smoke-test][FAIL] ...` line naming the check and exits non-zero; no step in the script prints secrets (this Phase 0 flow carries no publish tokens yet, and `.env`/`.env.example` values are never echoed).
+
+Validated on the GCP VM for this task: a full run of `smoke-test.sh` passed all checks end to end (config validation, startup, health, port exposure, bounded RTMP publish, all three callbacks, HLS playlist/segments, restart recovery) and printed `all checks passed`; the trap-driven cleanup removed the run's containers, network, and temporary stream output while leaving the `media-agent:phase0-task3`/`ossrs/srs:v6.0-r0` images and the `data/srs`/`data/spool` directories intact. The bounded FFmpeg publish exited cleanly via `-t 15` well inside the 25s hard timeout on every run.
 
 ## Current Phase 0 limitations
 
