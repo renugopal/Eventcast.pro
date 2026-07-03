@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "1.0.0",
+  "sourceOfTruth": "livestream-infra/03_DATA_MODEL_AND_API_CONTRACTS.md",
+  "description": "Language-neutral source of truth for shared EventCast livestream contracts: SRS callback payload shapes, internal API error codes, and the fixed lifecycle state enums. Go and TypeScript representations in this package must match this file exactly; this file must match the committed 0019_livestream_control_plane.sql migration CHECK constraints and the committed Media Agent SRS callback handler.",
+
+  "srsCallbacks": {
+    "description": "SRS posts the same JSON envelope shape to on_publish, on_hls, and on_unpublish, with the fields relevant to each action populated and the rest zero-valued (03_DATA_MODEL_AND_API_CONTRACTS.md 'SRS callback contracts'; services/media-agent/internal/srs/srs.go Payload).",
+    "envelopeFields": [
+      { "name": "action",   "jsonName": "action",   "type": "string", "required": true,  "description": "SRS callback action name, e.g. on_publish, on_hls, on_unpublish." },
+      { "name": "clientId", "jsonName": "client_id", "type": "string", "required": false, "description": "SRS-assigned client connection identifier." },
+      { "name": "ip",       "jsonName": "ip",       "type": "string", "required": false, "description": "Publisher/client source IP as seen by SRS." },
+      { "name": "vhost",    "jsonName": "vhost",    "type": "string", "required": false, "description": "SRS virtual host name." },
+      { "name": "app",      "jsonName": "app",      "type": "string", "required": false, "description": "RTMP application name." },
+      { "name": "stream",   "jsonName": "stream",   "type": "string", "required": true,  "description": "Stream name; carries the non-secret ingest identifier (03_DATA_MODEL_AND_API_CONTRACTS.md on-publish)." },
+      { "name": "param",    "jsonName": "param",    "type": "string", "required": false, "description": "RTMP publish query string; may carry a secret stream token. Never logged." },
+      { "name": "file",     "jsonName": "file",     "type": "string", "required": false, "description": "Absolute path of the completed HLS segment or manifest file under the SRS staging root (on_hls)." },
+      { "name": "url",      "jsonName": "url",      "type": "string", "required": false, "description": "SRS-reported URL of the completed file (on_hls)." },
+      { "name": "m3u8",     "jsonName": "m3u8",     "type": "string", "required": false, "description": "Path of the local SRS m3u8 playlist associated with the segment (on_hls)." },
+      { "name": "duration", "jsonName": "duration", "type": "number", "required": false, "description": "Segment duration in seconds (on_hls)." },
+      { "name": "seqNo",    "jsonName": "seq_no",   "type": "integer","required": false, "description": "Segment sequence number (on_hls)." }
+    ],
+    "actions": {
+      "on_publish": {
+        "route": "POST /internal/srs/on-publish",
+        "relevantFields": ["action", "clientId", "ip", "vhost", "app", "stream", "param"],
+        "requiredFields": ["action", "stream"],
+        "notes": "The Media Agent extracts the non-secret ingest identifier from stream and the secret token from param, validates both, and creates a session. Success returns HTTP 200 with {\"code\":0}. Rejection returns HTTP 200 with a non-zero code or another SRS-compatible rejection response. MUST NOT perform R2 or Wasabi operations."
+      },
+      "on_hls": {
+        "route": "POST /internal/srs/on-hls",
+        "relevantFields": ["action", "clientId", "ip", "vhost", "app", "stream", "file", "url", "m3u8", "duration", "seqNo"],
+        "requiredFields": ["action", "stream"],
+        "notes": "Validates the active session, resolves the file under the SRS staging root, hard-links (or atomically copies) it into the protected Media Agent spool, fsyncs, writes an idempotent segment job, and returns success. A callback success means durably captured and queued, not already present in R2."
+      },
+      "on_unpublish": {
+        "route": "POST /internal/srs/on-unpublish",
+        "relevantFields": ["action", "clientId", "ip", "vhost", "app", "stream", "param"],
+        "requiredFields": ["action", "stream"],
+        "notes": "Closes the current session, records the disconnect reason when known, and emits an outbox status update. Does not delete files, close the event, or publish ENDLIST."
+      }
+    },
+    "successResponse": {
+      "description": "SRS-compatible success body every accepted callback returns.",
+      "fields": [
+        { "name": "code", "jsonName": "code", "type": "integer", "required": true, "description": "0 on success. A non-zero code tells SRS to reject the action." }
+      ]
+    }
+  },
+
+  "errorCodes": {
+    "description": "Stable machine-readable error codes for internal APIs and Media Agent jobs (03_DATA_MODEL_AND_API_CONTRACTS.md 'Error model'). Must match the media_jobs.last_error_code CHECK constraint in 0019_livestream_control_plane.sql exactly.",
+    "values": [
+      "AUTH_INVALID",
+      "ASSIGNMENT_MISMATCH",
+      "PUBLISH_WINDOW_CLOSED",
+      "DUPLICATE_PUBLISHER",
+      "SPOOL_FILE_MISSING",
+      "SPOOL_FILE_UNSTABLE",
+      "R2_AUTH",
+      "R2_RETRYABLE",
+      "R2_OBJECT_MISMATCH",
+      "MANIFEST_GAP",
+      "MANIFEST_PUBLISH_FAILED",
+      "YOUTUBE_RELAY_FAILED",
+      "WASABI_AUTH",
+      "WASABI_RETRYABLE",
+      "ARCHIVE_MISMATCH",
+      "DISK_PRESSURE",
+      "STATE_CONFLICT"
+    ]
+  },
+
+  "mediaNodeStates": {
+    "description": "media_nodes.status lifecycle (03_DATA_MODEL_AND_API_CONTRACTS.md 'media_nodes'; ADR-014). Only healthy nodes outside maintenance_mode may receive new assignments.",
+    "values": ["provisioning", "healthy", "degraded", "unavailable", "retired"]
+  },
+
+  "eventMediaStates": {
+    "description": "events.media_state lifecycle, also used as event_state_transitions.from_state/to_state (03_DATA_MODEL_AND_API_CONTRACTS.md 'events'; 02_V1_ARCHITECTURE_SPEC.md 'Event lifecycle').",
+    "values": ["scheduled", "ready", "live", "interrupted", "ending", "finalizing", "vod_ready", "archiving", "archived", "cancelled"]
+  },
+
+  "streamSessionStates": {
+    "description": "stream_sessions.status lifecycle (03_DATA_MODEL_AND_API_CONTRACTS.md 'stream_sessions'). A reconnect creates a new row rather than reopening the old session identity.",
+    "values": ["starting", "active", "disconnected", "finalized", "failed"]
+  },
+
+  "mediaJobStates": {
+    "description": "media_jobs.status lifecycle (03_DATA_MODEL_AND_API_CONTRACTS.md 'media_jobs').",
+    "values": ["queued", "running", "paused", "retry_wait", "succeeded", "failed_recoverable", "cancelled"]
+  },
+
+  "mediaJobTypes": {
+    "description": "media_jobs.type — required aggregate job types (03_DATA_MODEL_AND_API_CONTRACTS.md 'media_jobs'). Never one row per HLS segment.",
+    "values": ["finalize_vod", "create_mp4", "archive_to_wasabi", "restore_to_r2", "delete_r2_hot_copy"]
+  },
+
+  "versioning": {
+    "rule": "schemaVersion follows semver against this file's shape and values. A backward-compatible addition (new optional field, new enum value approved by an ADR) increments MINOR. Any rename, removal, or required/optional change increments MAJOR and requires updating the Go and TypeScript representations and their validation tests in the same change. PATCH is reserved for documentation-only edits with no field or value change.",
+    "process": "Do not add a new state or field here unless it already exists in an approved architecture document (03_DATA_MODEL_AND_API_CONTRACTS.md, 05_DECISIONS.md) or an applied Supabase migration. Architecture changes are proposed as a new ADR first; this file is updated after approval, not before."
+  }
+}
