@@ -105,14 +105,102 @@ func TestLoadOversizedNodeIDFailsFast(t *testing.T) {
 }
 
 func TestLoadInvalidHTTPAddrFailsFast(t *testing.T) {
+	cases := []struct {
+		name string
+		addr string
+	}{
+		{"no port separator", "not-a-valid-address"},
+		{"empty port", "127.0.0.1:"},
+		{"non-numeric port", "127.0.0.1:http"},
+		{"port zero selects ephemeral port", "127.0.0.1:0"},
+		{"port above 65535", "127.0.0.1:70000"},
+		{"negative port", "127.0.0.1:-1"},
+		{"plus-prefixed port", "127.0.0.1:+8085"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			getenv := envMap(map[string]string{
+				EnvNodeID:   "node-1",
+				EnvHTTPAddr: tc.addr,
+			})
+
+			_, err := Load(getenv)
+			if err == nil {
+				t.Fatalf("Load() expected error for HTTP address %q, got nil", tc.addr)
+			}
+		})
+	}
+}
+
+func TestLoadAcceptsExplicitBindAddresses(t *testing.T) {
+	// 0.0.0.0 (and the equivalent empty host) is a deliberate operator
+	// choice used by the Compose stack so the SRS container can reach
+	// the agent over the private container network.
+	cases := []struct {
+		name string
+		addr string
+	}{
+		{"all interfaces", "0.0.0.0:8085"},
+		{"empty host binds all interfaces", ":8085"},
+		{"ipv6 loopback", "[::1]:8085"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			getenv := envMap(map[string]string{
+				EnvNodeID:   "node-1",
+				EnvHTTPAddr: tc.addr,
+			})
+
+			cfg, err := Load(getenv)
+			if err != nil {
+				t.Fatalf("Load() unexpected error for HTTP address %q: %v", tc.addr, err)
+			}
+			if cfg.HTTPAddr != tc.addr {
+				t.Errorf("HTTPAddr = %q, want %q", cfg.HTTPAddr, tc.addr)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsUnsafeNodeIDCharacters(t *testing.T) {
+	cases := []struct {
+		name   string
+		nodeID string
+	}{
+		{"embedded space", "node 1"},
+		{"path separator", "node/1"},
+		{"path traversal", "../etc"},
+		{"embedded newline", "node\n1"},
+		{"non-ascii", "nödé-1"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			getenv := envMap(map[string]string{
+				EnvNodeID: tc.nodeID,
+			})
+
+			_, err := Load(getenv)
+			if err == nil {
+				t.Fatalf("Load() expected error for unsafe node id %q, got nil", tc.nodeID)
+			}
+		})
+	}
+}
+
+func TestLoadAcceptsSafeNodeIDCharacters(t *testing.T) {
 	getenv := envMap(map[string]string{
-		EnvNodeID:   "node-1",
-		EnvHTTPAddr: "not-a-valid-address",
+		EnvNodeID: "media-node_asia.south1-A01",
 	})
 
-	_, err := Load(getenv)
-	if err == nil {
-		t.Fatal("Load() expected error for invalid HTTP address, got nil")
+	cfg, err := Load(getenv)
+	if err != nil {
+		t.Fatalf("Load() unexpected error: %v", err)
+	}
+	if cfg.NodeID != "media-node_asia.south1-A01" {
+		t.Errorf("NodeID = %q, want %q", cfg.NodeID, "media-node_asia.south1-A01")
 	}
 }
 

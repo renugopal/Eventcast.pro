@@ -1,4 +1,4 @@
-# EventCast Media Agent - Phase 0 skeleton image.
+# EventCast Media Agent image (v1.2 Phase 1 baseline).
 #
 # Both stages are pinned by exact tag AND immutable digest per
 # 04_TECH_STACK_AND_VERSION_POLICY.md ("Every production dependency
@@ -11,10 +11,16 @@ FROM golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c6
 WORKDIR /src
 COPY . .
 
+# Build-time service version reported by GET /healthz. Must be a single
+# token (no whitespace); defaults to "dev" for local builds.
+ARG MEDIA_AGENT_VERSION=dev
+
 # CGO disabled and a static build keep the binary compatible with the
 # distroless runtime stage, which has no libc or shell.
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -trimpath -ldflags="-s -w" -o /out/media-agent ./cmd/media-agent
+    go build -trimpath \
+    -ldflags="-s -w -X github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/health.Version=${MEDIA_AGENT_VERSION}" \
+    -o /out/media-agent ./cmd/media-agent
 
 # Runtime: minimal distroless static image, pinned by tag AND digest.
 # It ships a non-root "nonroot" user (65532:65532) and no shell, no
