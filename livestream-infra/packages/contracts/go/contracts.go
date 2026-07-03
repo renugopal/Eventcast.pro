@@ -147,13 +147,13 @@ var StreamSessionStates = []StreamSessionState{
 type MediaJobState string
 
 const (
-	MediaJobQueued           MediaJobState = "queued"
-	MediaJobRunning          MediaJobState = "running"
-	MediaJobPaused           MediaJobState = "paused"
-	MediaJobRetryWait        MediaJobState = "retry_wait"
-	MediaJobSucceeded        MediaJobState = "succeeded"
+	MediaJobQueued            MediaJobState = "queued"
+	MediaJobRunning           MediaJobState = "running"
+	MediaJobPaused            MediaJobState = "paused"
+	MediaJobRetryWait         MediaJobState = "retry_wait"
+	MediaJobSucceeded         MediaJobState = "succeeded"
 	MediaJobFailedRecoverable MediaJobState = "failed_recoverable"
-	MediaJobCancelled        MediaJobState = "cancelled"
+	MediaJobCancelled         MediaJobState = "cancelled"
 )
 
 // MediaJobStates is the complete set of valid media_jobs.status
