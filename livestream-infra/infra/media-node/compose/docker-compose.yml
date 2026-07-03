@@ -1,0 +1,71 @@
+# EventCast Media Node - Phase 0 Compose stack (SRS + Media Agent).
+#
+# Both images are pinned: SRS by exact tag AND immutable registry digest
+# (see ../srs/README.md), Media Agent by the exact local build tag produced
+# in the Phase 0 Task 3 validation (see ../../../services/media-agent/README.md).
+# Do not replace either reference with a floating tag.
+#
+# This proves the two containers start, stay healthy, reach each other by
+# hostname on a private network, and that the Media Agent's SRS callback
+# routes (on-publish/on-hls/on-unpublish) accept real RTMP-publish-driven
+# callbacks end to end - see the README "GCP VM validation commands".
+
+networks:
+  media-node:
+    driver: bridge
+
+services:
+  media-agent:
+    image: media-agent:phase0-task3
+    container_name: eventcast-media-agent
+    networks:
+      media-node: {}
+    environment:
+      EVENTCAST_NODE_ID: ${EVENTCAST_NODE_ID}
+      # 0.0.0.0 so the srs service (a separate container) can reach this
+      # service by hostname; the port is still published to the host on
+      # loopback only (see "ports" below), so it is never publicly exposed.
+      EVENTCAST_MEDIA_AGENT_HTTP_ADDR: 0.0.0.0:8085
+      EVENTCAST_LOG_LEVEL: ${EVENTCAST_LOG_LEVEL:-info}
+    volumes:
+      # Reserved for the future durable spool (02_V1_ARCHITECTURE_SPEC.md
+      # "Media Agent owns /var/lib/eventcast/spool"); unused by the
+      # current Phase 0 skeleton, mounted now so the path is stable.
+      - /opt/eventcast/media-node/data/spool:/var/lib/eventcast/spool
+    ports:
+      - "127.0.0.1:8085:8085"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/media-agent", "healthcheck"]
+      interval: 15s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+
+  srs:
+    image: ossrs/srs@sha256:4e293846ad2448ff1a0157aa2c694e7c451fff5046c93b5bc6da0fa0384ef998
+    container_name: eventcast-srs
+    networks:
+      media-node: {}
+    depends_on:
+      media-agent:
+        condition: service_healthy
+    command: ["./objs/srs", "-c", "conf/eventcast.conf"]
+    volumes:
+      - /opt/eventcast/media-node/config/srs/srs.conf:/usr/local/srs/conf/eventcast.conf:ro
+      - /opt/eventcast/media-node/data/srs:/var/lib/eventcast/srs-output
+    ports:
+      # RTMP ingest only. HTTP API (1985) and the exporter (9972) are
+      # intentionally absent from this list - see ../srs/README.md
+      # "Required ports".
+      - "1935:1935"
+    restart: unless-stopped
+    healthcheck:
+      # No curl/wget/python3 in the SRS image; a bash /dev/tcp probe
+      # against the container-local HTTP API is a liveness check only,
+      # not a use of the API from outside the container.
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/1985"]
+      interval: 15s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
