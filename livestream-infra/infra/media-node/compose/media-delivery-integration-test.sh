@@ -228,7 +228,11 @@ trap cleanup EXIT INT TERM
 
 log "0) preparing isolated run ${RUN_ID}"
 mkdir -p "${TMP_BASE}/srs-output" "${TMP_BASE}/spool" "${TMP_BASE}/db" "${TMP_BASE}/config" "${TMP_BASE}/minio-data"
-chmod 0777 "${TMP_BASE}/spool" "${TMP_BASE}/db" "${TMP_BASE}/minio-data"
+# docker-compose.yml's srs service runs cap_drop: [ALL] (this milestone's
+# hardening), which removes CAP_DAC_OVERRIDE, so its root user can no
+# longer bypass host directory permissions - srs-output needs the same
+# permissive host-side bits as media-agent's spool/db mounts.
+chmod 0777 "${TMP_BASE}/spool" "${TMP_BASE}/db" "${TMP_BASE}/minio-data" "${TMP_BASE}/srs-output"
 cp "$SRS_CONF_SRC" "${TMP_BASE}/srs.conf"
 cp "$RELAY_SINK_CONF_SRC" "${TMP_BASE}/relay-sink.conf"
 

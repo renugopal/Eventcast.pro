@@ -23,6 +23,16 @@ type ReadinessChecks struct {
 	Database        func(ctx context.Context) error
 	SpoolWritable   func(ctx context.Context) error
 	AssignmentCache func(ctx context.Context) error
+	// ControlPlaneCache reports an error only when continuous
+	// control-plane assignment sync is enabled and the cache has become
+	// critically stale (internal/controlplane.Syncer.Status). It must
+	// return nil throughout an ordinary, still-within-policy control-plane
+	// outage: the architecture requires the agent keep authorizing
+	// already-cached, unexpired publishers during a temporary outage
+	// (03_DATA_MODEL_AND_API_CONTRACTS.md "Assignment synchronization"),
+	// so this check exists to catch only the case where that grace
+	// period has been exceeded, not routine transient failures.
+	ControlPlaneCache func(ctx context.Context) error
 }
 
 // ReadinessResponse is the stable JSON shape returned by GET /readyz.
@@ -50,12 +60,13 @@ func ReadinessHandler(checks ReadinessChecks) http.Handler {
 		defer cancel()
 
 		results := map[string]bool{
-			"database":         runCheck(ctx, checks.Database),
-			"spool_writable":   runCheck(ctx, checks.SpoolWritable),
-			"assignment_cache": runCheck(ctx, checks.AssignmentCache),
+			"database":            runCheck(ctx, checks.Database),
+			"spool_writable":      runCheck(ctx, checks.SpoolWritable),
+			"assignment_cache":    runCheck(ctx, checks.AssignmentCache),
+			"control_plane_cache": runCheck(ctx, checks.ControlPlaneCache),
 		}
 
-		ready := results["database"] && results["spool_writable"] && results["assignment_cache"]
+		ready := results["database"] && results["spool_writable"] && results["assignment_cache"] && results["control_plane_cache"]
 
 		resp := ReadinessResponse{Checks: results}
 		status := http.StatusOK

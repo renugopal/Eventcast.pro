@@ -170,8 +170,9 @@ func TestApplyMigrationsAppliesOnlyNewVersions(t *testing.T) {
 // real, production 0001_init.sql (as if this database were created
 // under the previous "v1.2 ingest control and durability" milestone),
 // inserts data using that schema, then runs the real full embedded
-// migration set (which adds 0002_media_delivery.sql) and confirms
-// existing data survives and the new columns/tables are usable.
+// migration set (which adds 0002_media_delivery.sql and
+// 0003_production_readiness.sql) and confirms existing data survives
+// and the new columns/tables from both later migrations are usable.
 func TestRealMigration0002UpgradesAnExistingV1Database(t *testing.T) {
 	ctx := context.Background()
 	db := openTestDB(t)
@@ -223,8 +224,8 @@ func TestRealMigration0002UpgradesAnExistingV1Database(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SchemaVersion() error: %v", err)
 	}
-	if version != 2 {
-		t.Errorf("SchemaVersion() after upgrade = %d, want 2", version)
+	if version != 3 {
+		t.Errorf("SchemaVersion() after upgrade = %d, want 3", version)
 	}
 
 	// Pre-existing data must survive untouched, and new columns must
@@ -268,6 +269,40 @@ func TestRealMigration0002UpgradesAnExistingV1Database(t *testing.T) {
 	if _, err := db.ExecContext(ctx,
 		`INSERT INTO youtube_relays (event_id, session_id, status, updated_at) VALUES ('event-1', 'sess-1', 'starting', ?)`, now); err != nil {
 		t.Errorf("insert into new youtube_relays table: %v", err)
+	}
+
+	// 0003_production_readiness.sql's new columns must have taken their
+	// documented defaults on the pre-existing assignment row.
+	var source, gapStatus string
+	if err := db.QueryRowContext(ctx,
+		`SELECT source FROM cached_event_assignments WHERE ingest_id = 'ingest-1'`,
+	).Scan(&source); err != nil {
+		t.Fatalf("query upgraded assignment source: %v", err)
+	}
+	if source != AssignmentSourceSeed {
+		t.Errorf("source default = %q, want %q", source, AssignmentSourceSeed)
+	}
+
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO vod_finalizations (event_id, status, updated_at) VALUES ('event-2', 'pending', ?)`, now); err != nil {
+		t.Fatalf("insert second vod_finalizations row: %v", err)
+	}
+	if err := db.QueryRowContext(ctx,
+		`SELECT gap_status FROM vod_finalizations WHERE event_id = 'event-2'`,
+	).Scan(&gapStatus); err != nil {
+		t.Fatalf("query gap_status default: %v", err)
+	}
+	if gapStatus != VODGapNone {
+		t.Errorf("gap_status default = %q, want %q", gapStatus, VODGapNone)
+	}
+
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO controlplane_sync_state (id, updated_at) VALUES (1, ?)`, now); err != nil {
+		t.Errorf("insert into new controlplane_sync_state table: %v", err)
+	}
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO vod_gap_audit (event_id, action, actor, gap_count, created_at) VALUES ('event-2', 'acknowledge', 'operator-1', 0, ?)`, now); err != nil {
+		t.Errorf("insert into new vod_gap_audit table: %v", err)
 	}
 
 	// Re-applying the full migration set again (as a second process

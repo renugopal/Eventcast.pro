@@ -54,7 +54,7 @@ func TestRetentionDeletesEligibleConfirmedSegments(t *testing.T) {
 	seg := setupConfirmedSegmentUnder(t, st, root, "evt1", "sess1", 1)
 
 	longAgo := time.Now().UTC().Add(-48 * time.Hour)
-	if err := st.UpsertVODFinalized(ctx, "evt1", []int64{seg.ID}, 1, "events/pb/vod/index.m3u8", longAgo); err != nil {
+	if err := st.UpsertVODFinalized(ctx, "evt1", []int64{seg.ID}, 1, "events/pb/vod/index.m3u8", 0, longAgo); err != nil {
 		t.Fatalf("UpsertVODFinalized() error: %v", err)
 	}
 
@@ -79,7 +79,7 @@ func TestRetentionSkipsSegmentsNotYetPastRetentionDelay(t *testing.T) {
 	root := t.TempDir()
 	seg := setupConfirmedSegmentUnder(t, st, root, "evt1", "sess1", 1)
 
-	if err := st.UpsertVODFinalized(ctx, "evt1", []int64{seg.ID}, 1, "events/pb/vod/index.m3u8", time.Now().UTC()); err != nil {
+	if err := st.UpsertVODFinalized(ctx, "evt1", []int64{seg.ID}, 1, "events/pb/vod/index.m3u8", 0, time.Now().UTC()); err != nil {
 		t.Fatalf("UpsertVODFinalized() error: %v", err)
 	}
 
@@ -99,7 +99,7 @@ func TestRetentionRefusesToDeletePathOutsideSpoolRoot(t *testing.T) {
 	seg := setupConfirmedSegmentUnder(t, st, outside, "evt1", "sess1", 1)
 
 	longAgo := time.Now().UTC().Add(-48 * time.Hour)
-	if err := st.UpsertVODFinalized(ctx, "evt1", []int64{seg.ID}, 1, "events/pb/vod/index.m3u8", longAgo); err != nil {
+	if err := st.UpsertVODFinalized(ctx, "evt1", []int64{seg.ID}, 1, "events/pb/vod/index.m3u8", 0, longAgo); err != nil {
 		t.Fatalf("UpsertVODFinalized() error: %v", err)
 	}
 
@@ -128,7 +128,7 @@ func TestRetentionTreatsAlreadyMissingFileAsSuccess(t *testing.T) {
 	}
 
 	longAgo := time.Now().UTC().Add(-48 * time.Hour)
-	if err := st.UpsertVODFinalized(ctx, "evt1", []int64{seg.ID}, 1, "events/pb/vod/index.m3u8", longAgo); err != nil {
+	if err := st.UpsertVODFinalized(ctx, "evt1", []int64{seg.ID}, 1, "events/pb/vod/index.m3u8", 0, longAgo); err != nil {
 		t.Fatalf("UpsertVODFinalized() error: %v", err)
 	}
 

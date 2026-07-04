@@ -79,6 +79,16 @@ type Reconciler struct {
 	logger     *slog.Logger
 	now        func() time.Time
 	stuckAfter time.Duration
+
+	// OnComplete, if set, is called after every successful RunOnce pass
+	// (both the explicit startup call in cmd/media-agent/main.go and each
+	// RunPeriodic iteration) with that pass's Report and completion time.
+	// It exists so metrics can reflect the latest reconciliation outcome
+	// without a separate durable table - reconciliation reports are
+	// operational telemetry, not business state - and must return
+	// quickly and never panic; a slow or misbehaving hook would otherwise
+	// delay the next scheduled pass.
+	OnComplete func(Report, time.Time)
 }
 
 // New returns a Reconciler. logger must not be nil.
@@ -155,6 +165,9 @@ func (r *Reconciler) runAndLog(ctx context.Context) {
 	if err != nil {
 		r.logger.Error("reconciliation pass failed", slog.String("error", err.Error()))
 		return
+	}
+	if r.OnComplete != nil {
+		r.OnComplete(report, r.now().UTC())
 	}
 	r.logger.Info("reconciliation pass complete",
 		slog.Int("orphan_segments_reconciled", report.OrphanSegmentsReconciled),

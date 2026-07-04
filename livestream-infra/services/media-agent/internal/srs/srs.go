@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/logging"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/metrics"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/relay"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/spool"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/store"
@@ -107,14 +108,47 @@ type Handlers struct {
 	Relay                    *relay.Supervisor
 	YouTubeSourceRTMPBaseURL string
 	// YouTubeStreamKeys resolves an event id to its raw YouTube stream
-	// key, built once at startup directly from the parsed assignment
-	// seed file (internal/store.Assignment.YouTubeStreamKey is
-	// deliberately never persisted to or read back from SQLite - see
-	// migrations/0002_media_delivery.sql). A nil or missing entry is
-	// treated as "no key available," which Target.destinationURL turns
-	// into a non-functional (but harmless) destination rather than a
-	// panic.
-	YouTubeStreamKeys map[string]logging.Secret
+	// key (internal/store.Assignment.YouTubeStreamKey is deliberately
+	// never persisted to or read back from SQLite - see
+	// migrations/0002_media_delivery.sql). It is either a static snapshot
+	// parsed once from a seed file (StaticYouTubeKeyStore) or a live cache
+	// kept current by internal/controlplane's periodic sync
+	// (controlplane.StreamKeyCache implements the same interface). A nil
+	// store or missing entry is treated as "no key available," which
+	// Target.destinationURL turns into a non-functional (but harmless)
+	// destination rather than a panic.
+	YouTubeStreamKeys YouTubeKeyStore
+
+	// Metrics is optional: a nil value (the zero value of Handlers, used
+	// by every existing test) disables instrumentation entirely rather
+	// than panicking. Only two counters are incremented here
+	// (PublishAuthTotal and CallbackTotal); every other metric this
+	// service exposes is computed by polling durable state
+	// (cmd/media-agent/main.go's metrics refresh function), since an
+	// accept/reject or callback-outcome decision is never itself
+	// persisted as a row and so cannot be recovered any other way.
+	Metrics *metrics.Sink
+}
+
+// YouTubeKeyStore resolves an event id to its raw YouTube stream key.
+// Implementations must be safe for concurrent use: a control-plane sync
+// may replace keys in the background while on_publish concurrently reads
+// them for a new session.
+type YouTubeKeyStore interface {
+	Get(eventID string) (logging.Secret, bool)
+}
+
+// StaticYouTubeKeyStore is a fixed, never-updated YouTubeKeyStore backed
+// directly by a map, used for the seed-file-only bootstrap path (no
+// control-plane sync configured). It is safe for concurrent reads because
+// nothing ever mutates it after construction; callers must not write to
+// it after handing it to Handlers.
+type StaticYouTubeKeyStore map[string]logging.Secret
+
+// Get implements YouTubeKeyStore.
+func (s StaticYouTubeKeyStore) Get(eventID string) (logging.Secret, bool) {
+	key, ok := s[eventID]
+	return key, ok
 }
 
 // handler adapts one named callback action to net/http, sharing request
@@ -180,10 +214,32 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	rejected, errorCode := h.execute(h.deps, r.Context(), payload)
 	if rejected {
+		h.deps.recordCallback(h.name, "rejected")
 		writeReject(w, errorCode)
 		return
 	}
+	h.deps.recordCallback(h.name, "ok")
 	writeSuccess(w)
+}
+
+// recordCallback increments the callback-outcome counter (and, for
+// on_publish specifically, the separate publish-authorization counter)
+// if metrics are configured. It never distinguishes by error code or
+// stream identity, keeping every label set fixed and small, well within
+// this milestone's cardinality requirement.
+func (h *Handlers) recordCallback(callback, result string) {
+	if h.Metrics == nil {
+		return
+	}
+	h.Metrics.CallbackTotal.Inc(metrics.Label{Name: "callback", Value: callback}, metrics.Label{Name: "result", Value: result})
+	if callback != "on_publish" {
+		return
+	}
+	authResult := "accepted"
+	if result == "rejected" {
+		authResult = "rejected"
+	}
+	h.Metrics.PublishAuthTotal.Inc(metrics.Label{Name: "result", Value: authResult})
 }
 
 // handlePublish authorizes the publisher against the durable local
@@ -252,12 +308,16 @@ func (h *Handlers) maybeStartRelay(assignment store.Assignment, session store.Se
 	if h.Relay == nil || !assignment.YouTubeEnabled {
 		return
 	}
+	var streamKey logging.Secret
+	if h.YouTubeStreamKeys != nil {
+		streamKey, _ = h.YouTubeStreamKeys.Get(assignment.EventID)
+	}
 	target := relay.Target{
 		EventID:            assignment.EventID,
 		SessionID:          session.ID,
 		SourceURL:          strings.TrimSuffix(h.YouTubeSourceRTMPBaseURL, "/") + "/" + rtmpApp + "/" + ingestID,
 		DestinationBaseURL: assignment.YouTubeDestinationBaseURL,
-		StreamKey:          h.YouTubeStreamKeys[assignment.EventID],
+		StreamKey:          streamKey,
 	}
 	if err := h.Relay.Start(context.Background(), target); err != nil {
 		h.Logger.Error("on_publish: failed to start youtube relay",

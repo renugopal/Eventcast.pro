@@ -25,6 +25,12 @@ type testEnv struct {
 	store     *store.Store
 	hlsRoot   string
 	spoolRoot string
+	// youtubeKeys is the concrete map backing handlers.YouTubeStreamKeys
+	// (a YouTubeKeyStore interface value) for tests in this package that
+	// need to populate a raw stream key after construction - see
+	// newTestEnvWithRelay in srs_relay_test.go. It is nil for tests that
+	// never set it, matching production's zero-value (no keys available).
+	youtubeKeys StaticYouTubeKeyStore
 }
 
 func newTestEnv(t *testing.T) *testEnv {

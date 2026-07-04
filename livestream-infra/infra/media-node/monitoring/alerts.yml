@@ -1,0 +1,170 @@
+# EventCast Media Node - alert rule specifications (Prometheus alerting
+# rule format; ADR-018 uses Datadog Agent without a dedicated monitoring
+# VM, but the metric interface is vendor-neutral OpenMetrics/Prometheus
+# text format - see services/media-agent/internal/metrics - so this file
+# is directly loadable by a Prometheus Alertmanager pipeline and is
+# otherwise the documented source of truth an equivalent Datadog
+# monitor/SLO definition should mirror exactly).
+#
+# Thresholds marked "(spec)" are taken verbatim from
+# 02_V1_ARCHITECTURE_SPEC.md "Observability requirements" and must not be
+# changed without a new decision record. Thresholds marked "(ops)" are
+# this milestone's own operational additions for subsystems the spec
+# does not give an exact number for (e.g. control-plane cache staleness,
+# whose warn/critical *ages* are configurable via
+# EVENTCAST_CONTROLPLANE_STALE_WARN_AFTER/_CRITICAL_AFTER - keep these
+# rule thresholds in sync with whatever the deployment actually sets).
+groups:
+  - name: eventcast-media-agent-critical
+    rules:
+      - alert: EventCastServiceDown
+        expr: up{job="eventcast-media-agent"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Media Agent {{ $labels.instance }} is unreachable"
+          description: "GET /metrics has not been scraped successfully for 1m. Treat as a running-RTMP-socket-without-HLS-segments-class incident (08_OPERATIONS_RUNBOOK.md)."
+
+      - alert: R2ConfirmationLagCritical
+        expr: media_agent_queue_oldest_pending_age_seconds > 60
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "R2 confirmation lag exceeds 60s (spec)"
+          description: "The oldest still-unconfirmed segment is more than 60s old. 02_V1_ARCHITECTURE_SPEC.md: 'Critical alerts MUST fire when lag exceeds 60 seconds.' Do not force the public playlist to advance; verify credentials/provider status/DNS/route (08_OPERATIONS_RUNBOOK.md 'R2 upload lag')."
+
+      - alert: SpoolDiskCritical
+        expr: (media_agent_spool_free_bytes / media_agent_spool_total_bytes) < 0.15
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Spool filesystem free space below 15% (spec)"
+          description: "02_V1_ARCHITECTURE_SPEC.md: 'Critical alerts MUST fire when ... disk free space falls below 15%.' Stop assigning new events; only reclaim files that satisfy documented deletion rules (08_OPERATIONS_RUNBOOK.md 'Disk pressure')."
+
+      - alert: RepeatedUploadFailureDeadLetter
+        expr: media_agent_segment_upload_status{upload_status="dead_letter"} > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $value }} segment(s) dead-lettered on {{ $labels.instance }}"
+          description: "A terminal, non-retryable upload failure requires operator intervention. Correlate with VODGapPendingReview below - a dead-lettered segment in a finalized event's VOD becomes an explicit gap requiring acknowledge/reject via POST /internal/events/{event_id}/vod-gap."
+
+      - alert: VODFinalizationFailing
+        expr: media_agent_vod_finalizations{status="failed"} > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $value }} event(s) stuck in VOD finalization failure"
+          description: "The event remains eligible for another finalization attempt; investigate the object-store/validation error in the Media Agent logs (never delete local files while this is unresolved)."
+
+      - alert: RelayRestartBudgetExhausted
+        # youtube_relays.status = 'failed' means the bounded restart
+        # policy gave up (internal/relay). ADR-012: this must never be
+        # treated as a primary-stream incident, only a secondary one.
+        expr: media_agent_youtube_relays{status="failed"} > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "YouTube relay restart budget exhausted for {{ $value }} session(s)"
+          description: "Confirm EventCast HLS is healthy first (it is unaffected by design). Check destination key validity, YouTube status, and outbound connectivity before restarting the relay (08_OPERATIONS_RUNBOOK.md 'YouTube relay failure')."
+
+      - alert: DatabaseIntegrityFailure
+        expr: media_agent_reconcile_integrity_ok == 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SQLite integrity check failed on {{ $labels.instance }}"
+          description: "Preserve the database and spool before any repair attempt; never initialize a blank queue over existing media without a recovery scan (08_OPERATIONS_RUNBOOK.md 'Media Agent failure')."
+
+      - alert: DatabaseUnhealthy
+        expr: media_agent_db_healthy == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Media Agent cannot reach its own SQLite database"
+          description: "GET /readyz will also be reporting not_ready. Check disk availability and SQLite file permissions before restarting the agent."
+
+      - alert: ControlPlaneCacheCriticallyStale
+        expr: media_agent_controlplane_enabled == 1 and media_agent_controlplane_cache_critically_stale == 1
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Control-plane assignment cache critically stale on {{ $labels.instance }}"
+          description: "GET /readyz's control_plane_cache check is now failing. Already-cached publishers with an unexpired window keep working, but no new assignment/revocation has propagated in longer than EVENTCAST_CONTROLPLANE_STALE_CRITICAL_AFTER. Investigate the control-plane endpoint and node credential."
+
+  - name: eventcast-media-agent-warning
+    rules:
+      - alert: R2ConfirmationLagWarning
+        expr: media_agent_queue_oldest_pending_age_seconds > 20
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "R2 confirmation lag exceeds 20s (spec)"
+          description: "02_V1_ARCHITECTURE_SPEC.md: 'Warning alerts SHOULD fire when R2 confirmation lag exceeds 20 seconds.'"
+
+      - alert: SpoolDiskWarning
+        expr: (media_agent_spool_free_bytes / media_agent_spool_total_bytes) < 0.25
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Spool filesystem free space below 25% (spec)"
+          description: "02_V1_ARCHITECTURE_SPEC.md: 'Warning alerts SHOULD fire when ... disk free space falls below 25%.' Consider pausing archive/other nonessential jobs."
+
+      - alert: SegmentQueueBacklogWarning
+        # A queued-but-not-yet-uploaded backlog beyond a handful of
+        # segments during otherwise-healthy ingest indicates the upload
+        # worker pool is falling behind (04_TECH_STACK_AND_VERSION_POLICY.md
+        # concurrency tuning) even before the 20s per-segment lag
+        # threshold above fires for any single segment.
+        expr: sum(media_agent_segment_upload_status{upload_status=~"pending|leased"}) > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Upload queue backlog exceeds 50 segments"
+          description: "Check EVENTCAST_R2_UPLOAD_CONCURRENCY, provider latency, and network utilization."
+
+      - alert: ControlPlaneCacheStale
+        expr: media_agent_controlplane_enabled == 1 and media_agent_controlplane_cache_stale == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Control-plane assignment cache stale on {{ $labels.instance }}"
+          description: "No successful sync in longer than EVENTCAST_CONTROLPLANE_STALE_WARN_AFTER. Not yet critical, but investigate before it becomes so."
+
+      - alert: VODGapPendingReview
+        expr: media_agent_vod_gap_state{gap_status="pending_review"} > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} finalized event(s) awaiting VOD-gap review"
+          description: "GET /internal/events/{event_id}/vod-gap to inspect, then POST the same path with {\"action\":\"acknowledge\"|\"reject\",\"actor\":...,\"reason\":...} to resolve (authenticated via EVENTCAST_OPERATOR_API_TOKEN). A finalized VOD is not fully healthy until this is resolved."
+
+      - alert: NoRecentSegmentWarning
+        # 02_V1_ARCHITECTURE_SPEC.md: "a live stream has no new local
+        # segment for three expected segment durations" - three 4s
+        # segments = 12s. This approximates that per-session check at
+        # the node level via reconciliation's own staleness detector
+        # instead of a per-session metric (avoiding an unbounded
+        # per-session label): a rising reconcile "sessions marked stale"
+        # count is the same underlying condition.
+        expr: increase(media_agent_reconcile_last_run_sessions_stale[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Reconciliation marked one or more sessions stale"
+          description: "A session stopped producing segments without a clean on_unpublish. Confirm encoder/field network status (08_OPERATIONS_RUNBOOK.md 'Publisher disconnected')."

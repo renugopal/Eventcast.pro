@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/config"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/controlplane"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/store"
 )
 
 func envMap(m map[string]string) func(string) string {
@@ -278,4 +280,179 @@ func TestRunHealthCheckFailsFastOnInvalidConfig(t *testing.T) {
 	if err == nil {
 		t.Fatal("runHealthCheck() expected error for missing required configuration, got nil")
 	}
+}
+
+func TestRunExposesMetricsEndpoint(t *testing.T) {
+	addr := freeLoopbackAddr(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- run(ctx, envMap(withRequiredPaths(t, map[string]string{
+			config.EnvNodeID:   "test-node",
+			config.EnvHTTPAddr: addr,
+		})), io.Discard)
+	}()
+	waitForHealthz(t, addr, done)
+
+	resp, err := http.Get(fmt.Sprintf("http://%s/metrics", addr))
+	if err != nil {
+		t.Fatalf("GET /metrics failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET /metrics status = %d, want 200", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read /metrics body: %v", err)
+	}
+	out := string(body)
+	for _, want := range []string{
+		"media_agent_db_healthy",
+		"media_agent_process_uptime_seconds",
+		"media_agent_controlplane_enabled",
+		"media_agent_sessions",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected /metrics output to contain %q, got:\n%s", want, out)
+		}
+	}
+
+	cancel()
+	<-done
+}
+
+func TestRunControlPlaneSyncPopulatesAssignmentsAndAuthorizesPublish(t *testing.T) {
+	mock := controlplane.NewMockServer("node-token-abc")
+	now := time.Now().UTC()
+	mock.SetAssignments("v1", []store.Assignment{{
+		IngestID:             "cp-stream",
+		EventID:              "cp-event",
+		PlaybackID:           "cp-pb",
+		SecretTokenHash:      store.HashToken("cp-secret"),
+		Enabled:              true,
+		PublishWindowStartAt: now.Add(-time.Hour),
+		PublishWindowEndAt:   now.Add(time.Hour),
+		ConfigVersion:        "1",
+	}})
+	srv := httptest.NewServer(mock.Handler())
+	defer srv.Close()
+
+	addr := freeLoopbackAddr(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- run(ctx, envMap(withRequiredPaths(t, map[string]string{
+			config.EnvNodeID:                "test-node",
+			config.EnvHTTPAddr:              addr,
+			config.EnvControlPlaneBaseURL:   srv.URL,
+			config.EnvControlPlaneNodeToken: "node-token-abc",
+		})), io.Discard)
+	}()
+	waitForHealthz(t, addr, done)
+
+	body := fmt.Sprintf(`{"action":"on_publish","stream":"cp-stream","app":"live","param":"?token=cp-secret"}`)
+	resp, err := http.Post(fmt.Sprintf("http://%s/internal/srs/on-publish", addr), "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST on-publish failed: %v", err)
+	}
+	defer resp.Body.Close()
+	var parsed map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+		t.Fatalf("invalid JSON response: %v", err)
+	}
+	if parsed["code"] != float64(0) {
+		t.Errorf("code = %v, want 0 (publish authorized via control-plane-synced assignment)", parsed["code"])
+	}
+
+	cancel()
+	<-done
+}
+
+func TestRunOperatorEndpointsRequireToken(t *testing.T) {
+	addr := freeLoopbackAddr(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- run(ctx, envMap(withRequiredPaths(t, map[string]string{
+			config.EnvNodeID:            "test-node",
+			config.EnvHTTPAddr:          addr,
+			config.EnvR2Endpoint:        "http://127.0.0.1:1", // never dialed; auth rejects first
+			config.EnvR2Bucket:          "test-bucket",
+			config.EnvR2AccessKeyID:     "test-key",
+			config.EnvR2SecretAccessKey: "test-secret",
+			config.EnvOperatorAPIToken:  "operator-secret",
+		})), io.Discard)
+	}()
+	waitForHealthz(t, addr, done)
+
+	resp, err := http.Post(fmt.Sprintf("http://%s/internal/events/evt1/finalize", addr), "application/json", nil)
+	if err != nil {
+		t.Fatalf("POST finalize failed: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("finalize without a token: status = %d, want 401", resp.StatusCode)
+	}
+
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s/internal/events/evt1/finalize", addr), nil)
+	req.Header.Set("Authorization", "Bearer operator-secret")
+	resp2, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("authenticated POST finalize failed: %v", err)
+	}
+	resp2.Body.Close()
+	if resp2.StatusCode == http.StatusUnauthorized {
+		t.Error("finalize with the correct token was still rejected as unauthorized")
+	}
+
+	cancel()
+	<-done
+}
+
+func TestRunRateLimitsSRSCallbacks(t *testing.T) {
+	addr := freeLoopbackAddr(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- run(ctx, envMap(withRequiredPaths(t, map[string]string{
+			config.EnvNodeID:         "test-node",
+			config.EnvHTTPAddr:       addr,
+			config.EnvRateLimitRPS:   "1",
+			config.EnvRateLimitBurst: "1",
+		})), io.Discard)
+	}()
+	waitForHealthz(t, addr, done)
+
+	url := fmt.Sprintf("http://%s/internal/srs/on-publish", addr)
+	body := `{"action":"on_publish","stream":"unknown","app":"live","param":"?token=x"}`
+
+	resp1, err := http.Post(url, "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("first request failed: %v", err)
+	}
+	resp1.Body.Close()
+	if resp1.StatusCode != http.StatusOK {
+		t.Fatalf("first request status = %d, want 200 (within burst)", resp1.StatusCode)
+	}
+
+	resp2, err := http.Post(url, "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("second request failed: %v", err)
+	}
+	resp2.Body.Close()
+	if resp2.StatusCode != http.StatusTooManyRequests {
+		t.Errorf("second immediate request status = %d, want 429 (burst exhausted)", resp2.StatusCode)
+	}
+
+	cancel()
+	<-done
 }

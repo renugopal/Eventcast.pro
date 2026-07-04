@@ -179,6 +179,17 @@ func TestFinalizeProceedsPastDeadLetteredGap(t *testing.T) {
 	if strings.Count(body, "#EXTINF") != 1 {
 		t.Errorf("expected only the 1 confirmed segment in the playlist, got:\n%s", body)
 	}
+
+	// The gap must be durably recorded as an explicit, operator-reviewable
+	// state, not silently absorbed into a "finalized" status that looks
+	// fully healthy (02_V1_ARCHITECTURE_SPEC.md "VOD finalization").
+	fin, found, err := st.GetVODFinalization(ctx, "evt1")
+	if err != nil || !found {
+		t.Fatalf("GetVODFinalization() found=%v err=%v", found, err)
+	}
+	if fin.GapCount != 1 || fin.GapStatus != store.VODGapPendingReview {
+		t.Errorf("got GapCount=%d GapStatus=%q, want GapCount=1 GapStatus=%q", fin.GapCount, fin.GapStatus, store.VODGapPendingReview)
+	}
 }
 
 func TestFinalizeFailsIfAReferencedObjectIsMissing(t *testing.T) {
