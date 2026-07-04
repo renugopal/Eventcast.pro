@@ -148,16 +148,26 @@ agent_logs() { $DOCKER logs "$MEDIA_AGENT_CONTAINER" 2>&1; }
 sink_logs() { $DOCKER logs "$RELAY_SINK_CONTAINER" 2>&1; }
 
 verify_log_line() {
-  local pattern="$1" description="$2" source="${3:-agent}" waited=0
-  while (( waited <= 15 )); do
+  local pattern="$1" description="$2" source="${3:-agent}" timeout="${4:-15}" waited=0
+  while (( waited <= timeout )); do
     if [[ "$source" == "sink" ]]; then
-      sink_logs | grep -qE "$pattern" && return 0
+      sink_logs | grep -qE "$pattern" && { (( waited > 0 )) && log "   (found '${description}' after ${waited}s)"; return 0; }
     else
-      agent_logs | grep -qE "$pattern" && return 0
+      agent_logs | grep -qE "$pattern" && { (( waited > 0 )) && log "   (found '${description}' after ${waited}s)"; return 0; }
     fi
     sleep 1
     waited=$((waited + 1))
   done
+  # Full timestamped logs on failure - this is the only signal available
+  # to diagnose *why* an expected line never appeared (hung, crashed, or
+  # just slower than this search window), since the rest of this script
+  # only ever greps for specific lines.
+  log "   full timestamped logs for '${source}' (diagnostic dump for the failure below):"
+  if [[ "$source" == "sink" ]]; then
+    $DOCKER logs --timestamps "$RELAY_SINK_CONTAINER" 2>&1 | tail -100 >&2
+  else
+    $DOCKER logs --timestamps "$MEDIA_AGENT_CONTAINER" 2>&1 | tail -100 >&2
+  fi
   fail "expected log line not found (${source}): ${description} (pattern: ${pattern})"
 }
 
@@ -228,7 +238,11 @@ trap cleanup EXIT INT TERM
 
 log "0) preparing isolated run ${RUN_ID}"
 mkdir -p "${TMP_BASE}/srs-output" "${TMP_BASE}/spool" "${TMP_BASE}/db" "${TMP_BASE}/config" "${TMP_BASE}/minio-data"
-chmod 0777 "${TMP_BASE}/spool" "${TMP_BASE}/db" "${TMP_BASE}/minio-data"
+# docker-compose.yml's srs service runs cap_drop: [ALL] (this milestone's
+# hardening), which removes CAP_DAC_OVERRIDE, so its root user can no
+# longer bypass host directory permissions - srs-output needs the same
+# permissive host-side bits as media-agent's spool/db mounts.
+chmod 0777 "${TMP_BASE}/spool" "${TMP_BASE}/db" "${TMP_BASE}/minio-data" "${TMP_BASE}/srs-output"
 cp "$SRS_CONF_SRC" "${TMP_BASE}/srs.conf"
 cp "$RELAY_SINK_CONF_SRC" "${TMP_BASE}/relay-sink.conf"
 
@@ -465,7 +479,17 @@ code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${MA_HTTP_PORT}
 log "10) restarting the media-agent container only"
 $COMPOSE restart media-agent || fail "docker compose restart media-agent failed"
 wait_for_healthy 60 || fail "media-agent did not become healthy again after restart"
-verify_log_line "startup reconciliation complete" "startup reconciliation ran after restart"
+# A longer window than this check's other verify_log_line calls: this is
+# the only one gated behind a full container restart + Docker healthcheck
+# cycle (interval 15s - see docker-compose.yml). On the dedicated GCP
+# validation VM, "startup reconciliation complete" appears within
+# milliseconds of restart; on a shared CI runner it has been observed
+# taking longer than a 45s search budget, so this is deliberately
+# generous. verify_log_line now logs how long the search actually took
+# (and dumps full timestamped agent logs if it still fails), so a future
+# timeout here comes with the evidence needed to root-cause it rather
+# than another blind bump.
+verify_log_line "startup reconciliation complete" "startup reconciliation ran after restart" agent 90
 # The upload-lease/relay-reconcile log lines above only fire when there
 # was something stale to recover (count > 0); by this point every
 # segment/relay from steps 4-9 already reached a terminal state before

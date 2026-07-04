@@ -16,8 +16,28 @@ const (
 	VODFailed    = "failed"
 )
 
+// VOD gap statuses (migrations/0003_production_readiness.sql). A gap is
+// "documented" per 02_V1_ARCHITECTURE_SPEC.md the moment finalization
+// observes one or more permanently unresolvable segments; it starts
+// pending_review and is terminal once an operator acknowledges or
+// rejects it via the vod-gap resolution endpoint
+// (internal/upload.VODGapHandler).
+const (
+	VODGapNone          = "none"
+	VODGapPendingReview = "pending_review"
+	VODGapAcknowledged  = "acknowledged"
+	VODGapRejected      = "rejected"
+)
+
+// VOD gap resolution actions, matching vod_gap_audit.action's CHECK
+// constraint.
+const (
+	VODGapActionAcknowledge = "acknowledge"
+	VODGapActionReject      = "reject"
+)
+
 // VODFinalization is the durable record of one event's VOD finalization
-// outcome.
+// outcome, including its independent gap-resolution state.
 type VODFinalization struct {
 	EventID      string
 	Status       string
@@ -27,13 +47,20 @@ type VODFinalization struct {
 	LastError    string
 	FinalizedAt  time.Time
 	UpdatedAt    time.Time
+
+	GapCount            int
+	GapStatus           string
+	GapResolutionActor  string
+	GapResolutionReason string
+	GapResolvedAt       time.Time
 }
 
 // GetVODFinalization returns eventID's finalization record, or
 // found=false if finalization has never been attempted.
 func (s *Store) GetVODFinalization(ctx context.Context, eventID string) (VODFinalization, bool, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT event_id, status, segment_ids, session_count, r2_key, last_error, finalized_at, updated_at
+		SELECT event_id, status, segment_ids, session_count, r2_key, last_error, finalized_at, updated_at,
+		       gap_count, gap_status, gap_resolution_actor, gap_resolution_reason, gap_resolved_at
 		FROM vod_finalizations WHERE event_id = ?`, eventID)
 
 	v, err := scanVODFinalization(row)
@@ -48,9 +75,10 @@ func (s *Store) GetVODFinalization(ctx context.Context, eventID string) (VODFina
 
 func scanVODFinalization(row *sql.Row) (VODFinalization, error) {
 	var v VODFinalization
-	var segmentIDsJSON, finalizedAt, updatedAt string
+	var segmentIDsJSON, finalizedAt, updatedAt, gapResolvedAt string
 	if err := row.Scan(&v.EventID, &v.Status, &segmentIDsJSON, &v.SessionCount, &v.R2Key, &v.LastError,
-		&finalizedAt, &updatedAt); err != nil {
+		&finalizedAt, &updatedAt,
+		&v.GapCount, &v.GapStatus, &v.GapResolutionActor, &v.GapResolutionReason, &gapResolvedAt); err != nil {
 		return VODFinalization{}, err
 	}
 	if segmentIDsJSON != "" {
@@ -65,6 +93,9 @@ func scanVODFinalization(row *sql.Row) (VODFinalization, error) {
 	if v.UpdatedAt, err = parseOptionalTime(updatedAt); err != nil {
 		return VODFinalization{}, fmt.Errorf("parse updated_at: %w", err)
 	}
+	if v.GapResolvedAt, err = parseOptionalTime(gapResolvedAt); err != nil {
+		return VODFinalization{}, fmt.Errorf("parse gap_resolved_at: %w", err)
+	}
 	return v, nil
 }
 
@@ -75,15 +106,32 @@ func scanVODFinalization(row *sql.Row) (VODFinalization, error) {
 // safe because VOD finalization itself is always recomputed fresh from
 // current UploadConfirmed state (see internal/upload/vod), never
 // incrementally patched.
-func (s *Store) UpsertVODFinalized(ctx context.Context, eventID string, segmentIDs []int64, sessionCount int, r2Key string, now time.Time) error {
+//
+// gapCount is the number of permanently unresolvable segments this
+// finalization observed. When gapCount is 0, gap_status is set to
+// 'none'. When gapCount is positive and the previously recorded gap
+// applied to the exact same segment set (same FinalizedAt-generation
+// SegmentIDs - callers only call this when segmentIDs actually changed
+// or no record exists yet, see internal/upload.VODFinalizer.Finalize),
+// gap_status is reset to 'pending_review', requiring the operator to
+// review the new gap even if a prior, different gap had already been
+// resolved.
+func (s *Store) UpsertVODFinalized(ctx context.Context, eventID string, segmentIDs []int64, sessionCount int, r2Key string, gapCount int, now time.Time) error {
 	segmentIDsJSON, err := json.Marshal(segmentIDs)
 	if err != nil {
 		return fmt.Errorf("store: marshal segment ids: %w", err)
 	}
+	gapStatus := VODGapNone
+	if gapCount > 0 {
+		gapStatus = VODGapPendingReview
+	}
 	nowStr := now.UTC().Format(time.RFC3339Nano)
 	_, err = s.db.ExecContext(ctx, `
-		INSERT INTO vod_finalizations (event_id, status, segment_ids, session_count, r2_key, last_error, finalized_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, '', ?, ?)
+		INSERT INTO vod_finalizations (
+			event_id, status, segment_ids, session_count, r2_key, last_error, finalized_at, updated_at,
+			gap_count, gap_status, gap_resolution_actor, gap_resolution_reason, gap_resolved_at
+		)
+		VALUES (?, ?, ?, ?, ?, '', ?, ?, ?, ?, '', '', '')
 		ON CONFLICT(event_id) DO UPDATE SET
 			status = excluded.status,
 			segment_ids = excluded.segment_ids,
@@ -91,12 +139,97 @@ func (s *Store) UpsertVODFinalized(ctx context.Context, eventID string, segmentI
 			r2_key = excluded.r2_key,
 			last_error = '',
 			finalized_at = excluded.finalized_at,
-			updated_at = excluded.updated_at`,
-		eventID, VODFinalized, string(segmentIDsJSON), sessionCount, r2Key, nowStr, nowStr)
+			updated_at = excluded.updated_at,
+			gap_count = excluded.gap_count,
+			gap_status = excluded.gap_status,
+			gap_resolution_actor = '',
+			gap_resolution_reason = '',
+			gap_resolved_at = ''`,
+		eventID, VODFinalized, string(segmentIDsJSON), sessionCount, r2Key, nowStr, nowStr, gapCount, gapStatus)
 	if err != nil {
 		return fmt.Errorf("store: upsert vod finalization for %s: %w", eventID, err)
 	}
 	return nil
+}
+
+// ErrNoGapPending is returned by ResolveVODGap when the event has no
+// vod_finalizations row, or its gap_status is not 'pending_review' (no
+// gap has yet been recorded).
+var ErrNoGapPending = errors.New("vod: no pending gap for this event")
+
+// ErrGapAlreadyResolvedDifferently is returned by ResolveVODGap when the
+// event's gap was already resolved with a different action than the one
+// requested, so the caller must not silently overwrite a prior operator
+// decision.
+var ErrGapAlreadyResolvedDifferently = errors.New("vod: gap already resolved with a different action")
+
+// ResolveVODGap durably applies an operator's acknowledge/reject decision
+// to eventID's currently pending VOD gap, and appends an audit row
+// unconditionally (every resolution attempt is recorded, whether or not
+// it changes state). It is idempotent: calling it again with the same
+// action after it already applied returns success without modifying
+// gap_resolved_at again. Calling it with a different action after the
+// gap was already resolved returns ErrGapAlreadyResolvedDifferently
+// rather than silently overwriting the recorded decision.
+func (s *Store) ResolveVODGap(ctx context.Context, eventID, action, actor, reason string, now time.Time) (VODFinalization, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return VODFinalization{}, fmt.Errorf("store: begin resolve vod gap: %w", err)
+	}
+	defer tx.Rollback()
+
+	row := tx.QueryRowContext(ctx, `
+		SELECT event_id, status, segment_ids, session_count, r2_key, last_error, finalized_at, updated_at,
+		       gap_count, gap_status, gap_resolution_actor, gap_resolution_reason, gap_resolved_at
+		FROM vod_finalizations WHERE event_id = ?`, eventID)
+	v, err := scanVODFinalization(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return VODFinalization{}, ErrNoGapPending
+	}
+	if err != nil {
+		return VODFinalization{}, fmt.Errorf("store: read vod finalization for %s: %w", eventID, err)
+	}
+
+	nowStr := now.UTC().Format(time.RFC3339Nano)
+	targetStatus := VODGapAcknowledged
+	if action == VODGapActionReject {
+		targetStatus = VODGapRejected
+	}
+
+	switch v.GapStatus {
+	case VODGapPendingReview:
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE vod_finalizations
+			SET gap_status = ?, gap_resolution_actor = ?, gap_resolution_reason = ?, gap_resolved_at = ?, updated_at = ?
+			WHERE event_id = ?`,
+			targetStatus, actor, reason, nowStr, nowStr, eventID); err != nil {
+			return VODFinalization{}, fmt.Errorf("store: apply vod gap resolution for %s: %w", eventID, err)
+		}
+		v.GapStatus = targetStatus
+		v.GapResolutionActor = actor
+		v.GapResolutionReason = reason
+		v.GapResolvedAt = now
+	case VODGapAcknowledged, VODGapRejected:
+		if v.GapStatus != targetStatus {
+			return VODFinalization{}, ErrGapAlreadyResolvedDifferently
+		}
+		// Idempotent replay of the same decision: no state change, but
+		// still audited below.
+	default: // VODGapNone or unknown
+		return VODFinalization{}, ErrNoGapPending
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO vod_gap_audit (event_id, action, actor, reason, gap_count, created_at)
+		VALUES (?, ?, ?, ?, ?, ?)`,
+		eventID, action, actor, reason, v.GapCount, nowStr); err != nil {
+		return VODFinalization{}, fmt.Errorf("store: record vod gap audit for %s: %w", eventID, err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return VODFinalization{}, fmt.Errorf("store: commit vod gap resolution for %s: %w", eventID, err)
+	}
+	return v, nil
 }
 
 // ListFinalizedEventsEligibleForCleanup returns every event id whose VOD

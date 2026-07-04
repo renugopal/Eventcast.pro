@@ -16,12 +16,17 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/config"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/controlplane"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/health"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/logging"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/metrics"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/operatorauth"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/ratelimit"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/reconcile"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/relay"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/srs"
@@ -70,6 +75,7 @@ func main() {
 // from main, with the environment and log destination injected, so
 // tests can drive a complete startup/shutdown cycle in-process.
 func run(ctx context.Context, getenv func(string) string, stdout io.Writer) error {
+	startTime := time.Now()
 	bootstrapLogger := logging.New(stdout, slog.LevelInfo)
 
 	cfg, err := config.Load(getenv)
@@ -104,13 +110,45 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 	}
 	defer st.Close()
 
-	// youtubeStreamKeys resolves an event id to its raw YouTube stream
-	// key, sourced directly from the parsed (pre-persist) seed file
-	// slice. It is deliberately never written to or read back from
-	// SQLite - see migrations/0002_media_delivery.sql - so it lives only
-	// in this process's memory for its whole lifetime.
-	youtubeStreamKeys := make(map[string]logging.Secret)
+	// metricsReg/sink hold every Prometheus-compatible metric this
+	// process exposes (internal/metrics); wiring happens throughout the
+	// rest of this function as each subsystem is constructed.
+	metricsReg := metrics.NewRegistry()
+	sink := metrics.NewSink(metricsReg)
+	sink.ControlPlaneEnabled.SetBool(cfg.ControlPlaneEnabled)
 
+	// youtubeKeyStore resolves an event id to its raw YouTube stream key,
+	// deliberately never written to or read back from SQLite - see
+	// migrations/0002_media_delivery.sql - so it lives only in this
+	// process's memory for its whole lifetime. Without continuous
+	// control-plane sync it is a fixed snapshot built once from the seed
+	// file below; with sync enabled it is instead a live cache
+	// (internal/controlplane.StreamKeyCache) internal/controlplane.Syncer
+	// keeps current after every successful sync.
+	var youtubeKeyStore srs.YouTubeKeyStore
+	var cpStreamKeyCache *controlplane.StreamKeyCache
+	var staticYouTubeKeys srs.StaticYouTubeKeyStore
+	if cfg.ControlPlaneEnabled {
+		cpStreamKeyCache = controlplane.NewStreamKeyCache()
+		youtubeKeyStore = cpStreamKeyCache
+	} else {
+		staticYouTubeKeys = make(srs.StaticYouTubeKeyStore)
+		youtubeKeyStore = staticYouTubeKeys
+	}
+
+	// The local seed file remains a valid bootstrap mechanism even when
+	// control-plane sync is enabled (e.g. so a fresh node has at least
+	// some cached assignments before its first successful sync
+	// completes), but it is imported with source='seed' and
+	// ApplyControlPlaneAssignments below never overwrites or revokes a
+	// seed-sourced row and never treats it as fresher than real
+	// control-plane state; see internal/store.ApplyControlPlaneAssignments
+	// and this milestone's requirement that "static assignment seeds ...
+	// must not silently override fresher control-plane state." YouTube
+	// keys are only ever populated into the static store from the seed
+	// file when control-plane sync is disabled - with sync enabled, only
+	// the dynamic StreamKeyCache (updated post-sync, below) is used, so
+	// there is exactly one live source of truth for raw keys at runtime.
 	if cfg.AssignmentSeedPath != "" {
 		assignments, err := store.LoadAssignmentsFromFile(cfg.AssignmentSeedPath)
 		if err != nil {
@@ -124,17 +162,79 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		}
 		logger.Info("assignment seed imported", slog.Int("assignment_count", n))
 
-		for _, a := range assignments {
-			if a.YouTubeEnabled {
-				youtubeStreamKeys[a.EventID] = a.YouTubeStreamKey
+		if !cfg.ControlPlaneEnabled {
+			for _, a := range assignments {
+				if a.YouTubeEnabled {
+					staticYouTubeKeys[a.EventID] = a.YouTubeStreamKey
+				}
 			}
 		}
+	}
+
+	var cpSyncer *controlplane.Syncer
+	if cfg.ControlPlaneEnabled {
+		cpClient := controlplane.NewHTTPClient(cfg.ControlPlaneBaseURL, cfg.ControlPlaneNodeToken, &http.Client{Timeout: cfg.ControlPlaneRequestTimeout})
+		cpSyncer = controlplane.NewSyncer(st, cpClient, cpStreamKeyCache, controlplane.SyncerConfig{
+			NodeID:             cfg.NodeID,
+			RequestTimeout:     cfg.ControlPlaneRequestTimeout,
+			SyncInterval:       cfg.ControlPlaneSyncInterval,
+			BackoffBase:        cfg.ControlPlaneBackoffBase,
+			BackoffMax:         cfg.ControlPlaneBackoffMax,
+			StaleWarnAfter:     cfg.ControlPlaneStaleWarnAfter,
+			StaleCriticalAfter: cfg.ControlPlaneStaleCriticalAfter,
+		}, logger)
+
+		logger.Info("performing startup control-plane sync", slog.String("base_url", cfg.ControlPlaneBaseURL))
+		startupSyncCtx, cancelStartupSync := context.WithTimeout(ctx, cfg.ControlPlaneRequestTimeout+2*time.Second)
+		if err := cpSyncer.SyncOnce(startupSyncCtx); err != nil {
+			// Never fatal: an unreachable control plane at startup must
+			// not prevent the agent from serving already-cached,
+			// unexpired publishers (03_DATA_MODEL_AND_API_CONTRACTS.md
+			// "Assignment synchronization").
+			logger.Warn("startup control-plane sync failed; continuing on last known good cache", slog.String("error", err.Error()))
+		}
+		cancelStartupSync()
+
+		cpCtx, cancelCP := context.WithCancel(context.Background())
+		var cpWG sync.WaitGroup
+		cpWG.Add(1)
+		go func() { defer cpWG.Done(); cpSyncer.Run(cpCtx) }()
+		defer func() { cancelCP(); cpWG.Wait() }()
+
+		logger.Info("control-plane assignment sync enabled")
+	} else {
+		logger.Warn("control-plane assignment sync disabled: EVENTCAST_CONTROLPLANE_BASE_URL is not set; relying solely on the static assignment seed")
+	}
+
+	if cfg.OperatorAPIToken.Reveal() == "" {
+		logger.Warn("EVENTCAST_OPERATOR_API_TOKEN is not set: the VOD finalize and vod-gap operator endpoints are unauthenticated; production deployments must set this")
+	}
+
+	// reconcileLastRunAt is read by the metrics refresh function
+	// (collectMetrics) to compute how long ago the most recent
+	// reconciliation pass completed. It is updated from both the
+	// explicit startup call below and every periodic pass via
+	// reconciler.OnComplete, so it is a plain atomic value rather than a
+	// local variable closed over by only one of those two call sites.
+	var reconcileLastRunAt atomic.Int64 // Unix seconds
+
+	recordReconcileReport := func(report reconcile.Report) {
+		sink.ReconcileRunsTotal.Inc()
+		sink.ReconcileOrphansReconciled.Set(float64(report.OrphanSegmentsReconciled))
+		sink.ReconcileStuckCapturesResolved.Set(float64(report.StuckCapturesResolved))
+		sink.ReconcileSegmentsMarkedMissing.Set(float64(report.SegmentsMarkedMissing))
+		sink.ReconcileSessionsMarkedStale.Set(float64(report.SessionsMarkedStale))
+		sink.ReconcileIntegrityOK.SetBool(report.IntegrityOK)
 	}
 
 	reconciler := reconcile.New(st, reconcile.Config{
 		SpoolRoot:           cfg.SpoolRoot,
 		SessionStaleTimeout: cfg.SessionStaleTimeout,
 	}, logger)
+	reconciler.OnComplete = func(report reconcile.Report, at time.Time) {
+		recordReconcileReport(report)
+		reconcileLastRunAt.Store(at.Unix())
+	}
 
 	logger.Info("running startup reconciliation")
 	startupReport, err := reconciler.RunOnce(ctx)
@@ -142,6 +242,8 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		logger.Error("startup reconciliation failed", slog.String("error", err.Error()))
 		return fmt.Errorf("startup reconciliation: %w", err)
 	}
+	recordReconcileReport(startupReport)
+	reconcileLastRunAt.Store(time.Now().UTC().Unix())
 	logger.Info("startup reconciliation complete",
 		slog.Int("orphan_segments_reconciled", startupReport.OrphanSegmentsReconciled),
 		slog.Int("stuck_captures_resolved", startupReport.StuckCapturesResolved),
@@ -188,15 +290,54 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		Logger:                   logger,
 		Relay:                    relaySupervisor,
 		YouTubeSourceRTMPBaseURL: cfg.YouTubeSourceRTMPBaseURL,
-		YouTubeStreamKeys:        youtubeStreamKeys,
+		YouTubeStreamKeys:        youtubeKeyStore,
+		Metrics:                  sink,
 	}
+
+	// Rate limiting and abuse protection (internal/ratelimit), applied to
+	// every non-loopback-diagnostic endpoint below: SRS callbacks and the
+	// operator endpoints. The client key never trusts a spoofable
+	// forwarding header unless the deployment explicitly opts in via
+	// EVENTCAST_TRUSTED_PROXY_ENABLED.
+	limiter := ratelimit.New(cfg.RateLimitRPS, cfg.RateLimitBurst)
+	clientKeyFunc := ratelimit.ClientIP
+	if cfg.TrustedProxyEnabled {
+		clientKeyFunc = ratelimit.TrustedProxyClientIP
+	}
+	rateLimited := func(h http.Handler) http.Handler {
+		return ratelimit.Middleware(limiter, clientKeyFunc, logger, h)
+	}
+	operatorProtected := func(h http.Handler) http.Handler {
+		return rateLimited(operatorauth.RequireBearerToken(cfg.OperatorAPIToken, logger, h))
+	}
+
+	limiterSweepCtx, cancelLimiterSweep := context.WithCancel(context.Background())
+	var limiterSweepWG sync.WaitGroup
+	limiterSweepWG.Add(1)
+	go func() {
+		defer limiterSweepWG.Done()
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-limiterSweepCtx.Done():
+				return
+			case <-ticker.C:
+				limiter.Sweep(10 * time.Minute)
+			}
+		}
+	}()
+	defer func() { cancelLimiterSweep(); limiterSweepWG.Wait() }()
+
+	var shuttingDown atomic.Bool
 
 	mux := http.NewServeMux()
 	mux.Handle("/healthz", health.Handler())
-	mux.Handle("/readyz", health.ReadinessHandler(readinessChecks(st, cfg.SpoolRoot)))
-	mux.Handle("/internal/srs/on-publish", srsHandlers.OnPublish())
-	mux.Handle("/internal/srs/on-hls", srsHandlers.OnHLS())
-	mux.Handle("/internal/srs/on-unpublish", srsHandlers.OnUnpublish())
+	mux.Handle("/readyz", health.ReadinessHandler(readinessChecks(st, cfg.SpoolRoot, cpSyncer)))
+	mux.Handle("/metrics", metrics.Handler(metricsReg, collectMetrics(st, cfg, cpSyncer, sink, startTime, &reconcileLastRunAt, &shuttingDown)))
+	mux.Handle("/internal/srs/on-publish", rateLimited(srsHandlers.OnPublish()))
+	mux.Handle("/internal/srs/on-hls", rateLimited(srsHandlers.OnHLS()))
+	mux.Handle("/internal/srs/on-unpublish", rateLimited(srsHandlers.OnUnpublish()))
 
 	if cfg.R2Enabled {
 		manifestCfg := upload.ManifestConfig{
@@ -255,7 +396,8 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 			uploadWG.Wait()
 		}()
 
-		mux.Handle("POST /internal/events/{event_id}/finalize", &upload.FinalizeHandler{Finalizer: vodFinalizer, Logger: logger})
+		mux.Handle("POST /internal/events/{event_id}/finalize", operatorProtected(&upload.FinalizeHandler{Finalizer: vodFinalizer, Logger: logger}))
+		mux.Handle("/internal/events/{event_id}/vod-gap", operatorProtected(&upload.VODGapHandler{Store: st, Logger: logger}))
 
 		logger.Info("R2 upload/manifest/VOD/retention subsystem enabled",
 			slog.String("bucket", cfg.R2Bucket), slog.Int("upload_concurrency", cfg.R2UploadConcurrency))
@@ -296,6 +438,7 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		return nil
 	}
 
+	shuttingDown.Store(true)
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
@@ -318,14 +461,28 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 
 // readinessChecks wires GET /readyz's dependency probes: the database
 // connection, spool directory writability (via a create-then-remove
-// probe using this service's own exact marker file name), and that the
-// assignment cache table is queryable. No path, count, or other
-// filesystem/database detail is exposed in the response; these checks
-// only ever produce a boolean.
-func readinessChecks(st *store.Store, spoolRoot string) health.ReadinessChecks {
+// probe using this service's own exact marker file name), that the
+// assignment cache table is queryable, and (only when control-plane sync
+// is enabled) that the cache is not critically stale. No path, count, or
+// other filesystem/database detail is exposed in the response; these
+// checks only ever produce a boolean.
+func readinessChecks(st *store.Store, spoolRoot string, cpSyncer *controlplane.Syncer) health.ReadinessChecks {
 	return health.ReadinessChecks{
 		Database: func(ctx context.Context) error {
 			return st.Ping(ctx)
+		},
+		ControlPlaneCache: func(ctx context.Context) error {
+			if cpSyncer == nil {
+				return nil
+			}
+			status, err := cpSyncer.Status(ctx)
+			if err != nil {
+				return err
+			}
+			if status.CriticallyStale {
+				return fmt.Errorf("control-plane assignment cache critically stale")
+			}
+			return nil
 		},
 		SpoolWritable: func(ctx context.Context) error {
 			probe := spoolRoot + string(os.PathSeparator) + spoolWriteProbeName
@@ -365,4 +522,76 @@ func runHealthCheck(getenv func(string) string) error {
 		return fmt.Errorf("healthcheck: unexpected status %d", resp.StatusCode)
 	}
 	return nil
+}
+
+// collectMetrics returns GET /metrics's pre-render refresh hook
+// (internal/metrics.Handler): it polls durable state and process/host
+// facts and updates every gauge in sink that cannot be maintained as a
+// true incrementing counter at its point of occurrence (see
+// internal/metrics.Sink's doc comment). It is deliberately tolerant of
+// individual query failures - one failed probe (e.g. a transient SQLite
+// busy error) logs and continues rather than blanking the entire scrape,
+// since an operator mid-incident needs whatever metrics are still
+// obtainable, not an all-or-nothing endpoint.
+func collectMetrics(
+	st *store.Store,
+	cfg config.Config,
+	cpSyncer *controlplane.Syncer,
+	sink *metrics.Sink,
+	startTime time.Time,
+	reconcileLastRunAt *atomic.Int64,
+	shuttingDown *atomic.Bool,
+) func(ctx context.Context) {
+	return func(ctx context.Context) {
+		sink.ProcessUptimeSeconds.Set(time.Since(startTime).Seconds())
+		sink.ShuttingDown.SetBool(shuttingDown.Load())
+
+		sink.DBHealthy.SetBool(st.Ping(ctx) == nil)
+
+		if free, total, err := metrics.DiskFreeBytes(cfg.SpoolRoot); err == nil {
+			sink.SpoolFreeBytes.Set(float64(free))
+			sink.SpoolTotalBytes.Set(float64(total))
+		}
+
+		if last := reconcileLastRunAt.Load(); last > 0 {
+			sink.ReconcileLastRunAgeSeconds.Set(time.Since(time.Unix(last, 0).UTC()).Seconds())
+		}
+
+		if cpSyncer != nil {
+			if status, err := cpSyncer.Status(ctx); err == nil {
+				if !status.LastSuccessAt.IsZero() {
+					sink.ControlPlaneLastSuccessAgeSeconds.Set(time.Since(status.LastSuccessAt).Seconds())
+				}
+				sink.ControlPlaneConsecutiveFailures.Set(float64(status.ConsecutiveFailures))
+				sink.ControlPlaneStale.SetBool(status.Stale)
+				sink.ControlPlaneCriticallyStale.SetBool(status.CriticallyStale)
+			}
+		}
+
+		snap, err := st.GetMetricsSnapshot(ctx, time.Now().UTC())
+		if err != nil {
+			return
+		}
+		setByLabel(sink.SessionsActive, "status", snap.SessionsByStatus)
+		setByLabel(sink.SegmentJobs, "status", snap.SegmentJobsByStatus)
+		setByLabel(sink.SegmentUploadStatus, "upload_status", snap.SegmentsByUploadStatus)
+		setByLabel(sink.ManifestGenerations, "manifest_type", snap.ManifestGenerationsByType)
+		setByLabel(sink.VODFinalizations, "status", snap.VODFinalizationsByStatus)
+		setByLabel(sink.VODGapState, "gap_status", snap.VODByGapStatus)
+		setByLabel(sink.RelayStatus, "status", snap.RelaysByStatus)
+		sink.SegmentUploadAttempts.Set(float64(snap.SegmentUploadAttemptsSum))
+		sink.RelayRestartsTotal.Set(float64(snap.RelayRestartsSum))
+		sink.QueueOldestAgeSeconds.Set(snap.OldestPendingUploadAgeSeconds)
+	}
+}
+
+// setByLabel sets one gauge series per (labelName=key) pair in counts.
+// Every key here always comes from a small, fixed SQL CHECK-constrained
+// enum column (segment/session/VOD/relay status values), never
+// request-controlled input, so this can never create an unbounded metric
+// label.
+func setByLabel(g metrics.Gauge, labelName string, counts map[string]int) {
+	for key, n := range counts {
+		g.Set(float64(n), metrics.Label{Name: labelName, Value: key})
+	}
 }

@@ -52,7 +52,11 @@ The Media Agent listens on `0.0.0.0:8085` **inside its own container** (`EVENTCA
 
 ## Host directory permissions
 
-`media-agent` runs as the image's non-root `nonroot` user (`srs` runs as root, which is unaffected by this). Its two writable mounts - `SPOOL_HOST_DIR` and `DB_HOST_DIR` - must be writable by that user on the host before the container can start successfully; a freshly `mkdir -p`'d directory owned by an interactive/SSH user typically is not. Both integration test scripts `chmod 0777` their own temporary spool/db directories for exactly this reason. For the persistent deployment, ensure `/opt/eventcast/media-node/data/spool` and `/opt/eventcast/media-node/data/db` are writable by the container's non-root UID (for example via `chmod` or a matching group) before deploying this milestone's image; `SRS_OUTPUT_HOST_DIR` and the assignment seed config directory do not need this (`media-agent` only reads them).
+`media-agent` runs as the image's non-root `nonroot` user. Its two writable mounts - `SPOOL_HOST_DIR` and `DB_HOST_DIR` - must be writable by that user on the host before the container can start successfully; a freshly `mkdir -p`'d directory owned by an interactive/SSH user typically is not. `deploy.sh` and every integration test script `chmod 0777` these directories for exactly this reason.
+
+`SRS_OUTPUT_HOST_DIR` needs the same treatment as of this milestone's security hardening: `srs` now runs with `cap_drop: [ALL]` (see "Production readiness and operations" below), which removes `CAP_DAC_OVERRIDE` - without it, `srs`'s root user can no longer bypass host directory permission checks the way an unrestricted root process could, so it is subject to the same permission bits as any other user. A directory that only a root-equivalent process could previously write to (because root ignored permission bits) will now fail with `Permission denied` unless it is actually writable by whatever UID the container runs as. `deploy.sh`'s preflight step creates `SRS_OUTPUT_HOST_DIR` with mode `0777` for this reason; an already-existing `/opt/eventcast/media-node/data/srs` from before this milestone must have its permissions updated the same way before upgrading.
+
+The assignment seed config directory does not need this (`media-agent` only reads it, and default `mkdir` permissions already allow that).
 
 ## Health checks and startup ordering
 
@@ -146,10 +150,20 @@ A `trap` on `EXIT`/`INT`/`TERM` always tears down exactly this run's Compose pro
 
 Validated on the GCP VM for this milestone: a full run printed `all checks passed` end to end - the authorized publish was accepted and produced real HLS segments durably captured into the spool; the unauthorized publish attempt was refused by SRS at the RTMP layer and logged as rejected, with zero HLS segments produced for it; three direct replays of the same real `on_hls` callback all returned `{"code":0}` with the spool file count unchanged across all three; the reconnect produced a second accepted `on_publish`; and after restarting only the `media-agent` container, its logs showed a completed startup reconciliation pass, the spool file count was unchanged (no duplication or loss), and a fresh publish was accepted with `GET /readyz` reporting `200` throughout. The initial validation run also caught and fixed a real permission gap: the Media Agent's non-root container user could not write to freshly-created host directories owned by the SSH user, requiring the isolated test directories (and, operationally, the persistent deployment's `data/spool`/`data/db` directories) to be writable by that non-root user - see "Host directory permissions" above.
 
+## Production readiness and operations (v1.2)
+
+Four additional scripts implement `../DEPLOYMENT.md` and `../BACKUP_AND_RECOVERY.md` against this same Compose stack:
+
+- `deploy.sh` — environment validation, preflight, active-session safety check, health-gated startup, post-deployment verification. Defaults to a dry run; requires `--apply`.
+- `rollback.sh <image>` — restores a previous pinned media-agent image without touching spool/database data. Defaults to a dry run; requires `--apply`.
+- `backup.sh <dest>` — consistent SQLite database backup (brief agent stop, file-level copy, restart). Defaults to a dry run; requires `--apply`.
+- `restore-test.sh` — isolated, non-production proof that a `backup.sh`-style backup actually restores (see `../BACKUP_AND_RECOVERY.md` "Tested restore verification").
+
+Docker-level hardening now applied to both services in `docker-compose.yml`: `cap_drop: [ALL]` and `security_opt: [no-new-privileges:true]` on both `media-agent` and `srs`, plus `read_only: true` with a small `tmpfs` at `/tmp` on `media-agent` (deferred on `srs` pending an exact-image validation pass - see the compose file's own comment). `media_agent_*` Prometheus-compatible metrics are served at `GET /metrics` on the same loopback-only bind as `/healthz`/`/readyz`; alert rule specifications live in `../monitoring/alerts.yml`.
+
 ## Current limitations
 
 - No systemd unit supervises this Compose application yet (`infra/media-node/systemd` is still a placeholder).
 - No firewall rules restrict access to the published `1935/tcp` port yet (`infra/media-node/firewall` is still a placeholder) — this is deployment-environment configuration, not something this Compose file can enforce.
-- No monitoring agent (Datadog) is wired into this stack yet (`infra/media-node/monitoring` is still a placeholder); the SRS exporter and Media Agent are reachable only from sibling containers on the private network once one is added.
-- No R2/Wasabi upload, manifest generation, or YouTube relay exists yet, consistent with the Media Agent's own current limitations (see `services/media-agent/README.md` "Expected responsibilities").
-- The assignment cache is seeded only from a local JSON file; continuous control-plane synchronization is a later milestone.
+- No Datadog Agent container is wired into this stack yet (it depends on an account-specific API key supplied through the approved secret mechanism at deploy time - see `../monitoring/README.md`); the Media Agent's own `/metrics` endpoint and the SRS exporter are both already reachable for a sibling monitoring container to scrape on the private network.
+- No R2/Wasabi archival exists yet, consistent with the Media Agent's own current limitations (see `services/media-agent/README.md` "Expected responsibilities").

@@ -1,0 +1,145 @@
+name: livestream-infra CI
+
+# Path-scoped: this workflow exists only for the livestream-infra media
+# pipeline (Go Media Agent + Docker/Compose media-node deployment). It
+# must never gate or trigger any EventCast frontend, Cloudflare Pages, or
+# Vercel deployment job, and it must never require the GCP validation VM
+# or production credentials for a normal pull request - every job below
+# runs entirely on the GitHub-hosted runner against public, pinned images
+# and a synthetic local stream.
+on:
+  pull_request:
+    paths:
+      - "livestream-infra/**"
+  push:
+    branches: [main]
+    paths:
+      - "livestream-infra/**"
+
+# A newer push/PR update supersedes an in-flight run for the same ref.
+concurrency:
+  group: livestream-infra-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least-privilege default; no job below needs to write anything.
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: gofmt / vet / build / test / race
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Pinned exact Go toolchain image (tag AND digest), matching
+    # services/media-agent/Dockerfile and 04_TECH_STACK_AND_VERSION_POLICY.md.
+    container:
+      image: golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+    defaults:
+      run:
+        working-directory: livestream-infra/services/media-agent
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: gofmt
+        run: |
+          out="$(gofmt -l .)"
+          if [ -n "$out" ]; then
+            echo "$out"
+            echo "::error::gofmt found unformatted file(s) above; run 'gofmt -w .'"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      # -buildvcs=false: this job runs inside a container image with the
+      # checkout bind-mounted from the runner, so the repo directory's
+      # owning UID does not match the container user. Git refuses to
+      # operate on it (dubious ownership), and Go's automatic VCS
+      # stamping then fails the entire build with "error obtaining VCS
+      # status: exit status 128" even though nothing is wrong with the
+      # source itself. This only affects embedded build metadata, not
+      # program behavior; the actual deployed image comes from the
+      # separate "build media-agent image" job (a plain docker build,
+      # no bind mount), which is unaffected.
+      - name: go build
+        run: go build -buildvcs=false ./...
+
+      # internal/store/migrations_test.go applies every versioned
+      # migration in migrations/*.sql against a real SQLite database as
+      # part of this run, so a dedicated "migrations" job is unnecessary.
+      - name: go test
+        run: go test -buildvcs=false ./...
+
+      - name: go test -race
+        run: go test -buildvcs=false -race ./...
+
+  shell-syntax:
+    name: shell syntax (infra/media-node scripts)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: bash -n every script
+        run: |
+          set -e
+          status=0
+          while IFS= read -r -d '' f; do
+            echo "checking $f"
+            bash -n "$f" || status=1
+          done < <(find livestream-infra/infra/media-node/compose -name '*.sh' -print0)
+          exit "$status"
+
+  compose-render:
+    name: docker compose config render
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: render compose configs against the example environment
+        working-directory: livestream-infra/infra/media-node/compose
+        run: |
+          set -e
+          cp .env.example .env
+          docker compose -f docker-compose.yml config >/dev/null
+          # The test-only overlay requires two variables with no default
+          # (media-delivery-integration-test.sh always supplies its own
+          # unique temp path/file at runtime); a fixed placeholder is
+          # enough to prove the overlay merges and interpolates cleanly.
+          MINIO_DATA_HOST_DIR=/tmp/ci-minio-data \
+          RELAY_SINK_CONF_HOST_PATH=../srs/relay-sink.conf \
+            docker compose -f docker-compose.yml -f docker-compose.media-delivery-test.yml config >/dev/null
+
+  docker-build:
+    name: build media-agent image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: docker build
+        run: |
+          docker build \
+            --build-arg "MEDIA_AGENT_VERSION=ci-${{ github.sha }}" \
+            -t media-agent:ci \
+            livestream-infra/services/media-agent
+
+  integration:
+    name: deterministic integration test (SRS + MinIO + relay sink)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [go]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # Builds its own isolated media-agent image, uniquely-named
+      # Compose project, network, containers, and temp directories; a
+      # real (but ephemeral, local, non-production) MinIO container
+      # stands in for R2 and a second pinned SRS instance stands in for
+      # YouTube. No production credentials of any kind are used or
+      # required. See the script's own header comment for the full list
+      # of behavior it proves.
+      - name: run media-delivery-integration-test.sh
+        run: livestream-infra/infra/media-node/compose/media-delivery-integration-test.sh

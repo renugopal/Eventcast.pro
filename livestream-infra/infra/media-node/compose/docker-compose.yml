@@ -86,6 +86,30 @@ services:
       # hostname on the private media-node network - never a public
       # address (02_V1_ARCHITECTURE_SPEC.md "YouTube relay").
       EVENTCAST_YOUTUBE_SOURCE_RTMP_BASE_URL: ${EVENTCAST_YOUTUBE_SOURCE_RTMP_BASE_URL:-rtmp://srs:1935}
+      # Control-plane assignment synchronization (internal/controlplane).
+      # Empty EVENTCAST_CONTROLPLANE_BASE_URL (the default) disables the
+      # subsystem entirely; the agent then relies solely on
+      # EVENTCAST_ASSIGNMENT_SEED_PATH above, exactly as before this
+      # milestone. See services/media-agent/README.md "Configuration".
+      EVENTCAST_CONTROLPLANE_BASE_URL: ${EVENTCAST_CONTROLPLANE_BASE_URL:-}
+      EVENTCAST_CONTROLPLANE_NODE_TOKEN: ${EVENTCAST_CONTROLPLANE_NODE_TOKEN:-}
+      EVENTCAST_CONTROLPLANE_REQUEST_TIMEOUT: ${EVENTCAST_CONTROLPLANE_REQUEST_TIMEOUT:-10s}
+      EVENTCAST_CONTROLPLANE_SYNC_INTERVAL: ${EVENTCAST_CONTROLPLANE_SYNC_INTERVAL:-30s}
+      EVENTCAST_CONTROLPLANE_BACKOFF_BASE: ${EVENTCAST_CONTROLPLANE_BACKOFF_BASE:-2s}
+      EVENTCAST_CONTROLPLANE_BACKOFF_MAX: ${EVENTCAST_CONTROLPLANE_BACKOFF_MAX:-5m}
+      EVENTCAST_CONTROLPLANE_STALE_WARN_AFTER: ${EVENTCAST_CONTROLPLANE_STALE_WARN_AFTER:-5m}
+      EVENTCAST_CONTROLPLANE_STALE_CRITICAL_AFTER: ${EVENTCAST_CONTROLPLANE_STALE_CRITICAL_AFTER:-20m}
+      # Empty by default: the VOD finalize and vod-gap operator endpoints
+      # are then reachable without authentication (a startup warning is
+      # logged) - acceptable only because they are never bound publicly
+      # (see "ports" below). Production must set this.
+      EVENTCAST_OPERATOR_API_TOKEN: ${EVENTCAST_OPERATOR_API_TOKEN:-}
+      EVENTCAST_RATE_LIMIT_RPS: ${EVENTCAST_RATE_LIMIT_RPS:-20}
+      EVENTCAST_RATE_LIMIT_BURST: ${EVENTCAST_RATE_LIMIT_BURST:-40}
+      # Must stay false unless a trusted reverse proxy this deployment
+      # controls sits in front of this agent and itself strips any
+      # client-supplied X-Forwarded-For before setting its own.
+      EVENTCAST_TRUSTED_PROXY_ENABLED: ${EVENTCAST_TRUSTED_PROXY_ENABLED:-false}
     volumes:
       - ${SPOOL_HOST_DIR:-/opt/eventcast/media-node/data/spool}:/var/lib/eventcast/spool
       - ${DB_HOST_DIR:-/opt/eventcast/media-node/data/db}:/var/lib/eventcast/db
@@ -107,6 +131,21 @@ services:
       timeout: 3s
       start_period: 5s
       retries: 3
+    # Security hardening (this milestone's runtime/deployment review):
+    # the image already runs as the non-root distroless "nonroot" user
+    # (see ../../../services/media-agent/Dockerfile); these Compose-level
+    # settings add defense in depth on top of that. A read-only root
+    # filesystem is feasible because every path the process writes to
+    # (spool, db, and the OS temp dir SQLite/Go may use for scratch
+    # files) is an explicit volume or tmpfs mount below, not the
+    # container's own writable layer.
+    read_only: true
+    tmpfs:
+      - /tmp:uid=65532,gid=65532,mode=1770,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
   srs:
     image: ossrs/srs@sha256:4e293846ad2448ff1a0157aa2c694e7c451fff5046c93b5bc6da0fa0384ef998
@@ -135,3 +174,19 @@ services:
       timeout: 3s
       start_period: 10s
       retries: 3
+    # Security hardening: capabilities and privilege escalation are
+    # dropped unconditionally (safe regardless of image internals - SRS
+    # never binds a port below 1024 or needs raw sockets). A read-only
+    # root filesystem is deliberately NOT applied here: this is a
+    # third-party image (unlike media-agent's own Dockerfile, whose
+    # filesystem needs are fully known), `srs_log_tank console` and
+    # `daemon off` avoid the log/pid-file writes that would be the most
+    # likely blocker, but forcing read_only without an exact-image
+    # startup/publish/callback smoke test under that constraint risks
+    # silently breaking ingest per ADR-022 ("SRS configuration snippets
+    # require exact-image validation"). Revisit with that test before
+    # enabling read_only here.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

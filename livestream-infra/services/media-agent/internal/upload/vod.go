@@ -132,15 +132,20 @@ func (f *VODFinalizer) Finalize(ctx context.Context, eventID string) (FinalizeRe
 	// or an upload dead-lettered after exhausting classification as
 	// non-retryable) is, by definition, never going to become
 	// UploadConfirmed. countUnresolved above correctly does not block
-	// finalization on these (they are "resolved," just unsuccessfully),
-	// but silently excluding them would leave no audit trail of the
-	// resulting gap, so it is logged loudly here even though this
-	// milestone does not implement a separate explicit-operator-override
-	// endpoint (02_V1_ARCHITECTURE_SPEC.md "VOD finalization": "... or an
-	// operator explicitly accepts a documented gap").
-	if gaps := countGaps(allSegments); gaps > 0 {
-		f.logger.Warn("vod finalization proceeding with permanently unresolvable segment(s): recording is not gapless",
-			slog.String("event_id", eventID), slog.Int("gap_count", gaps))
+	// finalization on these (they are "resolved," just unsuccessfully).
+	// Finalization proceeds - viewers can still replay the confirmed
+	// portion of the event - but the gap is durably recorded as an
+	// explicit gap_status='pending_review' state (UpsertVODFinalized
+	// below), not silently treated as a fully healthy recording
+	// (02_V1_ARCHITECTURE_SPEC.md "VOD finalization": "Finalization MUST
+	// wait until all discovered local segment jobs for the event are
+	// resolved or an operator explicitly accepts a documented gap"). An
+	// operator resolves it via internal/upload.VODGapHandler
+	// (POST /internal/events/{event_id}/vod-gap).
+	gapCount := countGaps(allSegments)
+	if gapCount > 0 {
+		f.logger.Warn("vod finalization proceeding with permanently unresolvable segment(s): recording is not gapless, awaiting operator review",
+			slog.String("event_id", eventID), slog.Int("gap_count", gapCount))
 	}
 
 	// Validate every referenced object is actually present before
@@ -187,7 +192,7 @@ func (f *VODFinalizer) Finalize(ctx context.Context, eventID string) (FinalizeRe
 
 	sessionCount := countDistinctSessions(confirmed)
 	now := time.Now().UTC()
-	if err := f.store.UpsertVODFinalized(ctx, eventID, segmentIDs, sessionCount, key, now); err != nil {
+	if err := f.store.UpsertVODFinalized(ctx, eventID, segmentIDs, sessionCount, key, gapCount, now); err != nil {
 		return FinalizeResult{}, fmt.Errorf("vod: record finalization for %s: %w", eventID, err)
 	}
 	if _, err := f.store.RecordManifestGeneration(ctx, eventID, store.ManifestTypeVOD, segmentIDs, 0, key, now); err != nil {

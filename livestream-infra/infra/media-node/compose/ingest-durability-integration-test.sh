@@ -238,9 +238,13 @@ log "0) preparing isolated run ${RUN_ID}"
 mkdir -p "${TMP_BASE}/srs-output" "${TMP_BASE}/spool" "${TMP_BASE}/db" "${TMP_BASE}/config"
 # media-agent runs as the image's non-root "nonroot" user (not the SSH
 # user that just created these directories), so its two writable mounts
-# need permissive host-side permissions. srs-output is untouched here:
-# the srs image runs as root, which already has write access regardless.
-chmod 0777 "${TMP_BASE}/spool" "${TMP_BASE}/db"
+# need permissive host-side permissions. srs-output also needs this now:
+# docker-compose.yml's srs service runs cap_drop: [ALL] (this milestone's
+# hardening), which removes CAP_DAC_OVERRIDE, so the srs container's root
+# user can no longer bypass host directory permissions the way an
+# unrestricted root process could - it is subject to the same permission
+# bits as any other user.
+chmod 0777 "${TMP_BASE}/spool" "${TMP_BASE}/db" "${TMP_BASE}/srs-output"
 cp "$SRS_CONF_SRC" "${TMP_BASE}/srs.conf"
 
 MA_HTTP_PORT="$(find_free_loopback_port 18185)"

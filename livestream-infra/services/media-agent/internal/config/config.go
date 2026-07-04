@@ -111,6 +111,64 @@ const (
 	// same-host loopback address; the Compose deployment overrides it to
 	// the "srs" service hostname on the private media-node network.
 	EnvYouTubeSourceRTMPBaseURL = "EVENTCAST_YOUTUBE_SOURCE_RTMP_BASE_URL"
+
+	// Control-plane assignment synchronization (internal/controlplane).
+	// The whole subsystem is optional at the configuration level, exactly
+	// like R2 above: if EnvControlPlaneBaseURL is empty, it stays
+	// disabled and the agent relies solely on EnvAssignmentSeedPath, so
+	// an existing deployment's environment that predates this milestone
+	// keeps starting unchanged. Once EnvControlPlaneBaseURL is set,
+	// EnvControlPlaneNodeToken becomes required, and the local seed file
+	// (if also configured) is imported once at startup purely as a
+	// bootstrap - the first successful sync applies control-plane state
+	// on top via ApplyControlPlaneAssignments, and periodic sync
+	// thereafter is always the source of truth; a seed row is never
+	// re-applied and can never override fresher control-plane state.
+	EnvControlPlaneBaseURL   = "EVENTCAST_CONTROLPLANE_BASE_URL"
+	EnvControlPlaneNodeToken = "EVENTCAST_CONTROLPLANE_NODE_TOKEN"
+	// EnvControlPlaneRequestTimeout bounds each individual sync fetch
+	// attempt, independent of EnvControlPlaneSyncInterval.
+	EnvControlPlaneRequestTimeout = "EVENTCAST_CONTROLPLANE_REQUEST_TIMEOUT"
+	// EnvControlPlaneSyncInterval is the steady-state period between
+	// successful syncs; a failed sync instead follows exponential backoff
+	// with jitter bounded by EnvControlPlaneBackoffBase/Max
+	// (internal/controlplane.Syncer.Run).
+	EnvControlPlaneSyncInterval = "EVENTCAST_CONTROLPLANE_SYNC_INTERVAL"
+	EnvControlPlaneBackoffBase  = "EVENTCAST_CONTROLPLANE_BACKOFF_BASE"
+	EnvControlPlaneBackoffMax   = "EVENTCAST_CONTROLPLANE_BACKOFF_MAX"
+	// EnvControlPlaneStaleWarnAfter/StaleCriticalAfter classify how long
+	// since the last successful sync before the cached assignments are
+	// considered stale (informational: exposed via metrics/logs only) or
+	// critically stale (also fails the /readyz control_plane_cache
+	// check, see cmd/media-agent/main.go). The agent keeps authorizing
+	// already-cached, unexpired publishers throughout either state
+	// (03_DATA_MODEL_AND_API_CONTRACTS.md "Assignment synchronization").
+	EnvControlPlaneStaleWarnAfter     = "EVENTCAST_CONTROLPLANE_STALE_WARN_AFTER"
+	EnvControlPlaneStaleCriticalAfter = "EVENTCAST_CONTROLPLANE_STALE_CRITICAL_AFTER"
+
+	// EnvOperatorAPIToken authenticates the internal, state-changing
+	// operator endpoints (VOD finalize trigger, VOD-gap resolution - see
+	// internal/operatorauth). Left empty, these endpoints stay reachable
+	// without authentication (matching their pre-milestone behavior) but
+	// the agent logs a loud startup warning; production deployments must
+	// set this (see infra/media-node's deployment documentation).
+	EnvOperatorAPIToken = "EVENTCAST_OPERATOR_API_TOKEN"
+
+	// Rate limiting and abuse protection (internal/ratelimit) applied to
+	// every HTTP handler this agent exposes beyond loopback-only health
+	// checks: SRS callbacks and the operator endpoints.
+	EnvRateLimitRPS   = "EVENTCAST_RATE_LIMIT_RPS"
+	EnvRateLimitBurst = "EVENTCAST_RATE_LIMIT_BURST"
+	// EnvTrustedProxyEnabled must only be set true when this agent sits
+	// behind a reverse proxy the deployment controls, which itself
+	// strips any client-supplied X-Real-IP before setting its own
+	// (02_V1_ARCHITECTURE_SPEC.md "Security requirements" / this
+	// milestone's hardening requirement: "Do not trust spoofable
+	// forwarding headers unless the deployment explicitly establishes a
+	// trusted proxy boundary"). When false (the default), the rate
+	// limiter and access logs key strictly on the TCP connection's
+	// remote address.
+	EnvTrustedProxyEnabled = "EVENTCAST_TRUSTED_PROXY_ENABLED"
 )
 
 // Defaults. The default HTTP bind address is loopback-only, matching
@@ -148,6 +206,16 @@ const (
 	DefaultYouTubeRestartBackoffBase = 2 * time.Second
 	DefaultYouTubeRestartBackoffMax  = 60 * time.Second
 	DefaultYouTubeSourceRTMPBaseURL  = "rtmp://127.0.0.1:1935"
+
+	DefaultControlPlaneRequestTimeout     = 10 * time.Second
+	DefaultControlPlaneSyncInterval       = 30 * time.Second
+	DefaultControlPlaneBackoffBase        = 2 * time.Second
+	DefaultControlPlaneBackoffMax         = 5 * time.Minute
+	DefaultControlPlaneStaleWarnAfter     = 5 * time.Minute
+	DefaultControlPlaneStaleCriticalAfter = 20 * time.Minute
+
+	DefaultRateLimitRPS   = 20
+	DefaultRateLimitBurst = 40
 )
 
 // maxNodeIDLength is a sanity bound, not a business rule; it exists so
@@ -200,6 +268,28 @@ type Config struct {
 	YouTubeRestartBackoffBase time.Duration
 	YouTubeRestartBackoffMax  time.Duration
 	YouTubeSourceRTMPBaseURL  string
+
+	// ControlPlaneEnabled reports whether ControlPlaneBaseURL was
+	// configured, gating the entire continuous assignment-sync
+	// subsystem. When false, every other ControlPlane* field is its zero
+	// value and must not be used; the agent relies solely on
+	// AssignmentSeedPath, exactly as it did before this milestone.
+	ControlPlaneEnabled            bool
+	ControlPlaneBaseURL            string
+	ControlPlaneNodeToken          logging.Secret
+	ControlPlaneRequestTimeout     time.Duration
+	ControlPlaneSyncInterval       time.Duration
+	ControlPlaneBackoffBase        time.Duration
+	ControlPlaneBackoffMax         time.Duration
+	ControlPlaneStaleWarnAfter     time.Duration
+	ControlPlaneStaleCriticalAfter time.Duration
+
+	// OperatorAPIToken is empty by default; see EnvOperatorAPIToken.
+	OperatorAPIToken logging.Secret
+
+	RateLimitRPS        float64
+	RateLimitBurst      int
+	TrustedProxyEnabled bool
 }
 
 // Load reads configuration using getenv (normally os.Getenv), applies
@@ -313,6 +403,49 @@ func Load(getenv func(string) string) (Config, error) {
 		cfg.YouTubeSourceRTMPBaseURL = DefaultYouTubeSourceRTMPBaseURL
 	}
 
+	cfg.ControlPlaneBaseURL = strings.TrimSpace(getenv(EnvControlPlaneBaseURL))
+	cfg.ControlPlaneEnabled = cfg.ControlPlaneBaseURL != ""
+	cfg.ControlPlaneNodeToken = logging.Secret(getenv(EnvControlPlaneNodeToken))
+	cfg.ControlPlaneRequestTimeout, err = parseDurationOrDefault(getenv(EnvControlPlaneRequestTimeout), DefaultControlPlaneRequestTimeout)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvControlPlaneRequestTimeout, err)
+	}
+	cfg.ControlPlaneSyncInterval, err = parseDurationOrDefault(getenv(EnvControlPlaneSyncInterval), DefaultControlPlaneSyncInterval)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvControlPlaneSyncInterval, err)
+	}
+	cfg.ControlPlaneBackoffBase, err = parseDurationOrDefault(getenv(EnvControlPlaneBackoffBase), DefaultControlPlaneBackoffBase)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvControlPlaneBackoffBase, err)
+	}
+	cfg.ControlPlaneBackoffMax, err = parseDurationOrDefault(getenv(EnvControlPlaneBackoffMax), DefaultControlPlaneBackoffMax)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvControlPlaneBackoffMax, err)
+	}
+	cfg.ControlPlaneStaleWarnAfter, err = parseDurationOrDefault(getenv(EnvControlPlaneStaleWarnAfter), DefaultControlPlaneStaleWarnAfter)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvControlPlaneStaleWarnAfter, err)
+	}
+	cfg.ControlPlaneStaleCriticalAfter, err = parseDurationOrDefault(getenv(EnvControlPlaneStaleCriticalAfter), DefaultControlPlaneStaleCriticalAfter)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvControlPlaneStaleCriticalAfter, err)
+	}
+
+	cfg.OperatorAPIToken = logging.Secret(getenv(EnvOperatorAPIToken))
+
+	cfg.RateLimitRPS, err = parseFloatOrDefault(getenv(EnvRateLimitRPS), DefaultRateLimitRPS)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid number: %w", EnvRateLimitRPS, err)
+	}
+	cfg.RateLimitBurst, err = parseIntOrDefault(getenv(EnvRateLimitBurst), DefaultRateLimitBurst)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid integer: %w", EnvRateLimitBurst, err)
+	}
+	cfg.TrustedProxyEnabled, err = parseBoolOrDefault(getenv(EnvTrustedProxyEnabled), false)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid boolean: %w", EnvTrustedProxyEnabled, err)
+	}
+
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err
 	}
@@ -355,6 +488,21 @@ func parseBoolOrDefault(raw string, def bool) (bool, error) {
 		return def, nil
 	}
 	return strconv.ParseBool(raw)
+}
+
+func parseFloatOrDefault(raw string, def float64) (float64, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return def, nil
+	}
+	f, err := strconv.ParseFloat(raw, 64)
+	if err != nil {
+		return 0, err
+	}
+	if f <= 0 {
+		return 0, fmt.Errorf("must be positive, got %s", raw)
+	}
+	return f, nil
 }
 
 // Validate checks that every field is present and well-formed. Errors
@@ -426,6 +574,14 @@ func (c Config) Validate() error {
 		return err
 	}
 
+	if err := c.validateControlPlane(); err != nil {
+		return err
+	}
+
+	if c.RateLimitBurst <= 0 {
+		return fmt.Errorf("config: %s must be positive", EnvRateLimitBurst)
+	}
+
 	if c.YouTubeRestartMaxAttempts <= 0 {
 		return fmt.Errorf("config: %s must be positive", EnvYouTubeRestartMaxAttempts)
 	}
@@ -483,6 +639,37 @@ func (c Config) validateR2() error {
 	}
 	if c.LocalRetentionDelay <= 0 {
 		return fmt.Errorf("config: %s must be positive", EnvLocalRetentionDelay)
+	}
+
+	return nil
+}
+
+// validateControlPlane enforces that the continuous assignment-sync
+// subsystem is either fully configured or fully absent, mirroring
+// validateR2's rationale: setting EnvControlPlaneBaseURL clearly signals
+// intent to enable it, and a half-configured sync client (e.g. no node
+// credential) must fail fast at startup rather than run unauthenticated
+// or silently never sync.
+func (c Config) validateControlPlane() error {
+	if !c.ControlPlaneEnabled {
+		return nil
+	}
+
+	parsed, err := url.Parse(c.ControlPlaneBaseURL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return fmt.Errorf("config: %s must be an absolute http:// or https:// URL", EnvControlPlaneBaseURL)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("config: %s must use http or https", EnvControlPlaneBaseURL)
+	}
+	if c.ControlPlaneNodeToken.Reveal() == "" {
+		return fmt.Errorf("config: %s is required when %s is set", EnvControlPlaneNodeToken, EnvControlPlaneBaseURL)
+	}
+	if c.ControlPlaneBackoffMax < c.ControlPlaneBackoffBase {
+		return fmt.Errorf("config: %s must be >= %s", EnvControlPlaneBackoffMax, EnvControlPlaneBackoffBase)
+	}
+	if c.ControlPlaneStaleCriticalAfter < c.ControlPlaneStaleWarnAfter {
+		return fmt.Errorf("config: %s must be >= %s", EnvControlPlaneStaleCriticalAfter, EnvControlPlaneStaleWarnAfter)
 	}
 
 	return nil

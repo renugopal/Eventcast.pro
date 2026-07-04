@@ -40,7 +40,8 @@ func newTestEnvWithRelay(t *testing.T) *testEnv {
 
 	env.handlers.Relay = sup
 	env.handlers.YouTubeSourceRTMPBaseURL = "rtmp://127.0.0.1:1935"
-	env.handlers.YouTubeStreamKeys = map[string]logging.Secret{}
+	env.youtubeKeys = StaticYouTubeKeyStore{}
+	env.handlers.YouTubeStreamKeys = env.youtubeKeys
 	return env
 }
 
@@ -74,7 +75,7 @@ func TestOnPublishStartsRelayWhenAssignmentEnablesYouTube(t *testing.T) {
 		a.YouTubeDestinationBaseURL = "rtmp://fake.example.invalid/live2"
 		a.YouTubeStreamKey = "test-key"
 	})
-	env.handlers.YouTubeStreamKeys["event-teststream"] = logging.Secret("test-key")
+	env.youtubeKeys["event-teststream"] = logging.Secret("test-key")
 
 	_, resp := doRequest(t, env.handlers.OnPublish(), publishBody("teststream", token))
 	if resp["code"] != float64(0) {
@@ -115,7 +116,7 @@ func TestOnUnpublishStopsRelay(t *testing.T) {
 		a.YouTubeDestinationBaseURL = "rtmp://fake.example.invalid/live2"
 		a.YouTubeStreamKey = "test-key"
 	})
-	env.handlers.YouTubeStreamKeys["event-teststream"] = logging.Secret("test-key")
+	env.youtubeKeys["event-teststream"] = logging.Secret("test-key")
 
 	doRequest(t, env.handlers.OnPublish(), publishBody("teststream", token))
 	sess, found, err := env.store.FindMostRecentByIngestID(context.Background(), "teststream")
@@ -141,7 +142,7 @@ func TestRelayFailureDoesNotAffectOnHLS(t *testing.T) {
 		a.YouTubeDestinationBaseURL = "rtmp://fake.example.invalid/live2"
 		a.YouTubeStreamKey = "test-key"
 	})
-	env.handlers.YouTubeStreamKeys["event-teststream"] = logging.Secret("test-key")
+	env.youtubeKeys["event-teststream"] = logging.Secret("test-key")
 
 	doRequest(t, env.handlers.OnPublish(), publishBody("teststream", token))
 	sess, found, err := env.store.FindMostRecentByIngestID(context.Background(), "teststream")

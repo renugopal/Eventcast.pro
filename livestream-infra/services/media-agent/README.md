@@ -6,7 +6,7 @@ Home of the EventCast Media Agent, the Go service that owns durability and orche
 
 ## Status
 
-v1.2 "Media Delivery, DVR/VOD, and Relay": building on ingest control and durability, the Media Agent now durably uploads captured segments to Cloudflare R2 (or any S3-compatible endpoint), maintains the authoritative live/DVR manifest from confirmed uploads only, finalizes VOD playlists on request, retains and safely cleans up local spool copies, and supervises an optional per-session YouTube relay isolated from the primary pipeline. It still does not implement Wasabi archival or continuous control-plane assignment sync — see "Expected responsibilities" below for what remains.
+v1.2 "Production Readiness and Operations": building on media delivery, DVR/VOD, and relay, the Media Agent now continuously synchronizes its assignment cache from a control plane (with a documented contract, mock server, and last-known-good/stale-cache/revocation policy), exposes an explicit, auditable VOD-gap operator resolution workflow, publishes Prometheus-compatible metrics and richer readiness reporting, and rate-limits every externally reachable HTTP endpoint. It still does not implement Wasabi archival — see "Expected responsibilities" below.
 
 ## Go toolchain
 
@@ -54,6 +54,15 @@ Only these environment variables are read:
 | `EVENTCAST_YOUTUBE_RESTART_MAX_ATTEMPTS` | no | `5` | Consecutive relay restart attempts before giving up and marking the session's relay failed. |
 | `EVENTCAST_YOUTUBE_RESTART_BACKOFF_BASE` / `_MAX` | no | `2s` / `60s` | Exponential backoff bounds between relay restart attempts. |
 | `EVENTCAST_YOUTUBE_SOURCE_RTMP_BASE_URL` | no | `rtmp://127.0.0.1:1935` | This node's own SRS RTMP endpoint the relay pulls from (never a public address). |
+| `EVENTCAST_CONTROLPLANE_BASE_URL` | no | *(empty, sync disabled)* | Control-plane origin for continuous assignment sync (`internal/controlplane`). Empty relies solely on `EVENTCAST_ASSIGNMENT_SEED_PATH`. |
+| `EVENTCAST_CONTROLPLANE_NODE_TOKEN` | only if base URL is set | — | Rotatable node credential sent as `Authorization: Bearer`; never logged. |
+| `EVENTCAST_CONTROLPLANE_REQUEST_TIMEOUT` | no | `10s` | Bounds each individual sync fetch attempt. |
+| `EVENTCAST_CONTROLPLANE_SYNC_INTERVAL` | no | `30s` | Steady-state period between successful syncs. |
+| `EVENTCAST_CONTROLPLANE_BACKOFF_BASE` / `_MAX` | no | `2s` / `5m` | Exponential-backoff-with-full-jitter bounds after a failed sync. |
+| `EVENTCAST_CONTROLPLANE_STALE_WARN_AFTER` / `_STALE_CRITICAL_AFTER` | no | `5m` / `20m` | Age of the last successful sync at which the cache is reported stale / critically stale (the latter also fails `GET /readyz`'s `control_plane_cache` check). |
+| `EVENTCAST_OPERATOR_API_TOKEN` | no | *(empty, unauthenticated)* | Bearer token guarding the VOD finalize and vod-gap operator endpoints (`internal/operatorauth`). Production must set this; a startup warning is logged when empty. |
+| `EVENTCAST_RATE_LIMIT_RPS` / `_BURST` | no | `20` / `40` | Per-client-key token-bucket rate limit (`internal/ratelimit`) applied to SRS callbacks and the operator endpoints. |
+| `EVENTCAST_TRUSTED_PROXY_ENABLED` | no | `false` | When true, the rate limiter and access logs key on the first `X-Forwarded-For` entry instead of the raw TCP remote address. Only set this behind a reverse proxy that itself strips any client-supplied `X-Forwarded-For`. |
 
 Configuration is validated eagerly at startup (`internal/config`); invalid configuration causes the process to exit non-zero with a structured JSON error log and no secret values echoed. Filesystem paths must be absolute, clean (no `.`/`..`/duplicate separators), and non-overlapping; `EVENTCAST_DB_PATH` may not live inside either durable-media root. See `.env.example`.
 
@@ -127,13 +136,20 @@ Read before implementing anything here, in this order:
 
 ### YouTube relay authorization
 
-`internal/controlplane` (continuous assignment sync) does not exist yet, so - matching the existing stream-token pattern - YouTube relay authorization is resolved from the same JSON seed file `EVENTCAST_ASSIGNMENT_SEED_PATH` points at, with each assignment entry optionally carrying `youtube_enabled`, `youtube_destination_base_url`, and `youtube_stream_key`. Only the first two are ever persisted to SQLite (`cached_event_assignments.youtube_enabled`/`youtube_destination_base_url`); the raw stream key lives only in an in-memory map built once at startup and is never written to the database, logged, or exposed through `GetAssignment`/`GetAssignmentByEventID`. Production must supply this through the approved secret mechanism once `internal/controlplane` exists.
+When continuous control-plane sync (`internal/controlplane`) is disabled, YouTube relay authorization is resolved from the JSON seed file `EVENTCAST_ASSIGNMENT_SEED_PATH` points at, with each assignment entry optionally carrying `youtube_enabled`, `youtube_destination_base_url`, and `youtube_stream_key`. When sync is enabled, the same three fields come from the control plane's response instead, kept current in an in-memory `controlplane.StreamKeyCache` the syncer replaces after every successful sync. Either way, only the first two fields are ever persisted to SQLite (`cached_event_assignments.youtube_enabled`/`youtube_destination_base_url`); the raw stream key is never written to the database, logged, or exposed through `GetAssignment`/`GetAssignmentByEventID`.
+
+## Implemented (v1.2 production readiness and operations)
+
+- **Control-plane assignment synchronization** (`internal/controlplane`): a documented client contract (`GET /internal/media/nodes/{node_id}/assignments`, bearer-token-authenticated, request-id/timestamp/idempotency-key headers - see the package doc in `client.go` for the full documented request/response shape, since no production endpoint contract exists yet to implement against) plus a deterministic in-memory mock server (`mock.go`, also runnable standalone via `cmd/controlplane-mock` for Compose-based integration/failure-injection tests). `Syncer` performs a best-effort startup sync, then periodic refresh with exponential backoff and full jitter on failure, applying every response via `store.ApplyControlPlaneAssignments`: incoming assignments are upserted with `source='controlplane'`, and any previously-synced (never seed-sourced) ingest id absent from the latest response is revoked (`enabled=false`) rather than deleted. A durable `controlplane_sync_state` row records last attempt/success/error/consecutive-failure-count, read by `Syncer.Status` to classify the cache as stale or critically stale (the latter fails `GET /readyz`). The local JSON seed file remains a valid bootstrap mechanism but is never re-applied once sync is enabled and never overrides a `source='controlplane'` row.
+- **VOD-gap operator resolution** (`internal/upload/vodgap.go`, `GET`/`POST /internal/events/{event_id}/vod-gap`): `vod_finalizations` now carries an independent `gap_status` (`none`/`pending_review`/`acknowledged`/`rejected`) alongside its existing `status`, so a finalized-but-incomplete recording is never indistinguishable from a fully healthy one. `VODFinalizer.Finalize` sets `gap_status='pending_review'` whenever it observes a permanently unresolvable (missing/dead-lettered) segment. The resolution endpoint is authenticated (`internal/operatorauth`), idempotent (repeating the same decision succeeds without changing state; a conflicting decision after resolution returns `409`), fully audited (`vod_gap_audit`, one append-only row per resolution attempt), and restart-safe (all state in SQLite). It never touches a segment, an R2 object, or the filesystem.
+- **Metrics** (`internal/metrics`, `GET /metrics`): a minimal, dependency-free Prometheus text-exposition-format registry (no new external module - `go.sum` is unchanged by this milestone). Two true counters are incremented at their point of occurrence (`media_agent_publish_auth_total`, `media_agent_callback_total`); everything else - sessions, spool free/total bytes, segment/upload-status counts, queue age, manifest generations, VOD/VOD-gap status, relay status/restarts, control-plane sync health, reconciliation results, database health, process uptime, and shutdown state - is polled from durable state or the OS on each scrape (`cmd/media-agent/main.go`'s `collectMetrics`). Every label is a small, fixed, code-controlled enum; no event id, session id, or other unbounded/secret-derived value is ever used as a label.
+- **Rate limiting** (`internal/ratelimit`): a per-client-key token-bucket limiter wraps every SRS callback and operator endpoint. The client key is always the TCP remote address unless `EVENTCAST_TRUSTED_PROXY_ENABLED` is explicitly set, in which case it uses `X-Forwarded-For` - never trusted by default, since it is trivially spoofable by the client the limiter exists to bound.
+- **Operator endpoint authentication** (`internal/operatorauth`): a constant-time bearer-token check in front of the finalize and vod-gap endpoints, configured via `EVENTCAST_OPERATOR_API_TOKEN`.
+- **Readiness**: `GET /readyz` gained a `control_plane_cache` check (passes when sync is disabled or healthy; fails only once the cache is critically stale, never merely during an ordinary transient outage).
 
 ## Expected responsibilities (not yet implemented)
 
 - Wasabi archive job and restore-to-R2
-- Prometheus/OpenMetrics endpoint
-- Continuous control-plane assignment synchronization (`internal/controlplane`); the local assignment cache (including YouTube relay authorization) is currently seeded only from a local JSON file
 
 ## Non-negotiable rules
 
@@ -144,6 +160,7 @@ Do not publish SRS's local playlist directly. Do not mark an upload successful b
 ```text
 services/media-agent/
   cmd/media-agent/        entrypoint, HTTP server wiring, graceful shutdown   [implemented]
+  cmd/controlplane-mock/  standalone deterministic mock control plane        [implemented]
   internal/config/        typed env config, startup validation               [implemented]
   internal/logging/       structured JSON logging, Secret redaction type     [implemented]
   internal/health/        GET /healthz and GET /readyz handlers              [implemented]
@@ -151,11 +168,13 @@ services/media-agent/
   internal/store/         SQLite WAL store: assignment cache, sessions, segment queue [implemented]
   internal/spool/         durable local capture (hard link / atomic copy)    [implemented]
   internal/reconcile/     startup and periodic reconciliation                [implemented]
-  internal/upload/        R2 upload, live/DVR/VOD manifests, retention       [implemented]
+  internal/upload/        R2 upload, live/DVR/VOD manifests, retention, VOD-gap [implemented]
   internal/relay/         YouTube relay supervision                          [implemented]
+  internal/controlplane/  control-plane sync client, mock server, key cache  [implemented]
+  internal/metrics/       Prometheus-compatible metrics registry             [implemented]
+  internal/ratelimit/     per-client token-bucket rate limiting              [implemented]
+  internal/operatorauth/  bearer-token auth for operator endpoints           [implemented]
   internal/archive/       Wasabi archive + restore                          [not yet created]
-  internal/controlplane/  outbound API client                                [not yet created]
-  internal/metrics/       Prometheus/OpenMetrics                             [not yet created]
   go.mod
   go.sum                  (modernc.org/sqlite: pure-Go SQLite driver, no CGO)
   Dockerfile
