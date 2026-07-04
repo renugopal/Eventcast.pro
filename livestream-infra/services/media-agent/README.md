@@ -6,7 +6,7 @@ Home of the EventCast Media Agent, the Go service that owns durability and orche
 
 ## Status
 
-v1.2 Phase 1 baseline: the complete production-quality service baseline and container build. It provides typed, validated startup configuration (including strict node-id and port validation), structured JSON logging with reusable secret redaction, a `GET /healthz` endpoint with build-time version injection, graceful shutdown with a bounded drain and listener-failure detection, unit tests for every package including the entry point, and minimal `on-publish`/`on-hls`/`on-unpublish` handlers that validate and log each callback (added in Phase 0, task 3). It does not yet implement the durable spool, the SQLite queue, R2/Wasabi upload, YouTube relay, publish authorization, or any business workflow logic — see "Expected responsibilities" below for what remains.
+v1.2 Phase 2: the automated SRS RTMP-to-HLS integration proof (`infra/media-node/compose/phase2-integration-test.sh`) is complete and passing on top of the Phase 1 production-quality service baseline. The Media Agent itself provides typed, validated startup configuration (including strict node-id and port validation), structured JSON logging with reusable secret redaction, a `GET /healthz` endpoint with build-time version injection, graceful shutdown with a bounded drain and listener-failure detection, unit tests for every package including the entry point, and minimal `on-publish`/`on-hls`/`on-unpublish` handlers that validate and log each callback (added in Phase 0, task 3). It does not yet implement the durable spool, the SQLite queue, R2/Wasabi upload, YouTube relay, publish authorization, or any business workflow logic — see "Expected responsibilities" below for what remains.
 
 ## Go toolchain
 
@@ -69,6 +69,11 @@ Read before implementing anything here, in this order:
 - Structured `http.Server` internal error logging through the JSON logger
 - Build-time version injection via the `MEDIA_AGENT_VERSION` Docker build argument
 - Entry-point unit tests: full in-process startup/health/graceful-shutdown cycle, bind-failure and invalid-configuration failure paths, and the `healthcheck` subcommand against healthy, unhealthy, and unreachable servers (`cmd/media-agent/main_test.go`)
+
+## Implemented (Phase 2 integration proof)
+
+- No Media Agent source changes: the Phase 1 callback handlers already implement everything the Phase 2 integration proof requires (accept any well-formed SRS callback, redact secrets, structured logging)
+- Automated, non-interactive proof that the pinned SRS runtime and this Media Agent, run together via `infra/media-node/compose`, complete the full RTMP-publish -> HLS -> callback -> reconnect -> unpublish lifecycle against a real synthetic FFmpeg stream, with a ~12-minute automated soak — see `infra/media-node/compose/phase2-integration-test.sh` and its README section for the exact validated behavior and run instructions
 
 ## Expected responsibilities (not yet implemented)
 
