@@ -12,9 +12,10 @@ Docker Compose stack wiring the pinned SRS container (`infra/media-node/srs`, co
 
 ## Files
 
-- `docker-compose.yml` — the two-service stack.
+- `docker-compose.yml` — the two-service stack. Every host-identifying value (image tag, container name, host bind port, host bind path) is overridable via an environment variable, all defaulting to the real persistent single-VM values shown below; this is what lets `phase2-integration-test.sh` stand up a fully isolated copy without touching the persistent deployment.
 - `.env.example` — non-secret Compose variables (`EVENTCAST_NODE_ID`, `EVENTCAST_LOG_LEVEL`). Copy to `.env` for local use only; never commit a real `.env`.
-- `smoke-test.sh` — automated, repeatable end-to-end validation of this stack (Phase 0 Task 4). See "Automated smoke test" below.
+- `smoke-test.sh` — automated, repeatable end-to-end validation of this stack against its real persistent paths and container names (Phase 0 Task 4). See "Automated smoke test" below.
+- `phase2-integration-test.sh` — automated, repeatable RTMP-to-HLS integration proof against a fully isolated, uniquely-named copy of this stack (Phase 2). See "Phase 2 integration test" below.
 
 ## Images
 
@@ -98,6 +99,24 @@ What it does, in order: validates `docker compose config`; starts the stack; wai
 A `trap` on `EXIT`/`INT`/`TERM` always runs cleanup regardless of pass or fail: `docker compose down --remove-orphans` (removes only this stack's containers and network) and deletion of only that run's own `data/srs/live/smoketest-<timestamp>/` output directory. Docker images and the persistent `data/srs`/`data/spool` directory structure are never touched by cleanup. Any failed check prints a `[smoke-test][FAIL] ...` line naming the check and exits non-zero; no step in the script prints secrets (this Phase 0 flow carries no publish tokens yet, and `.env`/`.env.example` values are never echoed).
 
 Validated on the GCP VM for this task: a full run of `smoke-test.sh` passed all checks end to end (config validation, startup, health, port exposure, bounded RTMP publish, all three callbacks, HLS playlist/segments, restart recovery) and printed `all checks passed`; the trap-driven cleanup removed the run's containers, network, and temporary stream output while leaving the `media-agent:phase0-task3`/`ossrs/srs:v6.0-r0` images and the `data/srs`/`data/spool` directories intact. The bounded FFmpeg publish exited cleanly via `-t 15` well inside the 25s hard timeout on every run.
+
+## Phase 2 integration test
+
+`phase2-integration-test.sh` is the automated, non-interactive RTMP-to-HLS integration proof required for v1.2 Phase 2. Unlike `smoke-test.sh`, it never touches the persistent deployment: every resource it creates (Compose project name, both container names, the built Media Agent image tag, the host temp directory, and both host ports) is suffixed with a run ID unique to that invocation, so it always stands up an isolated, uniquely-named copy of this same stack — safe to run even alongside a real deployment on the standard paths/ports/names.
+
+```bash
+cd infra/media-node/compose
+./phase2-integration-test.sh              # full run: functional stream + reconnect + ~12 min soak
+QUICK=1 ./phase2-integration-test.sh      # functional + reconnect only, no soak (used to prove a
+                                           # second, fully independent run never collides with a
+                                           # prior run's resources)
+```
+
+What it does, in order: builds the **current** `services/media-agent` source into a uniquely-tagged image (or reuses one via `MEDIA_AGENT_IMAGE=<tag>`); validates `docker compose config`; starts an isolated copy of this stack under a unique project name, with unique container names and unique loopback-only host ports (auto-selected, never colliding with the persistent deployment's `8085`/`1935`); waits for both services healthy; runs direct HTTP contract checks against the Media Agent (method handling, malformed JSON, success shape) independent of SRS; publishes a short synthetic FFmpeg RTMP stream — attached to the run's own private Compose network and addressing SRS by its service DNS name (`srs:1935`), never via a host-published port — using a stream key in the documented `<ingest_id>?token=<secret>` form; verifies `on_publish`/`on_hls`/`on_unpublish` all reached the Media Agent, that HLS segments were produced and are real, readable H.264/AAC MPEG-TS (checked via `ffmpeg -i` stream inspection, no `ffprobe` needed), and that the synthetic secret token never appears in Media Agent logs; stops that publisher cleanly and republishes the **same** stream name to prove a reconnect leaves the stack healthy and produces a second `on_publish`/`on_unpublish` pair; then (unless `QUICK=1`) runs a further ~12-minute soak publish on a new stream, sampling the HLS playlist's `EXT-X-MEDIA-SEQUENCE` and both services' health every 90 seconds and requiring the sequence to strictly advance and both services to stay healthy at every sample, and finally verifies segment count, codec readability, callback success, and secret redaction for the soak stream too.
+
+The publisher and its one-shot stream-inspection calls run only inside temporary `--rm` containers of a pinned, digest-referenced test image (`mwader/static-ffmpeg`, resolved the same way as the SRS pin in `../srs/README.md`); FFmpeg is never installed on the VM or required on the local workstation. A `trap` on `EXIT`/`INT`/`TERM` always tears down exactly this run's Compose project (containers + its own network), any leftover publisher containers, the uniquely-tagged built image (unless `MEDIA_AGENT_IMAGE` reused an existing one), and the run's own `/tmp` directory — never the persistent deployment's containers, images, or `/opt/eventcast` data.
+
+The full two-hour, multi-stream, hardware-encoder soak required for release qualification (`06_IMPLEMENTATION_ROADMAP.md` Phase 1 exit criteria) is a separate, later operational gate; it is out of scope for this automated code-delivery proof.
 
 ## Current Phase 0 limitations
 
