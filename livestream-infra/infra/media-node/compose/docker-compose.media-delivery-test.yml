@@ -1,0 +1,52 @@
+# Test-only overlay adding a pinned MinIO (the real, local S3-compatible
+# object store media-delivery-integration-test.sh uploads to, standing
+# in for Cloudflare R2) and a second pinned SRS instance acting as an
+# isolated local RTMP sink (standing in for YouTube) to the base
+# media-node stack in docker-compose.yml.
+#
+# This file is never used by production deployment or by any other
+# integration test; it is always passed as a second `-f` alongside
+# docker-compose.yml, under a unique Compose project name, exactly like
+# every other resource that script creates. It must never be applied to
+# the persistent /opt/eventcast/media-node deployment.
+#
+# NOTE: the MinIO image below is pinned by tag AND digest, resolved on
+# eventcast-server-new and recorded here per 04_TECH_STACK_AND_VERSION_POLICY.md
+# ("Every production dependency must be pinned through ... exact image
+# tag plus digest"). The relay-sink SRS image reuses the exact same pin
+# already validated for the primary ingest SRS service.
+
+services:
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    container_name: ${MINIO_CONTAINER_NAME:-eventcast-minio-test}
+    networks:
+      media-node: {}
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-eventcasttest}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-eventcasttestsecret}
+    command: ["server", "/data"]
+    volumes:
+      - ${MINIO_DATA_HOST_DIR:?set MINIO_DATA_HOST_DIR to a unique temp dir}:/data
+    ports:
+      - "${MINIO_HOST_BIND:-127.0.0.1:19000}:9000"
+    # No container-level healthcheck: the exact tools available inside
+    # the minio/minio image are not assumed here. The integration test
+    # instead polls the published health endpoint
+    # (http://127.0.0.1:${MINIO_HOST_BIND port}/minio/health/live) from
+    # the host, which needs nothing beyond curl.
+
+  relay-sink:
+    image: ossrs/srs@sha256:4e293846ad2448ff1a0157aa2c694e7c451fff5046c93b5bc6da0fa0384ef998
+    container_name: ${RELAY_SINK_CONTAINER_NAME:-eventcast-relay-sink-test}
+    networks:
+      media-node: {}
+    command: ["./objs/srs", "-c", "conf/relay-sink.conf"]
+    volumes:
+      - ${RELAY_SINK_CONF_HOST_PATH:?set RELAY_SINK_CONF_HOST_PATH}:/usr/local/srs/conf/relay-sink.conf:ro
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/1935"]
+      interval: 5s
+      timeout: 3s
+      start_period: 5s
+      retries: 10

@@ -474,3 +474,144 @@ func TestLoadRejectsInvalidDurationEnvVars(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadR2DisabledByDefault(t *testing.T) {
+	getenv := envMap(withRequiredPaths(t, map[string]string{EnvNodeID: "node-1"}))
+	cfg, err := Load(getenv)
+	if err != nil {
+		t.Fatalf("Load() unexpected error: %v", err)
+	}
+	if cfg.R2Enabled {
+		t.Error("R2Enabled = true without EVENTCAST_R2_BUCKET set, want false")
+	}
+}
+
+func TestLoadR2RequiresEndpointAccessKeyAndSecretWhenBucketSet(t *testing.T) {
+	getenv := envMap(withRequiredPaths(t, map[string]string{
+		EnvNodeID:   "node-1",
+		EnvR2Bucket: "my-bucket",
+	}))
+	if _, err := Load(getenv); err == nil {
+		t.Fatal("Load() expected error when EVENTCAST_R2_BUCKET is set without endpoint/credentials")
+	}
+}
+
+func TestLoadValidR2ConfigDoesNotRequireRealCredentials(t *testing.T) {
+	// Any S3-compatible endpoint (a local test container's URL and
+	// arbitrary test access keys) must satisfy validation - no real R2
+	// account is required for automated tests.
+	getenv := envMap(withRequiredPaths(t, map[string]string{
+		EnvNodeID:            "node-1",
+		EnvR2Bucket:          "my-bucket",
+		EnvR2Endpoint:        "http://127.0.0.1:9000",
+		EnvR2AccessKeyID:     "test-access-key",
+		EnvR2SecretAccessKey: "test-secret-key",
+	}))
+	cfg, err := Load(getenv)
+	if err != nil {
+		t.Fatalf("Load() unexpected error: %v", err)
+	}
+	if !cfg.R2Enabled {
+		t.Fatal("R2Enabled = false, want true")
+	}
+	if cfg.R2Region != DefaultR2Region {
+		t.Errorf("R2Region = %q, want default %q", cfg.R2Region, DefaultR2Region)
+	}
+	if cfg.R2UploadConcurrency != DefaultR2UploadConcurrency {
+		t.Errorf("R2UploadConcurrency = %d, want default %d", cfg.R2UploadConcurrency, DefaultR2UploadConcurrency)
+	}
+	if cfg.DVRWindow != DefaultDVRWindow {
+		t.Errorf("DVRWindow = %v, want default %v", cfg.DVRWindow, DefaultDVRWindow)
+	}
+	if cfg.LocalRetentionDelay != DefaultLocalRetentionDelay {
+		t.Errorf("LocalRetentionDelay = %v, want default %v", cfg.LocalRetentionDelay, DefaultLocalRetentionDelay)
+	}
+	if cfg.R2SecretAccessKey.Reveal() != "test-secret-key" {
+		t.Errorf("R2SecretAccessKey.Reveal() = %q, want %q", cfg.R2SecretAccessKey.Reveal(), "test-secret-key")
+	}
+}
+
+func TestLoadR2RejectsInvalidEndpoint(t *testing.T) {
+	cases := []string{"not-a-url", "ftp://example.com", ""}
+	for _, endpoint := range cases {
+		t.Run(endpoint, func(t *testing.T) {
+			getenv := envMap(withRequiredPaths(t, map[string]string{
+				EnvNodeID:            "node-1",
+				EnvR2Bucket:          "my-bucket",
+				EnvR2Endpoint:        endpoint,
+				EnvR2AccessKeyID:     "key",
+				EnvR2SecretAccessKey: "secret",
+			}))
+			if _, err := Load(getenv); err == nil {
+				t.Fatalf("Load() expected error for R2 endpoint %q", endpoint)
+			}
+		})
+	}
+}
+
+func TestLoadR2RejectsRetryMaxDelayBelowBaseDelay(t *testing.T) {
+	getenv := envMap(withRequiredPaths(t, map[string]string{
+		EnvNodeID:            "node-1",
+		EnvR2Bucket:          "my-bucket",
+		EnvR2Endpoint:        "http://127.0.0.1:9000",
+		EnvR2AccessKeyID:     "key",
+		EnvR2SecretAccessKey: "secret",
+		EnvR2RetryBaseDelay:  "10s",
+		EnvR2RetryMaxDelay:   "1s",
+	}))
+	if _, err := Load(getenv); err == nil {
+		t.Fatal("Load() expected error when R2 retry max delay is below the base delay")
+	}
+}
+
+func TestLoadYouTubeDefaultsAndValidation(t *testing.T) {
+	getenv := envMap(withRequiredPaths(t, map[string]string{EnvNodeID: "node-1"}))
+	cfg, err := Load(getenv)
+	if err != nil {
+		t.Fatalf("Load() unexpected error: %v", err)
+	}
+	if cfg.YouTubeFFmpegPath != DefaultYouTubeFFmpegPath {
+		t.Errorf("YouTubeFFmpegPath = %q, want default %q", cfg.YouTubeFFmpegPath, DefaultYouTubeFFmpegPath)
+	}
+	if cfg.YouTubeRestartMaxAttempts != DefaultYouTubeRestartMaxAttempts {
+		t.Errorf("YouTubeRestartMaxAttempts = %d, want default %d", cfg.YouTubeRestartMaxAttempts, DefaultYouTubeRestartMaxAttempts)
+	}
+	if cfg.YouTubeSourceRTMPBaseURL != DefaultYouTubeSourceRTMPBaseURL {
+		t.Errorf("YouTubeSourceRTMPBaseURL = %q, want default %q", cfg.YouTubeSourceRTMPBaseURL, DefaultYouTubeSourceRTMPBaseURL)
+	}
+}
+
+func TestLoadYouTubeRejectsBackoffMaxBelowBase(t *testing.T) {
+	getenv := envMap(withRequiredPaths(t, map[string]string{
+		EnvNodeID:                    "node-1",
+		EnvYouTubeRestartBackoffBase: "30s",
+		EnvYouTubeRestartBackoffMax:  "5s",
+	}))
+	if _, err := Load(getenv); err == nil {
+		t.Fatal("Load() expected error when YouTube restart backoff max is below base")
+	}
+}
+
+func TestLoadYouTubeRejectsInvalidSourceRTMPBaseURL(t *testing.T) {
+	getenv := envMap(withRequiredPaths(t, map[string]string{
+		EnvNodeID:                   "node-1",
+		EnvYouTubeSourceRTMPBaseURL: "not-a-url",
+	}))
+	if _, err := Load(getenv); err == nil {
+		t.Fatal("Load() expected error for an invalid YouTube source RTMP base URL")
+	}
+}
+
+func TestLoadRejectsInvalidR2InsecureSkipVerifyBoolean(t *testing.T) {
+	getenv := envMap(withRequiredPaths(t, map[string]string{
+		EnvNodeID:               "node-1",
+		EnvR2Bucket:             "my-bucket",
+		EnvR2Endpoint:           "http://127.0.0.1:9000",
+		EnvR2AccessKeyID:        "key",
+		EnvR2SecretAccessKey:    "secret",
+		EnvR2InsecureSkipVerify: "not-a-bool",
+	}))
+	if _, err := Load(getenv); err == nil {
+		t.Fatal("Load() expected error for a non-boolean EVENTCAST_R2_INSECURE_SKIP_VERIFY")
+	}
+}

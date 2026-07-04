@@ -53,6 +53,39 @@ services:
       EVENTCAST_RECONCILE_INTERVAL: ${EVENTCAST_RECONCILE_INTERVAL:-30s}
       EVENTCAST_SESSION_STALE_TIMEOUT: ${EVENTCAST_SESSION_STALE_TIMEOUT:-180s}
       EVENTCAST_DB_BUSY_TIMEOUT: ${EVENTCAST_DB_BUSY_TIMEOUT:-5s}
+      # R2 upload/manifest/VOD/retention subsystem (v1.2 "media
+      # delivery"). Empty EVENTCAST_R2_BUCKET (the production default
+      # until this rollout is enabled) disables the whole subsystem; see
+      # services/media-agent/README.md "Configuration".
+      EVENTCAST_R2_ENDPOINT: ${EVENTCAST_R2_ENDPOINT:-}
+      EVENTCAST_R2_REGION: ${EVENTCAST_R2_REGION:-auto}
+      EVENTCAST_R2_BUCKET: ${EVENTCAST_R2_BUCKET:-}
+      EVENTCAST_R2_ACCESS_KEY_ID: ${EVENTCAST_R2_ACCESS_KEY_ID:-}
+      EVENTCAST_R2_SECRET_ACCESS_KEY: ${EVENTCAST_R2_SECRET_ACCESS_KEY:-}
+      EVENTCAST_R2_OBJECT_PREFIX: ${EVENTCAST_R2_OBJECT_PREFIX:-}
+      EVENTCAST_R2_PUBLIC_BASE_URL: ${EVENTCAST_R2_PUBLIC_BASE_URL:-}
+      EVENTCAST_R2_UPLOAD_CONCURRENCY: ${EVENTCAST_R2_UPLOAD_CONCURRENCY:-4}
+      EVENTCAST_R2_RETRY_BASE_DELAY: ${EVENTCAST_R2_RETRY_BASE_DELAY:-500ms}
+      EVENTCAST_R2_RETRY_MAX_DELAY: ${EVENTCAST_R2_RETRY_MAX_DELAY:-30s}
+      EVENTCAST_R2_REQUEST_TIMEOUT: ${EVENTCAST_R2_REQUEST_TIMEOUT:-20s}
+      EVENTCAST_R2_UPLOAD_LEASE_DURATION: ${EVENTCAST_R2_UPLOAD_LEASE_DURATION:-30s}
+      EVENTCAST_R2_INSECURE_SKIP_VERIFY: ${EVENTCAST_R2_INSECURE_SKIP_VERIFY:-false}
+      EVENTCAST_DVR_WINDOW: ${EVENTCAST_DVR_WINDOW:-900s}
+      EVENTCAST_LOCAL_RETENTION_DELAY: ${EVENTCAST_LOCAL_RETENTION_DELAY:-24h}
+      EVENTCAST_MANIFEST_REBUILD_INTERVAL: ${EVENTCAST_MANIFEST_REBUILD_INTERVAL:-5s}
+      EVENTCAST_CLEANUP_INTERVAL: ${EVENTCAST_CLEANUP_INTERVAL:-15m}
+      # YouTube relay (internal/relay). /usr/local/bin/ffmpeg is the
+      # static binary the Dockerfile copies into the distroless runtime
+      # image; it is set as an absolute path here rather than relying on
+      # the runtime image's PATH.
+      EVENTCAST_YOUTUBE_FFMPEG_PATH: ${EVENTCAST_YOUTUBE_FFMPEG_PATH:-/usr/local/bin/ffmpeg}
+      EVENTCAST_YOUTUBE_RESTART_MAX_ATTEMPTS: ${EVENTCAST_YOUTUBE_RESTART_MAX_ATTEMPTS:-5}
+      EVENTCAST_YOUTUBE_RESTART_BACKOFF_BASE: ${EVENTCAST_YOUTUBE_RESTART_BACKOFF_BASE:-2s}
+      EVENTCAST_YOUTUBE_RESTART_BACKOFF_MAX: ${EVENTCAST_YOUTUBE_RESTART_BACKOFF_MAX:-60s}
+      # This node's own SRS instance, reachable by its Compose service
+      # hostname on the private media-node network - never a public
+      # address (02_V1_ARCHITECTURE_SPEC.md "YouTube relay").
+      EVENTCAST_YOUTUBE_SOURCE_RTMP_BASE_URL: ${EVENTCAST_YOUTUBE_SOURCE_RTMP_BASE_URL:-rtmp://srs:1935}
     volumes:
       - ${SPOOL_HOST_DIR:-/opt/eventcast/media-node/data/spool}:/var/lib/eventcast/spool
       - ${DB_HOST_DIR:-/opt/eventcast/media-node/data/db}:/var/lib/eventcast/db

@@ -108,3 +108,49 @@ func TestSecretRevealReturnsUnderlyingValue(t *testing.T) {
 		t.Errorf("Secret.Reveal() = %q, want %q", got, want)
 	}
 }
+
+func TestSecretMarshalJSONRedacts(t *testing.T) {
+	secret := Secret("json-secret-value")
+	out, err := json.Marshal(secret)
+	if err != nil {
+		t.Fatalf("json.Marshal() error: %v", err)
+	}
+	if strings.Contains(string(out), "json-secret-value") {
+		t.Fatalf("json.Marshal() leaked the secret: %s", out)
+	}
+	var decoded string
+	if err := json.Unmarshal(out, &decoded); err != nil {
+		t.Fatalf("json.Unmarshal() of marshaled output error: %v", err)
+	}
+	if decoded != RedactedPlaceholder {
+		t.Errorf("marshaled Secret = %q, want %q", decoded, RedactedPlaceholder)
+	}
+}
+
+func TestSecretMarshalJSONRedactsWithinAStruct(t *testing.T) {
+	type withSecret struct {
+		Public string `json:"public"`
+		Token  Secret `json:"token"`
+	}
+	out, err := json.Marshal(withSecret{Public: "ok", Token: Secret("nested-secret")})
+	if err != nil {
+		t.Fatalf("json.Marshal() error: %v", err)
+	}
+	if strings.Contains(string(out), "nested-secret") {
+		t.Fatalf("json.Marshal() leaked a nested secret field: %s", out)
+	}
+}
+
+func TestSecretUnmarshalJSONStillReadsTheRawValue(t *testing.T) {
+	// Unmarshal must still recover the real value: Secret is loaded
+	// *from* trusted local configuration (e.g. an assignment seed file)
+	// via ordinary JSON unmarshaling; only the outbound MarshalJSON path
+	// is redacted.
+	var secret Secret
+	if err := json.Unmarshal([]byte(`"the-real-value"`), &secret); err != nil {
+		t.Fatalf("json.Unmarshal() error: %v", err)
+	}
+	if secret.Reveal() != "the-real-value" {
+		t.Errorf("Reveal() after unmarshal = %q, want %q", secret.Reveal(), "the-real-value")
+	}
+}

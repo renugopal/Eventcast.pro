@@ -23,8 +23,10 @@ import (
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/health"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/logging"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/reconcile"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/relay"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/srs"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/store"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/upload"
 )
 
 const (
@@ -102,6 +104,13 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 	}
 	defer st.Close()
 
+	// youtubeStreamKeys resolves an event id to its raw YouTube stream
+	// key, sourced directly from the parsed (pre-persist) seed file
+	// slice. It is deliberately never written to or read back from
+	// SQLite - see migrations/0002_media_delivery.sql - so it lives only
+	// in this process's memory for its whole lifetime.
+	youtubeStreamKeys := make(map[string]logging.Secret)
+
 	if cfg.AssignmentSeedPath != "" {
 		assignments, err := store.LoadAssignmentsFromFile(cfg.AssignmentSeedPath)
 		if err != nil {
@@ -114,6 +123,12 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 			return fmt.Errorf("import assignment seed: %w", err)
 		}
 		logger.Info("assignment seed imported", slog.Int("assignment_count", n))
+
+		for _, a := range assignments {
+			if a.YouTubeEnabled {
+				youtubeStreamKeys[a.EventID] = a.YouTubeStreamKey
+			}
+		}
 	}
 
 	reconciler := reconcile.New(st, reconcile.Config{
@@ -148,11 +163,32 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		reconcileWG.Wait()
 	}()
 
+	// YouTube relay supervision is always constructed - it costs nothing
+	// idle - but only ever starts a process for a session whose
+	// assignment has YouTubeEnabled (internal/srs.Handlers.maybeStartRelay),
+	// per ADR-012's "independent, optional per event" design.
+	relaySupervisor := relay.New(st, relay.Config{
+		FFmpegPath:         cfg.YouTubeFFmpegPath,
+		RestartMaxAttempts: cfg.YouTubeRestartMaxAttempts,
+		RestartBackoffBase: cfg.YouTubeRestartBackoffBase,
+		RestartBackoffMax:  cfg.YouTubeRestartBackoffMax,
+		ShutdownTimeout:    shutdownTimeout,
+	}, logger)
+	if n, err := st.ReconcileStaleRelays(ctx, time.Now().UTC()); err != nil {
+		logger.Error("failed to reconcile stale relay records", slog.String("error", err.Error()))
+	} else if n > 0 {
+		logger.Info("stale relay records reconciled at startup", slog.Int("count", n))
+	}
+	defer relaySupervisor.Shutdown()
+
 	srsHandlers := &srs.Handlers{
-		Store:     st,
-		HLSRoot:   cfg.SRSHLSRoot,
-		SpoolRoot: cfg.SpoolRoot,
-		Logger:    logger,
+		Store:                    st,
+		HLSRoot:                  cfg.SRSHLSRoot,
+		SpoolRoot:                cfg.SpoolRoot,
+		Logger:                   logger,
+		Relay:                    relaySupervisor,
+		YouTubeSourceRTMPBaseURL: cfg.YouTubeSourceRTMPBaseURL,
+		YouTubeStreamKeys:        youtubeStreamKeys,
 	}
 
 	mux := http.NewServeMux()
@@ -161,6 +197,71 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 	mux.Handle("/internal/srs/on-publish", srsHandlers.OnPublish())
 	mux.Handle("/internal/srs/on-hls", srsHandlers.OnHLS())
 	mux.Handle("/internal/srs/on-unpublish", srsHandlers.OnUnpublish())
+
+	if cfg.R2Enabled {
+		manifestCfg := upload.ManifestConfig{
+			ObjectPrefix:   cfg.R2ObjectPrefix,
+			PublicBaseURL:  cfg.R2PublicBaseURL,
+			DVRWindow:      cfg.DVRWindow,
+			RequestTimeout: cfg.R2RequestTimeout,
+		}
+
+		r2Client, err := upload.NewR2Client(upload.R2Config{
+			Endpoint:           cfg.R2Endpoint,
+			Region:             cfg.R2Region,
+			Bucket:             cfg.R2Bucket,
+			AccessKeyID:        cfg.R2AccessKeyID,
+			SecretAccessKey:    cfg.R2SecretAccessKey,
+			InsecureSkipVerify: cfg.R2InsecureSkipVerify,
+		})
+		if err != nil {
+			logger.Error("failed to construct R2 client", slog.String("error", err.Error()))
+			return fmt.Errorf("construct r2 client: %w", err)
+		}
+
+		manifestManager := upload.NewManifestManager(st, r2Client, manifestCfg, logger)
+
+		uploadWorker := upload.NewWorker(st, r2Client, upload.WorkerConfig{
+			ObjectPrefix:   cfg.R2ObjectPrefix,
+			Concurrency:    cfg.R2UploadConcurrency,
+			LeaseDuration:  cfg.R2UploadLeaseDuration,
+			RequestTimeout: cfg.R2RequestTimeout,
+			RetryBaseDelay: cfg.R2RetryBaseDelay,
+			RetryMaxDelay:  cfg.R2RetryMaxDelay,
+			OnConfirmed:    manifestManager.Touch,
+		}, logger)
+
+		vodFinalizer := upload.NewVODFinalizer(st, r2Client, manifestCfg, logger)
+
+		retentionWorker := upload.NewRetentionWorker(st, upload.RetentionConfig{
+			SpoolRoot:           cfg.SpoolRoot,
+			LocalRetentionDelay: cfg.LocalRetentionDelay,
+		}, logger)
+
+		if n, err := st.ReclaimExpiredUploadLeases(ctx, time.Now().UTC()); err != nil {
+			logger.Error("failed to reclaim expired upload leases", slog.String("error", err.Error()))
+		} else if n > 0 {
+			logger.Info("expired upload leases reclaimed at startup", slog.Int("count", n))
+		}
+
+		uploadCtx, cancelUpload := context.WithCancel(context.Background())
+		var uploadWG sync.WaitGroup
+		uploadWG.Add(3)
+		go func() { defer uploadWG.Done(); uploadWorker.Run(uploadCtx) }()
+		go func() { defer uploadWG.Done(); manifestManager.Run(uploadCtx, cfg.ManifestRebuildInterval) }()
+		go func() { defer uploadWG.Done(); retentionWorker.Run(uploadCtx, cfg.CleanupInterval) }()
+		defer func() {
+			cancelUpload()
+			uploadWG.Wait()
+		}()
+
+		mux.Handle("POST /internal/events/{event_id}/finalize", &upload.FinalizeHandler{Finalizer: vodFinalizer, Logger: logger})
+
+		logger.Info("R2 upload/manifest/VOD/retention subsystem enabled",
+			slog.String("bucket", cfg.R2Bucket), slog.Int("upload_concurrency", cfg.R2UploadConcurrency))
+	} else {
+		logger.Warn("R2 upload/manifest/VOD/retention subsystem disabled: EVENTCAST_R2_BUCKET is not set")
+	}
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,

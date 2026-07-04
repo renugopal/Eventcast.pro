@@ -9,6 +9,14 @@
 # no CGO dependency, so CGO_ENABLED=0 below and the CGO-free distroless
 # runtime stage remain valid unchanged.
 
+# ffmpeg: pinned static-linked build, used only for optional per-session
+# YouTube relay stream-copy (internal/relay). This is the same exact
+# pin infra/media-node/compose/*.sh already use for their synthetic
+# test publisher, so there is exactly one pin for this artifact across
+# the repository (04_TECH_STACK_AND_VERSION_POLICY.md "The FFmpeg build
+# must be pinned by package version or container digest").
+FROM mwader/static-ffmpeg@sha256:df8a363ed7089ab0779c4f019b935a0e428c0b705478b6ff371b52b4bbe818f8 AS ffmpeg
+
 # Builder: official pinned Go 1.26.4 toolchain image.
 FROM golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609 AS builder
 
@@ -34,6 +42,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:d093aa3e30dbadd3efe1310db061a14da60299baff8450a17fe0ccc514a16639
 
 COPY --from=builder /out/media-agent /media-agent
+COPY --from=ffmpeg /ffmpeg /usr/local/bin/ffmpeg
 
 USER nonroot:nonroot
 

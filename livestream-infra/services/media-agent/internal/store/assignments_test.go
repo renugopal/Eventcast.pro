@@ -217,3 +217,65 @@ func TestLoadAssignmentsFromFileRejectsMalformedJSON(t *testing.T) {
 		t.Fatal("LoadAssignmentsFromFile() expected error for malformed JSON, got nil")
 	}
 }
+
+func TestGetAssignmentByEventID(t *testing.T) {
+	ctx := context.Background()
+	st := openTestStore(t)
+	a := testAssignment("stream-1")
+	if _, err := st.ImportAssignments(ctx, []Assignment{a}); err != nil {
+		t.Fatalf("ImportAssignments() error: %v", err)
+	}
+
+	got, found, err := st.GetAssignmentByEventID(ctx, a.EventID)
+	if err != nil || !found {
+		t.Fatalf("GetAssignmentByEventID() found=%v err=%v", found, err)
+	}
+	if got.PlaybackID != a.PlaybackID {
+		t.Errorf("PlaybackID = %q, want %q", got.PlaybackID, a.PlaybackID)
+	}
+
+	if _, found, err := st.GetAssignmentByEventID(ctx, "no-such-event"); err != nil || found {
+		t.Errorf("GetAssignmentByEventID() for unknown event: found=%v err=%v", found, err)
+	}
+}
+
+func TestYouTubeFieldsPersistExceptTheRawStreamKey(t *testing.T) {
+	ctx := context.Background()
+	st := openTestStore(t)
+	a := testAssignment("stream-1")
+	a.YouTubeEnabled = true
+	a.YouTubeDestinationBaseURL = "rtmp://a.rtmp.youtube.com/live2"
+	a.YouTubeStreamKey = "super-secret-stream-key"
+	if _, err := st.ImportAssignments(ctx, []Assignment{a}); err != nil {
+		t.Fatalf("ImportAssignments() error: %v", err)
+	}
+
+	got, found, err := st.GetAssignment(ctx, a.IngestID)
+	if err != nil || !found {
+		t.Fatalf("GetAssignment() found=%v err=%v", found, err)
+	}
+	if !got.YouTubeEnabled {
+		t.Error("expected YouTubeEnabled to persist as true")
+	}
+	if got.YouTubeDestinationBaseURL != a.YouTubeDestinationBaseURL {
+		t.Errorf("YouTubeDestinationBaseURL = %q, want %q", got.YouTubeDestinationBaseURL, a.YouTubeDestinationBaseURL)
+	}
+	// The raw stream key must never round-trip through the database:
+	// there is no column for it (see migrations/0002_media_delivery.sql).
+	if got.YouTubeStreamKey.Reveal() != "" {
+		t.Error("expected YouTubeStreamKey to never be persisted to or read back from SQLite")
+	}
+}
+
+func TestAssignmentValidateRequiresYouTubeFieldsWhenEnabled(t *testing.T) {
+	a := testAssignment("stream-1")
+	a.YouTubeEnabled = true
+	if err := a.Validate(); err == nil {
+		t.Fatal("Validate() expected an error when youtube_enabled is true but destination/key are empty")
+	}
+	a.YouTubeDestinationBaseURL = "rtmp://a.rtmp.youtube.com/live2"
+	a.YouTubeStreamKey = "key"
+	if err := a.Validate(); err != nil {
+		t.Errorf("Validate() unexpected error with all YouTube fields set: %v", err)
+	}
+}

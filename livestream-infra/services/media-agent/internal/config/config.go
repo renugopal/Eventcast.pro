@@ -7,6 +7,7 @@ package config
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -50,6 +51,66 @@ const (
 	// connection, bounding how long a writer waits for a lock held by
 	// another connection before failing.
 	EnvDBBusyTimeout = "EVENTCAST_DB_BUSY_TIMEOUT"
+
+	// R2 object storage. The whole upload/manifest/VOD/retention
+	// subsystem is optional at the configuration level: if
+	// EnvR2Bucket is empty, it stays disabled (a warning is logged at
+	// startup) so an existing deployment's environment that predates
+	// this milestone keeps starting unchanged. Once EnvR2Bucket is
+	// set, EnvR2Endpoint/EnvR2AccessKeyID/EnvR2SecretAccessKey become
+	// required.
+	EnvR2Endpoint            = "EVENTCAST_R2_ENDPOINT"
+	EnvR2Region              = "EVENTCAST_R2_REGION"
+	EnvR2Bucket              = "EVENTCAST_R2_BUCKET"
+	EnvR2AccessKeyID         = "EVENTCAST_R2_ACCESS_KEY_ID"
+	EnvR2SecretAccessKey     = "EVENTCAST_R2_SECRET_ACCESS_KEY"
+	EnvR2ObjectPrefix        = "EVENTCAST_R2_OBJECT_PREFIX"
+	EnvR2PublicBaseURL       = "EVENTCAST_R2_PUBLIC_BASE_URL"
+	EnvR2UploadConcurrency   = "EVENTCAST_R2_UPLOAD_CONCURRENCY"
+	EnvR2RetryBaseDelay      = "EVENTCAST_R2_RETRY_BASE_DELAY"
+	EnvR2RetryMaxDelay       = "EVENTCAST_R2_RETRY_MAX_DELAY"
+	EnvR2RequestTimeout      = "EVENTCAST_R2_REQUEST_TIMEOUT"
+	EnvR2UploadLeaseDuration = "EVENTCAST_R2_UPLOAD_LEASE_DURATION"
+	// EnvR2InsecureSkipVerify must remain false in production (an
+	// R2 custom domain always terminates valid TLS); it exists only so
+	// isolated integration tests can point the same client at a local
+	// S3-compatible service using a self-signed certificate. A plain
+	// http:// EnvR2Endpoint (as tests normally use against a local
+	// container) does not need this flag at all.
+	EnvR2InsecureSkipVerify = "EVENTCAST_R2_INSECURE_SKIP_VERIFY"
+
+	// EnvDVRWindow is the live-manifest retention window. Production
+	// must not change this from the ADR-004 default without a new
+	// decision record; it is exposed as configuration only so isolated
+	// tests can use a short, deterministic window instead of waiting
+	// out fifteen real minutes.
+	EnvDVRWindow = "EVENTCAST_DVR_WINDOW"
+	// EnvLocalRetentionDelay bounds how long a confirmed, VOD-finalized
+	// segment's local spool copy is kept before the retention worker
+	// deletes it (02_V1_ARCHITECTURE_SPEC.md "Retention and deletion":
+	// "The default local safety period after VOD finalization is 24
+	// hours").
+	EnvLocalRetentionDelay = "EVENTCAST_LOCAL_RETENTION_DELAY"
+	// EnvManifestRebuildInterval is the periodic backstop rebuild
+	// interval covering delayed/out-of-order upload completion; the
+	// primary rebuild trigger is every upload confirmation.
+	EnvManifestRebuildInterval = "EVENTCAST_MANIFEST_REBUILD_INTERVAL"
+	// EnvCleanupInterval is the retention worker's periodic interval.
+	EnvCleanupInterval = "EVENTCAST_CLEANUP_INTERVAL"
+
+	// YouTube relay. Per event/session, never globally required;
+	// these bound the ffmpeg binary location and restart policy only.
+	EnvYouTubeFFmpegPath         = "EVENTCAST_YOUTUBE_FFMPEG_PATH"
+	EnvYouTubeRestartMaxAttempts = "EVENTCAST_YOUTUBE_RESTART_MAX_ATTEMPTS"
+	EnvYouTubeRestartBackoffBase = "EVENTCAST_YOUTUBE_RESTART_BACKOFF_BASE"
+	EnvYouTubeRestartBackoffMax  = "EVENTCAST_YOUTUBE_RESTART_BACKOFF_MAX"
+	// EnvYouTubeSourceRTMPBaseURL is the local RTMP endpoint the relay
+	// pulls from (this Media Agent's own SRS instance), combined with
+	// "/live/{ingest_id}" (the fixed app name every existing integration
+	// script and the pinned srs.conf already use). It defaults to a
+	// same-host loopback address; the Compose deployment overrides it to
+	// the "srs" service hostname on the private media-node network.
+	EnvYouTubeSourceRTMPBaseURL = "EVENTCAST_YOUTUBE_SOURCE_RTMP_BASE_URL"
 )
 
 // Defaults. The default HTTP bind address is loopback-only, matching
@@ -62,6 +123,31 @@ const (
 	DefaultReconcileInterval   = 30 * time.Second
 	DefaultSessionStaleTimeout = 180 * time.Second
 	DefaultDBBusyTimeout       = 5 * time.Second
+
+	DefaultR2Region              = "auto"
+	DefaultR2UploadConcurrency   = 4
+	DefaultR2RetryBaseDelay      = 500 * time.Millisecond
+	DefaultR2RetryMaxDelay       = 30 * time.Second
+	DefaultR2RequestTimeout      = 20 * time.Second
+	DefaultR2UploadLeaseDuration = 30 * time.Second
+
+	// DefaultDVRWindow is ADR-004's fifteen-minute (~900 second) live
+	// DVR window. Production must not override this default without a
+	// new decision record; EnvDVRWindow exists so isolated integration
+	// tests can use a short, deterministic window instead.
+	DefaultDVRWindow = 900 * time.Second
+	// DefaultLocalRetentionDelay matches 02_V1_ARCHITECTURE_SPEC.md
+	// "Retention and deletion": "The default local safety period after
+	// VOD finalization is 24 hours."
+	DefaultLocalRetentionDelay     = 24 * time.Hour
+	DefaultManifestRebuildInterval = 5 * time.Second
+	DefaultCleanupInterval         = 15 * time.Minute
+
+	DefaultYouTubeFFmpegPath         = "ffmpeg"
+	DefaultYouTubeRestartMaxAttempts = 5
+	DefaultYouTubeRestartBackoffBase = 2 * time.Second
+	DefaultYouTubeRestartBackoffMax  = 60 * time.Second
+	DefaultYouTubeSourceRTMPBaseURL  = "rtmp://127.0.0.1:1935"
 )
 
 // maxNodeIDLength is a sanity bound, not a business rule; it exists so
@@ -85,6 +171,35 @@ type Config struct {
 	ReconcileInterval   time.Duration
 	SessionStaleTimeout time.Duration
 	DBBusyTimeout       time.Duration
+
+	// R2Enabled reports whether R2Bucket was configured, gating the
+	// entire upload/manifest/VOD/retention subsystem. When false, every
+	// other R2* field is its zero value and must not be used.
+	R2Enabled             bool
+	R2Endpoint            string
+	R2Region              string
+	R2Bucket              string
+	R2AccessKeyID         string
+	R2SecretAccessKey     logging.Secret
+	R2ObjectPrefix        string
+	R2PublicBaseURL       string
+	R2UploadConcurrency   int
+	R2RetryBaseDelay      time.Duration
+	R2RetryMaxDelay       time.Duration
+	R2RequestTimeout      time.Duration
+	R2UploadLeaseDuration time.Duration
+	R2InsecureSkipVerify  bool
+
+	DVRWindow               time.Duration
+	LocalRetentionDelay     time.Duration
+	ManifestRebuildInterval time.Duration
+	CleanupInterval         time.Duration
+
+	YouTubeFFmpegPath         string
+	YouTubeRestartMaxAttempts int
+	YouTubeRestartBackoffBase time.Duration
+	YouTubeRestartBackoffMax  time.Duration
+	YouTubeSourceRTMPBaseURL  string
 }
 
 // Load reads configuration using getenv (normally os.Getenv), applies
@@ -123,6 +238,81 @@ func Load(getenv func(string) string) (Config, error) {
 		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvDBBusyTimeout, err)
 	}
 
+	cfg.R2Endpoint = strings.TrimSpace(getenv(EnvR2Endpoint))
+	cfg.R2Region = strings.TrimSpace(getenv(EnvR2Region))
+	if cfg.R2Region == "" {
+		cfg.R2Region = DefaultR2Region
+	}
+	cfg.R2Bucket = strings.TrimSpace(getenv(EnvR2Bucket))
+	cfg.R2Enabled = cfg.R2Bucket != ""
+	cfg.R2AccessKeyID = strings.TrimSpace(getenv(EnvR2AccessKeyID))
+	cfg.R2SecretAccessKey = logging.Secret(getenv(EnvR2SecretAccessKey))
+	cfg.R2ObjectPrefix = strings.TrimSpace(getenv(EnvR2ObjectPrefix))
+	cfg.R2PublicBaseURL = strings.TrimSpace(getenv(EnvR2PublicBaseURL))
+
+	cfg.R2UploadConcurrency, err = parseIntOrDefault(getenv(EnvR2UploadConcurrency), DefaultR2UploadConcurrency)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid integer: %w", EnvR2UploadConcurrency, err)
+	}
+	cfg.R2RetryBaseDelay, err = parseDurationOrDefault(getenv(EnvR2RetryBaseDelay), DefaultR2RetryBaseDelay)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvR2RetryBaseDelay, err)
+	}
+	cfg.R2RetryMaxDelay, err = parseDurationOrDefault(getenv(EnvR2RetryMaxDelay), DefaultR2RetryMaxDelay)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvR2RetryMaxDelay, err)
+	}
+	cfg.R2RequestTimeout, err = parseDurationOrDefault(getenv(EnvR2RequestTimeout), DefaultR2RequestTimeout)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvR2RequestTimeout, err)
+	}
+	cfg.R2UploadLeaseDuration, err = parseDurationOrDefault(getenv(EnvR2UploadLeaseDuration), DefaultR2UploadLeaseDuration)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvR2UploadLeaseDuration, err)
+	}
+	cfg.R2InsecureSkipVerify, err = parseBoolOrDefault(getenv(EnvR2InsecureSkipVerify), false)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid boolean: %w", EnvR2InsecureSkipVerify, err)
+	}
+
+	cfg.DVRWindow, err = parseDurationOrDefault(getenv(EnvDVRWindow), DefaultDVRWindow)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvDVRWindow, err)
+	}
+	cfg.LocalRetentionDelay, err = parseDurationOrDefault(getenv(EnvLocalRetentionDelay), DefaultLocalRetentionDelay)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvLocalRetentionDelay, err)
+	}
+	cfg.ManifestRebuildInterval, err = parseDurationOrDefault(getenv(EnvManifestRebuildInterval), DefaultManifestRebuildInterval)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvManifestRebuildInterval, err)
+	}
+	cfg.CleanupInterval, err = parseDurationOrDefault(getenv(EnvCleanupInterval), DefaultCleanupInterval)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvCleanupInterval, err)
+	}
+
+	cfg.YouTubeFFmpegPath = strings.TrimSpace(getenv(EnvYouTubeFFmpegPath))
+	if cfg.YouTubeFFmpegPath == "" {
+		cfg.YouTubeFFmpegPath = DefaultYouTubeFFmpegPath
+	}
+	cfg.YouTubeRestartMaxAttempts, err = parseIntOrDefault(getenv(EnvYouTubeRestartMaxAttempts), DefaultYouTubeRestartMaxAttempts)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid integer: %w", EnvYouTubeRestartMaxAttempts, err)
+	}
+	cfg.YouTubeRestartBackoffBase, err = parseDurationOrDefault(getenv(EnvYouTubeRestartBackoffBase), DefaultYouTubeRestartBackoffBase)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvYouTubeRestartBackoffBase, err)
+	}
+	cfg.YouTubeRestartBackoffMax, err = parseDurationOrDefault(getenv(EnvYouTubeRestartBackoffMax), DefaultYouTubeRestartBackoffMax)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvYouTubeRestartBackoffMax, err)
+	}
+	cfg.YouTubeSourceRTMPBaseURL = strings.TrimSpace(getenv(EnvYouTubeSourceRTMPBaseURL))
+	if cfg.YouTubeSourceRTMPBaseURL == "" {
+		cfg.YouTubeSourceRTMPBaseURL = DefaultYouTubeSourceRTMPBaseURL
+	}
+
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err
 	}
@@ -142,6 +332,29 @@ func parseDurationOrDefault(raw string, def time.Duration) (time.Duration, error
 		return 0, fmt.Errorf("must be positive, got %s", raw)
 	}
 	return d, nil
+}
+
+func parseIntOrDefault(raw string, def int) (int, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return def, nil
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, err
+	}
+	if n <= 0 {
+		return 0, fmt.Errorf("must be positive, got %s", raw)
+	}
+	return n, nil
+}
+
+func parseBoolOrDefault(raw string, def bool) (bool, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return def, nil
+	}
+	return strconv.ParseBool(raw)
 }
 
 // Validate checks that every field is present and well-formed. Errors
@@ -207,6 +420,69 @@ func (c Config) Validate() error {
 	// scan, and it is a distinct, config-owned artifact, not media.
 	if c.AssignmentSeedPath != "" && (pathContains(c.SpoolRoot, c.AssignmentSeedPath) || pathContains(c.SRSHLSRoot, c.AssignmentSeedPath)) {
 		return fmt.Errorf("config: %s must not be located inside %s or %s", EnvAssignmentSeedPath, EnvSpoolRoot, EnvSRSHLSRoot)
+	}
+
+	if err := c.validateR2(); err != nil {
+		return err
+	}
+
+	if c.YouTubeRestartMaxAttempts <= 0 {
+		return fmt.Errorf("config: %s must be positive", EnvYouTubeRestartMaxAttempts)
+	}
+	if c.YouTubeRestartBackoffMax < c.YouTubeRestartBackoffBase {
+		return fmt.Errorf("config: %s must be >= %s", EnvYouTubeRestartBackoffMax, EnvYouTubeRestartBackoffBase)
+	}
+	if parsed, err := url.Parse(c.YouTubeSourceRTMPBaseURL); err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return fmt.Errorf("config: %s must be an absolute rtmp:// URL", EnvYouTubeSourceRTMPBaseURL)
+	}
+
+	return nil
+}
+
+// validateR2 enforces that the upload/manifest/VOD/retention subsystem
+// is either fully configured or fully absent: an operator who sets
+// EnvR2Bucket clearly intends to enable it and must not be left with a
+// silently half-configured (and therefore non-functional) uploader. An
+// entirely unset EnvR2Bucket leaves the subsystem disabled, preserving
+// startup compatibility for a deployment predating this milestone. Do
+// not require real R2 credentials for automated tests: any S3-compatible
+// endpoint (including a local test container) satisfies this check
+// equally.
+func (c Config) validateR2() error {
+	if !c.R2Enabled {
+		return nil
+	}
+
+	if c.R2Endpoint == "" {
+		return fmt.Errorf("config: %s is required when %s is set", EnvR2Endpoint, EnvR2Bucket)
+	}
+	parsed, err := url.Parse(c.R2Endpoint)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return fmt.Errorf("config: %s must be an absolute http:// or https:// URL", EnvR2Endpoint)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("config: %s must use http or https", EnvR2Endpoint)
+	}
+	if c.R2AccessKeyID == "" {
+		return fmt.Errorf("config: %s is required when %s is set", EnvR2AccessKeyID, EnvR2Bucket)
+	}
+	if c.R2SecretAccessKey.Reveal() == "" {
+		return fmt.Errorf("config: %s is required when %s is set", EnvR2SecretAccessKey, EnvR2Bucket)
+	}
+	if c.R2PublicBaseURL != "" {
+		parsed, err := url.Parse(c.R2PublicBaseURL)
+		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+			return fmt.Errorf("config: %s must be an absolute http:// or https:// URL", EnvR2PublicBaseURL)
+		}
+	}
+	if c.R2RetryMaxDelay < c.R2RetryBaseDelay {
+		return fmt.Errorf("config: %s must be >= %s", EnvR2RetryMaxDelay, EnvR2RetryBaseDelay)
+	}
+	if c.DVRWindow <= 0 {
+		return fmt.Errorf("config: %s must be positive", EnvDVRWindow)
+	}
+	if c.LocalRetentionDelay <= 0 {
+		return fmt.Errorf("config: %s must be positive", EnvLocalRetentionDelay)
 	}
 
 	return nil

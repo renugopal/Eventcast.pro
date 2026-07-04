@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/logging"
 )
 
 // Assignment is the Media Agent's local, durable copy of a control-plane
@@ -34,6 +36,18 @@ type Assignment struct {
 	PublishWindowEndAt   time.Time `json:"publish_window_end_at"`
 	ConfigVersion        string    `json:"config_version"`
 	UpdatedAt            time.Time `json:"updated_at"`
+
+	// YouTube relay authorization. These three fields are parsed from
+	// the seed file (the same approved secret source stream tokens use)
+	// but are deliberately never written to cached_event_assignments -
+	// ImportAssignments' INSERT lists columns explicitly and does not
+	// include them. internal/relay resolves them directly from the
+	// in-memory slice LoadAssignmentsFromFile returns, at startup, so
+	// the raw stream key is never persisted to SQLite, logged, or
+	// exposed through GetAssignment/GetAssignmentByEventID.
+	YouTubeEnabled            bool           `json:"youtube_enabled"`
+	YouTubeDestinationBaseURL string         `json:"youtube_destination_base_url"`
+	YouTubeStreamKey          logging.Secret `json:"youtube_stream_key"`
 }
 
 // HashToken returns the hex-encoded SHA-256 digest of a raw secret
@@ -79,6 +93,14 @@ func (a Assignment) Validate() error {
 	if !a.PublishWindowEndAt.After(a.PublishWindowStartAt) {
 		return fmt.Errorf("assignment: %s: publish_window_end_at must be after publish_window_start_at", a.IngestID)
 	}
+	if a.YouTubeEnabled {
+		if a.YouTubeDestinationBaseURL == "" {
+			return fmt.Errorf("assignment: %s: youtube_destination_base_url is required when youtube_enabled", a.IngestID)
+		}
+		if a.YouTubeStreamKey.Reveal() == "" {
+			return fmt.Errorf("assignment: %s: youtube_stream_key is required when youtube_enabled", a.IngestID)
+		}
+	}
 	return nil
 }
 
@@ -122,8 +144,9 @@ func (s *Store) ImportAssignments(ctx context.Context, assignments []Assignment)
 	stmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO cached_event_assignments (
 			ingest_id, event_id, playback_id, secret_token_hash, enabled,
-			publish_window_start_at, publish_window_end_at, config_version, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			publish_window_start_at, publish_window_end_at, config_version, updated_at,
+			youtube_enabled, youtube_destination_base_url
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(ingest_id) DO UPDATE SET
 			event_id = excluded.event_id,
 			playback_id = excluded.playback_id,
@@ -132,7 +155,9 @@ func (s *Store) ImportAssignments(ctx context.Context, assignments []Assignment)
 			publish_window_start_at = excluded.publish_window_start_at,
 			publish_window_end_at = excluded.publish_window_end_at,
 			config_version = excluded.config_version,
-			updated_at = excluded.updated_at`)
+			updated_at = excluded.updated_at,
+			youtube_enabled = excluded.youtube_enabled,
+			youtube_destination_base_url = excluded.youtube_destination_base_url`)
 	if err != nil {
 		return 0, fmt.Errorf("store: prepare import assignments: %w", err)
 	}
@@ -151,6 +176,7 @@ func (s *Store) ImportAssignments(ctx context.Context, assignments []Assignment)
 			a.PublishWindowStartAt.UTC().Format(time.RFC3339Nano),
 			a.PublishWindowEndAt.UTC().Format(time.RFC3339Nano),
 			a.ConfigVersion, updatedAt.Format(time.RFC3339Nano),
+			a.YouTubeEnabled, a.YouTubeDestinationBaseURL,
 		); err != nil {
 			return 0, fmt.Errorf("store: import assignment %s: %w", a.IngestID, err)
 		}
@@ -169,10 +195,12 @@ func (s *Store) GetAssignment(ctx context.Context, ingestID string) (Assignment,
 	var startAt, endAt, updatedAt string
 	err := s.db.QueryRowContext(ctx, `
 		SELECT ingest_id, event_id, playback_id, secret_token_hash, enabled,
-		       publish_window_start_at, publish_window_end_at, config_version, updated_at
+		       publish_window_start_at, publish_window_end_at, config_version, updated_at,
+		       youtube_enabled, youtube_destination_base_url
 		FROM cached_event_assignments WHERE ingest_id = ?`, ingestID,
 	).Scan(&a.IngestID, &a.EventID, &a.PlaybackID, &a.SecretTokenHash, &a.Enabled,
-		&startAt, &endAt, &a.ConfigVersion, &updatedAt)
+		&startAt, &endAt, &a.ConfigVersion, &updatedAt,
+		&a.YouTubeEnabled, &a.YouTubeDestinationBaseURL)
 	if err == sql.ErrNoRows {
 		return Assignment{}, false, nil
 	}
@@ -191,6 +219,45 @@ func (s *Store) GetAssignment(ctx context.Context, ingestID string) (Assignment,
 	a.UpdatedAt, err = time.Parse(time.RFC3339Nano, updatedAt)
 	if err != nil {
 		return Assignment{}, false, fmt.Errorf("store: parse updated_at for %s: %w", ingestID, err)
+	}
+	return a, true, nil
+}
+
+// GetAssignmentByEventID returns the cached assignment for eventID, used
+// by upload key construction and manifest generation to resolve an
+// event's opaque playback_id without threading it through every
+// intermediate call site. found=false if no assignment is cached for
+// this event (e.g. it was never seeded, or reconciliation is running
+// against a database from before this event's assignment existed).
+func (s *Store) GetAssignmentByEventID(ctx context.Context, eventID string) (Assignment, bool, error) {
+	var a Assignment
+	var startAt, endAt, updatedAt string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT ingest_id, event_id, playback_id, secret_token_hash, enabled,
+		       publish_window_start_at, publish_window_end_at, config_version, updated_at,
+		       youtube_enabled, youtube_destination_base_url
+		FROM cached_event_assignments WHERE event_id = ? LIMIT 1`, eventID,
+	).Scan(&a.IngestID, &a.EventID, &a.PlaybackID, &a.SecretTokenHash, &a.Enabled,
+		&startAt, &endAt, &a.ConfigVersion, &updatedAt,
+		&a.YouTubeEnabled, &a.YouTubeDestinationBaseURL)
+	if err == sql.ErrNoRows {
+		return Assignment{}, false, nil
+	}
+	if err != nil {
+		return Assignment{}, false, fmt.Errorf("store: get assignment by event %s: %w", eventID, err)
+	}
+
+	a.PublishWindowStartAt, err = time.Parse(time.RFC3339Nano, startAt)
+	if err != nil {
+		return Assignment{}, false, fmt.Errorf("store: parse publish_window_start_at for event %s: %w", eventID, err)
+	}
+	a.PublishWindowEndAt, err = time.Parse(time.RFC3339Nano, endAt)
+	if err != nil {
+		return Assignment{}, false, fmt.Errorf("store: parse publish_window_end_at for event %s: %w", eventID, err)
+	}
+	a.UpdatedAt, err = time.Parse(time.RFC3339Nano, updatedAt)
+	if err != nil {
+		return Assignment{}, false, fmt.Errorf("store: parse updated_at for event %s: %w", eventID, err)
 	}
 	return a, true, nil
 }

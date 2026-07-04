@@ -3,8 +3,10 @@ package store
 import (
 	"context"
 	"database/sql"
+	"io/fs"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -161,5 +163,116 @@ func TestApplyMigrationsAppliesOnlyNewVersions(t *testing.T) {
 	}
 	if version != 2 {
 		t.Errorf("SchemaVersion() = %d, want 2", version)
+	}
+}
+
+// TestRealMigration0002UpgradesAnExistingV1Database applies only the
+// real, production 0001_init.sql (as if this database were created
+// under the previous "v1.2 ingest control and durability" milestone),
+// inserts data using that schema, then runs the real full embedded
+// migration set (which adds 0002_media_delivery.sql) and confirms
+// existing data survives and the new columns/tables are usable.
+func TestRealMigration0002UpgradesAnExistingV1Database(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDB(t)
+
+	v1SQL, err := fs.ReadFile(embeddedMigrations, "migrations/0001_init.sql")
+	if err != nil {
+		t.Fatalf("read real 0001_init.sql: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS schema_migrations (
+			version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL
+		)`); err != nil {
+		t.Fatalf("create schema_migrations: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, string(v1SQL)); err != nil {
+		t.Fatalf("apply real 0001_init.sql: %v", err)
+	}
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO schema_migrations (version, name, applied_at) VALUES (1, '0001_init.sql', ?)`,
+		time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+		t.Fatalf("record v1 schema version: %v", err)
+	}
+
+	// Data written under the v1-only schema (no upload/manifest/VOD/relay
+	// columns or tables exist yet at this point).
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO cached_event_assignments (
+			ingest_id, event_id, playback_id, secret_token_hash, enabled,
+			publish_window_start_at, publish_window_end_at, updated_at
+		) VALUES ('ingest-1', 'event-1', 'pb-1', 'deadbeef', 1, ?, ?, ?)`, now, now, now); err != nil {
+		t.Fatalf("insert v1 assignment: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO segment_jobs (
+			idempotency_key, event_id, session_id, local_file_identity, seq_no, duration_seconds,
+			spool_path, byte_size, sha256, status, created_at, updated_at
+		) VALUES ('k1', 'event-1', 'sess-1', 'k1', 1, 4, '/spool/k1', 100, 'deadbeef', 'queued', ?, ?)`, now, now); err != nil {
+		t.Fatalf("insert v1 segment job: %v", err)
+	}
+
+	// Now apply the real, full production migration set - this is the
+	// exact function and embedded files store.Open uses.
+	if err := applyMigrations(ctx, db, embeddedMigrations); err != nil {
+		t.Fatalf("applyMigrations() upgrade to v2 error: %v", err)
+	}
+
+	version, err := SchemaVersion(ctx, db)
+	if err != nil {
+		t.Fatalf("SchemaVersion() error: %v", err)
+	}
+	if version != 2 {
+		t.Errorf("SchemaVersion() after upgrade = %d, want 2", version)
+	}
+
+	// Pre-existing data must survive untouched, and new columns must
+	// have taken their documented defaults.
+	var eventID string
+	var youtubeEnabled bool
+	if err := db.QueryRowContext(ctx,
+		`SELECT event_id, youtube_enabled FROM cached_event_assignments WHERE ingest_id = 'ingest-1'`,
+	).Scan(&eventID, &youtubeEnabled); err != nil {
+		t.Fatalf("query upgraded assignment: %v", err)
+	}
+	if eventID != "event-1" {
+		t.Errorf("event_id = %q, want %q (data must survive upgrade)", eventID, "event-1")
+	}
+	if youtubeEnabled {
+		t.Error("youtube_enabled default = true, want false")
+	}
+
+	var uploadStatus, manifestCommitStatus string
+	if err := db.QueryRowContext(ctx,
+		`SELECT upload_status, manifest_commit_status FROM segment_jobs WHERE idempotency_key = 'k1'`,
+	).Scan(&uploadStatus, &manifestCommitStatus); err != nil {
+		t.Fatalf("query upgraded segment job: %v", err)
+	}
+	if uploadStatus != UploadPending {
+		t.Errorf("upload_status default = %q, want %q", uploadStatus, UploadPending)
+	}
+	if manifestCommitStatus != ManifestCommitPending {
+		t.Errorf("manifest_commit_status default = %q, want %q", manifestCommitStatus, ManifestCommitPending)
+	}
+
+	// New tables must be immediately usable.
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO manifest_generations (event_id, manifest_type, generation, segment_ids, published_at) VALUES ('event-1', 'live', 1, '[]', ?)`, now); err != nil {
+		t.Errorf("insert into new manifest_generations table: %v", err)
+	}
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO vod_finalizations (event_id, status, updated_at) VALUES ('event-1', 'pending', ?)`, now); err != nil {
+		t.Errorf("insert into new vod_finalizations table: %v", err)
+	}
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO youtube_relays (event_id, session_id, status, updated_at) VALUES ('event-1', 'sess-1', 'starting', ?)`, now); err != nil {
+		t.Errorf("insert into new youtube_relays table: %v", err)
+	}
+
+	// Re-applying the full migration set again (as a second process
+	// restart would) must remain a no-op.
+	if err := applyMigrations(ctx, db, embeddedMigrations); err != nil {
+		t.Fatalf("re-applying migrations must be idempotent: %v", err)
 	}
 }

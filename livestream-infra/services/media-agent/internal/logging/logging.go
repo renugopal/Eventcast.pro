@@ -4,6 +4,7 @@
 package logging
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -62,4 +63,16 @@ func (s Secret) String() string {
 // must never pass the result to a logger or error message.
 func (s Secret) Reveal() string {
 	return string(s)
+}
+
+// MarshalJSON redacts Secret on the way out of encoding/json, which
+// (unlike fmt's %v/%s and slog) does not consult String() or
+// LogValue(). Secret is only ever unmarshaled *from* a trusted local
+// configuration source (e.g. an assignment seed file) in this codebase
+// and is never intentionally marshaled back out; this exists purely as
+// a fail-safe so an accidental json.Marshal of a struct containing a
+// Secret field (for example in a future debug/log helper) cannot leak
+// it.
+func (s Secret) MarshalJSON() ([]byte, error) {
+	return json.Marshal(RedactedPlaceholder)
 }
