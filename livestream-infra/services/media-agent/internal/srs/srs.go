@@ -19,9 +19,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/logging"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/relay"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/spool"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/store"
 )
+
+// rtmpApp is the fixed RTMP application name every publisher uses
+// (rtmp://host/live/<ingest_id>?token=<secret>), matching the pinned
+// srs.conf and every existing integration test script's STREAM_APP
+// convention. It is also the app name the YouTube relay pulls the same
+// session back from, on this node's own SRS instance.
+const rtmpApp = "live"
 
 // MaxCallbackBodyBytes bounds the size of an accepted SRS callback
 // request body. SRS callback payloads are small JSON objects; this is a
@@ -91,6 +100,21 @@ type Handlers struct {
 	HLSRoot   string
 	SpoolRoot string
 	Logger    *slog.Logger
+
+	// Relay is optional: nil disables YouTube relay entirely regardless
+	// of any assignment's YouTubeEnabled flag, matching every other
+	// not-yet-configured optional subsystem in this service.
+	Relay                    *relay.Supervisor
+	YouTubeSourceRTMPBaseURL string
+	// YouTubeStreamKeys resolves an event id to its raw YouTube stream
+	// key, built once at startup directly from the parsed assignment
+	// seed file (internal/store.Assignment.YouTubeStreamKey is
+	// deliberately never persisted to or read back from SQLite - see
+	// migrations/0002_media_delivery.sql). A nil or missing entry is
+	// treated as "no key available," which Target.destinationURL turns
+	// into a non-functional (but harmless) destination rather than a
+	// panic.
+	YouTubeStreamKeys map[string]logging.Secret
 }
 
 // handler adapts one named callback action to net/http, sharing request
@@ -212,7 +236,33 @@ func (h *Handlers) handlePublish(ctx context.Context, p Payload) (bool, string) 
 		slog.String("playback_id", assignment.PlaybackID),
 		slog.String("session_id", session.ID),
 	)
+
+	h.maybeStartRelay(assignment, session, ingestID)
 	return false, ""
+}
+
+// maybeStartRelay starts YouTube relay for the new session if both this
+// Media Agent has relay supervision configured and the assignment
+// authorizes it. Per ADR-012, a relay start failure is logged and
+// otherwise ignored: it must never affect the on_publish accept
+// decision, which has already been made by the time this runs. It uses
+// context.Background(), not the callback's request context, since the
+// relay supervisor's goroutine must outlive this HTTP request.
+func (h *Handlers) maybeStartRelay(assignment store.Assignment, session store.Session, ingestID string) {
+	if h.Relay == nil || !assignment.YouTubeEnabled {
+		return
+	}
+	target := relay.Target{
+		EventID:            assignment.EventID,
+		SessionID:          session.ID,
+		SourceURL:          strings.TrimSuffix(h.YouTubeSourceRTMPBaseURL, "/") + "/" + rtmpApp + "/" + ingestID,
+		DestinationBaseURL: assignment.YouTubeDestinationBaseURL,
+		StreamKey:          h.YouTubeStreamKeys[assignment.EventID],
+	}
+	if err := h.Relay.Start(context.Background(), target); err != nil {
+		h.Logger.Error("on_publish: failed to start youtube relay",
+			slog.String("event_id", assignment.EventID), slog.String("session_id", session.ID), slog.String("error", err.Error()))
+	}
 }
 
 // handleHLS validates the callback's file path against the configured
@@ -358,6 +408,10 @@ func (h *Handlers) handleUnpublish(ctx context.Context, p Payload) (bool, string
 		slog.String("session_id", session.ID),
 		slog.String("session_status", "disconnected"),
 	)
+
+	if h.Relay != nil {
+		h.Relay.Stop(session.ID)
+	}
 	return false, ""
 }
 

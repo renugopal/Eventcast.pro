@@ -184,6 +184,51 @@ func (s *Store) ReconcileStaleActive(ctx context.Context, staleBefore, now time.
 	return int(n), nil
 }
 
+// ListSessionsByEvent returns every session ever created for eventID,
+// in start order, regardless of status. VOD finalization uses this to
+// confirm no session is still starting/active before it will finalize.
+func (s *Store) ListSessionsByEvent(ctx context.Context, eventID string) ([]Session, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, event_id, ingest_id, status, started_at, disconnected_at, end_reason, last_activity_at, segment_count
+		FROM ingest_sessions WHERE event_id = ? ORDER BY started_at`, eventID)
+	if err != nil {
+		return nil, fmt.Errorf("store: list sessions for event %s: %w", eventID, err)
+	}
+	defer rows.Close()
+
+	var sessions []Session
+	for rows.Next() {
+		var sess Session
+		var startedAt string
+		var disconnectedAt sql.NullString
+		var lastActivityAt string
+		if err := rows.Scan(&sess.ID, &sess.EventID, &sess.IngestID, &sess.Status, &startedAt,
+			&disconnectedAt, &sess.EndReason, &lastActivityAt, &sess.SegmentCount); err != nil {
+			return nil, fmt.Errorf("store: scan session: %w", err)
+		}
+		sess.StartedAt, err = time.Parse(time.RFC3339Nano, startedAt)
+		if err != nil {
+			return nil, fmt.Errorf("store: parse started_at: %w", err)
+		}
+		sess.LastActivityAt, err = time.Parse(time.RFC3339Nano, lastActivityAt)
+		if err != nil {
+			return nil, fmt.Errorf("store: parse last_activity_at: %w", err)
+		}
+		if disconnectedAt.Valid {
+			t, err := time.Parse(time.RFC3339Nano, disconnectedAt.String)
+			if err != nil {
+				return nil, fmt.Errorf("store: parse disconnected_at: %w", err)
+			}
+			sess.DisconnectedAt = sql.NullTime{Time: t, Valid: true}
+		}
+		sessions = append(sessions, sess)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: iterate sessions: %w", err)
+	}
+	return sessions, nil
+}
+
 // isUniqueConstraintErr reports whether err came from a violated SQLite
 // UNIQUE constraint or index. SQLite's error text is stable across
 // drivers (it originates from the SQLite engine itself), so a substring

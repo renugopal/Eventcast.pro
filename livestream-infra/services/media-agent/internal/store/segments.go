@@ -8,7 +8,10 @@ import (
 	"time"
 )
 
-// Segment job statuses.
+// Segment job statuses. These describe local durable *capture* only -
+// whether the completed SRS file is safely protected in the spool -
+// and are independent of UploadStatus, which describes remote R2
+// persistence.
 const (
 	SegmentCapturing = "capturing" // claimed; durable capture in progress
 	SegmentQueued    = "queued"    // durably captured, awaiting upload (later phase)
@@ -16,10 +19,29 @@ const (
 	SegmentFailed    = "failed"    // durable capture could not complete
 )
 
+// Upload statuses (03_DATA_MODEL_AND_API_CONTRACTS.md "segment_jobs ...
+// upload status"). A segment only becomes eligible for upload once
+// Status == SegmentQueued; UploadStatus tracks its progress from there.
+const (
+	UploadPending    = "pending"     // not yet uploaded, or a retryable attempt failed and will be retried
+	UploadLeased     = "leased"      // an upload worker currently owns this segment
+	UploadConfirmed  = "confirmed"   // R2_CONFIRMED: PUT succeeded and a HEAD check verified key, size, and metadata
+	UploadDeadLetter = "dead_letter" // a terminal (non-retryable) failure; requires operator intervention
+)
+
+// Manifest commit statuses.
+const (
+	ManifestCommitPending   = "pending"
+	ManifestCommitCommitted = "committed"
+)
+
 // SegmentJob is one row of the durable segment queue: a completed SRS
 // HLS segment the agent has (or is attempting to have) durably captured
-// into its protected spool. See 03_DATA_MODEL_AND_API_CONTRACTS.md
-// "segment_jobs MUST enforce a unique idempotency key."
+// into its protected spool, plus its independent upload/manifest
+// progress. See 03_DATA_MODEL_AND_API_CONTRACTS.md "segment_jobs MUST
+// enforce a unique idempotency key" and "Each segment job MUST track
+// ... R2 object key, attempt count, last error, next attempt time,
+// upload status, and manifest-commit status."
 type SegmentJob struct {
 	ID                int64
 	IdempotencyKey    string
@@ -36,7 +58,24 @@ type SegmentJob struct {
 	LastError         string
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
+
+	R2Key                string
+	UploadStatus         string
+	UploadAttemptCount   int
+	UploadLastError      string
+	UploadNextAttemptAt  time.Time // zero value: eligible immediately
+	UploadLeaseOwner     string
+	UploadLeaseExpiresAt time.Time // zero value: no active lease
+	UploadedAt           time.Time // zero value: not yet confirmed
+	ManifestCommitStatus string
+	LocalDeletedAt       time.Time // zero value: local spool copy still present
 }
+
+const segmentJobColumns = `
+	id, idempotency_key, event_id, session_id, local_file_identity, seq_no, duration_seconds,
+	spool_path, byte_size, sha256, status, attempt_count, last_error, created_at, updated_at,
+	r2_key, upload_status, upload_attempt_count, upload_last_error, upload_next_attempt_at,
+	upload_lease_owner, upload_lease_expires_at, uploaded_at, manifest_commit_status, local_deleted_at`
 
 // ClaimSegmentInput identifies one completed SRS segment.
 type ClaimSegmentInput struct {
@@ -71,8 +110,7 @@ func (s *Store) ClaimSegment(ctx context.Context, in ClaimSegmentInput) (job Seg
 		ON CONFLICT(idempotency_key) DO UPDATE SET
 			attempt_count = segment_jobs.attempt_count + 1,
 			updated_at = excluded.updated_at
-		RETURNING id, idempotency_key, event_id, session_id, local_file_identity, seq_no, duration_seconds,
-		          spool_path, byte_size, sha256, status, attempt_count, last_error, created_at, updated_at`,
+		RETURNING `+segmentJobColumns,
 		in.IdempotencyKey, in.EventID, in.SessionID, in.LocalFileIdentity, in.SeqNo, in.DurationSeconds,
 		SegmentCapturing, now, now,
 	)
@@ -84,12 +122,23 @@ func (s *Store) ClaimSegment(ctx context.Context, in ClaimSegmentInput) (job Seg
 	return job, job.AttemptCount == 1, nil
 }
 
-func scanSegmentJob(row *sql.Row) (SegmentJob, error) {
+// rowScanner is satisfied by both *sql.Row and *sql.Rows, letting
+// scanSegmentJob serve both a single-row RETURNING/QueryRow call and a
+// row of a multi-row Query loop.
+type rowScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanSegmentJob(row rowScanner) (SegmentJob, error) {
 	var j SegmentJob
 	var createdAt, updatedAt string
+	var uploadNextAttemptAt, uploadLeaseExpiresAt, uploadedAt, localDeletedAt string
 	if err := row.Scan(&j.ID, &j.IdempotencyKey, &j.EventID, &j.SessionID, &j.LocalFileIdentity, &j.SeqNo,
 		&j.DurationSeconds, &j.SpoolPath, &j.ByteSize, &j.SHA256, &j.Status, &j.AttemptCount, &j.LastError,
-		&createdAt, &updatedAt); err != nil {
+		&createdAt, &updatedAt,
+		&j.R2Key, &j.UploadStatus, &j.UploadAttemptCount, &j.UploadLastError, &uploadNextAttemptAt,
+		&j.UploadLeaseOwner, &uploadLeaseExpiresAt, &uploadedAt, &j.ManifestCommitStatus, &localDeletedAt,
+	); err != nil {
 		return SegmentJob{}, err
 	}
 	var err error
@@ -101,7 +150,38 @@ func scanSegmentJob(row *sql.Row) (SegmentJob, error) {
 	if err != nil {
 		return SegmentJob{}, fmt.Errorf("parse updated_at: %w", err)
 	}
+	if j.UploadNextAttemptAt, err = parseOptionalTime(uploadNextAttemptAt); err != nil {
+		return SegmentJob{}, fmt.Errorf("parse upload_next_attempt_at: %w", err)
+	}
+	if j.UploadLeaseExpiresAt, err = parseOptionalTime(uploadLeaseExpiresAt); err != nil {
+		return SegmentJob{}, fmt.Errorf("parse upload_lease_expires_at: %w", err)
+	}
+	if j.UploadedAt, err = parseOptionalTime(uploadedAt); err != nil {
+		return SegmentJob{}, fmt.Errorf("parse uploaded_at: %w", err)
+	}
+	if j.LocalDeletedAt, err = parseOptionalTime(localDeletedAt); err != nil {
+		return SegmentJob{}, fmt.Errorf("parse local_deleted_at: %w", err)
+	}
 	return j, nil
+}
+
+// parseOptionalTime parses an RFC3339Nano timestamp, treating an empty
+// string (this schema's convention for "not set") as the zero time
+// rather than an error.
+func parseOptionalTime(s string) (time.Time, error) {
+	if s == "" {
+		return time.Time{}, nil
+	}
+	return time.Parse(time.RFC3339Nano, s)
+}
+
+// formatOptionalTime is the inverse of parseOptionalTime: the zero time
+// becomes the empty string, otherwise RFC3339Nano in UTC.
+func formatOptionalTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.UTC().Format(time.RFC3339Nano)
 }
 
 // FinalizeSegment records a successful durable capture: the file is
@@ -136,10 +216,7 @@ func (s *Store) FailSegment(ctx context.Context, id int64, lastError string, now
 // outcome of a capture owned by a different, concurrently-arrived
 // duplicate callback.
 func (s *Store) GetSegmentByID(ctx context.Context, id int64) (SegmentJob, error) {
-	row := s.db.QueryRowContext(ctx, `
-		SELECT id, idempotency_key, event_id, session_id, local_file_identity, seq_no, duration_seconds,
-		       spool_path, byte_size, sha256, status, attempt_count, last_error, created_at, updated_at
-		FROM segment_jobs WHERE id = ?`, id)
+	row := s.db.QueryRowContext(ctx, `SELECT `+segmentJobColumns+` FROM segment_jobs WHERE id = ?`, id)
 	job, err := scanSegmentJob(row)
 	if err != nil {
 		return SegmentJob{}, fmt.Errorf("store: get segment %d: %w", id, err)
@@ -151,10 +228,7 @@ func (s *Store) GetSegmentByID(ctx context.Context, id int64) (SegmentJob, error
 // used by reconciliation to check whether an orphan spool file already
 // has a record before reconstructing one.
 func (s *Store) GetSegmentByIdempotencyKey(ctx context.Context, key string) (SegmentJob, bool, error) {
-	row := s.db.QueryRowContext(ctx, `
-		SELECT id, idempotency_key, event_id, session_id, local_file_identity, seq_no, duration_seconds,
-		       spool_path, byte_size, sha256, status, attempt_count, last_error, created_at, updated_at
-		FROM segment_jobs WHERE idempotency_key = ?`, key)
+	row := s.db.QueryRowContext(ctx, `SELECT `+segmentJobColumns+` FROM segment_jobs WHERE idempotency_key = ?`, key)
 	job, err := scanSegmentJob(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return SegmentJob{}, false, nil
@@ -209,9 +283,7 @@ func (s *Store) MarkSegmentMissing(ctx context.Context, id int64, now time.Time)
 // with this reconciliation pass and are left alone.
 func (s *Store) ListStuckCapturing(ctx context.Context, olderThan time.Time) ([]SegmentJob, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, idempotency_key, event_id, session_id, local_file_identity, seq_no, duration_seconds,
-		       spool_path, byte_size, sha256, status, attempt_count, last_error, created_at, updated_at
-		FROM segment_jobs WHERE status = ? AND updated_at < ? ORDER BY id`,
+		SELECT `+segmentJobColumns+` FROM segment_jobs WHERE status = ? AND updated_at < ? ORDER BY id`,
 		SegmentCapturing, olderThan.UTC().Format(time.RFC3339Nano))
 	if err != nil {
 		return nil, fmt.Errorf("store: list stuck capturing segments: %w", err)
@@ -224,9 +296,7 @@ func (s *Store) ListStuckCapturing(ctx context.Context, olderThan time.Time) ([]
 // status, ordered by id, for reconciliation to check file presence.
 func (s *Store) ListSegmentsByStatus(ctx context.Context, status string) ([]SegmentJob, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, idempotency_key, event_id, session_id, local_file_identity, seq_no, duration_seconds,
-		       spool_path, byte_size, sha256, status, attempt_count, last_error, created_at, updated_at
-		FROM segment_jobs WHERE status = ? ORDER BY id`, status)
+		SELECT `+segmentJobColumns+` FROM segment_jobs WHERE status = ? ORDER BY id`, status)
 	if err != nil {
 		return nil, fmt.Errorf("store: list segments by status %s: %w", status, err)
 	}
@@ -237,21 +307,9 @@ func (s *Store) ListSegmentsByStatus(ctx context.Context, status string) ([]Segm
 func scanSegmentJobRows(rows *sql.Rows) ([]SegmentJob, error) {
 	var jobs []SegmentJob
 	for rows.Next() {
-		var j SegmentJob
-		var createdAt, updatedAt string
-		if err := rows.Scan(&j.ID, &j.IdempotencyKey, &j.EventID, &j.SessionID, &j.LocalFileIdentity, &j.SeqNo,
-			&j.DurationSeconds, &j.SpoolPath, &j.ByteSize, &j.SHA256, &j.Status, &j.AttemptCount, &j.LastError,
-			&createdAt, &updatedAt); err != nil {
+		j, err := scanSegmentJob(rows)
+		if err != nil {
 			return nil, fmt.Errorf("store: scan segment: %w", err)
-		}
-		var err error
-		j.CreatedAt, err = time.Parse(time.RFC3339Nano, createdAt)
-		if err != nil {
-			return nil, fmt.Errorf("store: parse created_at: %w", err)
-		}
-		j.UpdatedAt, err = time.Parse(time.RFC3339Nano, updatedAt)
-		if err != nil {
-			return nil, fmt.Errorf("store: parse updated_at: %w", err)
 		}
 		jobs = append(jobs, j)
 	}

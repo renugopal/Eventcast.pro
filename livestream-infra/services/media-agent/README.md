@@ -6,7 +6,7 @@ Home of the EventCast Media Agent, the Go service that owns durability and orche
 
 ## Status
 
-v1.2 "Ingest control and durability": the Media Agent now authorizes publishers against a durable local SQLite assignment cache, tracks stream-session lifecycle (starting/active/disconnected, conflicting-publisher rejection, reconnect-creates-a-new-session), durably captures completed SRS HLS segments into a protected spool (hard-link, with an atomic-copy-plus-fsync fallback), records an idempotent segment queue, and runs startup and periodic reconciliation to recover safely across process or container restart. It still does not implement R2/Wasabi upload, manifest generation, or YouTube relay — see "Expected responsibilities" below for what remains.
+v1.2 "Media Delivery, DVR/VOD, and Relay": building on ingest control and durability, the Media Agent now durably uploads captured segments to Cloudflare R2 (or any S3-compatible endpoint), maintains the authoritative live/DVR manifest from confirmed uploads only, finalizes VOD playlists on request, retains and safely cleans up local spool copies, and supervises an optional per-session YouTube relay isolated from the primary pipeline. It still does not implement Wasabi archival or continuous control-plane assignment sync — see "Expected responsibilities" below for what remains.
 
 ## Go toolchain
 
@@ -34,8 +34,30 @@ Only these environment variables are read:
 | `EVENTCAST_RECONCILE_INTERVAL` | no | `30s` | Periodic reconciliation interval (positive Go duration). |
 | `EVENTCAST_SESSION_STALE_TIMEOUT` | no | `180s` | Max time an active session may lack segment activity before reconciliation marks it disconnected. |
 | `EVENTCAST_DB_BUSY_TIMEOUT` | no | `5s` | SQLite `busy_timeout` applied to every connection. |
+| `EVENTCAST_R2_ENDPOINT` | only if `EVENTCAST_R2_BUCKET` is set | *(empty)* | S3-compatible endpoint URL (`http://` or `https://`), e.g. an R2 account endpoint or a local MinIO/test endpoint. |
+| `EVENTCAST_R2_REGION` | no | `auto` | Signing region; R2 uses `auto`. |
+| `EVENTCAST_R2_BUCKET` | no | *(empty, subsystem disabled)* | Bucket name. Leaving this empty disables the entire upload/manifest/VOD/retention subsystem, logging a startup warning; setting it requires endpoint/access-key/secret together. |
+| `EVENTCAST_R2_ACCESS_KEY_ID` | only if bucket is set | — | Least-privilege access key. |
+| `EVENTCAST_R2_SECRET_ACCESS_KEY` | only if bucket is set | — | Secret key; never logged (`internal/logging.Secret`). |
+| `EVENTCAST_R2_OBJECT_PREFIX` | no | *(empty)* | Optional prefix prepended to every object key. |
+| `EVENTCAST_R2_PUBLIC_BASE_URL` | no | *(empty, relative keys)* | Public delivery base URL used to build absolute manifest segment URLs. |
+| `EVENTCAST_R2_UPLOAD_CONCURRENCY` | no | `4` | Number of concurrent upload-worker goroutines. |
+| `EVENTCAST_R2_RETRY_BASE_DELAY` / `EVENTCAST_R2_RETRY_MAX_DELAY` | no | `500ms` / `30s` | Exponential-backoff-with-jitter bounds for retryable upload failures. |
+| `EVENTCAST_R2_REQUEST_TIMEOUT` | no | `20s` | Per-segment upload attempt timeout. |
+| `EVENTCAST_R2_UPLOAD_LEASE_DURATION` | no | `30s` | How long a claimed-but-unfinished upload's lease is honored before another worker may reclaim it. |
+| `EVENTCAST_R2_INSECURE_SKIP_VERIFY` | no | `false` | Skip TLS verification; production must never set this. Only for local test endpoints. |
+| `EVENTCAST_DVR_WINDOW` | no | `900s` | Live manifest retention window (ADR-004). Production must not change this without a new decision record; overridable only for isolated tests. |
+| `EVENTCAST_LOCAL_RETENTION_DELAY` | no | `24h` | Delay after VOD finalization before a confirmed segment's local spool copy becomes eligible for deletion. |
+| `EVENTCAST_MANIFEST_REBUILD_INTERVAL` | no | `5s` | Periodic backstop live-manifest rebuild sweep interval. |
+| `EVENTCAST_CLEANUP_INTERVAL` | no | `15m` | Retention worker sweep interval. |
+| `EVENTCAST_YOUTUBE_FFMPEG_PATH` | no | `ffmpeg` | Path to the ffmpeg binary the relay supervisor spawns (the Docker image bundles a static build at `/usr/local/bin/ffmpeg`). |
+| `EVENTCAST_YOUTUBE_RESTART_MAX_ATTEMPTS` | no | `5` | Consecutive relay restart attempts before giving up and marking the session's relay failed. |
+| `EVENTCAST_YOUTUBE_RESTART_BACKOFF_BASE` / `_MAX` | no | `2s` / `60s` | Exponential backoff bounds between relay restart attempts. |
+| `EVENTCAST_YOUTUBE_SOURCE_RTMP_BASE_URL` | no | `rtmp://127.0.0.1:1935` | This node's own SRS RTMP endpoint the relay pulls from (never a public address). |
 
 Configuration is validated eagerly at startup (`internal/config`); invalid configuration causes the process to exit non-zero with a structured JSON error log and no secret values echoed. Filesystem paths must be absolute, clean (no `.`/`..`/duplicate separators), and non-overlapping; `EVENTCAST_DB_PATH` may not live inside either durable-media root. See `.env.example`.
+
+YouTube relay authorization (enabled flag, destination base URL, and stream key) is per-event data resolved from the same assignment seed mechanism as stream tokens, not a separate environment variable - see "YouTube relay" below.
 
 ## Local validation (Docker only)
 
@@ -92,14 +114,26 @@ Read before implementing anything here, in this order:
 - Startup and periodic reconciliation (`internal/reconcile`): discovers durable spool files with no queue row, resolves segment claims abandoned by a crashed process, reports (never deletes) queue rows whose file is missing, marks sessions stale after inactivity so their event can accept a new publisher, and removes only this service's own exactly-named temp files past a safety age
 - `GET /readyz` (`internal/health`): reports database, spool-writable, and assignment-cache readiness as booleans only, alongside the unchanged, dependency-free `GET /healthz`
 
+## Implemented (v1.2 media delivery, DVR/VOD, and relay)
+
+- Durable upload worker (`internal/upload`): a pool of goroutines atomically claims pending segment jobs from the existing SQLite queue (lease-based, with restart-safe expiry reclaim), verifies the local file is stable and matches its recorded SHA-256, checks for an already-uploaded object before ever writing (HEAD-before-PUT), uploads via the S3-compatible API with `video/MP2T` content type and SHA-256/event/session/sequence/duration metadata, and confirms success only after a HEAD re-check - never before. Retryable failures (network, timeout, provider 5xx) get exponential backoff with jitter and are never dead-lettered merely for exceeding an attempt count; terminal failures (auth, missing/corrupted local file, a conflicting object at the deterministic key) are dead-lettered immediately with a stable error code
+- R2 object storage client (`internal/upload.R2Client`): a thin AWS SDK v2 S3-compatible wrapper behind an `ObjectStore` interface, configured for endpoint/region/bucket/credentials/concurrency/retry timing/request timeouts/object prefix/TLS behavior, exercised in tests against both an in-memory fake and a real pinned MinIO container
+- Deterministic object keys (`internal/upload.SegmentKey` etc.): reuse the same collision-safe `local_file_identity` the spool layer already established, so a retried or duplicate-worker upload always computes the identical key
+- Live/DVR manifest (`internal/upload.ManifestManager`): rebuilds the public playlist from `UploadConfirmed` segments only, windows to the configured DVR duration, inserts `EXT-X-DISCONTINUITY` at session boundaries, publishes via a single atomic `PutObject` (R2/S3's own full-object-replacement semantics), skips redundant republishes for an unchanged segment set, and is driven both by an immediate per-confirmation trigger and a durable-state-driven periodic backstop sweep that tolerates delayed/out-of-order completion and process restart
+- VOD finalization (`internal/upload.VODFinalizer`, `POST /internal/events/{event_id}/finalize`): builds the full `EXT-X-ENDLIST` playlist from all confirmed segments once every session has stopped and every segment has resolved past capture/upload, validates every referenced object is actually present, and records a durable, idempotent, restart-safe finalization state - never deleting uploaded media
+- Retention and cleanup (`internal/upload.RetentionWorker`): deletes a local spool copy only once it is R2-confirmed, referenced by a finalized VOD, and past the configured local safety delay, bounded to paths resolving inside the configured spool root; never touches R2 objects (left to the documented R2 lifecycle policy)
+- YouTube relay (`internal/relay.Supervisor`): per-session, ffmpeg-based (`-c copy`, no shell interpolation), started only when the resolved assignment authorizes it, with bounded exponential-backoff restarts, a redacted stderr/log surface (the destination URL and stream key never appear in logs), and complete isolation from HLS/spool/upload/manifest/VOD - a relay failure only ever updates that session's own relay record
+- Schema migration `0002_media_delivery.sql`: adds upload/manifest-commit tracking to `segment_jobs`, plus `manifest_generations`, `vod_finalizations`, and `youtube_relays`, transactional and restart-safe from the v1.2 ingest-control schema
+
+### YouTube relay authorization
+
+`internal/controlplane` (continuous assignment sync) does not exist yet, so - matching the existing stream-token pattern - YouTube relay authorization is resolved from the same JSON seed file `EVENTCAST_ASSIGNMENT_SEED_PATH` points at, with each assignment entry optionally carrying `youtube_enabled`, `youtube_destination_base_url`, and `youtube_stream_key`. Only the first two are ever persisted to SQLite (`cached_event_assignments.youtube_enabled`/`youtube_destination_base_url`); the raw stream key lives only in an in-memory map built once at startup and is never written to the database, logged, or exposed through `GetAssignment`/`GetAssignmentByEventID`. Production must supply this through the approved secret mechanism once `internal/controlplane` exists.
+
 ## Expected responsibilities (not yet implemented)
 
-- Ordered upload to Cloudflare R2 with SHA-256 verification
-- Live and VOD manifest generation (single manifest writer per event)
-- YouTube relay supervision (independent failure domain)
 - Wasabi archive job and restore-to-R2
 - Prometheus/OpenMetrics endpoint
-- Continuous control-plane assignment synchronization (`internal/controlplane`); the local assignment cache is currently seeded only from a local JSON file
+- Continuous control-plane assignment synchronization (`internal/controlplane`); the local assignment cache (including YouTube relay authorization) is currently seeded only from a local JSON file
 
 ## Non-negotiable rules
 
@@ -117,9 +151,9 @@ services/media-agent/
   internal/store/         SQLite WAL store: assignment cache, sessions, segment queue [implemented]
   internal/spool/         durable local capture (hard link / atomic copy)    [implemented]
   internal/reconcile/     startup and periodic reconciliation                [implemented]
-  internal/upload/        R2 upload + manifest publication                   [not yet created]
+  internal/upload/        R2 upload, live/DVR/VOD manifests, retention       [implemented]
+  internal/relay/         YouTube relay supervision                          [implemented]
   internal/archive/       Wasabi archive + restore                          [not yet created]
-  internal/relay/         YouTube relay supervision                          [not yet created]
   internal/controlplane/  outbound API client                                [not yet created]
   internal/metrics/       Prometheus/OpenMetrics                             [not yet created]
   go.mod
