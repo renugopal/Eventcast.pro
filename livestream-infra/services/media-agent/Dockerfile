@@ -1,9 +1,13 @@
-# EventCast Media Agent image (v1.2 Phase 1 baseline).
+# EventCast Media Agent image (v1.2 ingest control and durability).
 #
 # Both stages are pinned by exact tag AND immutable digest per
 # 04_TECH_STACK_AND_VERSION_POLICY.md ("Every production dependency
 # must be pinned through ... exact image tag plus digest"). Do not
 # replace either reference with a floating tag.
+#
+# internal/store uses modernc.org/sqlite, a pure-Go SQLite driver with
+# no CGO dependency, so CGO_ENABLED=0 below and the CGO-free distroless
+# runtime stage remain valid unchanged.
 
 # Builder: official pinned Go 1.26.4 toolchain image.
 FROM golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609 AS builder

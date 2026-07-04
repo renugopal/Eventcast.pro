@@ -77,6 +77,23 @@ FFMPEG_IMAGE="mwader/static-ffmpeg@sha256:df8a363ed7089ab0779c4f019b935a0e428c0b
 
 STREAM_APP="live"
 
+# Stream identity and credentials, generated up front (before the stack
+# starts) because they must be seeded into the assignment cache the
+# Media Agent imports at startup - v1.2 "ingest control and durability"
+# requires on_publish to authorize against a cached assignment, so an
+# arbitrary stream name/token (as Phase 0-2 used) is no longer accepted.
+# The reconnect step (6) deliberately reuses FUNCTIONAL_TOKEN rather
+# than generating a second one: a real encoder reconnect presents the
+# same configured stream key, not a new credential.
+FUNCTIONAL_STREAM="functional-${RUN_ID}"
+FUNCTIONAL_EVENT_ID="event-functional-${RUN_ID}"
+FUNCTIONAL_PLAYBACK_ID="pb-functional-${RUN_ID}"
+FUNCTIONAL_TOKEN="$(head -c16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+SOAK_STREAM="soak-${RUN_ID}"
+SOAK_EVENT_ID="event-soak-${RUN_ID}"
+SOAK_PLAYBACK_ID="pb-soak-${RUN_ID}"
+SOAK_TOKEN="$(head -c16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+
 HEALTH_TIMEOUT_SECS=60
 RESTART_HEALTH_TIMEOUT_SECS=60
 HEALTH_POLL_INTERVAL_SECS=2
@@ -212,8 +229,19 @@ verify_segment_codecs() {
 }
 
 # direct_contract_checks MA_PORT - proves the deployed container's HTTP
-# behavior directly (method handling, malformed input, success shape),
+# behavior directly (method handling, malformed input, response shape),
 # independent of and in addition to the real SRS-triggered path.
+#
+# The same well-formed-but-unauthenticated body is posted to all three
+# routes. Each route's *correct* outcome now differs, because v1.2
+# "ingest control and durability" added real business logic: on-publish
+# must reject an unknown/unseeded stream (ASSIGNMENT_MISMATCH); on-hls
+# must reject a stream with no session on record (no prior accepted
+# publish in this direct-check flow); on-unpublish for an unknown
+# stream is a documented idempotent no-op, so it alone still returns
+# {"code":0}. All three still return HTTP 200 either way, per the SRS
+# callback contract (rejection is a non-zero "code", not an HTTP error
+# status).
 direct_contract_checks() {
   local port="$1"
   local base="http://127.0.0.1:${port}"
@@ -225,6 +253,9 @@ direct_contract_checks() {
   code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "${base}/healthz")"
   [[ "$code" == "405" ]] || fail "direct POST /healthz = ${code}, want 405"
 
+  code="$(curl -s -o /dev/null -w '%{http_code}' "${base}/readyz")"
+  [[ "$code" == "200" ]] || fail "direct GET /readyz = ${code}, want 200"
+
   for route in on-publish on-hls on-unpublish; do
     code="$(curl -s -o /dev/null -w '%{http_code}' "${base}/internal/srs/${route}")"
     [[ "$code" == "405" ]] || fail "direct GET /internal/srs/${route} = ${code}, want 405"
@@ -232,12 +263,19 @@ direct_contract_checks() {
     code="$(curl -s -o /dev/null -w '%{http_code}' -X POST -d '{"action":' "${base}/internal/srs/${route}")"
     [[ "$code" == "400" ]] || fail "direct malformed POST /internal/srs/${route} = ${code}, want 400"
 
-    local body resp
+    local body resp status want_code
     body='{"action":"on_publish","stream":"direct-contract-check","app":"live"}'
     resp="$(curl -s -w '\n%{http_code}' -X POST -d "$body" "${base}/internal/srs/${route}")"
-    code="$(echo "$resp" | tail -1)"
-    [[ "$code" == "200" ]] || fail "direct valid POST /internal/srs/${route} = ${code}, want 200"
-    echo "$resp" | head -1 | grep -q '"code":0' || fail "direct valid POST /internal/srs/${route} did not return {\"code\":0}"
+    status="$(echo "$resp" | tail -1)"
+    [[ "$status" == "200" ]] || fail "direct valid POST /internal/srs/${route} = ${status}, want 200"
+
+    if [[ "$route" == "on-unpublish" ]]; then
+      want_code='"code":0'
+    else
+      want_code='"code":1'
+    fi
+    echo "$resp" | head -1 | grep -q "$want_code" \
+      || fail "direct valid POST /internal/srs/${route} response did not contain ${want_code} (got: $(echo "$resp" | head -1))"
   done
 }
 
@@ -280,12 +318,51 @@ trap cleanup EXIT INT TERM
 # ---- 0. prepare isolated temp directory and config ----------------------
 
 log "0) preparing isolated run ${RUN_ID}"
-mkdir -p "${TMP_BASE}/srs-output" "${TMP_BASE}/spool"
+mkdir -p "${TMP_BASE}/srs-output" "${TMP_BASE}/spool" "${TMP_BASE}/db" "${TMP_BASE}/config"
+# media-agent runs as the image's non-root "nonroot" user (not the SSH
+# user that just created these directories), so its two writable mounts
+# need permissive host-side permissions. srs-output is untouched here:
+# the srs image runs as root, which already has write access regardless.
+chmod 0777 "${TMP_BASE}/spool" "${TMP_BASE}/db"
 cp "$SRS_CONF_SRC" "${TMP_BASE}/srs.conf"
 
 MA_HTTP_PORT="$(find_free_loopback_port 18085)"
 SRS_RTMP_PORT="$(find_free_loopback_port 11935)"
 log "   media-agent HTTP -> 127.0.0.1:${MA_HTTP_PORT}, SRS RTMP -> 127.0.0.1:${SRS_RTMP_PORT} (loopback only, unique)"
+
+# Seed the assignment cache the Media Agent imports at startup: one
+# entry per stream this script publishes, with a wide publish window
+# (now -1h .. now +4h) comfortably covering the functional, reconnect,
+# and soak steps below. Only the SHA-256 hash of each token is written,
+# never the raw secret.
+WINDOW_START="$(date -u -d '-1 hour' +%Y-%m-%dT%H:%M:%SZ)"
+WINDOW_END="$(date -u -d '+4 hour' +%Y-%m-%dT%H:%M:%SZ)"
+FUNCTIONAL_TOKEN_HASH="$(printf '%s' "$FUNCTIONAL_TOKEN" | sha256sum | cut -d' ' -f1)"
+SOAK_TOKEN_HASH="$(printf '%s' "$SOAK_TOKEN" | sha256sum | cut -d' ' -f1)"
+cat > "${TMP_BASE}/config/assignments.json" <<EOF
+[
+  {
+    "ingest_id": "${FUNCTIONAL_STREAM}",
+    "event_id": "${FUNCTIONAL_EVENT_ID}",
+    "playback_id": "${FUNCTIONAL_PLAYBACK_ID}",
+    "stream_secret_hash": "${FUNCTIONAL_TOKEN_HASH}",
+    "enabled": true,
+    "publish_window_start_at": "${WINDOW_START}",
+    "publish_window_end_at": "${WINDOW_END}",
+    "config_version": "1"
+  },
+  {
+    "ingest_id": "${SOAK_STREAM}",
+    "event_id": "${SOAK_EVENT_ID}",
+    "playback_id": "${SOAK_PLAYBACK_ID}",
+    "stream_secret_hash": "${SOAK_TOKEN_HASH}",
+    "enabled": true,
+    "publish_window_start_at": "${WINDOW_START}",
+    "publish_window_end_at": "${WINDOW_END}",
+    "config_version": "1"
+  }
+]
+EOF
 
 cat > "${TMP_BASE}/.env" <<EOF
 EVENTCAST_NODE_ID=phase2-integration-${RUN_ID}
@@ -294,8 +371,11 @@ MEDIA_AGENT_IMAGE=${MEDIA_AGENT_IMAGE}
 MEDIA_AGENT_CONTAINER_NAME=${MEDIA_AGENT_CONTAINER}
 SRS_CONTAINER_NAME=${SRS_CONTAINER}
 SPOOL_HOST_DIR=${TMP_BASE}/spool
+DB_HOST_DIR=${TMP_BASE}/db
 SRS_CONF_HOST_PATH=${TMP_BASE}/srs.conf
 SRS_OUTPUT_HOST_DIR=${TMP_BASE}/srs-output
+ASSIGNMENT_SEED_HOST_DIR=${TMP_BASE}/config
+EVENTCAST_ASSIGNMENT_SEED_PATH=/var/lib/eventcast/config/assignments.json
 MEDIA_AGENT_HTTP_HOST_BIND=127.0.0.1:${MA_HTTP_PORT}
 SRS_RTMP_HOST_BIND=127.0.0.1:${SRS_RTMP_PORT}
 EOF
@@ -336,8 +416,6 @@ direct_contract_checks "$MA_HTTP_PORT"
 
 # ---- 5. functional publish: on_publish / on_hls / on_unpublish -----------
 
-FUNCTIONAL_STREAM="functional-${RUN_ID}"
-FUNCTIONAL_TOKEN="$(head -c16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 log "5) functional publish (${FUNCTIONAL_DURATION_SECS}s) for stream ${FUNCTIONAL_STREAM}"
 publish "$FUNCTIONAL_STREAM" "$FUNCTIONAL_TOKEN" "$FUNCTIONAL_DURATION_SECS" "$FUNCTIONAL_HARD_TIMEOUT_SECS"
 sleep 2
@@ -357,8 +435,10 @@ agent_logs | grep -qF "$FUNCTIONAL_TOKEN" && fail "secret token leaked into medi
 # ---- 6. reconnect: stop then republish the same stream --------------------
 
 log "6) reconnect check: republishing stream ${FUNCTIONAL_STREAM} after clean stop"
-RECONNECT_TOKEN="$(head -c16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
-publish "$FUNCTIONAL_STREAM" "$RECONNECT_TOKEN" "$RECONNECT_DURATION_SECS" "$RECONNECT_HARD_TIMEOUT_SECS"
+# Reuses FUNCTIONAL_TOKEN (not a new token): a real encoder reconnect
+# presents the same configured stream key, and the assignment cache
+# only has one credential seeded per ingest id.
+publish "$FUNCTIONAL_STREAM" "$FUNCTIONAL_TOKEN" "$RECONNECT_DURATION_SECS" "$RECONNECT_HARD_TIMEOUT_SECS"
 sleep 2
 
 wait_for_healthy 15 || fail "stack was not healthy immediately after the reconnect publish"
@@ -373,7 +453,7 @@ while (( reconnect_waited <= 10 )); do
 done
 (( reconnect_publish_count >= 2 )) || fail "expected at least 2 on_publish callbacks for ${FUNCTIONAL_STREAM} across the reconnect, got ${reconnect_publish_count}"
 verify_callback on_unpublish "$FUNCTIONAL_STREAM"
-agent_logs | grep -qF "$RECONNECT_TOKEN" && fail "reconnect secret token leaked into media-agent logs" || true
+agent_logs | grep -qF "$FUNCTIONAL_TOKEN" && fail "secret token leaked into media-agent logs after reconnect" || true
 log "   reconnect verified: stack remained healthy and produced a second on_publish/on_unpublish pair"
 
 if [[ "$QUICK" -eq 1 ]]; then
@@ -381,8 +461,6 @@ if [[ "$QUICK" -eq 1 ]]; then
 else
   # ---- 7. ~12 minute automated soak with playlist-advancement sampling ---
 
-  SOAK_STREAM="soak-${RUN_ID}"
-  SOAK_TOKEN="$(head -c16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
   log "7) starting ${SOAK_DURATION_SECS}s (~$((SOAK_DURATION_SECS/60)) min) automated soak for stream ${SOAK_STREAM}"
 
   publish "$SOAK_STREAM" "$SOAK_TOKEN" "$SOAK_DURATION_SECS" "$SOAK_HARD_TIMEOUT_SECS" &

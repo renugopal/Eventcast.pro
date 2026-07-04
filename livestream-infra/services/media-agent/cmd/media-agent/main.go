@@ -1,8 +1,9 @@
-// Command media-agent is the EventCast Media Agent entrypoint. This
-// baseline starts an HTTP server exposing GET /healthz and the SRS
-// callback routes (on-publish, on-hls, on-unpublish); the durable
-// spool, the SQLite queue, R2/Wasabi upload, and relay logic are
-// implemented in later phases.
+// Command media-agent is the EventCast Media Agent entrypoint. It
+// starts an HTTP server exposing GET /healthz, GET /readyz, and the SRS
+// callback routes (on-publish, on-hls, on-unpublish) backed by the
+// durable SQLite assignment cache, session lifecycle, and segment
+// queue, and runs startup plus periodic reconciliation. R2/Wasabi
+// upload and relay logic are implemented in later phases.
 package main
 
 import (
@@ -14,13 +15,16 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/config"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/health"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/logging"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/reconcile"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/srs"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/store"
 )
 
 const (
@@ -32,6 +36,13 @@ const (
 	// shutdownTimeout bounds graceful drain of in-flight requests after
 	// a termination signal.
 	shutdownTimeout = 10 * time.Second
+
+	// spoolWriteProbeName is the exact, service-owned marker file name
+	// the readiness spool-writable check creates and immediately
+	// removes. It intentionally matches no naming pattern relied on
+	// elsewhere so it can never be mistaken for durable media or a
+	// crash-recovery temp file.
+	spoolWriteProbeName = ".readyz-write-probe"
 )
 
 func main() {
@@ -79,11 +90,77 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		slog.String("version", health.Version),
 	)
 
+	if err := os.MkdirAll(cfg.SpoolRoot, 0o750); err != nil {
+		logger.Error("failed to prepare spool root", slog.String("error", err.Error()))
+		return fmt.Errorf("prepare spool root: %w", err)
+	}
+
+	st, err := store.Open(ctx, cfg.DBPath, cfg.DBBusyTimeout)
+	if err != nil {
+		logger.Error("failed to open durable database", slog.String("error", err.Error()))
+		return fmt.Errorf("open store: %w", err)
+	}
+	defer st.Close()
+
+	if cfg.AssignmentSeedPath != "" {
+		assignments, err := store.LoadAssignmentsFromFile(cfg.AssignmentSeedPath)
+		if err != nil {
+			logger.Error("failed to load assignment seed file", slog.String("error", err.Error()))
+			return fmt.Errorf("load assignment seed: %w", err)
+		}
+		n, err := st.ImportAssignments(ctx, assignments)
+		if err != nil {
+			logger.Error("failed to import assignment seed file", slog.String("error", err.Error()))
+			return fmt.Errorf("import assignment seed: %w", err)
+		}
+		logger.Info("assignment seed imported", slog.Int("assignment_count", n))
+	}
+
+	reconciler := reconcile.New(st, reconcile.Config{
+		SpoolRoot:           cfg.SpoolRoot,
+		SessionStaleTimeout: cfg.SessionStaleTimeout,
+	}, logger)
+
+	logger.Info("running startup reconciliation")
+	startupReport, err := reconciler.RunOnce(ctx)
+	if err != nil {
+		logger.Error("startup reconciliation failed", slog.String("error", err.Error()))
+		return fmt.Errorf("startup reconciliation: %w", err)
+	}
+	logger.Info("startup reconciliation complete",
+		slog.Int("orphan_segments_reconciled", startupReport.OrphanSegmentsReconciled),
+		slog.Int("stuck_captures_resolved", startupReport.StuckCapturesResolved),
+		slog.Int("segments_marked_missing", startupReport.SegmentsMarkedMissing),
+		slog.Int("sessions_marked_stale", startupReport.SessionsMarkedStale),
+		slog.Int("temp_files_cleaned", startupReport.TempFilesCleaned),
+		slog.Bool("integrity_ok", startupReport.IntegrityOK),
+	)
+
+	reconcileCtx, cancelReconcile := context.WithCancel(context.Background())
+	var reconcileWG sync.WaitGroup
+	reconcileWG.Add(1)
+	go func() {
+		defer reconcileWG.Done()
+		reconciler.RunPeriodic(reconcileCtx, cfg.ReconcileInterval)
+	}()
+	defer func() {
+		cancelReconcile()
+		reconcileWG.Wait()
+	}()
+
+	srsHandlers := &srs.Handlers{
+		Store:     st,
+		HLSRoot:   cfg.SRSHLSRoot,
+		SpoolRoot: cfg.SpoolRoot,
+		Logger:    logger,
+	}
+
 	mux := http.NewServeMux()
 	mux.Handle("/healthz", health.Handler())
-	mux.Handle("/internal/srs/on-publish", srs.NewOnPublishHandler(logger))
-	mux.Handle("/internal/srs/on-hls", srs.NewOnHLSHandler(logger))
-	mux.Handle("/internal/srs/on-unpublish", srs.NewOnUnpublishHandler(logger))
+	mux.Handle("/readyz", health.ReadinessHandler(readinessChecks(st, cfg.SpoolRoot)))
+	mux.Handle("/internal/srs/on-publish", srsHandlers.OnPublish())
+	mux.Handle("/internal/srs/on-hls", srsHandlers.OnHLS())
+	mux.Handle("/internal/srs/on-unpublish", srsHandlers.OnUnpublish())
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
@@ -136,6 +213,33 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 
 	logger.Info("media-agent stopped cleanly")
 	return nil
+}
+
+// readinessChecks wires GET /readyz's dependency probes: the database
+// connection, spool directory writability (via a create-then-remove
+// probe using this service's own exact marker file name), and that the
+// assignment cache table is queryable. No path, count, or other
+// filesystem/database detail is exposed in the response; these checks
+// only ever produce a boolean.
+func readinessChecks(st *store.Store, spoolRoot string) health.ReadinessChecks {
+	return health.ReadinessChecks{
+		Database: func(ctx context.Context) error {
+			return st.Ping(ctx)
+		},
+		SpoolWritable: func(ctx context.Context) error {
+			probe := spoolRoot + string(os.PathSeparator) + spoolWriteProbeName
+			f, err := os.OpenFile(probe, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+			if err != nil {
+				return err
+			}
+			f.Close()
+			return os.Remove(probe)
+		},
+		AssignmentCache: func(ctx context.Context) error {
+			_, err := st.AssignmentCount(ctx)
+			return err
+		},
+	}
 }
 
 // runHealthCheck implements the "media-agent healthcheck" subcommand

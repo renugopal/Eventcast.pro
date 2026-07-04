@@ -1,22 +1,25 @@
-# EventCast Media Node - Phase 0 Compose stack (SRS + Media Agent).
+# EventCast Media Node - Compose stack (SRS + Media Agent).
 #
 # Both images are pinned: SRS by exact tag AND immutable registry digest
 # (see ../srs/README.md), Media Agent by the exact local build tag produced
-# in the Phase 0 Task 3 validation (see ../../../services/media-agent/README.md).
-# Do not replace either reference with a floating tag.
+# in validation (see ../../../services/media-agent/README.md). Do not
+# replace either reference with a floating tag.
 #
 # This proves the two containers start, stay healthy, reach each other by
 # hostname on a private network, and that the Media Agent's SRS callback
 # routes (on-publish/on-hls/on-unpublish) accept real RTMP-publish-driven
-# callbacks end to end - see the README "GCP VM validation commands".
+# callbacks end to end, now including publish authorization against the
+# durable assignment cache and durable segment capture into the protected
+# spool - see the README "GCP VM validation commands".
 #
 # Every value that identifies a host resource (image tag, container name,
 # host bind port, host bind path) is overridable via an environment
 # variable, all defaulting to the exact persistent single-VM values used
-# above. This lets phase2-integration-test.sh (Phase 2) stand up a fully
-# isolated, uniquely-named copy of this same stack - never the persistent
-# deployment paths or container names - for automated validation. Do not
-# change the defaults; they are the real deployment values.
+# above. This lets phase2-integration-test.sh and
+# ingest-durability-integration-test.sh stand up a fully isolated,
+# uniquely-named copy of this same stack - never the persistent deployment
+# paths or container names - for automated validation. Do not change the
+# defaults; they are the real deployment values.
 
 networks:
   media-node:
@@ -35,11 +38,33 @@ services:
       # loopback only (see "ports" below), so it is never publicly exposed.
       EVENTCAST_MEDIA_AGENT_HTTP_ADDR: 0.0.0.0:8085
       EVENTCAST_LOG_LEVEL: ${EVENTCAST_LOG_LEVEL:-info}
+      EVENTCAST_DB_PATH: /var/lib/eventcast/db/media-agent.sqlite3
+      EVENTCAST_SPOOL_ROOT: /var/lib/eventcast/spool
+      # Same container path the srs service's hls_path writes to
+      # (mounted read-only below from the identical host directory the
+      # srs service mounts writable), so on_hls file paths validate and
+      # completed segments can be hard-linked rather than copied.
+      EVENTCAST_SRS_HLS_ROOT: /var/lib/eventcast/srs-output
+      # Empty by default: an unseeded agent starts with zero cached
+      # assignments (every publish rejected as ASSIGNMENT_MISMATCH) until
+      # an operator or test provides a seed file - a later milestone's
+      # control-plane client replaces this with continuous sync.
+      EVENTCAST_ASSIGNMENT_SEED_PATH: ${EVENTCAST_ASSIGNMENT_SEED_PATH:-}
+      EVENTCAST_RECONCILE_INTERVAL: ${EVENTCAST_RECONCILE_INTERVAL:-30s}
+      EVENTCAST_SESSION_STALE_TIMEOUT: ${EVENTCAST_SESSION_STALE_TIMEOUT:-180s}
+      EVENTCAST_DB_BUSY_TIMEOUT: ${EVENTCAST_DB_BUSY_TIMEOUT:-5s}
     volumes:
-      # Reserved for the future durable spool (02_V1_ARCHITECTURE_SPEC.md
-      # "Media Agent owns /var/lib/eventcast/spool"); unused by the
-      # current Phase 0 skeleton, mounted now so the path is stable.
       - ${SPOOL_HOST_DIR:-/opt/eventcast/media-node/data/spool}:/var/lib/eventcast/spool
+      - ${DB_HOST_DIR:-/opt/eventcast/media-node/data/db}:/var/lib/eventcast/db
+      # Read-only: the Media Agent only ever reads from and hard-links
+      # out of SRS's staging output, never writes into it.
+      - ${SRS_OUTPUT_HOST_DIR:-/opt/eventcast/media-node/data/srs}:/var/lib/eventcast/srs-output:ro
+      # Directory (not file) bind so a not-yet-provisioned host path is
+      # safely auto-created empty rather than tripping the Docker
+      # bind-mount footgun where a missing *file* source becomes a
+      # directory. EVENTCAST_ASSIGNMENT_SEED_PATH stays empty by default
+      # regardless, so this mount is inert until both are set together.
+      - ${ASSIGNMENT_SEED_HOST_DIR:-/opt/eventcast/media-node/config/assignments}:/var/lib/eventcast/config:ro
     ports:
       - "${MEDIA_AGENT_HTTP_HOST_BIND:-127.0.0.1:8085}:8085"
     restart: unless-stopped
