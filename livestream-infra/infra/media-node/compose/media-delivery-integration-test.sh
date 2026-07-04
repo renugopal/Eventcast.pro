@@ -151,13 +151,23 @@ verify_log_line() {
   local pattern="$1" description="$2" source="${3:-agent}" timeout="${4:-15}" waited=0
   while (( waited <= timeout )); do
     if [[ "$source" == "sink" ]]; then
-      sink_logs | grep -qE "$pattern" && return 0
+      sink_logs | grep -qE "$pattern" && { (( waited > 0 )) && log "   (found '${description}' after ${waited}s)"; return 0; }
     else
-      agent_logs | grep -qE "$pattern" && return 0
+      agent_logs | grep -qE "$pattern" && { (( waited > 0 )) && log "   (found '${description}' after ${waited}s)"; return 0; }
     fi
     sleep 1
     waited=$((waited + 1))
   done
+  # Full timestamped logs on failure - this is the only signal available
+  # to diagnose *why* an expected line never appeared (hung, crashed, or
+  # just slower than this search window), since the rest of this script
+  # only ever greps for specific lines.
+  log "   full timestamped logs for '${source}' (diagnostic dump for the failure below):"
+  if [[ "$source" == "sink" ]]; then
+    $DOCKER logs --timestamps "$RELAY_SINK_CONTAINER" 2>&1 | tail -100 >&2
+  else
+    $DOCKER logs --timestamps "$MEDIA_AGENT_CONTAINER" 2>&1 | tail -100 >&2
+  fi
   fail "expected log line not found (${source}): ${description} (pattern: ${pattern})"
 }
 
@@ -471,12 +481,15 @@ $COMPOSE restart media-agent || fail "docker compose restart media-agent failed"
 wait_for_healthy 60 || fail "media-agent did not become healthy again after restart"
 # A longer window than this check's other verify_log_line calls: this is
 # the only one gated behind a full container restart + Docker healthcheck
-# cycle (interval 15s - see docker-compose.yml), so on a slower or
-# contended shared runner the default 15s search budget can elapse before
-# the healthcheck itself has even run once, even though startup
-# reconciliation itself completes in milliseconds (confirmed directly
-# against the agent's own timestamped logs).
-verify_log_line "startup reconciliation complete" "startup reconciliation ran after restart" agent 45
+# cycle (interval 15s - see docker-compose.yml). On the dedicated GCP
+# validation VM, "startup reconciliation complete" appears within
+# milliseconds of restart; on a shared CI runner it has been observed
+# taking longer than a 45s search budget, so this is deliberately
+# generous. verify_log_line now logs how long the search actually took
+# (and dumps full timestamped agent logs if it still fails), so a future
+# timeout here comes with the evidence needed to root-cause it rather
+# than another blind bump.
+verify_log_line "startup reconciliation complete" "startup reconciliation ran after restart" agent 90
 # The upload-lease/relay-reconcile log lines above only fire when there
 # was something stale to recover (count > 0); by this point every
 # segment/relay from steps 4-9 already reached a terminal state before
