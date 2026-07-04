@@ -6,7 +6,7 @@ Home of the EventCast Media Agent, the Go service that owns durability and orche
 
 ## Status
 
-v1.2 Phase 2: the automated SRS RTMP-to-HLS integration proof (`infra/media-node/compose/phase2-integration-test.sh`) is complete and passing on top of the Phase 1 production-quality service baseline. The Media Agent itself provides typed, validated startup configuration (including strict node-id and port validation), structured JSON logging with reusable secret redaction, a `GET /healthz` endpoint with build-time version injection, graceful shutdown with a bounded drain and listener-failure detection, unit tests for every package including the entry point, and minimal `on-publish`/`on-hls`/`on-unpublish` handlers that validate and log each callback (added in Phase 0, task 3). It does not yet implement the durable spool, the SQLite queue, R2/Wasabi upload, YouTube relay, publish authorization, or any business workflow logic — see "Expected responsibilities" below for what remains.
+v1.2 "Ingest control and durability": the Media Agent now authorizes publishers against a durable local SQLite assignment cache, tracks stream-session lifecycle (starting/active/disconnected, conflicting-publisher rejection, reconnect-creates-a-new-session), durably captures completed SRS HLS segments into a protected spool (hard-link, with an atomic-copy-plus-fsync fallback), records an idempotent segment queue, and runs startup and periodic reconciliation to recover safely across process or container restart. It still does not implement R2/Wasabi upload, manifest generation, or YouTube relay — see "Expected responsibilities" below for what remains.
 
 ## Go toolchain
 
@@ -27,12 +27,19 @@ Only these environment variables are read:
 | `EVENTCAST_NODE_ID` | yes | — | Non-secret node identifier. Startup fails if empty, longer than 128 characters, or containing anything other than ASCII letters, digits, `.`, `_`, `-`. |
 | `EVENTCAST_MEDIA_AGENT_HTTP_ADDR` | no | `127.0.0.1:8085` | Must be a valid `host:port` with an explicit numeric port between 1 and 65535 (port `0` is rejected so the bind stays deterministic). Default is loopback-only. |
 | `EVENTCAST_LOG_LEVEL` | no | `info` | One of `debug`, `info`, `warn`, `error`. |
+| `EVENTCAST_DB_PATH` | yes | — | Absolute path to the SQLite WAL-backed durable database file. |
+| `EVENTCAST_SPOOL_ROOT` | yes | — | Absolute path to the protected durable spool root. Must not equal or nest with `EVENTCAST_SRS_HLS_ROOT`. |
+| `EVENTCAST_SRS_HLS_ROOT` | yes | — | Absolute path to the SRS HLS staging root; `on_hls` file paths must resolve inside it. |
+| `EVENTCAST_ASSIGNMENT_SEED_PATH` | no | *(empty, seeding disabled)* | Absolute path to a JSON seed file of cached event assignments, imported once at startup. |
+| `EVENTCAST_RECONCILE_INTERVAL` | no | `30s` | Periodic reconciliation interval (positive Go duration). |
+| `EVENTCAST_SESSION_STALE_TIMEOUT` | no | `180s` | Max time an active session may lack segment activity before reconciliation marks it disconnected. |
+| `EVENTCAST_DB_BUSY_TIMEOUT` | no | `5s` | SQLite `busy_timeout` applied to every connection. |
 
-Configuration is validated eagerly at startup (`internal/config`); invalid configuration causes the process to exit non-zero with a structured JSON error log and no secret values echoed. See `.env.example`.
+Configuration is validated eagerly at startup (`internal/config`); invalid configuration causes the process to exit non-zero with a structured JSON error log and no secret values echoed. Filesystem paths must be absolute, clean (no `.`/`..`/duplicate separators), and non-overlapping; `EVENTCAST_DB_PATH` may not live inside either durable-media root. See `.env.example`.
 
 ## Local validation (Docker only)
 
-Go is intentionally not installed on the host running this repository, and Go must not be installed on deployment hosts either. All build/vet/test/runtime validation goes through the pinned `golang:1.26.4` image and the Dockerfile below (`gofmt -l`, `go vet ./...`, `go build ./...`, `go test ./...`, then a production image build, container start, healthcheck, invalid-configuration, and graceful-shutdown check).
+Go is intentionally not installed on the host running this repository, and Go must not be installed on deployment hosts either. All build/vet/test/runtime validation goes through the pinned `golang:1.26.4` image and the Dockerfile below (`gofmt -l`, `go vet ./...`, `go build ./...`, `go test -race ./...`, then a production image build, container start, healthcheck, invalid-configuration, and graceful-shutdown check).
 
 ## Docker image
 
@@ -75,16 +82,24 @@ Read before implementing anything here, in this order:
 - No Media Agent source changes: the Phase 1 callback handlers already implement everything the Phase 2 integration proof requires (accept any well-formed SRS callback, redact secrets, structured logging)
 - Automated, non-interactive proof that the pinned SRS runtime and this Media Agent, run together via `infra/media-node/compose`, complete the full RTMP-publish -> HLS -> callback -> reconnect -> unpublish lifecycle against a real synthetic FFmpeg stream, with a ~12-minute automated soak — see `infra/media-node/compose/phase2-integration-test.sh` and its README section for the exact validated behavior and run instructions
 
+## Implemented (v1.2 ingest control and durability)
+
+- Durable local assignment cache (`internal/store`, `cached_event_assignments` table): SHA-256-hashed stream secret, enabled flag, publish window, imported transactionally from an optional JSON seed file (`EVENTCAST_ASSIGNMENT_SEED_PATH`) since the control-plane sync client is a later milestone
+- `on_publish` authorization (`internal/srs`): validates the ingest id and secret token against the cache, rejects unknown/disabled/expired/not-yet-open/invalid-credential/conflicting-publisher cases with the SRS-compatible non-zero callback result and a stable error code (`AUTH_INVALID`, `ASSIGNMENT_MISMATCH`, `PUBLISH_WINDOW_CLOSED`, `DUPLICATE_PUBLISHER`), and creates a new stream session on success
+- Stream-session lifecycle (`internal/store`, `ingest_sessions` table): a partial unique index enforces at most one starting/active session per event as the concurrency-safe conflicting-publisher guard; reconnection always creates a new session identity; `on_unpublish` closes the current session idempotently without finalizing the event
+- Durable spool capture (`internal/spool`): validates the SRS-provided file path resolves inside the configured HLS root (rejecting traversal and symlink escape), then hard-links the completed segment into the protected spool or falls back to a temp-file-plus-fsync-plus-atomic-rename-plus-directory-fsync copy, never overwriting an existing destination
+- SQLite WAL-backed segment queue (`internal/store`, `segment_jobs` table): an idempotency-key claim design makes duplicate `on_hls` callbacks - including ones that arrive concurrently with the original - resolve to the same durable capture without a second spool file or queue row
+- Startup and periodic reconciliation (`internal/reconcile`): discovers durable spool files with no queue row, resolves segment claims abandoned by a crashed process, reports (never deletes) queue rows whose file is missing, marks sessions stale after inactivity so their event can accept a new publisher, and removes only this service's own exactly-named temp files past a safety age
+- `GET /readyz` (`internal/health`): reports database, spool-writable, and assignment-cache readiness as booleans only, alongside the unchanged, dependency-free `GET /healthz`
+
 ## Expected responsibilities (not yet implemented)
 
-- Publish authorization / ingest-secret validation, session tracking, and rejection responses for `on-publish`
-- Durable spool capture (hard-link or atomic copy + fsync) ahead of upload
-- SQLite WAL-backed queue: `cached_event_assignments`, `ingest_sessions`, `segment_jobs`, `manifest_generations`, `youtube_relays`, `archive_jobs`, `agent_outbox`
 - Ordered upload to Cloudflare R2 with SHA-256 verification
 - Live and VOD manifest generation (single manifest writer per event)
 - YouTube relay supervision (independent failure domain)
 - Wasabi archive job and restore-to-R2
 - Prometheus/OpenMetrics endpoint
+- Continuous control-plane assignment synchronization (`internal/controlplane`); the local assignment cache is currently seeded only from a local JSON file
 
 ## Non-negotiable rules
 
@@ -97,17 +112,18 @@ services/media-agent/
   cmd/media-agent/        entrypoint, HTTP server wiring, graceful shutdown   [implemented]
   internal/config/        typed env config, startup validation               [implemented]
   internal/logging/       structured JSON logging, Secret redaction type     [implemented]
-  internal/health/        GET /healthz handler                               [implemented]
+  internal/health/        GET /healthz and GET /readyz handlers              [implemented]
   internal/srs/           SRS callback handlers (on-publish/on-hls/on-unpublish) [implemented]
-  internal/spool/         durable local capture                              [not yet created]
-  internal/queue/         SQLite WAL queue                                   [not yet created]
+  internal/store/         SQLite WAL store: assignment cache, sessions, segment queue [implemented]
+  internal/spool/         durable local capture (hard link / atomic copy)    [implemented]
+  internal/reconcile/     startup and periodic reconciliation                [implemented]
   internal/upload/        R2 upload + manifest publication                   [not yet created]
   internal/archive/       Wasabi archive + restore                          [not yet created]
   internal/relay/         YouTube relay supervision                          [not yet created]
   internal/controlplane/  outbound API client                                [not yet created]
   internal/metrics/       Prometheus/OpenMetrics                             [not yet created]
   go.mod
-  go.sum                  (only if/when an external dependency is added)
+  go.sum                  (modernc.org/sqlite: pure-Go SQLite driver, no CGO)
   Dockerfile
   .dockerignore
   .env.example

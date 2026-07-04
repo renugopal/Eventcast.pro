@@ -1,0 +1,194 @@
+package store
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+)
+
+// Session statuses (03_DATA_MODEL_AND_API_CONTRACTS.md "stream_sessions").
+const (
+	SessionStarting     = "starting"
+	SessionActive       = "active"
+	SessionDisconnected = "disconnected"
+	SessionFinalized    = "finalized"
+	SessionFailed       = "failed"
+)
+
+// EndReasonStaleTimeout marks a session periodic reconciliation closed
+// because no segment activity was observed within the configured
+// session-stale timeout and no on_unpublish callback ever arrived
+// (an ungraceful disconnect, container restart, or crashed publisher).
+const EndReasonStaleTimeout = "stale_timeout"
+
+// EndReasonUnpublish marks a session closed by a normal on_unpublish
+// callback.
+const EndReasonUnpublish = "unpublish"
+
+// Session is the Media Agent's local record of one accepted publisher
+// connection lifecycle (the ingest_sessions table).
+type Session struct {
+	ID             string
+	EventID        string
+	IngestID       string
+	Status         string
+	StartedAt      time.Time
+	DisconnectedAt sql.NullTime
+	EndReason      string
+	LastActivityAt time.Time
+	SegmentCount   int
+}
+
+// ErrConflictingActivePublisher is returned by CreateSession when
+// another session for the same event is already starting or active.
+// Callers map this to the SRS on_publish DUPLICATE_PUBLISHER rejection.
+var ErrConflictingActivePublisher = errors.New("store: a session is already active for this event")
+
+// CreateSession inserts a new active session for eventID/ingestID. The
+// partial unique index idx_ingest_sessions_one_active_per_event is the
+// authoritative concurrency guard: if another goroutine committed a
+// starting/active session for the same event first, this call returns
+// ErrConflictingActivePublisher rather than racing an application-level
+// check-then-insert. Reconnection always reaches this path with a fresh
+// session id; it never reopens or mutates a prior session's identity.
+func (s *Store) CreateSession(ctx context.Context, eventID, ingestID string, now time.Time) (Session, error) {
+	id, err := newID("sess")
+	if err != nil {
+		return Session{}, err
+	}
+
+	nowStr := now.UTC().Format(time.RFC3339Nano)
+	_, err = s.db.ExecContext(ctx, `
+		INSERT INTO ingest_sessions (id, event_id, ingest_id, status, started_at, end_reason, last_activity_at, segment_count)
+		VALUES (?, ?, ?, ?, ?, '', ?, 0)`,
+		id, eventID, ingestID, SessionActive, nowStr, nowStr)
+	if err != nil {
+		if isUniqueConstraintErr(err) {
+			return Session{}, ErrConflictingActivePublisher
+		}
+		return Session{}, fmt.Errorf("store: create session: %w", err)
+	}
+
+	return Session{
+		ID:             id,
+		EventID:        eventID,
+		IngestID:       ingestID,
+		Status:         SessionActive,
+		StartedAt:      now.UTC(),
+		LastActivityAt: now.UTC(),
+	}, nil
+}
+
+// FindMostRecentByIngestID returns the most recently started session
+// for ingestID regardless of status, or found=false if none exists.
+// on_hls and on_unpublish callbacks identify their session this way
+// because the SRS callback payload carries the non-secret stream name
+// (ingest_id), not an internal session id, and at most one session for
+// a given ingest_id can ever be starting/active at once.
+func (s *Store) FindMostRecentByIngestID(ctx context.Context, ingestID string) (Session, bool, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT id, event_id, ingest_id, status, started_at, disconnected_at, end_reason, last_activity_at, segment_count
+		FROM ingest_sessions WHERE ingest_id = ? ORDER BY started_at DESC LIMIT 1`, ingestID)
+	sess, err := scanSession(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Session{}, false, nil
+	}
+	if err != nil {
+		return Session{}, false, fmt.Errorf("store: find session by ingest_id %s: %w", ingestID, err)
+	}
+	return sess, true, nil
+}
+
+func scanSession(row *sql.Row) (Session, error) {
+	var sess Session
+	var startedAt string
+	var disconnectedAt sql.NullString
+	var lastActivityAt string
+	if err := row.Scan(&sess.ID, &sess.EventID, &sess.IngestID, &sess.Status, &startedAt,
+		&disconnectedAt, &sess.EndReason, &lastActivityAt, &sess.SegmentCount); err != nil {
+		return Session{}, err
+	}
+	var err error
+	sess.StartedAt, err = time.Parse(time.RFC3339Nano, startedAt)
+	if err != nil {
+		return Session{}, fmt.Errorf("parse started_at: %w", err)
+	}
+	sess.LastActivityAt, err = time.Parse(time.RFC3339Nano, lastActivityAt)
+	if err != nil {
+		return Session{}, fmt.Errorf("parse last_activity_at: %w", err)
+	}
+	if disconnectedAt.Valid {
+		t, err := time.Parse(time.RFC3339Nano, disconnectedAt.String)
+		if err != nil {
+			return Session{}, fmt.Errorf("parse disconnected_at: %w", err)
+		}
+		sess.DisconnectedAt = sql.NullTime{Time: t, Valid: true}
+	}
+	return sess, nil
+}
+
+// MarkDisconnected transitions sessionID to disconnected if (and only
+// if) it is currently starting/active. It is idempotent: calling it
+// again for an already-disconnected (or finalized/failed) session
+// affects zero rows and returns no error, matching the SRS
+// on_unpublish contract ("does not delete files, close the event"; it
+// also must not error on a redundant or late callback).
+func (s *Store) MarkDisconnected(ctx context.Context, sessionID, reason string, now time.Time) error {
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE ingest_sessions
+		SET status = ?, disconnected_at = ?, end_reason = ?
+		WHERE id = ? AND status IN (?, ?)`,
+		SessionDisconnected, now.UTC().Format(time.RFC3339Nano), reason, sessionID, SessionStarting, SessionActive)
+	if err != nil {
+		return fmt.Errorf("store: mark session %s disconnected: %w", sessionID, err)
+	}
+	return nil
+}
+
+// TouchActivity records segment activity against sessionID: advances
+// last_activity_at (used by stale-session reconciliation) and
+// increments segment_count. It is a no-op (zero rows affected, no
+// error) if the session no longer exists.
+func (s *Store) TouchActivity(ctx context.Context, sessionID string, now time.Time) error {
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE ingest_sessions SET last_activity_at = ?, segment_count = segment_count + 1 WHERE id = ?`,
+		now.UTC().Format(time.RFC3339Nano), sessionID)
+	if err != nil {
+		return fmt.Errorf("store: touch session %s activity: %w", sessionID, err)
+	}
+	return nil
+}
+
+// ReconcileStaleActive transitions every starting/active session whose
+// last_activity_at is older than staleBefore to disconnected with
+// EndReasonStaleTimeout, freeing its event for a new publisher after an
+// ungraceful disconnect that never produced an on_unpublish callback.
+// It returns the number of sessions transitioned.
+func (s *Store) ReconcileStaleActive(ctx context.Context, staleBefore, now time.Time) (int, error) {
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE ingest_sessions
+		SET status = ?, disconnected_at = ?, end_reason = ?
+		WHERE status IN (?, ?) AND last_activity_at < ?`,
+		SessionDisconnected, now.UTC().Format(time.RFC3339Nano), EndReasonStaleTimeout,
+		SessionStarting, SessionActive, staleBefore.UTC().Format(time.RFC3339Nano))
+	if err != nil {
+		return 0, fmt.Errorf("store: reconcile stale sessions: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("store: reconcile stale sessions: rows affected: %w", err)
+	}
+	return int(n), nil
+}
+
+// isUniqueConstraintErr reports whether err came from a violated SQLite
+// UNIQUE constraint or index. SQLite's error text is stable across
+// drivers (it originates from the SQLite engine itself), so a substring
+// check is reliable without depending on modernc.org/sqlite-specific
+// error types.
+func isUniqueConstraintErr(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
+}
