@@ -52,17 +52,27 @@ jobs:
       - name: go vet
         run: go vet ./...
 
+      # -buildvcs=false: this job runs inside a container image with the
+      # checkout bind-mounted from the runner, so the repo directory's
+      # owning UID does not match the container user. Git refuses to
+      # operate on it (dubious ownership), and Go's automatic VCS
+      # stamping then fails the entire build with "error obtaining VCS
+      # status: exit status 128" even though nothing is wrong with the
+      # source itself. This only affects embedded build metadata, not
+      # program behavior; the actual deployed image comes from the
+      # separate "build media-agent image" job (a plain docker build,
+      # no bind mount), which is unaffected.
       - name: go build
-        run: go build ./...
+        run: go build -buildvcs=false ./...
 
       # internal/store/migrations_test.go applies every versioned
       # migration in migrations/*.sql against a real SQLite database as
       # part of this run, so a dedicated "migrations" job is unnecessary.
       - name: go test
-        run: go test ./...
+        run: go test -buildvcs=false ./...
 
       - name: go test -race
-        run: go test -race ./...
+        run: go test -buildvcs=false -race ./...
 
   shell-syntax:
     name: shell syntax (infra/media-node scripts)
