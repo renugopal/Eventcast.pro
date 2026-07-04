@@ -148,8 +148,8 @@ agent_logs() { $DOCKER logs "$MEDIA_AGENT_CONTAINER" 2>&1; }
 sink_logs() { $DOCKER logs "$RELAY_SINK_CONTAINER" 2>&1; }
 
 verify_log_line() {
-  local pattern="$1" description="$2" source="${3:-agent}" waited=0
-  while (( waited <= 15 )); do
+  local pattern="$1" description="$2" source="${3:-agent}" timeout="${4:-15}" waited=0
+  while (( waited <= timeout )); do
     if [[ "$source" == "sink" ]]; then
       sink_logs | grep -qE "$pattern" && return 0
     else
@@ -469,7 +469,14 @@ code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${MA_HTTP_PORT}
 log "10) restarting the media-agent container only"
 $COMPOSE restart media-agent || fail "docker compose restart media-agent failed"
 wait_for_healthy 60 || fail "media-agent did not become healthy again after restart"
-verify_log_line "startup reconciliation complete" "startup reconciliation ran after restart"
+# A longer window than this check's other verify_log_line calls: this is
+# the only one gated behind a full container restart + Docker healthcheck
+# cycle (interval 15s - see docker-compose.yml), so on a slower or
+# contended shared runner the default 15s search budget can elapse before
+# the healthcheck itself has even run once, even though startup
+# reconciliation itself completes in milliseconds (confirmed directly
+# against the agent's own timestamped logs).
+verify_log_line "startup reconciliation complete" "startup reconciliation ran after restart" agent 45
 # The upload-lease/relay-reconcile log lines above only fire when there
 # was something stale to recover (count > 0); by this point every
 # segment/relay from steps 4-9 already reached a terminal state before
