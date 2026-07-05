@@ -120,6 +120,55 @@ func (g Gauge) SetBool(value bool, labels ...Label) {
 	g.Set(0, labels...)
 }
 
+// SetGroup replaces g's complete reading along a single label dimension:
+// every (labelName=key) pair in counts is set to n, and any series
+// previously set for labelName on this gauge whose key is absent from
+// counts - a status value that no longer has any rows behind it, e.g.
+// the last active session disconnected, or the last running relay
+// stopped - is reset to zero rather than left at its last observed
+// value. It never introduces a label value outside of labelName's own
+// key space and never grows the series count beyond the distinct values
+// counts has used across the process lifetime, so cardinality stays
+// bounded to the small, fixed enum callers always pass here (see
+// cmd/media-agent/main.go's collectMetrics). The zero-value Gauge
+// (reg == nil) is a safe no-op.
+func (g Gauge) SetGroup(labelName string, counts map[string]int) {
+	if g.reg == nil {
+		return
+	}
+	r := g.reg
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	byLabels, ok := r.series[g.name]
+	if !ok {
+		panic(fmt.Sprintf("metrics: %q was never registered", g.name))
+	}
+
+	prefix := labelName + "="
+	seen := make(map[string]bool, len(counts))
+	for key, n := range counts {
+		labels := []Label{{Name: labelName, Value: key}}
+		k := labelKey(labels)
+		seen[k] = true
+		s, ok := byLabels[k]
+		if !ok {
+			s = &series{labels: renderLabels(labels)}
+			byLabels[k] = s
+		}
+		s.isFloat = true
+		s.fvalue.Store(math.Float64bits(float64(n)))
+	}
+
+	for k, s := range byLabels {
+		if seen[k] || !strings.HasPrefix(k, prefix) {
+			continue
+		}
+		s.isFloat = true
+		s.fvalue.Store(0)
+	}
+}
+
 // Label is one name/value pair attached to a metric series. Values must
 // always come from a small, fixed, code-controlled vocabulary (a status
 // enum, a provider name, a boolean) - never an event id, session id, or

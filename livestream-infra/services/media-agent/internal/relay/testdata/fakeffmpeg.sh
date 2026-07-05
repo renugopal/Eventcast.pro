@@ -20,6 +20,40 @@ case "$FAKE_FFMPEG_BEHAVIOR" in
       sleep 1
     done
     ;;
+  fail_until_marker)
+    # Simulates a local RTMP source that is not yet readable: fails
+    # immediately ("Invalid data found when processing input") until the
+    # test creates $FAKE_FFMPEG_READY_MARKER, then behaves like a
+    # successfully relaying process until asked to stop.
+    if [ -f "$FAKE_FFMPEG_READY_MARKER" ]; then
+      trap 'exit 0' TERM
+      while true; do
+        sleep 1
+      done
+    fi
+    exit 1
+    ;;
+  run_then_fail_once_then_hang)
+    # Simulates a genuine mid-stream failure, distinct from a startup
+    # race: runs long enough to count as "genuinely started" before
+    # failing on its first invocation, then relays successfully on every
+    # invocation after that, tracked via $FAKE_FFMPEG_COUNT_FILE since
+    # each restart is a brand new process.
+    count=0
+    if [ -f "$FAKE_FFMPEG_COUNT_FILE" ]; then
+      count=$(cat "$FAKE_FFMPEG_COUNT_FILE")
+    fi
+    count=$((count + 1))
+    echo "$count" > "$FAKE_FFMPEG_COUNT_FILE"
+    if [ "$count" -eq 1 ]; then
+      sleep 0.3
+      exit 1
+    fi
+    trap 'exit 0' TERM
+    while true; do
+      sleep 1
+    done
+    ;;
   *)
     exit 1
     ;;

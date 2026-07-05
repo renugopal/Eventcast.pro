@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 )
@@ -199,6 +201,110 @@ func TestListEventsNeedingManifestRebuildAndMarkCommitted(t *testing.T) {
 	}
 	if len(events) != 0 {
 		t.Errorf("expected no events needing rebuild after MarkManifestCommitted, got %v", events)
+	}
+}
+
+// TestMarkManifestCommittedBatchesIntoOneStatement proves the fix for
+// the field-test SQLITE_BUSY defect: marking a whole DVR-window's worth
+// of segment ids committed must not hold the write lock for one
+// round-trip per id. It cannot directly observe lock duration, but it
+// does confirm the batched UPDATE still marks every id committed
+// (including duplicates already marked committed by a prior call) in a
+// single call.
+func TestMarkManifestCommittedBatchesIntoOneStatement(t *testing.T) {
+	ctx := context.Background()
+	st := openTestStore(t)
+
+	const n = 50
+	var ids []int64
+	for i := int64(1); i <= n; i++ {
+		seg := mustClaimQueuedSegment(t, st, "evt1", "s", fmt.Sprintf("k%d", i), i)
+		if err := st.ConfirmUpload(ctx, seg.ID, fmt.Sprintf("r2/k%d", i), time.Now().UTC()); err != nil {
+			t.Fatalf("ConfirmUpload() error: %v", err)
+		}
+		ids = append(ids, seg.ID)
+	}
+
+	// First call marks every segment committed; a second call with the
+	// same full id set (mirroring how a live rebuild re-passes its whole
+	// window every time) must be a safe, idempotent no-op that still
+	// only reports success once.
+	if err := st.MarkManifestCommitted(ctx, ids, time.Now().UTC()); err != nil {
+		t.Fatalf("first MarkManifestCommitted() error: %v", err)
+	}
+	if err := st.MarkManifestCommitted(ctx, ids, time.Now().UTC()); err != nil {
+		t.Fatalf("second MarkManifestCommitted() error: %v", err)
+	}
+
+	events, err := st.ListEventsNeedingManifestRebuild(ctx)
+	if err != nil {
+		t.Fatalf("ListEventsNeedingManifestRebuild() error: %v", err)
+	}
+	if len(events) != 0 {
+		t.Errorf("expected every segment committed, got events still needing rebuild: %v", events)
+	}
+}
+
+// TestConcurrentManifestGenerationAndSegmentWritesNeverBusy reproduces
+// the field-test conditions that produced transient SQLITE_BUSY errors:
+// one goroutine repeatedly recording new manifest generations (the
+// read-max-then-insert pattern in RecordManifestGeneration) while many
+// other goroutines concurrently claim, finalize, and confirm unrelated
+// segments - the same mix of concurrent upload and manifest activity a
+// live event produces. With _txlock=immediate (see store.go's Open) and
+// busy_timeout configured, every writer serializes through a real wait
+// instead of racing a stale read snapshot, so none of this should ever
+// surface as an error.
+func TestConcurrentManifestGenerationAndSegmentWritesNeverBusy(t *testing.T) {
+	ctx := context.Background()
+	st := openTestStore(t)
+
+	const writers = 8
+	const perWriter = 20
+	var wg sync.WaitGroup
+	errs := make(chan error, writers*2)
+
+	for w := 0; w < writers; w++ {
+		wg.Add(1)
+		go func(workerID int) {
+			defer wg.Done()
+			for i := 0; i < perWriter; i++ {
+				key := fmt.Sprintf("w%d-k%d", workerID, i)
+				job, owned, err := st.ClaimSegment(ctx, ClaimSegmentInput{
+					IdempotencyKey: key, EventID: "evt1", SessionID: fmt.Sprintf("sess-%d", workerID),
+					LocalFileIdentity: key, SeqNo: int64(i), DurationSeconds: 4,
+				})
+				if err != nil || !owned {
+					errs <- fmt.Errorf("worker %d: ClaimSegment() owned=%v err=%w", workerID, owned, err)
+					return
+				}
+				if err := st.FinalizeSegment(ctx, job.ID, "/spool/"+key, 100, "deadbeef", time.Now().UTC()); err != nil {
+					errs <- fmt.Errorf("worker %d: FinalizeSegment() error: %w", workerID, err)
+					return
+				}
+				if err := st.ConfirmUpload(ctx, job.ID, "r2/"+key, time.Now().UTC()); err != nil {
+					errs <- fmt.Errorf("worker %d: ConfirmUpload() error: %w", workerID, err)
+					return
+				}
+			}
+		}(w)
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < perWriter; i++ {
+			if _, err := st.RecordManifestGeneration(ctx, "evt1", ManifestTypeLive, []int64{int64(i) + 1}, i, fmt.Sprintf("key-%d", i), time.Now().UTC()); err != nil {
+				errs <- fmt.Errorf("RecordManifestGeneration() error: %w", err)
+				return
+			}
+		}
+	}()
+
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Error(err)
 	}
 }
 

@@ -79,6 +79,69 @@ func TestDistinctLabelValuesAreSeparateSeries(t *testing.T) {
 	}
 }
 
+func TestSetGroupResetsLabelsAbsentFromLatestCounts(t *testing.T) {
+	reg := NewRegistry()
+	g := reg.NewGauge("test_sessions", "current sessions by status")
+
+	g.SetGroup("status", map[string]int{"active": 3, "starting": 1})
+
+	var buf strings.Builder
+	if _, err := reg.WriteTo(&buf); err != nil {
+		t.Fatalf("WriteTo() error: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, `test_sessions{status="active"} 3`) {
+		t.Errorf("expected active=3, got:\n%s", out)
+	}
+	if !strings.Contains(out, `test_sessions{status="starting"} 1`) {
+		t.Errorf("expected starting=1, got:\n%s", out)
+	}
+
+	// The next scrape observes no more active or starting sessions at
+	// all (both disappeared from the query result, e.g. the last session
+	// disconnected). SetGroup must reset both known series to zero
+	// rather than leave them at their last nonzero reading.
+	g.SetGroup("status", map[string]int{})
+
+	buf.Reset()
+	if _, err := reg.WriteTo(&buf); err != nil {
+		t.Fatalf("WriteTo() error: %v", err)
+	}
+	out = buf.String()
+	if !strings.Contains(out, `test_sessions{status="active"} 0`) {
+		t.Errorf("expected active reset to 0 after disappearing from counts, got:\n%s", out)
+	}
+	if !strings.Contains(out, `test_sessions{status="starting"} 0`) {
+		t.Errorf("expected starting reset to 0 after disappearing from counts, got:\n%s", out)
+	}
+}
+
+func TestSetGroupNeverCreatesSeriesOutsideCountsGiven(t *testing.T) {
+	reg := NewRegistry()
+	g := reg.NewGauge("test_relays", "current relays by status")
+
+	g.SetGroup("status", map[string]int{"running": 1})
+	g.SetGroup("status", map[string]int{"stopped": 1})
+
+	var buf strings.Builder
+	if _, err := reg.WriteTo(&buf); err != nil {
+		t.Fatalf("WriteTo() error: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, `test_relays{status="stopped"} 1`) {
+		t.Errorf("expected stopped=1, got:\n%s", out)
+	}
+	if !strings.Contains(out, `test_relays{status="running"} 0`) {
+		t.Errorf("expected running reset to 0 (not deleted, not left at 1), got:\n%s", out)
+	}
+	// Cardinality stays bounded to the distinct values actually observed
+	// (2 here: running, stopped) - SetGroup must never fabricate a third
+	// series for some value it was never called with.
+	if strings.Count(out, "test_relays{") != 2 {
+		t.Errorf("expected exactly 2 series total, got:\n%s", out)
+	}
+}
+
 func TestZeroValueCounterAndGaugeAreSafeNoOps(t *testing.T) {
 	var c Counter
 	var g Gauge

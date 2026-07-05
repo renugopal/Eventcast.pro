@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -176,29 +177,38 @@ func (s *Store) ListSegmentsByEvent(ctx context.Context, eventID string) ([]Segm
 // itself is always recomputed from UploadConfirmed state directly, so a
 // missed or duplicate MarkManifestCommitted call cannot cause an
 // incorrect manifest.
+//
+// ids is every segment currently inside the manifest's window - for a
+// live manifest, that is the whole ~DVR-window suffix, not just the
+// newly-confirmed segment - so a single rebuild can pass a few hundred
+// ids. This issues one batched UPDATE rather than one per id: the
+// earlier per-id loop held SQLite's write lock for as many round trips
+// as there were ids, and because a live rebuild fires on every upload
+// confirmation, that lock duration was the dominant source of
+// SQLITE_BUSY under concurrent upload/manifest activity. The
+// manifest_commit_status <> ? filter also skips rows already marked
+// committed by a previous rebuild, so a steady-state rebuild - which
+// only ever adds one new segment to an otherwise-already-committed
+// window - writes just that one row.
 func (s *Store) MarkManifestCommitted(ctx context.Context, ids []int64, now time.Time) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	nowStr := now.UTC().Format(time.RFC3339Nano)
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("store: begin mark manifest committed: %w", err)
+	placeholders := make([]string, len(ids))
+	args := make([]any, 0, len(ids)+3)
+	args = append(args, ManifestCommitCommitted, now.UTC().Format(time.RFC3339Nano))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args = append(args, id)
 	}
-	defer tx.Rollback()
+	args = append(args, ManifestCommitCommitted)
 
-	stmt, err := tx.PrepareContext(ctx, `UPDATE segment_jobs SET manifest_commit_status = ?, updated_at = ? WHERE id = ?`)
-	if err != nil {
-		return fmt.Errorf("store: prepare mark manifest committed: %w", err)
+	query := `UPDATE segment_jobs SET manifest_commit_status = ?, updated_at = ?
+		WHERE id IN (` + strings.Join(placeholders, ",") + `) AND manifest_commit_status <> ?`
+	if _, err := s.db.ExecContext(ctx, query, args...); err != nil {
+		return fmt.Errorf("store: mark manifest committed for %d segments: %w", len(ids), err)
 	}
-	defer stmt.Close()
-
-	for _, id := range ids {
-		if _, err := stmt.ExecContext(ctx, ManifestCommitCommitted, nowStr, id); err != nil {
-			return fmt.Errorf("store: mark manifest committed for segment %d: %w", id, err)
-		}
-	}
-	return tx.Commit()
+	return nil
 }
 
 // ListRetentionCandidates returns every UploadConfirmed, not-yet-locally-deleted
