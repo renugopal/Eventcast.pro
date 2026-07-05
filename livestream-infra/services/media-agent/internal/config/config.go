@@ -111,6 +111,21 @@ const (
 	// same-host loopback address; the Compose deployment overrides it to
 	// the "srs" service hostname on the private media-node network.
 	EnvYouTubeSourceRTMPBaseURL = "EVENTCAST_YOUTUBE_SOURCE_RTMP_BASE_URL"
+	// EnvYouTubeSourceReadyTimeout bounds the uncounted retry window
+	// (internal/relay.Config.SourceReadyTimeout) a fresh relay gets to
+	// find its local source genuinely readable before failures start
+	// spending the restart budget. This absorbs the short race between
+	// SRS accepting a publish (which is what starts the relay) and SRS
+	// having enough of that stream buffered to serve back out.
+	EnvYouTubeSourceReadyTimeout = "EVENTCAST_YOUTUBE_SOURCE_READY_TIMEOUT"
+	// EnvYouTubeSourceReadyMinRunDuration is how long ffmpeg must run
+	// before its exit counts as a genuine failure rather than a
+	// source-not-ready symptom (internal/relay.Config.SourceReadyMinRunDuration).
+	EnvYouTubeSourceReadyMinRunDuration = "EVENTCAST_YOUTUBE_SOURCE_READY_MIN_RUN_DURATION"
+	// EnvYouTubeSourceReadyRetryInterval is the fixed delay between
+	// uncounted retries while still inside EnvYouTubeSourceReadyTimeout's
+	// window (internal/relay.Config.SourceReadyRetryInterval).
+	EnvYouTubeSourceReadyRetryInterval = "EVENTCAST_YOUTUBE_SOURCE_READY_RETRY_INTERVAL"
 
 	// Control-plane assignment synchronization (internal/controlplane).
 	// The whole subsystem is optional at the configuration level, exactly
@@ -206,6 +221,14 @@ const (
 	DefaultYouTubeRestartBackoffBase = 2 * time.Second
 	DefaultYouTubeRestartBackoffMax  = 60 * time.Second
 	DefaultYouTubeSourceRTMPBaseURL  = "rtmp://127.0.0.1:1935"
+	// DefaultYouTubeSourceReadyTimeout is a generous but bounded window
+	// for the local SRS source to become genuinely readable after a
+	// publish is accepted - field testing observed this race resolving
+	// within a couple of seconds; this leaves ample margin under load
+	// without masking a truly broken relay for long.
+	DefaultYouTubeSourceReadyTimeout        = 20 * time.Second
+	DefaultYouTubeSourceReadyMinRunDuration = 2 * time.Second
+	DefaultYouTubeSourceReadyRetryInterval  = 500 * time.Millisecond
 
 	DefaultControlPlaneRequestTimeout     = 10 * time.Second
 	DefaultControlPlaneSyncInterval       = 30 * time.Second
@@ -263,11 +286,14 @@ type Config struct {
 	ManifestRebuildInterval time.Duration
 	CleanupInterval         time.Duration
 
-	YouTubeFFmpegPath         string
-	YouTubeRestartMaxAttempts int
-	YouTubeRestartBackoffBase time.Duration
-	YouTubeRestartBackoffMax  time.Duration
-	YouTubeSourceRTMPBaseURL  string
+	YouTubeFFmpegPath                string
+	YouTubeRestartMaxAttempts        int
+	YouTubeRestartBackoffBase        time.Duration
+	YouTubeRestartBackoffMax         time.Duration
+	YouTubeSourceRTMPBaseURL         string
+	YouTubeSourceReadyTimeout        time.Duration
+	YouTubeSourceReadyMinRunDuration time.Duration
+	YouTubeSourceReadyRetryInterval  time.Duration
 
 	// ControlPlaneEnabled reports whether ControlPlaneBaseURL was
 	// configured, gating the entire continuous assignment-sync
@@ -401,6 +427,18 @@ func Load(getenv func(string) string) (Config, error) {
 	cfg.YouTubeSourceRTMPBaseURL = strings.TrimSpace(getenv(EnvYouTubeSourceRTMPBaseURL))
 	if cfg.YouTubeSourceRTMPBaseURL == "" {
 		cfg.YouTubeSourceRTMPBaseURL = DefaultYouTubeSourceRTMPBaseURL
+	}
+	cfg.YouTubeSourceReadyTimeout, err = parseDurationOrDefault(getenv(EnvYouTubeSourceReadyTimeout), DefaultYouTubeSourceReadyTimeout)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvYouTubeSourceReadyTimeout, err)
+	}
+	cfg.YouTubeSourceReadyMinRunDuration, err = parseDurationOrDefault(getenv(EnvYouTubeSourceReadyMinRunDuration), DefaultYouTubeSourceReadyMinRunDuration)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvYouTubeSourceReadyMinRunDuration, err)
+	}
+	cfg.YouTubeSourceReadyRetryInterval, err = parseDurationOrDefault(getenv(EnvYouTubeSourceReadyRetryInterval), DefaultYouTubeSourceReadyRetryInterval)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvYouTubeSourceReadyRetryInterval, err)
 	}
 
 	cfg.ControlPlaneBaseURL = strings.TrimSpace(getenv(EnvControlPlaneBaseURL))

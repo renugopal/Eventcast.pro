@@ -270,11 +270,14 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 	// assignment has YouTubeEnabled (internal/srs.Handlers.maybeStartRelay),
 	// per ADR-012's "independent, optional per event" design.
 	relaySupervisor := relay.New(st, relay.Config{
-		FFmpegPath:         cfg.YouTubeFFmpegPath,
-		RestartMaxAttempts: cfg.YouTubeRestartMaxAttempts,
-		RestartBackoffBase: cfg.YouTubeRestartBackoffBase,
-		RestartBackoffMax:  cfg.YouTubeRestartBackoffMax,
-		ShutdownTimeout:    shutdownTimeout,
+		FFmpegPath:                cfg.YouTubeFFmpegPath,
+		RestartMaxAttempts:        cfg.YouTubeRestartMaxAttempts,
+		RestartBackoffBase:        cfg.YouTubeRestartBackoffBase,
+		RestartBackoffMax:         cfg.YouTubeRestartBackoffMax,
+		ShutdownTimeout:           shutdownTimeout,
+		SourceReadyTimeout:        cfg.YouTubeSourceReadyTimeout,
+		SourceReadyMinRunDuration: cfg.YouTubeSourceReadyMinRunDuration,
+		SourceReadyRetryInterval:  cfg.YouTubeSourceReadyRetryInterval,
 	}, logger)
 	if n, err := st.ReconcileStaleRelays(ctx, time.Now().UTC()); err != nil {
 		logger.Error("failed to reconcile stale relay records", slog.String("error", err.Error()))
@@ -572,26 +575,27 @@ func collectMetrics(
 		if err != nil {
 			return
 		}
-		setByLabel(sink.SessionsActive, "status", snap.SessionsByStatus)
-		setByLabel(sink.SegmentJobs, "status", snap.SegmentJobsByStatus)
-		setByLabel(sink.SegmentUploadStatus, "upload_status", snap.SegmentsByUploadStatus)
-		setByLabel(sink.ManifestGenerations, "manifest_type", snap.ManifestGenerationsByType)
-		setByLabel(sink.VODFinalizations, "status", snap.VODFinalizationsByStatus)
-		setByLabel(sink.VODGapState, "gap_status", snap.VODByGapStatus)
-		setByLabel(sink.RelayStatus, "status", snap.RelaysByStatus)
+		// SetGroup (not a plain Set per key) is required here, not just
+		// convenient: a status value absent from this scrape's snapshot -
+		// e.g. no session is currently "active", no relay is currently
+		// "running" - means that key is also absent from counts, and a
+		// plain Set would then simply never touch that series again,
+		// leaving it stuck at whatever it last reported (a field-tested
+		// bug: sessions/relays showed as active/running long after they
+		// had actually ended). SetGroup resets any such now-absent key
+		// back to zero instead. Every key here always comes from a small,
+		// fixed SQL CHECK-constrained enum column (segment/session/VOD/
+		// relay status values), never request-controlled input, so this
+		// can never create an unbounded metric label.
+		sink.SessionsActive.SetGroup("status", snap.SessionsByStatus)
+		sink.SegmentJobs.SetGroup("status", snap.SegmentJobsByStatus)
+		sink.SegmentUploadStatus.SetGroup("upload_status", snap.SegmentsByUploadStatus)
+		sink.ManifestGenerations.SetGroup("manifest_type", snap.ManifestGenerationsByType)
+		sink.VODFinalizations.SetGroup("status", snap.VODFinalizationsByStatus)
+		sink.VODGapState.SetGroup("gap_status", snap.VODByGapStatus)
+		sink.RelayStatus.SetGroup("status", snap.RelaysByStatus)
 		sink.SegmentUploadAttempts.Set(float64(snap.SegmentUploadAttemptsSum))
 		sink.RelayRestartsTotal.Set(float64(snap.RelayRestartsSum))
 		sink.QueueOldestAgeSeconds.Set(snap.OldestPendingUploadAgeSeconds)
-	}
-}
-
-// setByLabel sets one gauge series per (labelName=key) pair in counts.
-// Every key here always comes from a small, fixed SQL CHECK-constrained
-// enum column (segment/session/VOD/relay status values), never
-// request-controlled input, so this can never create an unbounded metric
-// label.
-func setByLabel(g metrics.Gauge, labelName string, counts map[string]int) {
-	for key, n := range counts {
-		g.Set(float64(n), metrics.Label{Name: labelName, Value: key})
 	}
 }

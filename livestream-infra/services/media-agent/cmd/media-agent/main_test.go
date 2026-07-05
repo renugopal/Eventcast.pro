@@ -11,11 +11,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/config"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/controlplane"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/metrics"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/store"
 )
 
@@ -322,6 +324,74 @@ func TestRunExposesMetricsEndpoint(t *testing.T) {
 
 	cancel()
 	<-done
+}
+
+// TestCollectMetricsResetsSessionsAndRelaysToZeroAfterStateTransitions
+// reproduces the field-test defect directly against collectMetrics (not
+// through a full run(), since exercising a real YouTube relay needs
+// ffmpeg): an active session and a running relay must both be reported,
+// and once the session disconnects and the relay stops, the very next
+// scrape must show both back at zero rather than stuck at their last
+// nonzero reading (setByLabel's replacement, Gauge.SetGroup, is what
+// makes this work - see internal/metrics/metrics.go).
+func TestCollectMetricsResetsSessionsAndRelaysToZeroAfterStateTransitions(t *testing.T) {
+	ctx := context.Background()
+	st, err := store.Open(ctx, filepath.Join(t.TempDir(), "media-agent.sqlite3"), 5*time.Second)
+	if err != nil {
+		t.Fatalf("store.Open() error: %v", err)
+	}
+	defer st.Close()
+
+	reg := metrics.NewRegistry()
+	sink := metrics.NewSink(reg)
+	var reconcileLastRunAt atomic.Int64
+	var shuttingDown atomic.Bool
+	collect := collectMetrics(st, config.Config{}, nil, sink, time.Now(), &reconcileLastRunAt, &shuttingDown)
+
+	now := time.Now().UTC()
+	session, err := st.CreateSession(ctx, "evt1", "ingest1", now)
+	if err != nil {
+		t.Fatalf("CreateSession() error: %v", err)
+	}
+	if err := st.UpsertRelayStarting(ctx, "evt1", session.ID, now); err != nil {
+		t.Fatalf("UpsertRelayStarting() error: %v", err)
+	}
+	if err := st.MarkRelayRunning(ctx, session.ID, now); err != nil {
+		t.Fatalf("MarkRelayRunning() error: %v", err)
+	}
+
+	collect(ctx)
+	var buf strings.Builder
+	if _, err := reg.WriteTo(&buf); err != nil {
+		t.Fatalf("WriteTo() error: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, `media_agent_sessions{status="active"} 1`) {
+		t.Fatalf("expected an active session, got:\n%s", out)
+	}
+	if !strings.Contains(out, `media_agent_youtube_relays{status="running"} 1`) {
+		t.Fatalf("expected a running relay, got:\n%s", out)
+	}
+
+	if err := st.MarkDisconnected(ctx, session.ID, store.EndReasonUnpublish, time.Now().UTC()); err != nil {
+		t.Fatalf("MarkDisconnected() error: %v", err)
+	}
+	if err := st.MarkRelayStopped(ctx, session.ID, time.Now().UTC()); err != nil {
+		t.Fatalf("MarkRelayStopped() error: %v", err)
+	}
+
+	collect(ctx)
+	buf.Reset()
+	if _, err := reg.WriteTo(&buf); err != nil {
+		t.Fatalf("WriteTo() error: %v", err)
+	}
+	out = buf.String()
+	if !strings.Contains(out, `media_agent_sessions{status="active"} 0`) {
+		t.Errorf("expected active sessions reset to 0 after disconnect, got:\n%s", out)
+	}
+	if !strings.Contains(out, `media_agent_youtube_relays{status="running"} 0`) {
+		t.Errorf("expected running relays reset to 0 after stop, got:\n%s", out)
+	}
 }
 
 func TestRunControlPlaneSyncPopulatesAssignmentsAndAuthorizesPublish(t *testing.T) {

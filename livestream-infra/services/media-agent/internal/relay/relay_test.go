@@ -128,6 +128,198 @@ func TestSupervisorRestartsThenFailsAfterBudgetExhausted(t *testing.T) {
 	}
 }
 
+// TestSupervisorRetriesDuringStartupRaceWithoutConsumingRestartBudget
+// reproduces the field-test defect: ffmpeg fails immediately several
+// times because the local SRS source is not yet readable right after
+// on_publish, then becomes readable a little later. None of those early
+// failures should have spent the restart budget.
+func TestSupervisorRetriesDuringStartupRaceWithoutConsumingRestartBudget(t *testing.T) {
+	st := openTestStore(t)
+	sup := New(st, Config{
+		FFmpegPath: fakeFFmpegPath(t), RestartMaxAttempts: 3,
+		RestartBackoffBase: 5 * time.Millisecond, RestartBackoffMax: 20 * time.Millisecond, ShutdownTimeout: 2 * time.Second,
+		SourceReadyTimeout: 2 * time.Second, SourceReadyMinRunDuration: 200 * time.Millisecond, SourceReadyRetryInterval: 15 * time.Millisecond,
+	}, slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})))
+
+	marker := filepath.Join(t.TempDir(), "ready")
+	t.Setenv("FAKE_FFMPEG_BEHAVIOR", "fail_until_marker")
+	t.Setenv("FAKE_FFMPEG_READY_MARKER", marker)
+
+	target := Target{EventID: "evt1", SessionID: "sess1", SourceURL: "rtmp://127.0.0.1:1935/live/ingest1",
+		DestinationBaseURL: "rtmp://fake.example.invalid/live2", StreamKey: logging.Secret("test-key")}
+	if err := sup.Start(context.Background(), target); err != nil {
+		t.Fatalf("Start() error: %v", err)
+	}
+
+	// Let several fast, uncounted failures happen before the source
+	// becomes readable.
+	time.Sleep(150 * time.Millisecond)
+	if err := os.WriteFile(marker, []byte("ready"), 0o644); err != nil {
+		t.Fatalf("write ready marker: %v", err)
+	}
+
+	rec := waitForRelayStatus(t, st, "sess1", store.RelayRunning, 2*time.Second)
+	if rec.RestartCount != 0 {
+		t.Errorf("RestartCount = %d, want 0: fast failures before the source became ready must not spend the restart budget", rec.RestartCount)
+	}
+
+	sup.Shutdown()
+}
+
+// TestSupervisorFallsBackToCountedRestartsAfterGracePeriodExpires proves
+// the startup-race allowance is bounded: a source that never becomes
+// readable must still eventually exhaust the restart budget and report
+// permanent failure, not retry forever for free.
+func TestSupervisorFallsBackToCountedRestartsAfterGracePeriodExpires(t *testing.T) {
+	st := openTestStore(t)
+	sup := New(st, Config{
+		FFmpegPath: fakeFFmpegPath(t), RestartMaxAttempts: 2,
+		RestartBackoffBase: 5 * time.Millisecond, RestartBackoffMax: 20 * time.Millisecond, ShutdownTimeout: 2 * time.Second,
+		SourceReadyTimeout: 40 * time.Millisecond, SourceReadyMinRunDuration: 200 * time.Millisecond, SourceReadyRetryInterval: 10 * time.Millisecond,
+	}, slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})))
+
+	marker := filepath.Join(t.TempDir(), "never-created")
+	t.Setenv("FAKE_FFMPEG_BEHAVIOR", "fail_until_marker")
+	t.Setenv("FAKE_FFMPEG_READY_MARKER", marker)
+
+	target := Target{EventID: "evt1", SessionID: "sess1", SourceURL: "rtmp://127.0.0.1:1935/live/ingest1",
+		DestinationBaseURL: "rtmp://fake.example.invalid/live2", StreamKey: logging.Secret("test-key")}
+	if err := sup.Start(context.Background(), target); err != nil {
+		t.Fatalf("Start() error: %v", err)
+	}
+
+	rec := waitForRelayStatus(t, st, "sess1", store.RelayFailed, 3*time.Second)
+	if rec.RestartCount < 1 {
+		t.Errorf("RestartCount = %d, want >= 1: once the grace period expires, a still-unready source must count against the restart budget and eventually report permanent failure", rec.RestartCount)
+	}
+}
+
+// TestSupervisorRecoversAfterTransientMidStreamFailure exercises the
+// pre-existing counted-restart recovery path (distinct from the startup
+// race): a failure that happens well after ffmpeg was genuinely running
+// must count against the restart budget and still let the relay recover
+// to running on the next attempt.
+func TestSupervisorRecoversAfterTransientMidStreamFailure(t *testing.T) {
+	st := openTestStore(t)
+	sup := New(st, Config{
+		FFmpegPath: fakeFFmpegPath(t), RestartMaxAttempts: 5,
+		RestartBackoffBase: 5 * time.Millisecond, RestartBackoffMax: 20 * time.Millisecond, ShutdownTimeout: 2 * time.Second,
+		SourceReadyTimeout: 2 * time.Second, SourceReadyMinRunDuration: 100 * time.Millisecond, SourceReadyRetryInterval: 10 * time.Millisecond,
+	}, slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})))
+
+	countFile := filepath.Join(t.TempDir(), "count")
+	t.Setenv("FAKE_FFMPEG_BEHAVIOR", "run_then_fail_once_then_hang")
+	t.Setenv("FAKE_FFMPEG_COUNT_FILE", countFile)
+
+	target := Target{EventID: "evt1", SessionID: "sess1", SourceURL: "rtmp://127.0.0.1:1935/live/ingest1",
+		DestinationBaseURL: "rtmp://fake.example.invalid/live2", StreamKey: logging.Secret("test-key")}
+	if err := sup.Start(context.Background(), target); err != nil {
+		t.Fatalf("Start() error: %v", err)
+	}
+
+	// The first invocation runs past SourceReadyMinRunDuration before
+	// failing, so it must count as a real restart; wait specifically for
+	// the *post-recovery* running state (RestartCount >= 1), not just any
+	// "running" observation (the first invocation is also briefly
+	// "running" before it fails).
+	deadline := time.Now().Add(3 * time.Second)
+	var rec store.RelayRecord
+	for time.Now().Before(deadline) {
+		r, found, err := st.GetRelayBySessionID(context.Background(), "sess1")
+		if err != nil {
+			t.Fatalf("GetRelayBySessionID() error: %v", err)
+		}
+		if found && r.Status == store.RelayRunning && r.RestartCount >= 1 {
+			rec = r
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if rec.RestartCount < 1 {
+		t.Fatal("timed out waiting for the relay to recover to running after a counted restart")
+	}
+
+	sup.Shutdown()
+}
+
+// TestSupervisorCleanStopDuringStartupRace proves Stop remains prompt
+// even while the supervisor is still inside the uncounted startup-race
+// retry loop, instead of waiting out the whole grace window.
+func TestSupervisorCleanStopDuringStartupRace(t *testing.T) {
+	st := openTestStore(t)
+	sup := New(st, Config{
+		FFmpegPath: fakeFFmpegPath(t), RestartMaxAttempts: 3,
+		RestartBackoffBase: 5 * time.Millisecond, RestartBackoffMax: 20 * time.Millisecond, ShutdownTimeout: 2 * time.Second,
+		SourceReadyTimeout: 10 * time.Second, SourceReadyMinRunDuration: 200 * time.Millisecond, SourceReadyRetryInterval: 20 * time.Millisecond,
+	}, slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})))
+
+	marker := filepath.Join(t.TempDir(), "never-created")
+	t.Setenv("FAKE_FFMPEG_BEHAVIOR", "fail_until_marker")
+	t.Setenv("FAKE_FFMPEG_READY_MARKER", marker)
+
+	target := Target{EventID: "evt1", SessionID: "sess1", SourceURL: "rtmp://127.0.0.1:1935/live/ingest1",
+		DestinationBaseURL: "rtmp://fake.example.invalid/live2", StreamKey: logging.Secret("test-key")}
+	if err := sup.Start(context.Background(), target); err != nil {
+		t.Fatalf("Start() error: %v", err)
+	}
+
+	time.Sleep(80 * time.Millisecond) // let a few uncounted retries happen
+	sup.Stop("sess1")
+
+	rec := waitForRelayStatus(t, st, "sess1", store.RelayStopped, 2*time.Second)
+	if rec.RestartCount != 0 {
+		t.Errorf("RestartCount = %d, want 0 for a clean stop during the startup race", rec.RestartCount)
+	}
+}
+
+// TestSupervisorGivesEachReconnectedSessionAFreshGraceWindow reproduces
+// "the second relay" scenario from the field test: a publisher
+// reconnects (a brand new ingest session, and therefore a brand new
+// relay Start call) after its first session's relay already exhausted
+// its restart budget and failed. The new session's relay must get its
+// own independent grace window and restart budget, not inherit the
+// first session's exhausted state.
+func TestSupervisorGivesEachReconnectedSessionAFreshGraceWindow(t *testing.T) {
+	st := openTestStore(t)
+	sup := New(st, Config{
+		FFmpegPath: fakeFFmpegPath(t), RestartMaxAttempts: 2,
+		RestartBackoffBase: 5 * time.Millisecond, RestartBackoffMax: 20 * time.Millisecond, ShutdownTimeout: 2 * time.Second,
+		SourceReadyTimeout: 30 * time.Millisecond, SourceReadyMinRunDuration: 200 * time.Millisecond, SourceReadyRetryInterval: 5 * time.Millisecond,
+	}, slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})))
+
+	neverMarker := filepath.Join(t.TempDir(), "never")
+	t.Setenv("FAKE_FFMPEG_BEHAVIOR", "fail_until_marker")
+	t.Setenv("FAKE_FFMPEG_READY_MARKER", neverMarker)
+
+	firstTarget := Target{EventID: "evt1", SessionID: "sess-first", SourceURL: "rtmp://127.0.0.1:1935/live/ingest1",
+		DestinationBaseURL: "rtmp://fake.example.invalid/live2", StreamKey: logging.Secret("test-key")}
+	if err := sup.Start(context.Background(), firstTarget); err != nil {
+		t.Fatalf("first Start() error: %v", err)
+	}
+	waitForRelayStatus(t, st, "sess-first", store.RelayFailed, 2*time.Second)
+
+	// The publisher reconnects: a new ingest session begins, and this
+	// time the local source becomes readable well within a fresh grace
+	// window.
+	readyMarker := filepath.Join(t.TempDir(), "ready")
+	if err := os.WriteFile(readyMarker, []byte("ready"), 0o644); err != nil {
+		t.Fatalf("write ready marker: %v", err)
+	}
+	t.Setenv("FAKE_FFMPEG_READY_MARKER", readyMarker)
+
+	secondTarget := Target{EventID: "evt1", SessionID: "sess-second", SourceURL: "rtmp://127.0.0.1:1935/live/ingest1",
+		DestinationBaseURL: "rtmp://fake.example.invalid/live2", StreamKey: logging.Secret("test-key")}
+	if err := sup.Start(context.Background(), secondTarget); err != nil {
+		t.Fatalf("second Start() error: %v", err)
+	}
+	rec := waitForRelayStatus(t, st, "sess-second", store.RelayRunning, 2*time.Second)
+	if rec.RestartCount != 0 {
+		t.Errorf("RestartCount = %d, want 0: a reconnected session's relay must start with its own fresh restart budget", rec.RestartCount)
+	}
+
+	sup.Shutdown()
+}
+
 func TestSupervisorNeverLogsTheRawStreamKey(t *testing.T) {
 	var buf bytes.Buffer
 	st := openTestStore(t)

@@ -44,8 +44,24 @@ func Open(ctx context.Context, path string, busyTimeout time.Duration) (*Store, 
 	// to every new connection the pool opens - required because
 	// PRAGMA foreign_keys and PRAGMA synchronous are per-connection, not
 	// persisted in the database file itself.
+	//
+	// _txlock=immediate makes every explicit BeginTx acquire SQLite's
+	// RESERVED write lock at BEGIN, before that transaction's first
+	// statement, instead of the driver default ("deferred"), which only
+	// escalates to a write lock on the transaction's first write
+	// statement. A deferred transaction that reads before it writes (e.g.
+	// RecordManifestGeneration's "read the max generation, then insert
+	// the next one") establishes its snapshot at that first read; if a
+	// concurrent writer commits anything to the database file in between
+	// - even to an unrelated table, since a SQLite snapshot covers the
+	// whole file - the later write fails with SQLITE_BUSY in a way
+	// busy_timeout cannot resolve by waiting, because the snapshot itself
+	// is stale, not merely lock-contended. Acquiring the write lock up
+	// front removes that window entirely: busy_timeout's wait-and-retry
+	// then correctly covers the only remaining case, a lock actually held
+	// by another writer.
 	dsn := fmt.Sprintf(
-		"file:%s?_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)&_pragma=synchronous(FULL)&_pragma=busy_timeout(%d)",
+		"file:%s?_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)&_pragma=synchronous(FULL)&_pragma=busy_timeout(%d)&_txlock=immediate",
 		path, busyTimeout.Milliseconds(),
 	)
 

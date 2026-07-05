@@ -29,6 +29,39 @@ type Config struct {
 	// ShutdownTimeout bounds how long Shutdown waits for every running
 	// ffmpeg process to exit after being asked to stop.
 	ShutdownTimeout time.Duration
+
+	// SourceReadyTimeout bounds a separate, uncounted retry window that
+	// begins fresh every time supervise starts (i.e. every relay Start -
+	// on_publish for a new or reconnected session). Within this window, a
+	// ffmpeg failure that looks like the local RTMP source (this node's
+	// own SRS instance) simply was not readable yet - see
+	// SourceReadyMinRunDuration - is retried at SourceReadyRetryInterval
+	// without incrementing the restart-attempt count, touching
+	// restart_count, or waiting out the exponential backoff. This exists
+	// because SRS's on_publish callback (which is what triggers
+	// maybeStartRelay) can fire before SRS has buffered enough of the
+	// just-connected publisher's stream to serve a puller, so the very
+	// first pull attempt - and, after a publisher reconnect starts a
+	// fresh session and therefore a fresh relay, every such first attempt
+	// again - can race a source that is not genuinely readable yet,
+	// independent of whether the relay or the destination is healthy.
+	// The zero value disables this entirely (every failure counts
+	// immediately, the pre-milestone behavior), so existing callers that
+	// do not set it are unaffected.
+	SourceReadyTimeout time.Duration
+	// SourceReadyMinRunDuration is how long ffmpeg must run before its
+	// exit is treated as a genuine failure rather than a source-not-ready
+	// symptom. The zero value disables the startup-race allowance
+	// (every failure counts immediately, matching SourceReadyTimeout's
+	// zero-value behavior).
+	SourceReadyMinRunDuration time.Duration
+	// SourceReadyRetryInterval is the delay between uncounted retries
+	// while still inside SourceReadyTimeout's window; unlike
+	// RestartBackoffBase/Max, this stays fixed (no exponential growth)
+	// since it exists to poll a source that is expected to become ready
+	// within a few seconds, not to back off from a persistently failing
+	// destination.
+	SourceReadyRetryInterval time.Duration
 }
 
 // Target identifies one session's relay: where to pull from (this
@@ -149,20 +182,44 @@ func (s *Supervisor) Shutdown() {
 // supervise runs target's ffmpeg process, restarting it with bounded
 // exponential backoff on unexpected exit, until ctx is cancelled (a
 // clean stop) or the restart budget is exhausted (a terminal failure,
-// recorded only against this session's own relay row - see ADR-012).
+// recorded only against this session's own relay row - see ADR-012). A
+// fresh SourceReadyTimeout window (see Config) starts every time
+// supervise is entered, giving a short-lived race against the local
+// source's readiness a chance to resolve itself without spending any of
+// the restart budget.
 func (s *Supervisor) supervise(ctx context.Context, target Target) {
 	attempts := 0
+	sourceReadyDeadline := time.Now().Add(s.cfg.SourceReadyTimeout)
 	for {
 		if ctx.Err() != nil {
 			s.markStopped(target.SessionID)
 			return
 		}
 
+		startedAt := time.Now()
 		runErr := s.runOnce(ctx, target)
+		ranFor := time.Since(startedAt)
 
 		if ctx.Err() != nil {
 			s.markStopped(target.SessionID)
 			return
+		}
+
+		if runErr != nil && ranFor < s.cfg.SourceReadyMinRunDuration && time.Now().Before(sourceReadyDeadline) {
+			s.logger.Info("relay: local source not yet readable, retrying without spending the restart budget",
+				slog.String("event_id", target.EventID), slog.String("session_id", target.SessionID),
+				slog.Duration("ran_for", ranFor), slog.String("error", runErr.Error()))
+			retryInterval := s.cfg.SourceReadyRetryInterval
+			if retryInterval <= 0 {
+				retryInterval = 100 * time.Millisecond
+			}
+			select {
+			case <-ctx.Done():
+				s.markStopped(target.SessionID)
+				return
+			case <-time.After(retryInterval):
+			}
+			continue
 		}
 
 		attempts++

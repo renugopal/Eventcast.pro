@@ -579,6 +579,31 @@ func TestLoadYouTubeDefaultsAndValidation(t *testing.T) {
 	if cfg.YouTubeSourceRTMPBaseURL != DefaultYouTubeSourceRTMPBaseURL {
 		t.Errorf("YouTubeSourceRTMPBaseURL = %q, want default %q", cfg.YouTubeSourceRTMPBaseURL, DefaultYouTubeSourceRTMPBaseURL)
 	}
+	if cfg.YouTubeSourceReadyTimeout != DefaultYouTubeSourceReadyTimeout {
+		t.Errorf("YouTubeSourceReadyTimeout = %v, want default %v", cfg.YouTubeSourceReadyTimeout, DefaultYouTubeSourceReadyTimeout)
+	}
+	if cfg.YouTubeSourceReadyMinRunDuration != DefaultYouTubeSourceReadyMinRunDuration {
+		t.Errorf("YouTubeSourceReadyMinRunDuration = %v, want default %v", cfg.YouTubeSourceReadyMinRunDuration, DefaultYouTubeSourceReadyMinRunDuration)
+	}
+	if cfg.YouTubeSourceReadyRetryInterval != DefaultYouTubeSourceReadyRetryInterval {
+		t.Errorf("YouTubeSourceReadyRetryInterval = %v, want default %v", cfg.YouTubeSourceReadyRetryInterval, DefaultYouTubeSourceReadyRetryInterval)
+	}
+}
+
+func TestLoadYouTubeRejectsInvalidSourceReadyDurations(t *testing.T) {
+	for _, envVar := range []string{
+		EnvYouTubeSourceReadyTimeout,
+		EnvYouTubeSourceReadyMinRunDuration,
+		EnvYouTubeSourceReadyRetryInterval,
+	} {
+		getenv := envMap(withRequiredPaths(t, map[string]string{
+			EnvNodeID: "node-1",
+			envVar:    "not-a-duration",
+		}))
+		if _, err := Load(getenv); err == nil {
+			t.Errorf("Load() expected error for invalid %s, got nil", envVar)
+		}
+	}
 }
 
 func TestLoadYouTubeRejectsBackoffMaxBelowBase(t *testing.T) {

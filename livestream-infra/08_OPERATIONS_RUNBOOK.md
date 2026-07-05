@@ -24,6 +24,8 @@ Manual End Live changes the event to ENDING and prevents the event from being co
 
 Do not delete local files or revoke storage access while FINALIZING. Confirm VOD_READY and playback before communicating completion.
 
+VOD finalization itself is an explicit step in the current Media Agent build, not a timer this service runs on its own: the control plane's scheduled-end-plus-grace-period and manual-End-Live decisions are both expected to call the same seam, `POST /internal/events/{event_id}/finalize` on the event's assigned node, rather than the Media Agent finalizing anything on its own initiative. Until that control-plane caller exists, an operator performs this step directly once the encoder has stopped and the event is confirmed complete: `curl -X POST -H "Authorization: Bearer $EVENTCAST_OPERATOR_API_TOKEN" http://<node-host>:8085/internal/events/<event_id>/finalize`. The call is idempotent and safe to repeat - an event that is not yet eligible (a session is still open, or a segment has not resolved) returns HTTP 202 with `finalized: false` and a human-readable reason rather than an error. Only treat the event as VOD_READY once a repeat call reports `finalized: true`.
+
 ## Publisher disconnected
 
 Confirm whether the encoder and field network are still operating. The system should mark the event INTERRUPTED but preserve all media. Allow the encoder to reconnect with the same key while the event is still valid. A new session and HLS discontinuity are expected.
