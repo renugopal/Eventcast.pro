@@ -21,9 +21,8 @@ export const Wallet: React.FC<WalletProps> = ({ studioId }) => {
   
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isTopUpOpen, setIsTopUpOpen] = useState<boolean>(false);
-  const [topUpAmount, setTopUpAmount] = useState<string>("500");
-  const [isSimulating, setIsSimulating] = useState<boolean>(false);
-  const [topUpSuccess, setTopUpSuccess] = useState<boolean>(false);
+  const [topUpAmount] = useState<string>("500");
+  const [topUpSuccess] = useState<boolean>(false);
   const [isUpgrading, setIsUpgrading] = useState<string | null>(null);
   
   // Billing cycle toggle: "monthly" or "yearly"
@@ -88,38 +87,6 @@ export const Wallet: React.FC<WalletProps> = ({ studioId }) => {
       console.error("Failed to load billing data", err);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleSimulateTopUp = async () => {
-    const amount = parseFloat(topUpAmount);
-    if (isNaN(amount) || amount <= 0) return;
-
-    setIsSimulating(true);
-    try {
-      const res = await authFetch("/api/billing/topup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          studio_id: studioId,
-          amount_paise: amount * 100,
-          payment_id: "pay_sim_" + Math.random().toString(36).substring(2, 15),
-          order_id: "order_sim_" + Math.random().toString(36).substring(2, 15),
-        }),
-      });
-
-      if (res.ok) {
-        setTopUpSuccess(true);
-        setTimeout(() => {
-          setIsTopUpOpen(false);
-          setTopUpSuccess(false);
-          fetchBillingData();
-        }, 1500);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSimulating(false);
     }
   };
 
@@ -583,7 +550,7 @@ export const Wallet: React.FC<WalletProps> = ({ studioId }) => {
             <div className="p-8 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
               <div>
                 <h3 className="text-xl font-bold tracking-tight" style={{ color: "var(--foreground)" }}>Load credits</h3>
-                <p className="ec-section-sub mt-1">Simulated Razorpay top-up</p>
+                <p className="ec-section-sub mt-1">Secure payment verification in progress</p>
               </div>
               <button
                 type="button"
@@ -596,6 +563,13 @@ export const Wallet: React.FC<WalletProps> = ({ studioId }) => {
             </div>
 
             <div className="p-8 space-y-6">
+              <div className="rounded-xl p-4 flex items-start gap-3" style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }}>
+                <Info size={18} className="text-amber-500 mt-0.5 shrink-0" />
+                <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+                  Wallet top-ups are temporarily unavailable while we finish building secure payment verification. No funds will be charged.
+                </p>
+              </div>
+
               {topUpSuccess ? (
                 <div className="text-center py-10 space-y-4 animate-in zoom-in-90 duration-500">
                   <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-[0_0_40px_-5px_rgba(16,185,129,0.2)]">
@@ -613,8 +587,8 @@ export const Wallet: React.FC<WalletProps> = ({ studioId }) => {
                         <button
                           key={amt}
                           type="button"
-                          onClick={() => setTopUpAmount(amt)}
-                          className={`ec-btn ec-btn-secondary w-full ${
+                          disabled
+                          className={`ec-btn ec-btn-secondary w-full cursor-not-allowed opacity-50 ${
                             topUpAmount === amt ? "ring-2 ring-emerald-500 bg-emerald-50 text-emerald-700" : ""
                           }`}
                         >
@@ -631,8 +605,8 @@ export const Wallet: React.FC<WalletProps> = ({ studioId }) => {
                         type="number"
                         placeholder="Enter amount..."
                         value={topUpAmount}
-                        onChange={(e) => setTopUpAmount(e.target.value)}
-                        className="ec-input w-full pl-10"
+                        disabled
+                        className="ec-input w-full pl-10 cursor-not-allowed opacity-50"
                       />
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] font-black">₹</span>
                     </div>
@@ -640,12 +614,11 @@ export const Wallet: React.FC<WalletProps> = ({ studioId }) => {
 
                   <button
                     type="button"
-                    onClick={handleSimulateTopUp}
-                    disabled={isSimulating}
-                    className="ec-btn ec-btn-lg w-full bg-emerald-500 hover:bg-emerald-600 text-white border-transparent"
+                    disabled
+                    className="ec-btn ec-btn-lg w-full bg-emerald-500/50 text-white border-transparent cursor-not-allowed"
                   >
-                    {isSimulating ? <Loader2 className="animate-spin" size={18} /> : <CreditCard size={18} />}
-                    {isSimulating ? "Authorizing Funds..." : "Simulate Razorpay Payment"}
+                    <CreditCard size={18} />
+                    Top-ups temporarily unavailable
                   </button>
                 </>
               )}

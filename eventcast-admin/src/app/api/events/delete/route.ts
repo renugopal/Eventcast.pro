@@ -2,6 +2,15 @@ import { NextResponse } from 'next/server';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { RestreamerClient } from '@/lib/restreamer';
 import { requireAdmin } from '@/lib/auth';
+import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
+
+interface DeletableEventRow {
+  id: string;
+  slug: string;
+  thumbnail_url: string | null;
+  invitation_video_url: string | null;
+  gallery_urls: string[] | null;
+}
 
 export const runtime = 'edge';
 
@@ -27,21 +36,20 @@ export async function POST(req: Request) {
   try {
     const { id, permanent } = await req.json();
 
-    // 1. Fetch Event Details from Supabase
-    const { data: event, error: fetchError } = await db
-      .from('events')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (fetchError || !event) throw new Error("Event not found.");
+    // 1. Verify ownership before touching the database or any external
+    //    service. Cross-tenant and nonexistent events return the same
+    //    generic response, so resource existence is never leaked.
+    const ownership = await getOwnedEventById<DeletableEventRow>(db, id, auth.studioId);
+    if (isOwnershipError(ownership)) return ownership.error;
+    const event = ownership.event;
 
     // If NOT permanent, just soft delete (archive)
     if (!permanent) {
       const { error: archiveError } = await db
         .from('events')
         .update({ archived_at: new Date().toISOString() })
-        .eq('id', id);
+        .eq('id', event.id)
+        .eq('studio_id', auth.studioId);
       
       if (archiveError) throw new Error(`Soft Delete Error: ${archiveError.message}`);
       return NextResponse.json({ success: true, message: "Event archived successfully" });
@@ -180,7 +188,7 @@ export async function POST(req: Request) {
     }
 
     // 5. FINALLY: Delete from Supabase (using Admin)
-    const { error: deleteError } = await db.from('events').delete().eq('id', id);
+    const { error: deleteError } = await db.from('events').delete().eq('id', event.id).eq('studio_id', auth.studioId);
     if (deleteError) throw new Error(`Supabase Deletion Error: ${deleteError.message}`);
 
     return NextResponse.json({ success: true, message: "Deleted permanently" });

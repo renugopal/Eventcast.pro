@@ -3,6 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 import { RestreamerClient } from '@/lib/restreamer';
 import { generateYoutubeSEO } from '@/lib/youtube-seo';
 import { requireAdmin } from '@/lib/auth';
+import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
+
+interface EditingEventRef {
+  id: string;
+}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -24,7 +29,51 @@ export async function POST(req: Request) {
     
     // Prepaid billing check for new events (excluding edits)
     const isNewEvent = !(event.isEditing && event.editingId);
-    
+
+    // ─── Ownership check for edits — must happen before any mutation or ──────
+    // ─── external side effect. Cross-tenant and nonexistent events return ────
+    // ─── the same generic response so resource existence isn't leaked. ───────
+    // eventId is set here, once, from the verified DB row — never from the
+    // raw client editingId — and is never reassigned from client input again.
+    if (!isNewEvent) {
+      const ownership = await getOwnedEventById<EditingEventRef>(supabase, event.editingId, studioId, 'id');
+      if (isOwnershipError(ownership)) return ownership.error;
+      eventId = ownership.event.id;
+    }
+
+    // ─── Compute the slug up front so the global collision guard below can ───
+    // ─── run before any wallet debit, photographer write, or event mutation. ─
+    const groom = event.groom_name || event.groomName || event.celebrant_name || event.celebrantName || 'event';
+    const bride = event.bride_name || event.brideName || 'family';
+    const type = event.event_type || event.eventType || 'wedding';
+    const slug = `${groom.toLowerCase().replace(/\s+/g, '-')}-${bride.toLowerCase().replace(/\s+/g, '-')}-${type.toLowerCase()}`;
+
+    // ─── Global slug-collision guard ──────────────────────────────────────────
+    // Events are served at a global (non-studio-scoped) URL, so any other
+    // event already using this slug — same studio or a different one — must
+    // be rejected. Only the event currently being edited is excluded, using
+    // the verified `eventId` from the ownership check above (never the raw
+    // client editingId). A brand-new event has no id yet, so no exclusion
+    // applies. maybeSingle() is not used here: the schema permits the same
+    // slug to exist across multiple studios, so this query can legitimately
+    // match more than one row.
+    let slugQuery = supabase.from('events').select('id').eq('slug', slug);
+    if (eventId) {
+      slugQuery = slugQuery.neq('id', eventId);
+    }
+    const { data: slugMatches, error: slugCheckError } = await slugQuery.limit(1);
+
+    if (slugCheckError) {
+      throw new Error("Slug Availability Check Error: " + slugCheckError.message);
+    }
+
+    if (slugMatches && slugMatches.length > 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'This event link is already taken. Please adjust the names to generate a unique link.'
+      }, { status: 409 });
+    }
+
     // ─── Fetch subscription tier (needed for billing + photo limit) ───────────
     const { data: sub } = await supabase
       .from('subscriptions')
@@ -78,15 +127,6 @@ export async function POST(req: Request) {
           });
       }
     }
-
-    // 2. Define Paths and Slug
-    const groom = event.groom_name || event.groomName || event.celebrant_name || event.celebrantName || 'event';
-    const bride = event.bride_name || event.brideName || 'family';
-    const type = event.event_type || event.eventType || 'wedding';
-
-    const slug = `${groom.toLowerCase().replace(/\s+/g, '-')}-${bride.toLowerCase().replace(/\s+/g, '-')}-${type.toLowerCase()}`;
-    // --- NEW: Database First to get Event ID ---
-    eventId = event.editingId as string | undefined;
 
     // --- NEW: Handle Photographer Details ---
     let finalPhotographerId = event.photographer_id || event.photographerId || null;
@@ -165,16 +205,18 @@ export async function POST(req: Request) {
       guest_photo_limit: guestPhotoLimit,
       // Restreamer Details for the Table (Server app='/', token='live')
       // OBS: Server URL = rtmp://34.100.142.25/{slug}, Stream Key = live
-      studio_id: auth.studioId,
       restreamer_ingest_url: `rtmp://34.100.142.25/${slug}`,
-      restreamer_stream_key: 'live'
+      restreamer_stream_key: 'live',
+      // studio_id is only ever set on creation. Edits must never accept or
+      // rewrite it — the event's existing ownership is always preserved.
+      ...(isNewEvent ? { studio_id: studioId } : {}),
     };
 
     if (event.isEditing && event.editingId) {
       const { error: dbError } = await supabase
         .from('events')
         .update({ ...dbPayload, deployment_status: 'deploying', deployment_error: null })
-        .eq('id', event.editingId);
+        .eq('id', eventId);
       if (dbError) throw new Error("Database Update Error: " + dbError.message);
 
       // --- Update YouTube Broadcast if it exists ---

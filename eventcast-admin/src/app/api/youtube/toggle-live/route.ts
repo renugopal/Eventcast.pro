@@ -1,15 +1,45 @@
 export const runtime = 'edge';
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
+import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
+
+interface ToggleLiveEventRow {
+  id: string;
+  youtube_broadcast_id: string | null;
+}
 
 export async function POST(req: Request) {
   const auth = await requireAdmin(req);
   if (auth instanceof NextResponse) return auth;
 
   try {
-    const { eventId, broadcastId, title, isLive } = await req.json();
+    const { eventId, title, isLive } = await req.json();
 
-    // 1. Get YouTube Access Token
+    if (!eventId) {
+      return NextResponse.json({ success: false, error: 'Missing eventId' }, { status: 400 });
+    }
+
+    if (typeof title !== 'string' || typeof isLive !== 'boolean') {
+      return NextResponse.json({ success: false, error: 'title must be a string and isLive must be a boolean' }, { status: 400 });
+    }
+
+    // 1. Verify ownership before any YouTube API call. Cross-tenant and
+    //    nonexistent events return the same generic response, so resource
+    //    existence is never leaked.
+    const { supabaseAdmin } = await import('@/lib/supabase');
+    if (!supabaseAdmin) {
+      throw new Error('Supabase Admin client is not configured');
+    }
+    const ownership = await getOwnedEventById<ToggleLiveEventRow>(supabaseAdmin, eventId, auth.studioId, 'id, youtube_broadcast_id');
+    if (isOwnershipError(ownership)) return ownership.error;
+    const event = ownership.event;
+
+    const broadcastId = event.youtube_broadcast_id;
+    if (!broadcastId) {
+      return NextResponse.json({ success: false, error: 'No YouTube broadcast associated with this event' }, { status: 400 });
+    }
+
+    // 2. Get YouTube Access Token
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       body: new URLSearchParams({
@@ -31,7 +61,7 @@ export async function POST(req: Request) {
 
     const newTitle = isLive ? `🔴 LIVE NOW | ${title}` : title.replace('🔴 LIVE NOW | ', '');
 
-    // 2. Update Broadcast Title — only set scheduledStartTime when going live,
+    // 3. Update Broadcast Title — only set scheduledStartTime when going live,
     //    not when toggling off (resetting it to "now" would corrupt the broadcast timeline)
     const snippet: Record<string, string> = { title: newTitle };
     if (isLive) snippet.scheduledStartTime = new Date().toISOString();
@@ -48,14 +78,12 @@ export async function POST(req: Request) {
     const data = await updateRes.json();
     if (!updateRes.ok) throw new Error(JSON.stringify(data));
 
-    // 3. Sync Status back to DB
-    const { supabaseAdmin } = await import('@/lib/supabase');
-    if (supabaseAdmin && eventId) {
-      await supabaseAdmin
-        .from('events')
-        .update({ youtube_status: isLive ? 'live' : 'completed' })
-        .eq('id', eventId);
-    }
+    // 4. Sync Status back to DB — scoped by the verified event id and studio
+    await supabaseAdmin
+      .from('events')
+      .update({ youtube_status: isLive ? 'live' : 'completed' })
+      .eq('id', event.id)
+      .eq('studio_id', auth.studioId);
 
     return NextResponse.json({ success: true, newTitle });
   } catch (error: any) {

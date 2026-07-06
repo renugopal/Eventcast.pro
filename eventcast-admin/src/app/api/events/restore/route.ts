@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
+import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
+
+interface RestorableEventRow {
+  id: string;
+}
 
 export const runtime = 'edge';
 
@@ -15,10 +20,17 @@ export async function POST(req: Request) {
       throw new Error("Supabase Admin client is not configured");
     }
 
+    // Verify ownership before any mutation. Cross-tenant and nonexistent
+    // events return the same generic response, so resource existence is
+    // never leaked.
+    const ownership = await getOwnedEventById<RestorableEventRow>(supabaseAdmin, id, auth.studioId);
+    if (isOwnershipError(ownership)) return ownership.error;
+
     const { error } = await supabaseAdmin
       .from('events')
       .update({ archived_at: null })
-      .eq('id', id);
+      .eq('id', ownership.event.id)
+      .eq('studio_id', auth.studioId);
 
     if (error) throw new Error(error.message);
 

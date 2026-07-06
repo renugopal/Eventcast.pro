@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import { RestreamerClient } from '@/lib/restreamer';
 import { createClient } from '@supabase/supabase-js';
 import { requireAdmin } from '@/lib/auth';
+import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
+
+interface ToggleableYoutubeEventRow {
+  slug: string;
+  youtube_stream_key: string | null;
+}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -15,22 +21,18 @@ export async function POST(req: Request) {
   if (auth instanceof NextResponse) return auth;
 
   try {
-    const { slug, enabled, eventId } = await req.json();
+    const { enabled, eventId } = await req.json();
 
-    if (!slug || !eventId) {
+    if (!eventId) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
     }
 
-    // 1. Get event details from DB to get the YouTube key
-    const { data: event, error: dbError } = await supabase
-      .from('events')
-      .select('youtube_stream_key')
-      .eq('id', eventId)
-      .single();
-
-    if (dbError || !event) {
-      return NextResponse.json({ error: 'Event not found' }, { status: 404 });
-    }
+    // 1. Verify ownership before reading the stream key or touching the
+    //    media relay. Cross-tenant and nonexistent events return the same
+    //    generic response, so resource existence is never leaked.
+    const ownership = await getOwnedEventById<ToggleableYoutubeEventRow>(supabase, eventId, auth.studioId, 'slug, youtube_stream_key');
+    if (isOwnershipError(ownership)) return ownership.error;
+    const event = ownership.event;
 
     const youtubeKey = event.youtube_stream_key;
     if (!youtubeKey) {
@@ -51,7 +53,7 @@ export async function POST(req: Request) {
       options: ["-c:v", "copy", "-c:a", "copy", "-f", "flv"]
     };
 
-    const success = await restreamer.toggleOutput(slug, 'youtube', enabled, outputConfig);
+    const success = await restreamer.toggleOutput(event.slug, 'youtube', enabled, outputConfig);
 
     if (success) {
       return NextResponse.json({ success: true });

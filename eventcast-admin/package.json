@@ -9,6 +9,7 @@
     "pages:build": "node -e \"const fs=require('fs'); fs.rmSync('./src/app/api/local-sync', {recursive:true, force:true})\" && npx @cloudflare/next-on-pages",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
     "archive-vod": "tsx scripts/archive-vod-to-r2.ts",
     "vod-uploader": "node scripts/vod-uploader/live-uploader.mjs",
     "finalize-vod": "node scripts/vod-uploader/finalize-vod.mjs"
@@ -46,6 +47,7 @@
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
     "typescript": "^5",
+    "vitest": "^4.1.10",
     "wrangler": "^4.93.0"
   }
 }
