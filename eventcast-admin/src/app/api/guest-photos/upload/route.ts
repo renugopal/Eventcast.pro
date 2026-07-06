@@ -6,17 +6,19 @@
  *
  * Flow:
  *  1. Validate required fields (event_id, uploader_name, file)
- *  2. Fetch event's guest_photo_limit from DB
- *  3. Count existing approved photos for this event
- *  4. Reject if limit reached (429)
- *  5. Upload compressed WebP to R2 under guest-photos/{event_id}/
- *  6. Insert record in guest_photos table
- *  7. Return { success, photo_url, photo_id }
+ *  2. Rate-limit per IP + event (before any R2 write)
+ *  3. Fetch event's guest_photo_limit from DB
+ *  4. Count existing approved photos for this event
+ *  5. Reject if limit reached (429)
+ *  6. Upload compressed WebP to R2 under guest-photos/{event_id}/
+ *  7. Insert record in guest_photos table
+ *  8. Return { success, photo_url, photo_id }
  */
 export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getClientIp, hashIp, enforceRateLimit } from '@/lib/rateLimit';
 
 // ─── Web Crypto AWS Sig V4 (same pattern as /api/r2-upload) ──────────────────
 async function sha256Hex(data: ArrayBuffer | Uint8Array | string): Promise<string> {
@@ -148,11 +150,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'File too large. Max 12 MB.' }, { status: 413 });
     }
 
-    // ── Supabase — service role for count queries ─────────────────────────────
+    // ── Supabase — service role for count queries + rate-limit RPC ────────────
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
+
+    // ── Rate limiting (per IP + event) — BEFORE any R2 write ──────────────────
+    // Privacy-preserving: the raw IP is SHA-256 hashed and never stored. The
+    // endpoint key is event-scoped so a burst against one event does not
+    // exhaust an unrelated event's budget. Event-wide caps across all IPs are a
+    // documented follow-up: the check_rate_limit RPC keys on (ip_hash, endpoint)
+    // and implementing an event-wide cap would mean overloading the ip_hash
+    // parameter with a non-IP value, which we deliberately avoid here.
+    const ipHash = await hashIp(getClientIp(req));
+    const allowed = await enforceRateLimit(supabase, ipHash, `guest-photos/upload:${eventId}`, 10, 60);
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Too many uploads from your connection. Please wait a moment and try again.' },
+        { status: 429 }
+      );
+    }
 
     // 1. Fetch event photo limit
     const { data: eventRow, error: eventErr } = await supabase

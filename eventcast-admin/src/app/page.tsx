@@ -476,15 +476,15 @@ export default function AdminDashboard() {
   };
 
   // ─── Upload Media → Cloudflare R2 (Zero Egress Fees) ────────────────────────
-  async function uploadToR2(files: FileList, folder: string): Promise<string[]> {
+  async function uploadToR2(files: FileList, purpose: string): Promise<string[]> {
     const uploadedUrls: string[] = [];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const fd = new FormData();
       fd.append('file', file);
-      fd.append('folder', folder);
+      fd.append('purpose', purpose);
       try {
-        const res = await fetch('/api/r2-upload', { method: 'POST', body: fd });
+        const res = await authFetch('/api/r2-upload', { method: 'POST', body: fd });
         const data = await res.json();
         if (data.success && data.url) {
           uploadedUrls.push(data.url);
@@ -580,11 +580,11 @@ export default function AdminDashboard() {
 
     if (type === 'video') {
       // Videos → R2 directly (no compression needed)
-      uploadedUrls = await uploadToR2(files, folder);
+      uploadedUrls = await uploadToR2(files, type);
     } else {
       // Images → compress first, then upload to R2
       const compressedFiles = await compressFilesForR2(files);
-      uploadedUrls = await uploadToR2(compressedFiles, folder);
+      uploadedUrls = await uploadToR2(compressedFiles, type);
     }
 
     // Save results to form state

@@ -182,11 +182,11 @@ export const CreateEventFlow = ({
       let urls: string[] = [];
 
       if (type === 'video') {
-        urls = await uploadToR2(files, folder);
+        urls = await uploadToR2(files, type);
       } else {
         // Compress images in-browser, then upload to R2
         const compressed = await compressFilesForR2(files);
-        urls = await uploadToR2(compressed, folder);
+        urls = await uploadToR2(compressed, type);
       }
 
       if (type === 'thumbnail') setFormData((p: typeof formData) => ({ ...p, thumbnailUrl: urls[0] }));

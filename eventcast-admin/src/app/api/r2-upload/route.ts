@@ -1,11 +1,28 @@
 /**
  * /api/r2-upload  — Edge Runtime (Cloudflare Pages compatible)
- * Uploads videos to Cloudflare R2 using AWS Signature V4 via Web Crypto API.
- * Node.js `crypto` module is NOT used — only Web Crypto (available in Edge).
+ * Authenticated, studio-scoped uploads to Cloudflare R2 using AWS Signature V4
+ * via the Web Crypto API. Node.js `crypto` module is NOT used — only Web Crypto
+ * (available in Edge).
  */
 export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/auth';
+
+// Server-side allowlist of upload purposes → media category. The client may
+// only pick a known purpose; this value is the ONLY caller-influenced string
+// that ends up in the object-key path, so an arbitrary client "folder" can
+// never be injected. Missing/unknown purpose is rejected (no default).
+const UPLOAD_PURPOSES: Record<string, 'image' | 'video'> = {
+  thumbnail: 'image',
+  gallery: 'image',
+  photographer_logo: 'image',
+  loaderPhoto: 'image',
+  video: 'video',
+};
+
+const MAX_IMAGE_BYTES = 15 * 1024 * 1024; // 15 MB
+const MAX_VIDEO_BYTES = 200 * 1024 * 1024; // 200 MB
 
 // ─── Web Crypto AWS Sig V4 Helpers ────────────────────────────────────────────
 
@@ -43,13 +60,38 @@ function bufToHex(buf: ArrayBuffer): string {
 // ─── Main Handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const formData = await req.formData();
     const file     = formData.get('file') as File | null;
-    const folder   = (formData.get('folder') as string) || 'events';
+    const purpose  = (formData.get('purpose') as string | null)?.trim();
 
     if (!file) {
       return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
+    }
+
+    // Mandatory, allowlisted purpose — never trust a free-form client folder.
+    if (!purpose || !Object.prototype.hasOwnProperty.call(UPLOAD_PURPOSES, purpose)) {
+      return NextResponse.json({ success: false, error: 'Invalid or missing upload purpose' }, { status: 400 });
+    }
+    const category = UPLOAD_PURPOSES[purpose];
+
+    // ── Validate MIME type + size BEFORE any R2 write ─────────────────────────
+    const contentType = file.type || (category === 'video' ? 'video/mp4' : 'image/webp');
+    if (category === 'image' && !contentType.startsWith('image/')) {
+      return NextResponse.json({ success: false, error: 'This upload must be an image' }, { status: 415 });
+    }
+    if (category === 'video' && !contentType.startsWith('video/')) {
+      return NextResponse.json({ success: false, error: 'This upload must be a video' }, { status: 415 });
+    }
+    const maxBytes = category === 'video' ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
+    if (file.size > maxBytes) {
+      return NextResponse.json(
+        { success: false, error: `File too large. Max ${Math.floor(maxBytes / (1024 * 1024))} MB.` },
+        { status: 413 }
+      );
     }
 
     const accessKey    = process.env.R2_ACCESS_KEY_ID!;
@@ -65,12 +107,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Build object key: events/<folder>/<timestamp>-<filename>
-    const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const objectKey    = `${folder}/${Date.now()}-${safeFileName}`;
+    // Studio-scoped, unguessable object key. Only server-controlled values
+    // (auth.studioId + allowlisted purpose) appear in the path; the filename is
+    // sanitized and prefixed with secure randomness (never Date.now() alone).
+    const safeFileName = (file.name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const objectKey    = `studios/${auth.studioId}/${purpose}/${crypto.randomUUID()}-${safeFileName}`;
 
     const fileBuffer  = await file.arrayBuffer();
-    const contentType = file.type || 'video/mp4';
 
     // ── AWS Sig V4 ────────────────────────────────────────────────────────────
     const region  = 'auto'; // Cloudflare R2 uses 'auto'

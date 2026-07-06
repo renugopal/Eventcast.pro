@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid messages array' }, { status: 400, headers: CORS_HEADERS });
     }
 
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: 'AI API Key not configured' }, { status: 500, headers: CORS_HEADERS });
     }

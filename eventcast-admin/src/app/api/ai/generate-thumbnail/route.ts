@@ -15,7 +15,7 @@ const FALLBACK_BACKGROUNDS: Record<string, string> = {
 async function generateCloudinarySignature(params: Record<string, string>, apiSecret: string) {
   const sortedKeys = Object.keys(params).sort();
   const stringToSign = sortedKeys.map(k => `${k}=${params[k]}`).join('&') + apiSecret;
-  
+
   const encoder = new TextEncoder();
   const data = encoder.encode(stringToSign);
   const hashBuffer = await crypto.subtle.digest('SHA-1', data);
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
 
   try {
     const { groomName, brideName, celebrantName, eventType } = await req.json();
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const apiSecret = process.env.CLOUDINARY_API_SECRET;
     const cldApiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
@@ -53,11 +53,11 @@ export async function POST(req: Request) {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
         const nameDesc = brideName && brideName.toLowerCase() !== 'family' ? `${groomName} & ${brideName}` : groomName;
-        const systemPrompt = `Write an exquisite, highly descriptive, artistic image generation prompt for a ${eventType || 'Wedding'} backdrop canvas. 
+        const systemPrompt = `Write an exquisite, highly descriptive, artistic image generation prompt for a ${eventType || 'Wedding'} backdrop canvas.
         CRITICAL RULE: DO NOT include any people, couples, faces, or realistic human figures. It must be an empty, clean, blank background canvas designed specifically to have text written on top of it.
-        The style must be a premium artistic watercolor invitation background, with a clean blank center space for text overlay, elegant pastel floral arrangements (like soft pink roses, eucalyptus leaves, or delicate gold outlines) placed only around the borders or in the corners. Use a dreamlike soft color palette (soft pinks, warm golds, cream, and mint greens), luxury traditional wedding style, aesthetic watercolor texture, 16:9 aspect ratio, cinematic high-end invitation card background, with NO text in the image itself. 
+        The style must be a premium artistic watercolor invitation background, with a clean blank center space for text overlay, elegant pastel floral arrangements (like soft pink roses, eucalyptus leaves, or delicate gold outlines) placed only around the borders or in the corners. Use a dreamlike soft color palette (soft pinks, warm golds, cream, and mint greens), luxury traditional wedding style, aesthetic watercolor texture, 16:9 aspect ratio, cinematic high-end invitation card background, with NO text in the image itself.
         Provide ONLY the final refined prompt string, with no quotes, extra text, or explanations.`;
-        
+
         const textResult = await model.generateContent(systemPrompt);
         const generatedPromptText = textResult.response.text().trim();
         if (generatedPromptText) {

@@ -31,7 +31,7 @@ export const compressImage = async (file: File): Promise<Blob | File> => {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        
+
         canvas.toBlob((blob) => {
           if (blob) resolve(blob);
           else resolve(file);
@@ -59,13 +59,17 @@ export async function compressFilesForR2(files: FileList): Promise<FileList> {
   return dt.files;
 }
 
-export async function uploadToR2(files: FileList, folder: string): Promise<string[]> {
+// `purpose` must be one of the server-side allowlisted upload purposes
+// (see /api/r2-upload): 'thumbnail' | 'gallery' | 'photographer_logo' |
+// 'loaderPhoto' | 'video'. The server derives the studio-scoped object key;
+// callers never supply a raw folder path.
+export async function uploadToR2(files: FileList, purpose: string): Promise<string[]> {
   const uploadedUrls: string[] = [];
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     const fd = new FormData();
     fd.append('file', file);
-    fd.append('folder', folder);
+    fd.append('purpose', purpose);
     try {
       const res = await authFetch('/api/r2-upload', { method: 'POST', body: fd });
       const data = await res.json();
