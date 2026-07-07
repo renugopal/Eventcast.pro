@@ -1,0 +1,42 @@
+window.WEDDING_CONFIG = {
+    groom: "Venkata Rao",
+    bride: "Navya Sree",
+    date: "Wednesday, July 8th",
+    time: "9:53 AM",
+    timeLabel: "Sumuhurtham",
+    timeSubtext: "",
+    timerTarget: "2026-07-08T07:30",
+    venue: "Sri Venkateswara Swamy Temple",
+    venueSubtext: "Upputu",
+    venueUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1436.9243850984094!2d80.28868085191873!3d15.954694488262533!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a4a6811c51e400f%3A0xb3116ec906f16076!2sSri%20Chennakesava%20Venkateswara%20Swamy%20Temple!5e0!3m2!1sen!2sin!4v1783407319152!5m2!1sen!2sin",
+    venueNavigateUrl: "https://maps.app.goo.gl/LVTZs5HHvtN9au4b9",
+    youtubeId: "N_0HdMEPjW0",
+    vodArchiveUrl: "https://youtube.com/live/N_0HdMEPjW0",
+    restreamerUrl: "",
+    restreamerPlayer: "",
+    invitationVideo: "https://pub-fa013cc979d8410e9d307bd2c9e6ecf2.r2.dev/events/venkatarao-navyasree-wedding/invitation_1.mp4",
+    invitationVideos: [
+        "https://pub-fa013cc979d8410e9d307bd2c9e6ecf2.r2.dev/events/venkatarao-navyasree-wedding/invitation_1.mp4",
+        "https://pub-fa013cc979d8410e9d307bd2c9e6ecf2.r2.dev/events/venkatarao-navyasree-wedding/invitation_2.mp4"
+    ],
+    thumbnail: "https://pub-fa013cc979d8410e9d307bd2c9e6ecf2.r2.dev/thumbnails/venkatarao-navyasree-wedding/seo_thumbnail.png",
+    gallery: [],
+    supabaseUrl: "",
+    supabaseKey: "",
+    eventId: "",
+    studioId: "",
+    eventDate: "2026-07-08",
+    eventType: "Wedding",
+    introText: "",
+    photographer: {
+        logo_url: "https://pub-fa013cc979d8410e9d307bd2c9e6ecf2.r2.dev/events/venkatarao-navyasree-wedding/kabir_logo.png",
+        phone_number: "",
+        instagram_url: null
+    },
+    customInitials: "V & N",
+    hideLoaderPhoto: false,
+    loaderPhotoUrl: "https://pub-fa013cc979d8410e9d307bd2c9e6ecf2.r2.dev/thumbnails/venkatarao-navyasree-wedding/seo_thumbnail.png",
+    country: "IN",
+    guestPhotoWallEnabled: false,
+    guestPhotoLimit: 0
+};
