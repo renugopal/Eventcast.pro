@@ -5,6 +5,8 @@ function pad(n) {
     return String(n).padStart(2, '0');
 }
 
+let countdownInterval = null;
+
 function updateCountdown() {
     const now = Date.now();
     const distance = LIVE_START - now;
@@ -16,7 +18,7 @@ function updateCountdown() {
         if (statusBadge) {
             statusBadge.innerHTML = '<span class="pulse"></span> LIVE NOW';
         }
-        clearInterval(countdownInterval);
+        if (countdownInterval) clearInterval(countdownInterval);
         return;
     }
 
@@ -37,13 +39,22 @@ function updateCountdown() {
 }
 
 updateCountdown();
-const countdownInterval = setInterval(updateCountdown, 1000);
+countdownInterval = setInterval(updateCountdown, 1000);
 
-window.addEventListener('load', () => {
+function hideLoader() {
     const loader = document.getElementById('loader');
-    if (!loader) return;
+    if (!loader || loader.dataset.hidden) return;
+    loader.dataset.hidden = '1';
     setTimeout(() => {
         loader.style.opacity = '0';
         setTimeout(() => { loader.style.display = 'none'; }, 500);
-    }, 1200);
-});
+    }, 800);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', hideLoader);
+} else {
+    hideLoader();
+}
+// Fallback — don't wait for slow iframes (YouTube/Maps can block window.load)
+setTimeout(hideLoader, 2500);
