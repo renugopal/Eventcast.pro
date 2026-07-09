@@ -129,7 +129,26 @@
 
     </main>
 
-    <script src="script.js"></script>
+    <script>
+        (function () {
+            function hideLoader() {
+                var loader = document.getElementById('loader');
+                if (!loader || loader.dataset.hidden) return;
+                loader.dataset.hidden = '1';
+                setTimeout(function () {
+                    loader.style.opacity = '0';
+                    setTimeout(function () { loader.style.display = 'none'; }, 500);
+                }, 600);
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', hideLoader);
+            } else {
+                hideLoader();
+            }
+            setTimeout(hideLoader, 2000);
+        })();
+    </script>
+    <script src="script.js?v=20260709"></script>
 </body>
 
 </html>
