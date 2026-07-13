@@ -16,7 +16,7 @@ interface HlsPlayerProps {
 
 const HlsPlayer: React.FC<HlsPlayerProps> = ({ src }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<any>(null);
+  const hlsRef = useRef<{ destroy: () => void } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
@@ -192,31 +192,72 @@ const YouTubeToggle: React.FC<YouTubeToggleProps> = ({
 
 // ─── Stream Card ──────────────────────────────────────────────────────────────
 
+interface LiveMonitorEvent {
+  id: string;
+  slug: string;
+  event_date?: string | null;
+  event_time?: string | null;
+  timer_target_time?: string | null;
+  groom_name?: string | null;
+  bride_name?: string | null;
+  celebrant_name?: string | null;
+  event_type?: string | null;
+  venue_name?: string | null;
+  view_count?: number | null;
+}
+
+interface LiveMonitorWish {
+  created_at: string;
+  name?: string | null;
+  message?: string | null;
+  events?: {
+    groom_name?: string | null;
+    celebrant_name?: string | null;
+  } | null;
+}
+
+interface LiveProcessDto {
+  id: string;
+  eventId: string;
+  state: string;
+  bitrateKbps: number;
+  fps: number;
+  runtime_seconds: number;
+  youtubeEnabled: boolean;
+}
+
+interface LiveProcessView extends LiveProcessDto {
+  eventData: LiveMonitorEvent | null;
+}
+
+interface LiveStatusResponse {
+  success: boolean;
+  activeProcesses?: LiveProcessDto[];
+}
+
 interface StreamCardProps {
-  stream: any;
-  event: any;
+  stream: LiveProcessView;
+  event: LiveMonitorEvent | null;
 }
 
 const StreamCard: React.FC<StreamCardProps> = ({ stream, event }) => {
   const [isRestarting, setIsRestarting] = useState(false);
   const [restartStatus, setRestartStatus] = useState<"idle" | "ok" | "fail">("idle");
-  const [youtubeEnabled, setYoutubeEnabled] = useState(false);
+  const [youtubeEnabled, setYoutubeEnabled] = useState(stream.youtubeEnabled);
   const [youtubeLoading, setYoutubeLoading] = useState(false);
 
   const slug: string = stream.id;
 
   // Normalise state whether it comes as a string or as {exec: string}
-  const rawState: string =
-    typeof stream.state === "string" ? stream.state : stream.state?.exec ?? "unknown";
+  const rawState = stream.state;
 
   const isRunning = rawState === "running";
 
   // Parse health metrics — handle both raw Datarhei process list shape and
   // the StreamHealth shape used by getProcessHealth()
-  const bitrateKbps: number =
-    stream.progress?.input?.[0]?.bitrate_kbit ?? stream.bitrateKbps ?? 0;
-  const fps: number = stream.progress?.input?.[0]?.fps ?? stream.fps ?? 0;
-  const uptimeSec: number = stream.runtime_seconds ?? stream.uptime ?? 0;
+  const bitrateKbps = stream.bitrateKbps;
+  const fps = stream.fps;
+  const uptimeSec = stream.runtime_seconds;
 
   const uptimeLabel =
     uptimeSec > 0
@@ -233,14 +274,9 @@ const StreamCard: React.FC<StreamCardProps> = ({ stream, event }) => {
       : "neutral";
 
   // Seed YouTube toggle from process config
-  useEffect(() => {
-    const outputs: { id: string }[] = stream.config?.output ?? [];
-    setYoutubeEnabled(outputs.some((o) => o.id === "youtube"));
-  }, [stream.config]);
-
   const hlsUrl = `https://media.eventcast.pro/memfs/${slug}.m3u8`;
   const eventName = event?.groom_name || event?.celebrant_name || slug;
-  const brideName: string | undefined = event?.bride_name;
+  const brideName = event?.bride_name || undefined;
   const subtitle = [event?.venue_name, event?.event_type].filter(Boolean).join(" • ");
 
   const handleRestart = async () => {
@@ -327,7 +363,7 @@ const StreamCard: React.FC<StreamCardProps> = ({ stream, event }) => {
           )}
           {(event?.view_count ?? 0) > 0 && (
             <div className="bg-black/80 px-2 py-0.5 rounded text-[10px] font-mono text-blue-300 font-bold">
-              {event.view_count} views
+              {event?.view_count} views
             </div>
           )}
         </div>
@@ -417,15 +453,15 @@ const StreamCard: React.FC<StreamCardProps> = ({ stream, event }) => {
 type SystemStatus = 'initializing' | 'online' | 'degraded' | 'offline';
 
 interface LiveMonitorProps {
-  events: any[];
-  wishes: any[];
+  events: LiveMonitorEvent[];
+  wishes: LiveMonitorWish[];
 }
 
 const POLL_INTERVAL_MS = 10_000;
 
 export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [activeStreams, setActiveStreams] = useState<any[]>([]);
+  const [activeStreams, setActiveStreams] = useState<LiveProcessView[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [systemStatus, setSystemStatus] = useState<SystemStatus>('initializing');
@@ -451,9 +487,9 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
       setIsRefreshing(true);
       const res = await authFetch("/api/media/live-status");
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json() as LiveStatusResponse;
         if (data.success && data.activeProcesses) {
-          const mapped = (data.activeProcesses as any[]).map((proc) => ({
+          const mapped: LiveProcessView[] = data.activeProcesses.map((proc) => ({
             ...proc,
             eventData: events.find((e) => e.slug === proc.id) ?? null,
           }));
@@ -475,9 +511,10 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
   }, [events, resetCountdown]);
 
   useEffect(() => {
-    fetchLiveStatus();
+    const initialFetch = setTimeout(fetchLiveStatus, 0);
     const interval = setInterval(fetchLiveStatus, POLL_INTERVAL_MS);
     return () => {
+      clearTimeout(initialFetch);
       clearInterval(interval);
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
@@ -495,10 +532,7 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
     (w) => new Date(w.created_at).toISOString().split("T")[0] === today
   );
 
-  const liveCount = activeStreams.filter((s) => {
-    const st = typeof s.state === "string" ? s.state : s.state?.exec;
-    return st === "running";
-  }).length;
+  const liveCount = activeStreams.filter((stream) => stream.state === "running").length;
 
   return (
     <div className="w-full space-y-8 pb-20 ec-animate-in">
@@ -666,7 +700,7 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({ events, wishes }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {activeStreams.map((stream) => (
                   <StreamCard
-                    key={stream.id}
+                    key={`${stream.id}:${stream.youtubeEnabled}`}
                     stream={stream}
                     event={stream.eventData}
                   />
