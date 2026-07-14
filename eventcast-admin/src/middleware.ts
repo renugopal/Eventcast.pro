@@ -34,6 +34,19 @@ const PUBLIC_PREFIXES = [
   '/api/local-sync',             // Local template builder sync — no login required
 ];
 
+// ─── Media Agent internal control-plane bypass ───────────────────────────────
+// Matches ONLY the exact assignments endpoint shape the Media Agent Go
+// client calls — e.g. `/internal/media/nodes/gcp-asia-south1-01/assignments`.
+// That route (`src/app/internal/media/nodes/[node_id]/assignments/route.ts`)
+// authenticates itself via its own bearer-token machine-auth scheme
+// (`@/lib/media-agent/nodeAuth`), not a studio user's Supabase session JWT,
+// so it must bypass the JWT check below. Every other path — near-misses,
+// sibling actions, malformed node ids, and any future route under
+// `/internal/media/nodes/` — is deliberately NOT matched here, so it falls
+// through to normal studio-JWT authentication instead of being silently
+// left unprotected.
+const MEDIA_AGENT_ASSIGNMENTS_PATH = /^\/internal\/media\/nodes\/[A-Za-z0-9._-]{1,128}\/assignments\/?$/;
+
 // ─── Routes that are fully public (non-API) ───────────────────────────────────
 const ALWAYS_PUBLIC_PREFIXES = [
   '/_next/',
@@ -52,8 +65,15 @@ function isPublicRoute(pathname: string): boolean {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Only protect /api/* routes — let all page routes through
-  if (!pathname.startsWith('/api/')) {
+  // The exact Media Agent assignments endpoint authenticates itself and
+  // must bypass studio-JWT middleware entirely — checked before anything
+  // else, ahead of the general /api//internal prefix guard below.
+  if (MEDIA_AGENT_ASSIGNMENTS_PATH.test(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Only protect /api/* and /internal/* routes — let all page routes through
+  if (!pathname.startsWith('/api/') && !pathname.startsWith('/internal/')) {
     return NextResponse.next();
   }
 
@@ -144,6 +164,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Run on all API routes. Cloudflare Edge runtime supports this.
-  matcher: ['/api/:path*'],
+  // Run on all API routes plus the Media Agent internal control-plane
+  // routes. Cloudflare Edge runtime supports this.
+  matcher: ['/api/:path*', '/internal/:path*'],
 };
