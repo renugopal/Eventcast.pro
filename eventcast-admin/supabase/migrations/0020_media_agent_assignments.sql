@@ -2,8 +2,11 @@
 -- Migration 0020: Media Agent control-plane assignment schema (narrow, reconciled)
 --
 -- Supersedes the narrow Media Agent assignment intent of migration 0019
--- (committed but never applied remotely). 0019 itself is left untouched as
--- historical debt; this migration does not modify it. This migration's
+-- (committed but never applied remotely). The active 0019 migration file
+-- has since been replaced with an intentional no-op supersession marker
+-- (see eventcast-admin/supabase/migrations/0019_livestream_control_plane.sql);
+-- its original design is preserved only as historical documentation under
+-- eventcast-admin/supabase/superseded-migrations/. This migration's
 -- scope is exactly two tables: public.media_nodes and
 -- public.media_event_assignments, plus the constraints/indexes/trigger/RLS
 -- required for those two tables. No other object from 0019 (stream_sessions,
@@ -47,6 +50,18 @@ CREATE TABLE public.media_nodes (
   created_at          timestamptz NOT NULL DEFAULT now(),
   updated_at          timestamptz NOT NULL DEFAULT now()
 );
+
+-- status and maintenance_mode are scheduler and operational signals only —
+-- inputs to a future scheduler deciding which node a new event should be
+-- assigned to. They are NOT read or enforced by the internal assignments
+-- endpoint (GET /internal/media/nodes/{node_id}/assignments): that
+-- endpoint's authorization is controlled entirely by credential validity
+-- (media_node_credentials, revocation) and per-assignment enablement
+-- (media_event_assignments.enabled). A node in status = 'retired' or with
+-- maintenance_mode = true will still be served its enabled assignments by
+-- that endpoint if it presents a valid, non-revoked credential; do not
+-- rely on status/maintenance_mode as an authentication or access-control
+-- gate for that route.
 
 -- No node credential column exists here by design; node authentication is
 -- a deferred, separate slice with its own secret-boundary design.

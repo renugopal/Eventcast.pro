@@ -6,9 +6,20 @@ Migrations here are additive only. An already-applied migration must never be ed
 
 The actual SQL lives in the application repo, not here: this directory documents it for the architecture pack.
 
-## Migration file
+## Active migration sequence (Media Agent control-plane slice)
 
-`eventcast-admin/supabase/migrations/0019_livestream_control_plane.sql` — first control-plane schema migration (Phase 0, Task 5). Additive only: no `DROP`, no destructive `ALTER`, no renamed/removed columns. Uses `TEXT` + `CHECK` for all state enums (consistent with the majority of prior migrations in that directory, e.g. `0008_stream_alerts.sql`, `0009_deployment_status.sql`, `0014_platform_roles.sql`) rather than `CREATE TYPE ... AS ENUM`, so no new Postgres enum types are introduced.
+The controlled, safe-to-apply sequence for this slice is:
+
+1. `0018_wishes_auto_studio.sql` — unrelated Wishes `studio_id` auto-derivation trigger; independent of the Media Agent schema below.
+2. `0019_livestream_control_plane.sql` — **intentional no-op supersession marker.** The original design described below (media_nodes, stream_sessions, media_jobs, event_state_transitions, and additive `events` columns) was never applied to the production remote database and has been superseded by `0020`/`0021`. The active file now makes no schema or data changes at all, so a standard sequential migration runner can record version 0019 and continue safely to 0020 without recreating an incompatible `media_nodes` shape. **Operators must not apply the archived original SQL** preserved at `eventcast-admin/supabase/superseded-migrations/0019_livestream_control_plane.original.sql` — that file exists purely as historical design documentation.
+3. `0020_media_agent_assignments.sql` — creates the actual, reconciled `public.media_nodes` and `public.media_event_assignments`.
+4. `0021_media_node_auth.sql` — creates `public.media_node_credentials` and `public.media_node_request_nonces`; depends on `0020`'s `media_nodes`.
+
+**Stop-and-reconcile condition:** if any environment is found to already contain `stream_sessions`, `media_jobs`, `event_state_transitions`, or a `media_nodes` table matching the original (wider) 0019 shape described below, migration application must stop immediately for manual reconciliation — do not attempt to auto-resolve this by applying either version of 0019.
+
+## Migration file (historical design — see "Active migration sequence" above for current status)
+
+`eventcast-admin/supabase/migrations/0019_livestream_control_plane.sql` originally held the design described in this section — first control-plane schema migration (Phase 0, Task 5). Additive only: no `DROP`, no destructive `ALTER`, no renamed/removed columns. Uses `TEXT` + `CHECK` for all state enums (consistent with the majority of prior migrations in that directory, e.g. `0008_stream_alerts.sql`, `0009_deployment_status.sql`, `0014_platform_roles.sql`) rather than `CREATE TYPE ... AS ENUM`, so no new Postgres enum types are introduced. **This design was never applied and the active migration file no longer contains it** — it is preserved only at `eventcast-admin/supabase/superseded-migrations/0019_livestream_control_plane.original.sql` for historical reference; the rest of this document describes that archived design as originally authored.
 
 ## Schema purpose
 
@@ -58,7 +69,9 @@ Runtime execution was **deferred** in this task (no Supabase CLI or dev database
 
 ```bash
 supabase db lint                         # static lint against the migration
-supabase db reset                        # replay all migrations 0001..0019 from scratch
+supabase db reset                        # replay all migrations 0001..0021 from scratch
+                                          # (0019 now replays as a no-op; media_nodes is
+                                          # actually created by 0020, not 0019)
 supabase db diff --schema public         # confirm no drift after applying
 ```
 
