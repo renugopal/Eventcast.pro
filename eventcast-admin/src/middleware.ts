@@ -47,6 +47,21 @@ const PUBLIC_PREFIXES = [
 // left unprotected.
 const MEDIA_AGENT_ASSIGNMENTS_PATH = /^\/internal\/media\/nodes\/[A-Za-z0-9._-]{1,128}\/assignments\/?$/;
 
+// ─── Media Agent operator-only provisioning bypass ───────────────────────────
+// Matches ONLY the exact node-registration and credential-issuance route
+// shapes (`src/app/internal/media/nodes/provision/route.ts` and
+// `src/app/internal/media/nodes/[node_id]/credentials/route.ts`). Both
+// authenticate themselves via `MEDIA_NODE_PROVISIONING_SECRET`
+// (`Authorization: Bearer <secret>`), not a studio user's Supabase session
+// JWT, so they must bypass the JWT check below — same rationale as
+// `MEDIA_AGENT_ASSIGNMENTS_PATH` above, for a different, operator-only
+// auth scheme. Every other path — near-misses, sibling actions, malformed
+// node ids, and any future route under `/internal/media/nodes/` — is
+// deliberately NOT matched here, so it falls through to normal studio-JWT
+// authentication instead of being silently left unprotected.
+const MEDIA_AGENT_NODE_PROVISIONING_PATH = /^\/internal\/media\/nodes\/provision\/?$/;
+const MEDIA_AGENT_NODE_CREDENTIALS_PATH = /^\/internal\/media\/nodes\/[A-Za-z0-9._-]{1,128}\/credentials\/?$/;
+
 // ─── Routes that are fully public (non-API) ───────────────────────────────────
 const ALWAYS_PUBLIC_PREFIXES = [
   '/_next/',
@@ -68,7 +83,11 @@ export async function middleware(req: NextRequest) {
   // The exact Media Agent assignments endpoint authenticates itself and
   // must bypass studio-JWT middleware entirely — checked before anything
   // else, ahead of the general /api//internal prefix guard below.
-  if (MEDIA_AGENT_ASSIGNMENTS_PATH.test(pathname)) {
+  if (
+    MEDIA_AGENT_ASSIGNMENTS_PATH.test(pathname) ||
+    MEDIA_AGENT_NODE_PROVISIONING_PATH.test(pathname) ||
+    MEDIA_AGENT_NODE_CREDENTIALS_PATH.test(pathname)
+  ) {
     return NextResponse.next();
   }
 
