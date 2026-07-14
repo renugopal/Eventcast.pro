@@ -143,6 +143,7 @@ self.addEventListener('fetch', (event) => {
         `${env.SUPABASE_URL}/rest/v1/events` +
           `?slug=eq.${encodeURIComponent(slug)}` +
           `&studio_id=eq.${studioId}` +
+          `&archived_at=is.null` +
           `&select=*,photographers(*)` +
           `&limit=1`,
         { headers: sbHeaders },
@@ -156,6 +157,7 @@ self.addEventListener('fetch', (event) => {
             `${env.SUPABASE_URL}/rest/v1/events` +
               `?slug=eq.${encodeURIComponent(hyphenatedSlug)}` +
               `&studio_id=eq.${studioId}` +
+              `&archived_at=is.null` +
               `&select=*,photographers(*)` +
               `&limit=1`,
             { headers: sbHeaders },
