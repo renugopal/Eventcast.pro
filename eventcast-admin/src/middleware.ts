@@ -62,6 +62,21 @@ const MEDIA_AGENT_ASSIGNMENTS_PATH = /^\/internal\/media\/nodes\/[A-Za-z0-9._-]{
 const MEDIA_AGENT_NODE_PROVISIONING_PATH = /^\/internal\/media\/nodes\/provision\/?$/;
 const MEDIA_AGENT_NODE_CREDENTIALS_PATH = /^\/internal\/media\/nodes\/[A-Za-z0-9._-]{1,128}\/credentials\/?$/;
 
+// ─── Media Agent operator-only assignment-activation bypass ──────────────────
+// Matches ONLY the exact assignment-activation route shape
+// (`src/app/internal/media/assignments/[event_id]/activate/route.ts`).
+// Authenticates itself via `MEDIA_NODE_PROVISIONING_SECRET`
+// (`Authorization: Bearer <secret>`), the same operator-only scheme as the
+// node-provisioning routes above — not a studio user's Supabase session
+// JWT, and deliberately not reachable by one: this route returns a raw
+// publish secret that must never reach a browser. Every other path —
+// near-misses, sibling actions, malformed event ids, and any future route
+// under `/internal/media/assignments/` — is deliberately NOT matched here,
+// so it falls through to normal studio-JWT authentication instead of being
+// silently left unprotected.
+const MEDIA_AGENT_ASSIGNMENT_ACTIVATION_PATH =
+  /^\/internal\/media\/assignments\/[A-Za-z0-9._-]{1,128}\/activate\/?$/;
+
 // ─── Routes that are fully public (non-API) ───────────────────────────────────
 const ALWAYS_PUBLIC_PREFIXES = [
   '/_next/',
@@ -86,7 +101,8 @@ export async function middleware(req: NextRequest) {
   if (
     MEDIA_AGENT_ASSIGNMENTS_PATH.test(pathname) ||
     MEDIA_AGENT_NODE_PROVISIONING_PATH.test(pathname) ||
-    MEDIA_AGENT_NODE_CREDENTIALS_PATH.test(pathname)
+    MEDIA_AGENT_NODE_CREDENTIALS_PATH.test(pathname) ||
+    MEDIA_AGENT_ASSIGNMENT_ACTIVATION_PATH.test(pathname)
   ) {
     return NextResponse.next();
   }
