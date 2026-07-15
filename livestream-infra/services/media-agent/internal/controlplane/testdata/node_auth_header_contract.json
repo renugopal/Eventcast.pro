@@ -1,0 +1,99 @@
+{
+  "description": "Shared, language-agnostic structural contract for the GET /internal/media/nodes/{node_id}/assignments request headers, consumed by both the Go control-plane client's test suite (internal/controlplane/client_test.go) and the TypeScript Admin structural validator's test suite (eventcast-admin/tests/security/media-agent-node-auth.test.ts). This file contains no real credentials, hostnames, project identifiers, node tokens, or environment values — every value below is a fixed, non-secret, test-only fixture.",
+  "scope": {
+    "proves": "Structural request-shape compatibility between the real Go control-plane client (client.go, unmodified production code) and the real TypeScript structural validator (validateMediaAgentAuthStructure, unmodified production code) for the five required EventCast machine-auth headers.",
+    "does_not_prove": [
+      "HMAC-SHA256 credential-digest issuance or verification correctness (computeCredentialDigest / verifyMediaNodeCredential) — Go never computes or verifies this digest; it only ever forwards a raw bearer token it was configured with.",
+      "Real MEDIA_NODE_TOKEN_PEPPER handling.",
+      "Supabase-backed database behavior (node lookup, credential rows, replay-nonce storage, rate limiting).",
+      "Integration with a real, deployed Admin route over a real network or a real staging environment."
+    ]
+  },
+  "required_headers": [
+    "Authorization",
+    "X-EventCast-Node-Id",
+    "X-EventCast-Request-Id",
+    "X-EventCast-Idempotency-Key",
+    "X-EventCast-Timestamp"
+  ],
+  "structural_rules": {
+    "node_id_pattern": "^[A-Za-z0-9._-]{1,128}$",
+    "request_id_pattern": "^[0-9a-f]{32}$",
+    "idempotency_key_must_equal_request_id": true,
+    "timestamp_format": "RFC3339",
+    "timestamp_tolerance_ms": 300000
+  },
+  "reference_time": "2026-01-01T00:00:00.000Z",
+  "examples": [
+    {
+      "name": "valid_baseline",
+      "description": "A fully well-formed header set: valid node id, valid 32-char lowercase-hex request id, matching idempotency key, timestamp exactly at the reference time (in-window).",
+      "authorization": "Bearer fixture-only-test-token",
+      "node_id": "fixture-node-01",
+      "request_id": "0123456789abcdef0123456789abcdef",
+      "idempotency_key": "0123456789abcdef0123456789abcdef",
+      "timestamp_offset_ms": 0,
+      "expect_valid": true
+    },
+    {
+      "name": "invalid_node_id",
+      "description": "Node id contains characters outside the accepted charset (space and '!').",
+      "authorization": "Bearer fixture-only-test-token",
+      "node_id": "invalid node id!",
+      "request_id": "0123456789abcdef0123456789abcdef",
+      "idempotency_key": "0123456789abcdef0123456789abcdef",
+      "timestamp_offset_ms": 0,
+      "expect_valid": false
+    },
+    {
+      "name": "malformed_request_id",
+      "description": "Request id is not exactly 32 lowercase-hex characters. Idempotency key is set equal to it so this example isolates the request-id-format failure from any idempotency mismatch.",
+      "authorization": "Bearer fixture-only-test-token",
+      "node_id": "fixture-node-01",
+      "request_id": "too-short-and-not-hex",
+      "idempotency_key": "too-short-and-not-hex",
+      "timestamp_offset_ms": 0,
+      "expect_valid": false
+    },
+    {
+      "name": "idempotency_key_mismatch",
+      "description": "Request id and idempotency key are each individually well-formed 32-char lowercase-hex values, but they do not match each other.",
+      "authorization": "Bearer fixture-only-test-token",
+      "node_id": "fixture-node-01",
+      "request_id": "0123456789abcdef0123456789abcdef",
+      "idempotency_key": "ffffffffffffffffffffffffffffffff",
+      "timestamp_offset_ms": 0,
+      "expect_valid": false
+    },
+    {
+      "name": "missing_authorization_header",
+      "description": "Authorization header is absent (null); every other field matches the valid baseline.",
+      "authorization": null,
+      "node_id": "fixture-node-01",
+      "request_id": "0123456789abcdef0123456789abcdef",
+      "idempotency_key": "0123456789abcdef0123456789abcdef",
+      "timestamp_offset_ms": 0,
+      "expect_valid": false
+    },
+    {
+      "name": "timestamp_outside_tolerance_past",
+      "description": "Timestamp is 600000ms (10 minutes) before the reference time, clearly outside the 300000ms (5 minute) tolerance declared above.",
+      "authorization": "Bearer fixture-only-test-token",
+      "node_id": "fixture-node-01",
+      "request_id": "0123456789abcdef0123456789abcdef",
+      "idempotency_key": "0123456789abcdef0123456789abcdef",
+      "timestamp_offset_ms": -600000,
+      "expect_valid": false
+    },
+    {
+      "name": "timestamp_outside_tolerance_future",
+      "description": "Timestamp is 600000ms (10 minutes) after the reference time, clearly outside the 300000ms (5 minute) tolerance declared above.",
+      "authorization": "Bearer fixture-only-test-token",
+      "node_id": "fixture-node-01",
+      "request_id": "0123456789abcdef0123456789abcdef",
+      "idempotency_key": "0123456789abcdef0123456789abcdef",
+      "timestamp_offset_ms": 600000,
+      "expect_valid": false
+    }
+  ]
+}

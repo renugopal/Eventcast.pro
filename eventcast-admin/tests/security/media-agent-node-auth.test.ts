@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
   authenticateMediaAgentRequest,
@@ -42,6 +44,60 @@ function makeHeaders(overrides: Partial<MediaAgentAuthHeaders> = {}): MediaAgent
     timestamp: TIMESTAMP,
     ...overrides,
   };
+}
+
+// ── Shared, cross-language node-auth header contract fixture ───────────────
+// The same testdata/node_auth_header_contract.json the Go control-plane
+// client's test suite (client_test.go) reads. It is the single documented
+// source of truth for the header-shape contract (required header names,
+// request-id/node-id format, idempotency-key equality, timestamp
+// tolerance) — this file does not hardcode a second, independent copy of
+// those rules; every example below is driven through the real, exported
+// `validateMediaAgentAuthStructure` production function. Per the fixture's
+// own "scope" field, this proves structural request-shape compatibility
+// only — never HMAC credential-digest verification, real pepper handling,
+// Supabase-backed behavior, or integration with a real deployed route.
+interface NodeAuthFixtureExample {
+  name: string;
+  description?: string;
+  authorization: string | null;
+  node_id: string | null;
+  request_id: string | null;
+  idempotency_key: string | null;
+  timestamp_offset_ms: number;
+  expect_valid: boolean;
+}
+
+interface NodeAuthHeaderContractFixture {
+  required_headers: string[];
+  structural_rules: {
+    timestamp_tolerance_ms: number;
+  };
+  reference_time: string;
+  examples: NodeAuthFixtureExample[];
+}
+
+const NODE_AUTH_FIXTURE_PATH = path.resolve(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  'livestream-infra',
+  'services',
+  'media-agent',
+  'internal',
+  'controlplane',
+  'testdata',
+  'node_auth_header_contract.json'
+);
+
+function loadNodeAuthHeaderContractFixture(): NodeAuthHeaderContractFixture {
+  if (!existsSync(NODE_AUTH_FIXTURE_PATH)) {
+    throw new Error(
+      `shared node-auth header contract fixture not found at ${NODE_AUTH_FIXTURE_PATH}`
+    );
+  }
+  return JSON.parse(readFileSync(NODE_AUTH_FIXTURE_PATH, 'utf8')) as NodeAuthHeaderContractFixture;
 }
 
 describe('parseBearerToken', () => {
@@ -313,4 +369,49 @@ describe('authenticateMediaAgentRequest — generic collapsed result', () => {
     );
     expect(result).toEqual({ authorized: false });
   });
+});
+
+describe('validateMediaAgentAuthStructure — shared node-auth header contract fixture', () => {
+  // This is an independent protocol-conformance check against a fixture
+  // also read by the Go control-plane client's own test suite
+  // (client_test.go) — not a proof that a real Go Media Agent process and
+  // this deployed Admin route interoperate over a real network. See the
+  // fixture's own "scope" field.
+  const fixture = loadNodeAuthHeaderContractFixture();
+  const referenceNow = new Date(fixture.reference_time);
+
+  it('the fixture declares exactly the five required EventCast headers', () => {
+    expect([...fixture.required_headers].sort()).toEqual(
+      [
+        'Authorization',
+        'X-EventCast-Idempotency-Key',
+        'X-EventCast-Node-Id',
+        'X-EventCast-Request-Id',
+        'X-EventCast-Timestamp',
+      ].sort()
+    );
+  });
+
+  for (const example of fixture.examples) {
+    it(`${example.name} — real validator returns ${example.expect_valid}`, () => {
+      const timestamp = new Date(
+        referenceNow.getTime() + example.timestamp_offset_ms
+      ).toISOString();
+
+      const headers: MediaAgentAuthHeaders = {
+        authorization: example.authorization,
+        nodeId: example.node_id,
+        requestId: example.request_id,
+        idempotencyKey: example.idempotency_key,
+        timestamp,
+      };
+
+      const result = validateMediaAgentAuthStructure(
+        headers,
+        referenceNow,
+        fixture.structural_rules.timestamp_tolerance_ms
+      );
+      expect(result).toBe(example.expect_valid);
+    });
+  }
 });
