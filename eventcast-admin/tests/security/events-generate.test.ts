@@ -83,6 +83,7 @@ describe('POST /api/events/generate — edit mode ownership', () => {
         { data: null, error: null }, // 5: mark-deployment-live update
       ],
       subscriptions: [{ data: null, error: null }],
+      media_event_assignments: [{ error: null }],
     });
     mockRestreamer.setupChannel.mockResolvedValue({
       hlsUrl: 'https://hls.example/x',
@@ -108,6 +109,114 @@ describe('POST /api/events/generate — edit mode ownership', () => {
     expect(updatePayload).not.toHaveProperty('studio_id');
     expect(updateCall.eq).toHaveBeenCalledWith('id', 'server-verified-id');
     expect(updateCall.eq).not.toHaveBeenCalledWith('id', 'client-sent-editing-id');
+
+    // Media Agent draft assignment (Slice 3): must use the same
+    // server-verified event id, never the raw client editingId.
+    const assignmentCall = findCallForTable('media_event_assignments')!.result;
+    expect(assignmentCall.insert).toHaveBeenCalledWith({ event_id: 'server-verified-id' });
+  });
+});
+
+/** Finds the first recorded `.from(table)` call/result pair, in call order. */
+function findCallForTable(table: string): { args: unknown[]; result: MockQueryBuilder } | undefined {
+  for (let i = 0; i < mockDb.from.mock.calls.length; i++) {
+    if (mockDb.from.mock.calls[i][0] === table) {
+      return { args: mockDb.from.mock.calls[i], result: mockDb.from.mock.results[i].value };
+    }
+  }
+  return undefined;
+}
+
+describe('POST /api/events/generate — Media Agent draft assignment (Slice 3)', () => {
+  it('uses the newly-created event id for the draft assignment on a new-event create', async () => {
+    mockDb.from = createFromMock({
+      events: [
+        { data: [], error: null }, // 1: global slug-collision check (no conflict)
+        { data: [{ id: 'new-event-id' }], error: null }, // 2: insert new event
+        { data: null, error: null }, // 3: mark-deployment-live update
+      ],
+      subscriptions: [{ data: null, error: null }],
+      media_event_assignments: [{ error: null }],
+    });
+    mockRequireAdmin.mockResolvedValue(authSuccess({ isSuperAdmin: true }));
+    // A prior test in this file leaves setupChannel's resolved value set;
+    // vi.clearAllMocks() clears call history but not mock implementations.
+    // Reset it explicitly so restreamerData is falsy and no extra
+    // restreamer-success 'events' update call is made here.
+    mockRestreamer.setupChannel.mockResolvedValue(null);
+
+    const POST = await loadRoute();
+    const res = await POST(makeRequest({ groom_name: 'Groom', bride_name: 'Bride' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+
+    const assignmentCall = findCallForTable('media_event_assignments')!.result;
+    expect(assignmentCall.insert).toHaveBeenCalledWith({ event_id: 'new-event-id' });
+  });
+
+  it('does not block event creation when the draft assignment write fails, and never leaks the error into the response', async () => {
+    mockDb.from = createFromMock({
+      events: [
+        { data: [], error: null },
+        { data: [{ id: 'new-event-id' }], error: null },
+        { data: null, error: null },
+      ],
+      subscriptions: [{ data: null, error: null }],
+      media_event_assignments: [
+        { error: { message: 'connection reset to 10.0.0.5', code: 'XX000' } },
+      ],
+    });
+    mockRequireAdmin.mockResolvedValue(authSuccess({ isSuperAdmin: true }));
+    // A prior test in this file leaves setupChannel's resolved value set;
+    // vi.clearAllMocks() clears call history but not mock implementations.
+    // Reset it explicitly so restreamerData is falsy and no extra
+    // restreamer-success 'events' update call is made here.
+    mockRestreamer.setupChannel.mockResolvedValue(null);
+
+    const POST = await loadRoute();
+    const res = await POST(makeRequest({ groom_name: 'Groom', bride_name: 'Bride' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(JSON.stringify(body)).not.toContain('connection reset to 10.0.0.5');
+  });
+
+  it('never includes any assignment internals in the HTTP response', async () => {
+    mockDb.from = createFromMock({
+      events: [
+        { data: [], error: null },
+        { data: [{ id: 'new-event-id' }], error: null },
+        { data: null, error: null },
+      ],
+      subscriptions: [{ data: null, error: null }],
+      media_event_assignments: [{ error: null }],
+    });
+    mockRequireAdmin.mockResolvedValue(authSuccess({ isSuperAdmin: true }));
+    // A prior test in this file leaves setupChannel's resolved value set;
+    // vi.clearAllMocks() clears call history but not mock implementations.
+    // Reset it explicitly so restreamerData is falsy and no extra
+    // restreamer-success 'events' update call is made here.
+    mockRestreamer.setupChannel.mockResolvedValue(null);
+
+    const POST = await loadRoute();
+    const res = await POST(makeRequest({ groom_name: 'Groom', bride_name: 'Bride' }));
+    const body = await res.json();
+
+    expect(Object.keys(body).sort()).toEqual(['id', 'restreamer', 'slug', 'success', 'url']);
+    for (const forbidden of [
+      'assignment',
+      'ingest_id',
+      'ingestId',
+      'playback_id',
+      'playbackId',
+      'stream_secret_hash',
+      'assigned_media_node_id',
+    ]) {
+      expect(body).not.toHaveProperty(forbidden);
+    }
   });
 });
 

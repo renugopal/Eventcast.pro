@@ -4,6 +4,7 @@ import { RestreamerClient } from '@/lib/restreamer';
 import { generateYoutubeSEO } from '@/lib/youtube-seo';
 import { requireAdmin } from '@/lib/auth';
 import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
+import { ensureDraftAssignment } from '@/lib/media-agent/assignmentWriter';
 
 interface EditingEventRef {
   id: string;
@@ -311,6 +312,20 @@ export async function POST(req: Request) {
         // Restreamer failure = non-fatal; keep 'deploying' state so user knows it's partial
       }).eq('id', eventId);
       // We don't throw here to ensure the site is still generated even if media server is down
+    }
+
+    // --- NEW: Media Agent draft assignment (Slice 3) ---
+    // Ensures a media_event_assignments row exists for this event. Disabled,
+    // stub-only (event_id set, nothing else) — non-fatal by design, exactly
+    // like the Restreamer block above: a failure here must never block
+    // event creation/edit, and this never affects the HTTP response shape.
+    if (eventId) {
+      try {
+        await ensureDraftAssignment(supabase, eventId);
+      } catch (assignmentError: any) {
+        console.error("Media Agent draft assignment failed:", assignmentError);
+        // Non-fatal: do not throw, do not alter the response.
+      }
     }
 
     // ─── Mark deployment as LIVE ──────────────────────────────────────────────
