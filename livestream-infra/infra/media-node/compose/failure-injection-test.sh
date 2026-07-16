@@ -170,6 +170,7 @@ start_agent() {
     -e "EVENTCAST_SPOOL_ROOT=/var/lib/eventcast/spool" \
     -e "EVENTCAST_SRS_HLS_ROOT=/var/lib/eventcast/srs-output" \
     -e "EVENTCAST_ASSIGNMENT_SEED_PATH=/var/lib/eventcast/config/assignments.json" \
+    -e "EVENTCAST_ALLOW_SEED_ENABLED_ASSIGNMENTS=true" \
     -e "EVENTCAST_R2_ENDPOINT=${r2_endpoint}" \
     -e "EVENTCAST_R2_REGION=us-east-1" \
     -e "EVENTCAST_R2_BUCKET=${BUCKET}" \
@@ -258,6 +259,7 @@ $DOCKER run -d --name "$TINY_CONTAINER" --network "$NETWORK" \
   -e "EVENTCAST_SPOOL_ROOT=/var/lib/eventcast/spool" \
   -e "EVENTCAST_SRS_HLS_ROOT=/var/lib/eventcast/srs-output" \
   -e "EVENTCAST_ASSIGNMENT_SEED_PATH=/var/lib/eventcast/config/assignments.json" \
+  -e "EVENTCAST_ALLOW_SEED_ENABLED_ASSIGNMENTS=true" \
   --tmpfs "/var/lib/eventcast/spool:size=2m,mode=0777" \
   -v "${TINY_DB}:/var/lib/eventcast/db" \
   -v "${TMP_BASE}/tinyhls:/var/lib/eventcast/srs-output" \

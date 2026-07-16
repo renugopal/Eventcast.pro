@@ -92,6 +92,53 @@ func TestApplyControlPlaneAssignmentsIsAllOrNothing(t *testing.T) {
 	}
 }
 
+// TestApplyControlPlaneAssignmentsRepointsIngestIDToNewEventOnReuse defines
+// and tests behavior that was previously implicit/undocumented: what
+// happens if a later sync reuses an ingest_id for a different event_id.
+// The upsert-by-ingest_id (ON CONFLICT(ingest_id) DO UPDATE) repoints the
+// cached row to the newest sync's event_id — the Media Agent trusts the
+// control plane's assignment data and does not independently detect or
+// block ingest_id reassignment.
+func TestApplyControlPlaneAssignmentsRepointsIngestIDToNewEventOnReuse(t *testing.T) {
+	ctx := context.Background()
+	st := openTestStore(t)
+
+	first := testAssignment("shared-stream")
+	first.EventID = "event-original"
+	if _, _, err := st.ApplyControlPlaneAssignments(ctx, []Assignment{first}, time.Now().UTC()); err != nil {
+		t.Fatalf("first ApplyControlPlaneAssignments() error: %v", err)
+	}
+
+	got, found, err := st.GetAssignment(ctx, "shared-stream")
+	if err != nil || !found || got.EventID != "event-original" {
+		t.Fatalf("after first sync: found=%v err=%v event_id=%q, want event-original", found, err, got.EventID)
+	}
+
+	second := testAssignment("shared-stream")
+	second.EventID = "event-reassigned"
+	if _, _, err := st.ApplyControlPlaneAssignments(ctx, []Assignment{second}, time.Now().UTC().Add(time.Minute)); err != nil {
+		t.Fatalf("second ApplyControlPlaneAssignments() error: %v", err)
+	}
+
+	got2, found2, err := st.GetAssignment(ctx, "shared-stream")
+	if err != nil || !found2 {
+		t.Fatalf("after second sync: found=%v err=%v", found2, err)
+	}
+	if got2.EventID != "event-reassigned" {
+		t.Errorf("EventID = %q after ingest_id reuse, want %q (upsert-by-ingest_id repoints to the newest sync's event_id)", got2.EventID, "event-reassigned")
+	}
+
+	// GetAssignmentByEventID for the old event must no longer resolve this
+	// ingest_id — the row now belongs to the new event only.
+	_, foundOld, err := st.GetAssignmentByEventID(ctx, "event-original")
+	if err != nil {
+		t.Fatalf("GetAssignmentByEventID(event-original) error: %v", err)
+	}
+	if foundOld {
+		t.Error("GetAssignmentByEventID(event-original) found a row after its ingest_id was reassigned to a different event; want not found")
+	}
+}
+
 func TestControlPlaneSyncStateRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	st := openTestStore(t)

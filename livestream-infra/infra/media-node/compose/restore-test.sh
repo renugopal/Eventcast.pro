@@ -142,6 +142,7 @@ start_container() {
   local seed_args=()
   if [[ "$1" == "with-seed" ]]; then
     seed_args=(-e "EVENTCAST_ASSIGNMENT_SEED_PATH=/var/lib/eventcast/config/assignments.json" \
+      -e "EVENTCAST_ALLOW_SEED_ENABLED_ASSIGNMENTS=true" \
       -v "${TMP_BASE}/config:/var/lib/eventcast/config:ro")
   fi
   $DOCKER run -d --name "$CONTAINER" --network "$NETWORK" \

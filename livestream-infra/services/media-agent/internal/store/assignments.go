@@ -127,6 +127,32 @@ func LoadAssignmentsFromFile(path string) ([]Assignment, error) {
 	return assignments, nil
 }
 
+// SanitizeSeedAssignments enforces that a local JSON seed file can never
+// self-authorize a real publish in a real deployment. A seed file is
+// operator-supplied local disk content on a single VM - not the
+// authenticated, operator-activated control plane
+// (`ApplyControlPlaneAssignments`) - so unless allowEnabled is true (the
+// dev/test-only opt-in, config.EnvAllowSeedEnabledAssignments), every
+// returned assignment has Enabled forced to false, regardless of what the
+// seed file itself claims. Callers should log a warning identifying which
+// ingest_ids were affected; this function only sanitizes, it does not log.
+//
+// Deliberately operates on and returns a fresh slice rather than mutating
+// its input in place, and deliberately only touches the Enabled field -
+// every other field (including YouTube relay fields, handled separately by
+// the caller) passes through unchanged.
+func SanitizeSeedAssignments(assignments []Assignment, allowEnabled bool) []Assignment {
+	if allowEnabled {
+		return assignments
+	}
+	sanitized := make([]Assignment, len(assignments))
+	for i, a := range assignments {
+		a.Enabled = false
+		sanitized[i] = a
+	}
+	return sanitized
+}
+
 // ImportAssignments upserts every assignment transactionally: either
 // every row is applied or none are, so a malformed seed file or a
 // mid-import failure cannot leave the cache partially updated.

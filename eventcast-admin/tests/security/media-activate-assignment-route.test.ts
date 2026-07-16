@@ -6,79 +6,65 @@ const EVENT_ID = 'event-uuid-1';
 const NODE_ID = 'node-uuid-1';
 const NODE_HOSTNAME = 'ingest-asia-south1-01.eventcast.pro';
 
-// ── Local, hand-rolled query-builder mock — same shapes as the unit test file ──
+// ── Local, hand-rolled query-builder/RPC mock — same shapes as the unit test file ──
 interface FakeResult {
   data?: unknown;
   error?: { message: string; code?: string } | null;
 }
 
-function makeFakeDb(tables: Record<string, { select?: FakeResult[]; update?: FakeResult[] }>) {
-  const queues = new Map(
-    Object.entries(tables).map(([k, v]) => [k, { select: [...(v.select ?? [])], update: [...(v.update ?? [])] }])
-  );
+function makeFakeDb(config: { events?: FakeResult[]; diagnostic?: FakeResult[]; rpc?: FakeResult[] }) {
+  const eventsQueue = [...(config.events ?? [])];
+  const diagnosticQueue = [...(config.diagnostic ?? [])];
+  const rpcQueue = [...(config.rpc ?? [])];
 
-  const from = vi.fn((table: string) => {
-    const queue = queues.get(table);
-    if (!queue) throw new Error(`FakeDb: no config for table '${table}' in this test`);
+  const from = vi.fn((table: string) => ({
+    select: (_columns: string) => ({
+      eq: (..._args: unknown[]) => ({
+        maybeSingle: async () => {
+          const queue = table === 'events' ? eventsQueue : diagnosticQueue;
+          const result = queue.shift();
+          if (!result) throw new Error(`FakeDb: no more select() results queued for '${table}'`);
+          return result;
+        },
+      }),
+    }),
+  }));
 
-    return {
-      select: (_columns: string) => {
-        const builder = {
-          eq: (..._args: unknown[]) => builder,
-          neq: (..._args: unknown[]) => builder,
-          order: (..._args: unknown[]) => builder,
-          limit: async (_count: number) => {
-            const result = queue.select.shift();
-            if (!result) throw new Error(`FakeDb: no more select() results queued for '${table}'`);
-            return result;
-          },
-          maybeSingle: async () => {
-            const result = queue.select.shift();
-            if (!result) throw new Error(`FakeDb: no more select() results queued for '${table}'`);
-            return result;
-          },
-        };
-        return builder;
-      },
-      update: (_values: Record<string, unknown>) => {
-        const builder = {
-          eq: (..._args: unknown[]) => builder,
-          select: async (_columns: string) => {
-            const result = queue.update.shift();
-            if (!result) throw new Error(`FakeDb: no more update() results queued for '${table}'`);
-            return result;
-          },
-        };
-        return builder;
-      },
-    };
+  const rpc = vi.fn(async (_fn: string, _args: Record<string, unknown>) => {
+    const result = rpcQueue.shift();
+    if (!result) throw new Error(`FakeDb: no more rpc() results queued`);
+    return result;
   });
 
-  return { from };
+  return { from, rpc };
 }
 
 function eventFoundResult(): FakeResult {
   return { data: { id: EVENT_ID }, error: null };
 }
 
-function nodeFoundResult(): FakeResult {
-  return { data: [{ id: NODE_ID, ingest_hostname: NODE_HOSTNAME }], error: null };
+function activatedRpcResult(): FakeResult {
+  return {
+    data: [{ outcome: 'activated', node_id: NODE_ID, ingest_hostname: NODE_HOSTNAME }],
+    error: null,
+  };
 }
 
-// Loose return-type contract for `.from(table)` — deliberately wider than
-// any single test's concrete fake builder shape, so `mockDb.from` can be
-// reassigned per-test to whatever `makeFakeDb(...).from` produces without a
-// `never`-typed placeholder (from an un-annotated always-throwing function)
-// rejecting every later assignment.
+// Loose return-type contract for `.from(table)`/`.rpc(...)` — deliberately
+// wider than any single test's concrete fake builder shape, so `mockDb.from`
+// / `mockDb.rpc` can be reassigned per-test without a `never`-typed
+// placeholder rejecting every later assignment.
 interface FakeTableApi {
   select: (columns: string) => unknown;
-  update: (values: Record<string, unknown>) => unknown;
 }
 
 const { mockDb } = vi.hoisted(() => ({
   mockDb: {
     from: vi.fn((table: string): FakeTableApi => {
       throw new Error(`mockDb.from not configured for table '${table}' in this test`);
+    }),
+    rpc: vi.fn(async (_fn: string, _args: Record<string, unknown>): Promise<unknown> => {
+      throw new Error('mockDb.rpc not configured in this test');
     }),
   },
 }));
@@ -109,13 +95,16 @@ function params() {
   return Promise.resolve({ event_id: EVENT_ID });
 }
 
+function useFakeDb(config: { events?: FakeResult[]; diagnostic?: FakeResult[]; rpc?: FakeResult[] }) {
+  const fake = makeFakeDb(config);
+  mockDb.from = fake.from;
+  mockDb.rpc = fake.rpc;
+  return fake;
+}
+
 describe('POST /internal/media/assignments/{event_id}/activate', () => {
   it('activates on the first call and returns the raw secret exactly once, with 201', async () => {
-    mockDb.from = makeFakeDb({
-      events: { select: [eventFoundResult()] },
-      media_nodes: { select: [nodeFoundResult()] },
-      media_event_assignments: { update: [{ data: [{ event_id: EVENT_ID }], error: null }] },
-    }).from;
+    useFakeDb({ events: [eventFoundResult()], rpc: [activatedRpcResult()] });
 
     const POST = await loadRoute();
     const res = await POST(authedRequest(), { params: params() });
@@ -131,11 +120,7 @@ describe('POST /internal/media/assignments/{event_id}/activate', () => {
   });
 
   it('never exposes node credentials, digests, nonces, service-role, or YouTube-key-shaped fields in the response', async () => {
-    mockDb.from = makeFakeDb({
-      events: { select: [eventFoundResult()] },
-      media_nodes: { select: [nodeFoundResult()] },
-      media_event_assignments: { update: [{ data: [{ event_id: EVENT_ID }], error: null }] },
-    }).from;
+    useFakeDb({ events: [eventFoundResult()], rpc: [activatedRpcResult()] });
 
     const POST = await loadRoute();
     const res = await POST(authedRequest(), { params: params() });
@@ -157,14 +142,11 @@ describe('POST /internal/media/assignments/{event_id}/activate', () => {
   });
 
   it('returns 409 already_activated on a retry, with no secret anywhere in the body', async () => {
-    mockDb.from = makeFakeDb({
-      events: { select: [eventFoundResult()] },
-      media_nodes: { select: [nodeFoundResult()] },
-      media_event_assignments: {
-        update: [{ data: [], error: null }],
-        select: [{ data: { event_id: EVENT_ID, enabled: true }, error: null }],
-      },
-    }).from;
+    useFakeDb({
+      events: [eventFoundResult()],
+      rpc: [{ data: [{ outcome: 'no_row_matched', node_id: null, ingest_hostname: null }], error: null }],
+      diagnostic: [{ data: { event_id: EVENT_ID, enabled: true }, error: null }],
+    });
 
     const POST = await loadRoute();
     const res = await POST(authedRequest(), { params: params() });
@@ -176,9 +158,7 @@ describe('POST /internal/media/assignments/{event_id}/activate', () => {
   });
 
   it('returns 404 event_not_found for an unknown event', async () => {
-    mockDb.from = makeFakeDb({
-      events: { select: [{ data: null, error: null }] },
-    }).from;
+    useFakeDb({ events: [{ data: null, error: null }] });
 
     const POST = await loadRoute();
     const res = await POST(authedRequest(), { params: params() });
@@ -188,14 +168,11 @@ describe('POST /internal/media/assignments/{event_id}/activate', () => {
   });
 
   it('returns 404 no_draft_assignment when no assignment row exists', async () => {
-    mockDb.from = makeFakeDb({
-      events: { select: [eventFoundResult()] },
-      media_nodes: { select: [nodeFoundResult()] },
-      media_event_assignments: {
-        update: [{ data: [], error: null }],
-        select: [{ data: null, error: null }],
-      },
-    }).from;
+    useFakeDb({
+      events: [eventFoundResult()],
+      rpc: [{ data: [{ outcome: 'no_row_matched', node_id: null, ingest_hostname: null }], error: null }],
+      diagnostic: [{ data: null, error: null }],
+    });
 
     const POST = await loadRoute();
     const res = await POST(authedRequest(), { params: params() });
@@ -204,11 +181,11 @@ describe('POST /internal/media/assignments/{event_id}/activate', () => {
     expect(await res.json()).toEqual({ error: 'no_draft_assignment' });
   });
 
-  it('returns 503 no_eligible_node when there are zero eligible nodes', async () => {
-    mockDb.from = makeFakeDb({
-      events: { select: [eventFoundResult()] },
-      media_nodes: { select: [{ data: [], error: null }] },
-    }).from;
+  it('returns 503 no_eligible_node when there are zero eligible (healthy, non-maintenance) nodes', async () => {
+    useFakeDb({
+      events: [eventFoundResult()],
+      rpc: [{ data: [{ outcome: 'no_eligible_node', node_id: null, ingest_hostname: null }], error: null }],
+    });
 
     const POST = await loadRoute();
     const res = await POST(authedRequest(), { params: params() });
@@ -217,14 +194,24 @@ describe('POST /internal/media/assignments/{event_id}/activate', () => {
     expect(await res.json()).toEqual({ error: 'no_eligible_node' });
   });
 
-  it('returns 500 internal_error on a generic database failure, without leaking the message', async () => {
-    mockDb.from = makeFakeDb({
-      events: { select: [eventFoundResult()] },
-      media_nodes: { select: [nodeFoundResult()] },
-      media_event_assignments: {
-        update: [{ data: null, error: { message: 'connection reset to 10.0.0.5' } }],
-      },
-    }).from;
+  it('returns 503 node_at_capacity when every eligible node is already at hard_stream_limit', async () => {
+    useFakeDb({
+      events: [eventFoundResult()],
+      rpc: [{ data: [{ outcome: 'node_at_capacity', node_id: null, ingest_hostname: null }], error: null }],
+    });
+
+    const POST = await loadRoute();
+    const res = await POST(authedRequest(), { params: params() });
+
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: 'node_at_capacity' });
+  });
+
+  it('returns 500 internal_error on a generic RPC failure, without leaking the message', async () => {
+    useFakeDb({
+      events: [eventFoundResult()],
+      rpc: [{ data: null, error: { message: 'connection reset to 10.0.0.5' } }],
+    });
 
     const POST = await loadRoute();
     const res = await POST(authedRequest(), { params: params() });
@@ -243,6 +230,7 @@ describe('POST /internal/media/assignments/{event_id}/activate', () => {
 
       expect(res.status).toBe(401);
       expect(mockDb.from).not.toHaveBeenCalled();
+      expect(mockDb.rpc).not.toHaveBeenCalled();
     });
 
     it('fails closed (401) when no Authorization header is present', async () => {
@@ -291,11 +279,7 @@ describe('POST /internal/media/assignments/{event_id}/activate', () => {
     });
 
     it('succeeds with the correct secret', async () => {
-      mockDb.from = makeFakeDb({
-        events: { select: [eventFoundResult()] },
-        media_nodes: { select: [nodeFoundResult()] },
-        media_event_assignments: { update: [{ data: [{ event_id: EVENT_ID }], error: null }] },
-      }).from;
+      useFakeDb({ events: [eventFoundResult()], rpc: [activatedRpcResult()] });
 
       const POST = await loadRoute();
       const res = await POST(authedRequest(), { params: params() });
@@ -347,6 +331,12 @@ describe('Middleware — assignment-activation studio-JWT bypass', () => {
     const req2 = new NextRequest('http://test.local/internal/media/nodes/some-node/assignments');
     expect((await middleware(req1)).status).toBe(200);
     expect((await middleware(req2)).status).toBe(200);
+  });
+
+  it('does not bypass the sibling assignment-status path (unaffected by this change)', async () => {
+    const middleware = await loadMiddleware();
+    const req = new NextRequest(`http://test.local/internal/media/assignments/${EVENT_ID}/status`);
+    expect((await middleware(req)).status).toBe(200);
   });
 });
 

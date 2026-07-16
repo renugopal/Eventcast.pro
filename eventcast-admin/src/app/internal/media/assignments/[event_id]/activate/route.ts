@@ -75,6 +75,8 @@ export async function POST(
       return NextResponse.json({ error: 'no_draft_assignment' }, { status: 404 });
     case 'no_eligible_node':
       return NextResponse.json({ error: 'no_eligible_node' }, { status: 503 });
+    case 'node_at_capacity':
+      return NextResponse.json({ error: 'node_at_capacity' }, { status: 503 });
     case 'error':
     default:
       return NextResponse.json({ error: 'internal_error' }, { status: 500 });

@@ -1,7 +1,7 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "sourceOfTruth": "livestream-infra/03_DATA_MODEL_AND_API_CONTRACTS.md",
-  "description": "Language-neutral source of truth for shared EventCast livestream contracts: SRS callback payload shapes, internal API error codes, and the fixed lifecycle state enums. Go and TypeScript representations in this package must match this file exactly; this file must match the committed 0019_livestream_control_plane.sql migration CHECK constraints and the committed Media Agent SRS callback handler.",
+  "description": "Language-neutral source of truth for shared EventCast livestream contracts: SRS callback payload shapes, internal API error codes, the fixed lifecycle state enums, and the Media Agent assignment wire contract. Go and TypeScript representations in this package (and, for the assignment wire contract specifically, services/media-agent/internal/store + internal/controlplane on the Go side and eventcast-admin/src/lib/media-agent/contracts.ts on the TypeScript side) must match this file exactly; this file must match the committed 0019_livestream_control_plane.sql migration CHECK constraints and the committed Media Agent SRS callback handler.",
 
   "srsCallbacks": {
     "description": "SRS posts the same JSON envelope shape to on_publish, on_hls, and on_unpublish, with the fields relevant to each action populated and the rest zero-valued (03_DATA_MODEL_AND_API_CONTRACTS.md 'SRS callback contracts'; services/media-agent/internal/srs/srs.go Payload).",
@@ -93,6 +93,29 @@
   "mediaJobTypes": {
     "description": "media_jobs.type — required aggregate job types (03_DATA_MODEL_AND_API_CONTRACTS.md 'media_jobs'). Never one row per HLS segment.",
     "values": ["finalize_vod", "create_mp4", "archive_to_wasabi", "restore_to_r2", "delete_r2_hot_copy"]
+  },
+
+  "mediaAgentAssignmentWire": {
+    "description": "Wire shape of one assignment element inside the Media Agent's control-plane assignments-response envelope (03_DATA_MODEL_AND_API_CONTRACTS.md 'Assignment synchronization'). Source: services/media-agent/internal/store.Assignment JSON struct tags (Go) and eventcast-admin/src/lib/media-agent/contracts.ts MediaAgentAssignmentWire (TypeScript) — both are tested against this exact, ordered key list, closing the loop between the two independently-maintained representations. No field carries an omitempty tag on the Go side, so every key is present on every element; a disabled YouTube relay serializes as \"\"/false, never null or absent.",
+    "keys": [
+      "ingest_id",
+      "event_id",
+      "playback_id",
+      "stream_secret_hash",
+      "enabled",
+      "publish_window_start_at",
+      "publish_window_end_at",
+      "config_version",
+      "updated_at",
+      "youtube_enabled",
+      "youtube_destination_base_url",
+      "youtube_stream_key"
+    ]
+  },
+
+  "mediaAgentAssignmentsResponseWire": {
+    "description": "Envelope returned by GET /internal/media/nodes/{node_id}/assignments. Source: services/media-agent/internal/controlplane.AssignmentsResponse (Go) and eventcast-admin/src/lib/media-agent/contracts.ts MediaAgentAssignmentsResponseWire (TypeScript).",
+    "keys": ["config_version", "generated_at", "assignments"]
   },
 
   "versioning": {

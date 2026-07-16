@@ -231,6 +231,104 @@ func TestRunFailsFastOnInvalidAssignmentSeedFile(t *testing.T) {
 	}
 }
 
+// writeSeedAssignmentFile writes a single-assignment seed JSON file whose
+// enabled flag and stream_secret_hash are controlled by the caller, so
+// tests can drive an actual on_publish attempt against it.
+func writeSeedAssignmentFile(t *testing.T, enabled bool, rawToken string) string {
+	t.Helper()
+	base := t.TempDir()
+	seedPath := filepath.Join(base, "assignments.json")
+	body := fmt.Sprintf(`[{
+		"ingest_id": "seed-hardening-stream",
+		"event_id": "seed-hardening-event",
+		"playback_id": "seed-hardening-pb",
+		"stream_secret_hash": "%s",
+		"enabled": %t,
+		"publish_window_start_at": "2020-01-01T00:00:00Z",
+		"publish_window_end_at": "2030-01-01T00:00:00Z",
+		"config_version": "1"
+	}]`, store.HashToken(rawToken), enabled)
+	if err := os.WriteFile(seedPath, []byte(body), 0o600); err != nil {
+		t.Fatalf("write seed file: %v", err)
+	}
+	return seedPath
+}
+
+func postOnPublish(t *testing.T, addr, rawToken string) map[string]any {
+	t.Helper()
+	body := fmt.Sprintf(`{"action":"on_publish","stream":"seed-hardening-stream","app":"live","param":"?token=%s"}`, rawToken)
+	resp, err := http.Post(fmt.Sprintf("http://%s/internal/srs/on-publish", addr), "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST on-publish failed: %v", err)
+	}
+	defer resp.Body.Close()
+	var parsed map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+		t.Fatalf("invalid JSON response: %v", err)
+	}
+	return parsed
+}
+
+// TestRunSeedAssignmentEnabledIsRejectedByDefault is the core seed-hardening
+// regression test: a seed file's enabled: true row must not authorize a
+// real publish unless EVENTCAST_ALLOW_SEED_ENABLED_ASSIGNMENTS is set.
+func TestRunSeedAssignmentEnabledIsRejectedByDefault(t *testing.T) {
+	seedPath := writeSeedAssignmentFile(t, true, "seed-hardening-token")
+
+	addr := freeLoopbackAddr(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- run(ctx, envMap(withRequiredPaths(t, map[string]string{
+			config.EnvNodeID:             "test-node",
+			config.EnvHTTPAddr:           addr,
+			config.EnvAssignmentSeedPath: seedPath,
+			// EVENTCAST_ALLOW_SEED_ENABLED_ASSIGNMENTS deliberately unset.
+		})), io.Discard)
+	}()
+	waitForHealthz(t, addr, done)
+
+	parsed := postOnPublish(t, addr, "seed-hardening-token")
+	if parsed["code"] == float64(0) {
+		t.Error("on_publish succeeded against a seed-sourced enabled=true row with no EVENTCAST_ALLOW_SEED_ENABLED_ASSIGNMENTS opt-in; want rejected")
+	}
+
+	cancel()
+	<-done
+}
+
+// TestRunSeedAssignmentEnabledIsHonoredWithOptIn confirms the dev/test
+// opt-in still works: existing seed-based integration tests/fixtures that
+// intentionally seed an enabled=true row must not be silently broken.
+func TestRunSeedAssignmentEnabledIsHonoredWithOptIn(t *testing.T) {
+	seedPath := writeSeedAssignmentFile(t, true, "seed-hardening-token")
+
+	addr := freeLoopbackAddr(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- run(ctx, envMap(withRequiredPaths(t, map[string]string{
+			config.EnvNodeID:                     "test-node",
+			config.EnvHTTPAddr:                   addr,
+			config.EnvAssignmentSeedPath:          seedPath,
+			config.EnvAllowSeedEnabledAssignments: "true",
+		})), io.Discard)
+	}()
+	waitForHealthz(t, addr, done)
+
+	parsed := postOnPublish(t, addr, "seed-hardening-token")
+	if parsed["code"] != float64(0) {
+		t.Errorf("code = %v, want 0 (publish authorized: EVENTCAST_ALLOW_SEED_ENABLED_ASSIGNMENTS=true was set)", parsed["code"])
+	}
+
+	cancel()
+	<-done
+}
+
 func TestRunHealthCheckSucceedsAgainstHealthyServer(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/healthz" {
@@ -441,6 +539,98 @@ func TestRunControlPlaneSyncPopulatesAssignmentsAndAuthorizesPublish(t *testing.
 
 	cancel()
 	<-done
+}
+
+// TestRunRestartPreservesControlPlaneSyncedAssignmentAcrossColdSyncFailure
+// proves durability across a real process restart, not just an in-run
+// SyncOnce failure: a first run() successfully syncs one assignment from a
+// real control-plane mock, shuts down cleanly, and a second run() against
+// the SAME database file - but now pointed at an unreachable control plane
+// - must still authorize a publish using that last-known-good, disk-backed
+// assignment.
+func TestRunRestartPreservesControlPlaneSyncedAssignmentAcrossColdSyncFailure(t *testing.T) {
+	base := t.TempDir()
+	envBase := map[string]string{
+		config.EnvNodeID:     "test-node",
+		config.EnvDBPath:     filepath.Join(base, "db", "media-agent.sqlite3"),
+		config.EnvSpoolRoot:  filepath.Join(base, "spool"),
+		config.EnvSRSHLSRoot: filepath.Join(base, "srs-output"),
+	}
+
+	mock := controlplane.NewMockServer("node-token-abc")
+	now := time.Now().UTC()
+	mock.SetAssignments("v1", []store.Assignment{{
+		IngestID:             "restart-stream",
+		EventID:              "restart-event",
+		PlaybackID:           "restart-pb",
+		SecretTokenHash:      store.HashToken("restart-secret"),
+		Enabled:              true,
+		PublishWindowStartAt: now.Add(-time.Hour),
+		PublishWindowEndAt:   now.Add(time.Hour),
+		ConfigVersion:        "1",
+	}})
+	srv := httptest.NewServer(mock.Handler())
+	defer srv.Close()
+
+	// First run: real control plane reachable, syncs the assignment, then
+	// shuts down cleanly (simulating a normal stop, not a crash).
+	addr1 := freeLoopbackAddr(t)
+	ctx1, cancel1 := context.WithCancel(context.Background())
+	env1 := map[string]string{}
+	for k, v := range envBase {
+		env1[k] = v
+	}
+	env1[config.EnvHTTPAddr] = addr1
+	env1[config.EnvControlPlaneBaseURL] = srv.URL
+	env1[config.EnvControlPlaneNodeToken] = "node-token-abc"
+
+	done1 := make(chan error, 1)
+	go func() { done1 <- run(ctx1, envMap(env1), io.Discard) }()
+	waitForHealthz(t, addr1, done1)
+	cancel1()
+	select {
+	case err := <-done1:
+		if err != nil {
+			t.Fatalf("first run() = %v, want nil", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("first run() did not shut down after context cancellation")
+	}
+
+	// Second run: same DB file (the "restart"), but the control plane is now
+	// unreachable. Startup sync must fail non-fatally and the agent must
+	// still authorize a publish using the assignment persisted to disk by
+	// the first run.
+	addr2 := freeLoopbackAddr(t)
+	ctx2, cancel2 := context.WithCancel(context.Background())
+	env2 := map[string]string{}
+	for k, v := range envBase {
+		env2[k] = v
+	}
+	env2[config.EnvHTTPAddr] = addr2
+	env2[config.EnvControlPlaneBaseURL] = "http://127.0.0.1:1" // reserved, connection refused
+	env2[config.EnvControlPlaneNodeToken] = "node-token-abc"
+
+	done2 := make(chan error, 1)
+	go func() { done2 <- run(ctx2, envMap(env2), io.Discard) }()
+	waitForHealthz(t, addr2, done2)
+
+	body := `{"action":"on_publish","stream":"restart-stream","app":"live","param":"?token=restart-secret"}`
+	resp, err := http.Post(fmt.Sprintf("http://%s/internal/srs/on-publish", addr2), "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST on-publish failed: %v", err)
+	}
+	defer resp.Body.Close()
+	var parsed map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+		t.Fatalf("invalid JSON response: %v", err)
+	}
+	if parsed["code"] != float64(0) {
+		t.Errorf("code = %v, want 0 (last-known-good, disk-persisted assignment from before restart should still authorize publish despite the control plane being unreachable on this run)", parsed["code"])
+	}
+
+	cancel2()
+	<-done2
 }
 
 func TestRunOperatorEndpointsRequireToken(t *testing.T) {

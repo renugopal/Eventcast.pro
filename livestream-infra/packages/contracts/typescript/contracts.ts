@@ -6,7 +6,7 @@
 // 0019_livestream_control_plane.sql migration CHECK constraints, and
 // services/media-agent/internal/srs/srs.go.
 
-export const SCHEMA_VERSION = "1.0.0";
+export const SCHEMA_VERSION = "1.1.0";
 
 // SrsCallbackPayload is the shared JSON envelope SRS posts to
 // on_publish, on_hls, and on_unpublish, with the fields relevant to

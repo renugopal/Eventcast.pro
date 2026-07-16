@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import {
   BROWSER_SAFE_ASSIGNMENT_KEYS,
   MEDIA_AGENT_ASSIGNMENT_WIRE_KEYS,
@@ -272,5 +275,43 @@ describe('Adapter purity', () => {
     expect(respSource).toEqual(respSnapshot);
     // Envelope produces a fresh array, not an alias of the input array.
     expect(out.assignments).not.toBe(respSource.assignments);
+  });
+});
+
+// ── Go<->TypeScript wire-contract parity ──────────────────────────────────
+//
+// This module's key lists cannot directly import the Go `store.Assignment`/
+// `controlplane.AssignmentsResponse` struct tags they're meant to mirror
+// (different language, different repo module). Instead, both this file and
+// the Go counterpart test
+// (services/media-agent/internal/controlplane/wire_contract_test.go) each
+// independently assert their own representation against the single shared
+// source of truth: packages/contracts/contracts.json's
+// mediaAgentAssignmentWire/mediaAgentAssignmentsResponseWire sections. If
+// either side's shape drifts from that file, that side's own test fails —
+// this replaces the previous same-repo, self-referential assertion (this
+// file only checking itself against its own docblock's claims about the Go
+// side) with a real, independently-verifiable shared fixture.
+describe('Go<->TypeScript wire-contract parity (via packages/contracts/contracts.json)', () => {
+  function loadWireContractKeys(): {
+    mediaAgentAssignmentWire: { keys: string[] };
+    mediaAgentAssignmentsResponseWire: { keys: string[] };
+  } {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const contractsPath = path.join(
+      here,
+      '../../../livestream-infra/packages/contracts/contracts.json',
+    );
+    return JSON.parse(readFileSync(contractsPath, 'utf8'));
+  }
+
+  it('MEDIA_AGENT_ASSIGNMENT_WIRE_KEYS matches contracts.json mediaAgentAssignmentWire.keys exactly, in order', () => {
+    const { mediaAgentAssignmentWire } = loadWireContractKeys();
+    expect(MEDIA_AGENT_ASSIGNMENT_WIRE_KEYS).toEqual(mediaAgentAssignmentWire.keys);
+  });
+
+  it('MEDIA_AGENT_ASSIGNMENTS_RESPONSE_KEYS matches contracts.json mediaAgentAssignmentsResponseWire.keys exactly, in order', () => {
+    const { mediaAgentAssignmentsResponseWire } = loadWireContractKeys();
+    expect(MEDIA_AGENT_ASSIGNMENTS_RESPONSE_KEYS).toEqual(mediaAgentAssignmentsResponseWire.keys);
   });
 });

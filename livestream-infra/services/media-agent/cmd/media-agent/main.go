@@ -155,7 +155,25 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 			logger.Error("failed to load assignment seed file", slog.String("error", err.Error()))
 			return fmt.Errorf("load assignment seed: %w", err)
 		}
-		n, err := st.ImportAssignments(ctx, assignments)
+		// A local seed file must never be able to self-authorize a real
+		// publish in a real deployment - see
+		// config.EnvAllowSeedEnabledAssignments and
+		// store.SanitizeSeedAssignments. Every enabled=true row is forced
+		// to disabled unless the dev/test-only opt-in is set; each
+		// affected row is logged individually (by ingest_id only, never
+		// its secret hash) so a misconfigured deployment's startup log
+		// makes the neutralization visible rather than silent.
+		if !cfg.AllowSeedEnabledAssignments {
+			for _, a := range assignments {
+				if a.Enabled {
+					logger.Warn("seed assignment had enabled=true; forced to disabled",
+						slog.String("ingest_id", a.IngestID),
+						slog.String("reason", "EVENTCAST_ALLOW_SEED_ENABLED_ASSIGNMENTS is not set"))
+				}
+			}
+		}
+		sanitized := store.SanitizeSeedAssignments(assignments, cfg.AllowSeedEnabledAssignments)
+		n, err := st.ImportAssignments(ctx, sanitized)
 		if err != nil {
 			logger.Error("failed to import assignment seed file", slog.String("error", err.Error()))
 			return fmt.Errorf("import assignment seed: %w", err)

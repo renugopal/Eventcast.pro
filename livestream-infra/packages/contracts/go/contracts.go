@@ -10,7 +10,7 @@ package contracts
 
 // SchemaVersion is the contract shape/value version this package
 // implements. It must match contracts.json "schemaVersion".
-const SchemaVersion = "1.0.0"
+const SchemaVersion = "1.1.0"
 
 // SRSCallbackPayload is the shared JSON envelope SRS posts to
 // on_publish, on_hls, and on_unpublish, with the fields relevant to

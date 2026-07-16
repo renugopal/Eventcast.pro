@@ -62,6 +62,11 @@ const MEDIA_AGENT_ASSIGNMENTS_PATH = /^\/internal\/media\/nodes\/[A-Za-z0-9._-]{
 const MEDIA_AGENT_NODE_PROVISIONING_PATH = /^\/internal\/media\/nodes\/provision\/?$/;
 const MEDIA_AGENT_NODE_CREDENTIALS_PATH = /^\/internal\/media\/nodes\/[A-Za-z0-9._-]{1,128}\/credentials\/?$/;
 
+// Same operator-only scheme, for the node lifecycle transition route
+// (`src/app/internal/media/nodes/[node_id]/mark-healthy/route.ts`, Slice 6).
+const MEDIA_AGENT_NODE_MARK_HEALTHY_PATH =
+  /^\/internal\/media\/nodes\/[A-Za-z0-9._-]{1,128}\/mark-healthy\/?$/;
+
 // ─── Media Agent operator-only assignment-activation bypass ──────────────────
 // Matches ONLY the exact assignment-activation route shape
 // (`src/app/internal/media/assignments/[event_id]/activate/route.ts`).
@@ -76,6 +81,14 @@ const MEDIA_AGENT_NODE_CREDENTIALS_PATH = /^\/internal\/media\/nodes\/[A-Za-z0-9
 // silently left unprotected.
 const MEDIA_AGENT_ASSIGNMENT_ACTIVATION_PATH =
   /^\/internal\/media\/assignments\/[A-Za-z0-9._-]{1,128}\/activate\/?$/;
+
+// Same operator-only scheme, for the secret-free assignment-status
+// retrieval route (`src/app/internal/media/assignments/[event_id]/status/route.ts`,
+// Slice 6). Unlike activation, this route carries no secret and is safe to
+// call repeatedly — but it still must not be reachable via a studio
+// session, since no studio-facing counterpart exists or is planned.
+const MEDIA_AGENT_ASSIGNMENT_STATUS_PATH =
+  /^\/internal\/media\/assignments\/[A-Za-z0-9._-]{1,128}\/status\/?$/;
 
 // ─── Routes that are fully public (non-API) ───────────────────────────────────
 const ALWAYS_PUBLIC_PREFIXES = [
@@ -102,7 +115,9 @@ export async function middleware(req: NextRequest) {
     MEDIA_AGENT_ASSIGNMENTS_PATH.test(pathname) ||
     MEDIA_AGENT_NODE_PROVISIONING_PATH.test(pathname) ||
     MEDIA_AGENT_NODE_CREDENTIALS_PATH.test(pathname) ||
-    MEDIA_AGENT_ASSIGNMENT_ACTIVATION_PATH.test(pathname)
+    MEDIA_AGENT_NODE_MARK_HEALTHY_PATH.test(pathname) ||
+    MEDIA_AGENT_ASSIGNMENT_ACTIVATION_PATH.test(pathname) ||
+    MEDIA_AGENT_ASSIGNMENT_STATUS_PATH.test(pathname)
   ) {
     return NextResponse.next();
   }

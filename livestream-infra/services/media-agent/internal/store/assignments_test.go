@@ -72,6 +72,46 @@ func TestAssignmentValidateRejectsBadInput(t *testing.T) {
 	}
 }
 
+func TestSanitizeSeedAssignmentsForcesDisabledByDefault(t *testing.T) {
+	enabled := testAssignment("stream-1")
+	disabled := testAssignment("stream-2")
+	disabled.Enabled = false
+
+	got := SanitizeSeedAssignments([]Assignment{enabled, disabled}, false)
+
+	if got[0].Enabled {
+		t.Error("SanitizeSeedAssignments(allowEnabled=false)[0].Enabled = true, want false")
+	}
+	if got[1].Enabled {
+		t.Error("SanitizeSeedAssignments(allowEnabled=false)[1].Enabled = true, want false")
+	}
+	// Every other field must pass through unchanged.
+	if got[0].IngestID != enabled.IngestID || got[0].SecretTokenHash != enabled.SecretTokenHash {
+		t.Error("SanitizeSeedAssignments(allowEnabled=false) altered a field other than Enabled")
+	}
+}
+
+func TestSanitizeSeedAssignmentsPassesThroughWhenAllowed(t *testing.T) {
+	enabled := testAssignment("stream-1")
+
+	got := SanitizeSeedAssignments([]Assignment{enabled}, true)
+
+	if !got[0].Enabled {
+		t.Error("SanitizeSeedAssignments(allowEnabled=true)[0].Enabled = false, want true (unchanged)")
+	}
+}
+
+func TestSanitizeSeedAssignmentsDoesNotMutateInput(t *testing.T) {
+	enabled := testAssignment("stream-1")
+	input := []Assignment{enabled}
+
+	_ = SanitizeSeedAssignments(input, false)
+
+	if !input[0].Enabled {
+		t.Error("SanitizeSeedAssignments mutated its input slice's Enabled field; want the input left untouched")
+	}
+}
+
 func TestImportAssignmentsInsertsAndUpdates(t *testing.T) {
 	st := openTestStore(t)
 	ctx := context.Background()

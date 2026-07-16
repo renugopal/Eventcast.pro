@@ -38,6 +38,17 @@ const (
 	// seeding; a later milestone's control-plane client is expected to
 	// populate the cache continuously instead.
 	EnvAssignmentSeedPath = "EVENTCAST_ASSIGNMENT_SEED_PATH"
+	// EnvAllowSeedEnabledAssignments is a dev/test-only opt-in. A seed file
+	// is operator-supplied local disk content, not the authenticated,
+	// operator-activated control plane — so by default (this variable
+	// unset or false), any seed-file row with enabled: true has that flag
+	// forced to false at import (store.SanitizeSeedAssignments), and a real
+	// deployment can never be self-authorized to accept a publish purely by
+	// the presence of a seed file. Set true only for isolated dev/test
+	// fixtures (e.g. this package's own integration test scripts under
+	// infra/media-node/compose/) that intentionally seed an already-enabled
+	// assignment to exercise on_publish without a control plane.
+	EnvAllowSeedEnabledAssignments = "EVENTCAST_ALLOW_SEED_ENABLED_ASSIGNMENTS"
 	// EnvReconcileInterval is the periodic reconciliation interval, e.g.
 	// "30s". Must be a positive Go duration.
 	EnvReconcileInterval = "EVENTCAST_RECONCILE_INTERVAL"
@@ -255,13 +266,14 @@ type Config struct {
 	HTTPAddr string
 	LogLevel string
 
-	DBPath              string
-	SpoolRoot           string
-	SRSHLSRoot          string
-	AssignmentSeedPath  string
-	ReconcileInterval   time.Duration
-	SessionStaleTimeout time.Duration
-	DBBusyTimeout       time.Duration
+	DBPath                      string
+	SpoolRoot                   string
+	SRSHLSRoot                  string
+	AssignmentSeedPath          string
+	AllowSeedEnabledAssignments bool
+	ReconcileInterval           time.Duration
+	SessionStaleTimeout         time.Duration
+	DBBusyTimeout               time.Duration
 
 	// R2Enabled reports whether R2Bucket was configured, gating the
 	// entire upload/manifest/VOD/retention subsystem. When false, every
@@ -341,6 +353,10 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 
 	var err error
+	cfg.AllowSeedEnabledAssignments, err = parseBoolOrDefault(getenv(EnvAllowSeedEnabledAssignments), false)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid boolean: %w", EnvAllowSeedEnabledAssignments, err)
+	}
 	cfg.ReconcileInterval, err = parseDurationOrDefault(getenv(EnvReconcileInterval), DefaultReconcileInterval)
 	if err != nil {
 		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvReconcileInterval, err)

@@ -640,3 +640,54 @@ func TestLoadRejectsInvalidR2InsecureSkipVerifyBoolean(t *testing.T) {
 		t.Fatal("Load() expected error for a non-boolean EVENTCAST_R2_INSECURE_SKIP_VERIFY")
 	}
 }
+
+func TestLoadAllowSeedEnabledAssignmentsDefaultsFalse(t *testing.T) {
+	getenv := envMap(withRequiredPaths(t, map[string]string{
+		EnvNodeID: "node-1",
+	}))
+	cfg, err := Load(getenv)
+	if err != nil {
+		t.Fatalf("Load() unexpected error: %v", err)
+	}
+	if cfg.AllowSeedEnabledAssignments {
+		t.Error("AllowSeedEnabledAssignments = true, want false by default (a real deployment must opt in explicitly)")
+	}
+}
+
+func TestLoadAllowSeedEnabledAssignmentsExplicitTrue(t *testing.T) {
+	getenv := envMap(withRequiredPaths(t, map[string]string{
+		EnvNodeID:                      "node-1",
+		EnvAllowSeedEnabledAssignments: "true",
+	}))
+	cfg, err := Load(getenv)
+	if err != nil {
+		t.Fatalf("Load() unexpected error: %v", err)
+	}
+	if !cfg.AllowSeedEnabledAssignments {
+		t.Error("AllowSeedEnabledAssignments = false, want true when explicitly set")
+	}
+}
+
+func TestLoadAllowSeedEnabledAssignmentsExplicitFalse(t *testing.T) {
+	getenv := envMap(withRequiredPaths(t, map[string]string{
+		EnvNodeID:                      "node-1",
+		EnvAllowSeedEnabledAssignments: "false",
+	}))
+	cfg, err := Load(getenv)
+	if err != nil {
+		t.Fatalf("Load() unexpected error: %v", err)
+	}
+	if cfg.AllowSeedEnabledAssignments {
+		t.Error("AllowSeedEnabledAssignments = true, want false when explicitly set to false")
+	}
+}
+
+func TestLoadRejectsInvalidAllowSeedEnabledAssignmentsBoolean(t *testing.T) {
+	getenv := envMap(withRequiredPaths(t, map[string]string{
+		EnvNodeID:                      "node-1",
+		EnvAllowSeedEnabledAssignments: "not-a-bool",
+	}))
+	if _, err := Load(getenv); err == nil {
+		t.Fatal("Load() expected error for a non-boolean EVENTCAST_ALLOW_SEED_ENABLED_ASSIGNMENTS")
+	}
+}

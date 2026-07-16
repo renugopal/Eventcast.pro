@@ -1,16 +1,27 @@
 /**
- * Service-role write-side helpers for Media Agent node registration and
- * one-time credential issuance (`media_nodes`, `media_node_credentials`).
+ * Service-role write-side helpers for Media Agent node registration,
+ * one-time credential issuance, and node lifecycle transitions
+ * (`media_nodes`, `media_node_credentials`).
  *
- * Slice 2 scope only: create a node row, and issue a single credential
- * digest into a given slot. No rotation/revocation flow, no assignment
- * writers, no heartbeat writer — those are later slices. Reuses the exact
- * pepper-based HMAC-SHA256 pattern already proven in `nodeAuth.ts`'s
- * `verifyMediaNodeCredential`, but for signing (issuance) instead of
- * verification.
+ * Slice 2 scope: create a node row, and issue a single credential digest
+ * into a given slot. Reuses the exact pepper-based HMAC-SHA256 pattern
+ * already proven in `nodeAuth.ts`'s `verifyMediaNodeCredential`, but for
+ * signing (issuance) instead of verification. The raw credential token is
+ * generated here and returned to the caller exactly once; only its digest
+ * is ever persisted. Never logged.
  *
- * The raw credential token is generated here and returned to the caller
- * exactly once; only its digest is ever persisted. Never logged.
+ * Slice 6 addition: `markNodeHealthy` — an operator-only
+ * 'provisioning'/'degraded'/'unavailable' → 'healthy' transition. Still no
+ * rotation/revocation flow, no heartbeat writer — this system has none (see
+ * `FIRST_PUBLISH_VALIDATION_RUNBOOK.md`), so this transition is deliberately
+ * NOT gated on any "recently synced" signal — no such signal is persisted
+ * anywhere in this schema, and inventing one here would be fabricating
+ * evidence of liveness this codebase doesn't actually have. It is gated on
+ * everything that *is* durably knowable: the node exists, isn't retired,
+ * isn't in maintenance, and has at least one active (non-revoked) issued
+ * credential. An operator is still responsible for having independently
+ * confirmed the Media Agent process is actually up (e.g. Slice 5's runbook,
+ * "control-plane assignment sync succeeded" log line) before calling this.
  */
 
 const NODE_NAME_PATTERN = /^[A-Za-z0-9._-]{1,128}$/;
@@ -179,4 +190,114 @@ export async function issueMediaNodeCredential(
     return error.code === '23505' ? { outcome: 'conflict' } : { outcome: 'error' };
   }
   return { outcome: 'issued', token };
+}
+
+interface NodeLifecycleLookupDb {
+  from: (table: string) => {
+    select: (columns: string) => {
+      eq: (column: string, value: unknown) => {
+        maybeSingle: () => PromiseLike<{
+          data: { id: string; status: string; maintenance_mode: boolean } | null;
+          error: { message: string; code?: string } | null;
+        }>;
+      };
+    };
+  };
+}
+
+interface ActiveCredentialLookupDb {
+  from: (table: string) => {
+    select: (columns: string) => {
+      eq: (column: string, value: unknown) => {
+        is: (column: string, value: null) => PromiseLike<{
+          data: { id: string }[] | null;
+          error: { message: string; code?: string } | null;
+        }>;
+      };
+    };
+  };
+}
+
+interface NodeHealthyTransitionWriteDb {
+  from: (table: string) => {
+    update: (values: Record<string, unknown>) => {
+      eq: (column: string, value: unknown) => {
+        neq: (column: string, value: unknown) => {
+          select: (columns: string) => PromiseLike<{
+            data: { id: string }[] | null;
+            error: { message: string; code?: string } | null;
+          }>;
+        };
+      };
+    };
+  };
+}
+
+export type NodeHealthyTransitionResult =
+  | { outcome: 'transitioned' }
+  | { outcome: 'already_healthy' }
+  | { outcome: 'node_not_found' }
+  | { outcome: 'node_retired' }
+  | { outcome: 'node_in_maintenance' }
+  | { outcome: 'no_active_credential' }
+  | { outcome: 'error' };
+
+/**
+ * Transitions `nodeName` (`media_nodes.name`) to `status = 'healthy'`.
+ * Prerequisites, all checked against durably persisted state (see module
+ * docblock for why no liveness/heartbeat signal is or can be checked here):
+ *   - the node exists
+ *   - its status is not already 'retired' (retirement is a one-way door;
+ *     this function never reverses it)
+ *   - `maintenance_mode` is false
+ *   - it has at least one active (non-revoked) issued credential
+ *
+ * Already-healthy is reported as its own outcome (idempotent no-op, not an
+ * error) rather than silently re-succeeding, so a caller can tell a retry
+ * apart from a first-time transition. The final `UPDATE` is still guarded
+ * with `.neq('status', 'retired')` even though the check above already
+ * confirmed this, purely to close the narrow window where a concurrent
+ * retirement could land between the read and the write — low-stakes enough
+ * (unlike assignment-capacity enforcement) not to need a locking function.
+ */
+export async function markNodeHealthy(db: unknown, nodeName: string): Promise<NodeHealthyTransitionResult> {
+  const lookupDb = db as NodeLifecycleLookupDb;
+  const { data: node, error: lookupError } = await lookupDb
+    .from('media_nodes')
+    .select('id, status, maintenance_mode')
+    .eq('name', nodeName)
+    .maybeSingle();
+
+  if (lookupError) return { outcome: 'error' };
+  if (!node) return { outcome: 'node_not_found' };
+  if (node.status === 'retired') return { outcome: 'node_retired' };
+  if (node.maintenance_mode) return { outcome: 'node_in_maintenance' };
+  if (node.status === 'healthy') return { outcome: 'already_healthy' };
+
+  const credDb = db as ActiveCredentialLookupDb;
+  const { data: activeCredentials, error: credError } = await credDb
+    .from('media_node_credentials')
+    .select('id')
+    .eq('media_node_id', node.id)
+    .is('revoked_at', null);
+
+  if (credError) return { outcome: 'error' };
+  if (!activeCredentials || activeCredentials.length === 0) {
+    return { outcome: 'no_active_credential' };
+  }
+
+  const writeDb = db as NodeHealthyTransitionWriteDb;
+  const { data: updated, error: updateError } = await writeDb
+    .from('media_nodes')
+    .update({ status: 'healthy' })
+    .eq('id', node.id)
+    .neq('status', 'retired')
+    .select('id');
+
+  if (updateError) return { outcome: 'error' };
+  if (!updated || updated.length === 0) {
+    // Concurrently retired between the read above and this write.
+    return { outcome: 'node_retired' };
+  }
+  return { outcome: 'transitioned' };
 }

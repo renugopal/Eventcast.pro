@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  activateAssignment,
-  hashPublishSecret,
-  selectEligibleNode,
-} from '@/lib/media-agent/assignmentActivation';
+import { activateAssignment, hashPublishSecret } from '@/lib/media-agent/assignmentActivation';
 import { computeCredentialDigest } from '@/lib/media-agent/nodeProvisioning';
 
 const EVENT_ID = 'event-uuid-1';
@@ -11,12 +7,11 @@ const NODE_ID = 'node-uuid-1';
 const NODE_HOSTNAME = 'ingest-asia-south1-01.eventcast.pro';
 const DIGEST_PATTERN = /^[0-9a-f]{64}$/;
 
-// ── Local, hand-rolled query-builder mock ───────────────────────────────────
-// Supports every shape assignmentActivation.ts needs:
+// ── Local, hand-rolled query-builder/RPC mock ───────────────────────────────
+// Supports every shape assignmentActivation.ts needs post-migration-0024:
 //   .from('events').select('id').eq('id', x).maybeSingle()
-//   .from('media_nodes').select(...).neq('status','retired').order(...).limit(1)
-//   .from('media_event_assignments').update({...}).eq().eq().select('event_id')
-//   .from('media_event_assignments').select('event_id, enabled').eq(...).maybeSingle()
+//   .rpc('activate_media_event_assignment', {...})
+//   .from('media_event_assignments').select('event_id, enabled').eq(...).maybeSingle()  (diagnostic only)
 interface FakeResult {
   data?: unknown;
   error?: { message: string; code?: string } | null;
@@ -26,85 +21,63 @@ interface RecordedSelect {
   table: string;
   columns: string;
   eqArgs: unknown[][];
-  neqArgs: unknown[][];
-  orderArgs: unknown[][];
 }
 
-interface RecordedUpdate {
-  table: string;
-  values: Record<string, unknown>;
-  eqArgs: unknown[][];
+interface RecordedRpc {
+  fn: string;
+  args: Record<string, unknown>;
 }
 
-function makeFakeDb(tables: Record<string, { select?: FakeResult[]; update?: FakeResult[] }>) {
-  const queues = new Map(
-    Object.entries(tables).map(([k, v]) => [k, { select: [...(v.select ?? [])], update: [...(v.update ?? [])] }])
-  );
+function makeFakeDb(config: {
+  events?: FakeResult[];
+  diagnostic?: FakeResult[];
+  rpc?: FakeResult[];
+}) {
+  const eventsQueue = [...(config.events ?? [])];
+  const diagnosticQueue = [...(config.diagnostic ?? [])];
+  const rpcQueue = [...(config.rpc ?? [])];
   const selects: RecordedSelect[] = [];
-  const updates: RecordedUpdate[] = [];
+  const rpcs: RecordedRpc[] = [];
 
-  const from = (table: string) => {
-    const queue = queues.get(table);
-    if (!queue) throw new Error(`FakeDb: no config for table '${table}' in this test`);
+  const from = (table: string) => ({
+    select: (columns: string) => {
+      const record: RecordedSelect = { table, columns, eqArgs: [] };
+      selects.push(record);
+      const builder = {
+        eq: (...args: unknown[]) => {
+          record.eqArgs.push(args);
+          return builder;
+        },
+        maybeSingle: async () => {
+          const queue = table === 'events' ? eventsQueue : diagnosticQueue;
+          const result = queue.shift();
+          if (!result) throw new Error(`FakeDb: no more select() results queued for '${table}'`);
+          return result;
+        },
+      };
+      return builder;
+    },
+  });
 
-    return {
-      select: (columns: string) => {
-        const record: RecordedSelect = { table, columns, eqArgs: [], neqArgs: [], orderArgs: [] };
-        selects.push(record);
-        const builder = {
-          eq: (...args: unknown[]) => {
-            record.eqArgs.push(args);
-            return builder;
-          },
-          neq: (...args: unknown[]) => {
-            record.neqArgs.push(args);
-            return builder;
-          },
-          order: (...args: unknown[]) => {
-            record.orderArgs.push(args);
-            return builder;
-          },
-          limit: async (_count: number) => {
-            const result = queue.select.shift();
-            if (!result) throw new Error(`FakeDb: no more select() results queued for '${table}'`);
-            return result;
-          },
-          maybeSingle: async () => {
-            const result = queue.select.shift();
-            if (!result) throw new Error(`FakeDb: no more select() results queued for '${table}'`);
-            return result;
-          },
-        };
-        return builder;
-      },
-      update: (values: Record<string, unknown>) => {
-        const record: RecordedUpdate = { table, values, eqArgs: [] };
-        updates.push(record);
-        const builder = {
-          eq: (...args: unknown[]) => {
-            record.eqArgs.push(args);
-            return builder;
-          },
-          select: async (_columns: string) => {
-            const result = queue.update.shift();
-            if (!result) throw new Error(`FakeDb: no more update() results queued for '${table}'`);
-            return result;
-          },
-        };
-        return builder;
-      },
-    };
+  const rpc = async (fn: string, args: Record<string, unknown>) => {
+    rpcs.push({ fn, args });
+    const result = rpcQueue.shift();
+    if (!result) throw new Error(`FakeDb: no more rpc() results queued for '${fn}'`);
+    return result;
   };
 
-  return { from, selects, updates };
+  return { from, rpc, selects, rpcs };
 }
 
 function eventFoundResult(): FakeResult {
   return { data: { id: EVENT_ID }, error: null };
 }
 
-function nodeFoundResult(): FakeResult {
-  return { data: [{ id: NODE_ID, ingest_hostname: NODE_HOSTNAME }], error: null };
+function activatedRpcResult(): FakeResult {
+  return {
+    data: [{ outcome: 'activated', node_id: NODE_ID, ingest_hostname: NODE_HOSTNAME }],
+    error: null,
+  };
 }
 
 describe('hashPublishSecret', () => {
@@ -126,60 +99,20 @@ describe('hashPublishSecret', () => {
   });
 
   it('does not change output when an unrelated "pepper-shaped" second argument would have been used — confirms no pepper is mixed in', async () => {
-    // hashPublishSecret takes only one argument; this test documents that
-    // fact by construction — calling it twice with the same token from two
-    // different "callers" (as if a pepper were involved) yields identical
-    // output, unlike an HMAC which would differ by key.
     const a = await hashPublishSecret('token-x');
     const b = await hashPublishSecret('token-x');
     expect(a).toBe(b);
   });
 });
 
-describe('selectEligibleNode', () => {
-  it('selects the oldest non-retired node, ordered ascending by created_at, limited to 1', async () => {
-    const { from, selects } = makeFakeDb({
-      media_nodes: { select: [nodeFoundResult()] },
-    });
-
-    const result = await selectEligibleNode({ from });
-
-    expect(result).toEqual({ id: NODE_ID, ingestHostname: NODE_HOSTNAME });
-    expect(selects[0].table).toBe('media_nodes');
-    expect(selects[0].neqArgs).toEqual([['status', 'retired']]);
-    expect(selects[0].orderArgs).toEqual([['created_at', { ascending: true }]]);
-  });
-
-  it('returns null when no eligible node exists', async () => {
-    const { from } = makeFakeDb({
-      media_nodes: { select: [{ data: [], error: null }] },
-    });
-
-    const result = await selectEligibleNode({ from });
-
-    expect(result).toBeNull();
-  });
-
-  it('returns null on a database error', async () => {
-    const { from } = makeFakeDb({
-      media_nodes: { select: [{ data: null, error: { message: 'connection reset' } }] },
-    });
-
-    const result = await selectEligibleNode({ from });
-
-    expect(result).toBeNull();
-  });
-});
-
 describe('activateAssignment', () => {
-  it('activates on the first call: exact conditional UPDATE shape, no forbidden fields, correct return', async () => {
-    const { from, updates } = makeFakeDb({
-      events: { select: [eventFoundResult()] },
-      media_nodes: { select: [nodeFoundResult()] },
-      media_event_assignments: { update: [{ data: [{ event_id: EVENT_ID }], error: null }] },
+  it('activates on the first call: calls the capacity-safe RPC with the exact expected args, no forbidden fields, correct return', async () => {
+    const { from, rpc, rpcs } = makeFakeDb({
+      events: [eventFoundResult()],
+      rpc: [activatedRpcResult()],
     });
 
-    const result = await activateAssignment({ from }, EVENT_ID);
+    const result = await activateAssignment({ from, rpc }, EVENT_ID);
 
     expect(result.outcome).toBe('activated');
     if (result.outcome !== 'activated') throw new Error('expected activated');
@@ -187,153 +120,176 @@ describe('activateAssignment', () => {
     expect(result.ingestId).toMatch(/^[0-9a-f]{64}$/);
     expect(result.token).toMatch(/^[0-9a-f]{64}$/);
 
-    expect(updates).toHaveLength(1);
-    expect(updates[0].table).toBe('media_event_assignments');
-    expect(updates[0].eqArgs).toEqual([
-      ['event_id', EVENT_ID],
-      ['enabled', false],
-    ]);
+    expect(rpcs).toHaveLength(1);
+    expect(rpcs[0].fn).toBe('activate_media_event_assignment');
+    const args = rpcs[0].args;
+    expect(args.p_event_id).toBe(EVENT_ID);
+    expect(args.p_ingest_id).toBe(result.ingestId);
+    expect(args.p_playback_id).toMatch(/^[0-9a-f]{64}$/);
+    expect(args.p_stream_secret_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(args.p_publish_window_start_at).toEqual(expect.any(String));
+    expect(args.p_publish_window_end_at).toEqual(expect.any(String));
+    expect(
+      new Date(args.p_publish_window_end_at as string).getTime()
+    ).toBeGreaterThan(new Date(args.p_publish_window_start_at as string).getTime());
 
-    const values = updates[0].values;
-    expect(values.assigned_media_node_id).toBe(NODE_ID);
-    expect(values.ingest_id).toBe(result.ingestId);
-    expect(values.playback_id).toMatch(/^[0-9a-f]{64}$/);
-    expect(values.stream_secret_hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(values.publish_window_start_at).toEqual(expect.any(String));
-    expect(values.publish_window_end_at).toEqual(expect.any(String));
-    expect(values.enabled).toBe(true);
-    expect(new Date(values.publish_window_end_at as string).getTime()).toBeGreaterThan(
-      new Date(values.publish_window_start_at as string).getTime()
-    );
-
-    // Never sets config_version or updated_at — trigger-owned.
-    expect(values).not.toHaveProperty('config_version');
-    expect(values).not.toHaveProperty('updated_at');
+    // Never passes config_version or updated_at — trigger-owned.
+    expect(args).not.toHaveProperty('p_config_version');
+    expect(args).not.toHaveProperty('p_updated_at');
+    // Never passes a node id — the SQL function selects the node itself.
+    expect(args).not.toHaveProperty('p_node_id');
 
     // The persisted hash must actually verify against the returned raw token.
     const expectedHash = await hashPublishSecret(result.token);
-    expect(values.stream_secret_hash).toBe(expectedHash);
+    expect(args.p_stream_secret_hash).toBe(expectedHash);
 
-    // The raw token itself must never appear in what was persisted.
-    expect(JSON.stringify(values)).not.toContain(result.token);
+    // The raw token itself must never appear in what was sent.
+    expect(JSON.stringify(args)).not.toContain(result.token);
   });
 
-  it('returns event_not_found when the event does not exist, without touching media_nodes or media_event_assignments', async () => {
-    const { from } = makeFakeDb({
-      events: { select: [{ data: null, error: null }] },
+  it('returns event_not_found when the event does not exist, without calling the RPC at all', async () => {
+    const { from, rpc, rpcs } = makeFakeDb({
+      events: [{ data: null, error: null }],
     });
 
-    const result = await activateAssignment({ from }, 'no-such-event');
+    const result = await activateAssignment({ from, rpc }, 'no-such-event');
 
     expect(result).toEqual({ outcome: 'event_not_found' });
+    expect(rpcs).toHaveLength(0);
   });
 
-  it('returns no_eligible_node when there are zero eligible nodes', async () => {
-    const { from } = makeFakeDb({
-      events: { select: [eventFoundResult()] },
-      media_nodes: { select: [{ data: [], error: null }] },
+  it('returns no_eligible_node when the RPC reports zero eligible (healthy, non-maintenance) nodes', async () => {
+    const { from, rpc } = makeFakeDb({
+      events: [eventFoundResult()],
+      rpc: [{ data: [{ outcome: 'no_eligible_node', node_id: null, ingest_hostname: null }], error: null }],
     });
 
-    const result = await activateAssignment({ from }, EVENT_ID);
+    const result = await activateAssignment({ from, rpc }, EVENT_ID);
 
     expect(result).toEqual({ outcome: 'no_eligible_node' });
   });
 
-  it('returns already_activated when the guarded UPDATE matches zero rows because the row is already enabled', async () => {
-    const { from } = makeFakeDb({
-      events: { select: [eventFoundResult()] },
-      media_nodes: { select: [nodeFoundResult()] },
-      media_event_assignments: {
-        update: [{ data: [], error: null }],
-        select: [{ data: { event_id: EVENT_ID, enabled: true }, error: null }],
-      },
+  it('returns node_at_capacity when the RPC reports every eligible node is at hard_stream_limit', async () => {
+    const { from, rpc } = makeFakeDb({
+      events: [eventFoundResult()],
+      rpc: [{ data: [{ outcome: 'node_at_capacity', node_id: null, ingest_hostname: null }], error: null }],
     });
 
-    const result = await activateAssignment({ from }, EVENT_ID);
+    const result = await activateAssignment({ from, rpc }, EVENT_ID);
+
+    expect(result).toEqual({ outcome: 'node_at_capacity' });
+  });
+
+  it('returns already_activated when the RPC reports no_row_matched and the diagnostic SELECT finds an already-enabled row', async () => {
+    const { from, rpc } = makeFakeDb({
+      events: [eventFoundResult()],
+      rpc: [{ data: [{ outcome: 'no_row_matched', node_id: null, ingest_hostname: null }], error: null }],
+      diagnostic: [{ data: { event_id: EVENT_ID, enabled: true }, error: null }],
+    });
+
+    const result = await activateAssignment({ from, rpc }, EVENT_ID);
 
     expect(result).toEqual({ outcome: 'already_activated' });
   });
 
-  it('returns no_draft_assignment when the guarded UPDATE matches zero rows because no assignment row exists at all', async () => {
-    const { from } = makeFakeDb({
-      events: { select: [eventFoundResult()] },
-      media_nodes: { select: [nodeFoundResult()] },
-      media_event_assignments: {
-        update: [{ data: [], error: null }],
-        select: [{ data: null, error: null }],
-      },
+  it('returns no_draft_assignment when the RPC reports no_row_matched and the diagnostic SELECT finds no row at all', async () => {
+    const { from, rpc } = makeFakeDb({
+      events: [eventFoundResult()],
+      rpc: [{ data: [{ outcome: 'no_row_matched', node_id: null, ingest_hostname: null }], error: null }],
+      diagnostic: [{ data: null, error: null }],
     });
 
-    const result = await activateAssignment({ from }, EVENT_ID);
+    const result = await activateAssignment({ from, rpc }, EVENT_ID);
 
     expect(result).toEqual({ outcome: 'no_draft_assignment' });
   });
 
-  it('retries with fresh ids on an ingest_id/playback_id collision (23505), then succeeds', async () => {
-    const { from, updates } = makeFakeDb({
-      events: { select: [eventFoundResult()] },
-      media_nodes: { select: [nodeFoundResult()] },
-      media_event_assignments: {
-        update: [
-          { data: null, error: { message: 'duplicate key value', code: '23505' } },
-          { data: [{ event_id: EVENT_ID }], error: null },
-        ],
-      },
+  it('returns error when the no_row_matched diagnostic SELECT itself fails', async () => {
+    const { from, rpc } = makeFakeDb({
+      events: [eventFoundResult()],
+      rpc: [{ data: [{ outcome: 'no_row_matched', node_id: null, ingest_hostname: null }], error: null }],
+      diagnostic: [{ data: null, error: { message: 'connection reset' } }],
     });
 
-    const result = await activateAssignment({ from }, EVENT_ID);
+    const result = await activateAssignment({ from, rpc }, EVENT_ID);
+
+    expect(result).toEqual({ outcome: 'error' });
+  });
+
+  it('retries with fresh ids on an ingest_id/playback_id collision (23505), then succeeds', async () => {
+    const { from, rpc, rpcs } = makeFakeDb({
+      events: [eventFoundResult()],
+      rpc: [
+        { data: null, error: { message: 'duplicate key value', code: '23505' } },
+        activatedRpcResult(),
+      ],
+    });
+
+    const result = await activateAssignment({ from, rpc }, EVENT_ID);
 
     expect(result.outcome).toBe('activated');
-    expect(updates).toHaveLength(2);
+    expect(rpcs).toHaveLength(2);
     // Each attempt must use freshly generated, distinct values.
-    expect(updates[0].values.ingest_id).not.toBe(updates[1].values.ingest_id);
-    expect(updates[0].values.playback_id).not.toBe(updates[1].values.playback_id);
+    expect(rpcs[0].args.p_ingest_id).not.toBe(rpcs[1].args.p_ingest_id);
+    expect(rpcs[0].args.p_playback_id).not.toBe(rpcs[1].args.p_playback_id);
   });
 
   it('gives up after exhausting bounded collision retries', async () => {
-    const { from, updates } = makeFakeDb({
-      events: { select: [eventFoundResult()] },
-      media_nodes: { select: [nodeFoundResult()] },
-      media_event_assignments: {
-        update: [
-          { data: null, error: { message: 'duplicate key value', code: '23505' } },
-          { data: null, error: { message: 'duplicate key value', code: '23505' } },
-          { data: null, error: { message: 'duplicate key value', code: '23505' } },
-        ],
-      },
+    const { from, rpc, rpcs } = makeFakeDb({
+      events: [eventFoundResult()],
+      rpc: [
+        { data: null, error: { message: 'duplicate key value', code: '23505' } },
+        { data: null, error: { message: 'duplicate key value', code: '23505' } },
+        { data: null, error: { message: 'duplicate key value', code: '23505' } },
+      ],
     });
 
-    const result = await activateAssignment({ from }, EVENT_ID);
+    const result = await activateAssignment({ from, rpc }, EVENT_ID);
 
     expect(result).toEqual({ outcome: 'error' });
-    expect(updates).toHaveLength(3);
+    expect(rpcs).toHaveLength(3);
   });
 
-  it('returns error on a generic database failure during the UPDATE, without leaking the message', async () => {
-    const { from } = makeFakeDb({
-      events: { select: [eventFoundResult()] },
-      media_nodes: { select: [nodeFoundResult()] },
-      media_event_assignments: {
-        update: [{ data: null, error: { message: 'connection reset to 10.0.0.5' } }],
-      },
+  it('returns error on a generic RPC failure, without leaking the message', async () => {
+    const { from, rpc } = makeFakeDb({
+      events: [eventFoundResult()],
+      rpc: [{ data: null, error: { message: 'connection reset to 10.0.0.5' } }],
     });
 
-    const result = await activateAssignment({ from }, EVENT_ID);
+    const result = await activateAssignment({ from, rpc }, EVENT_ID);
 
     expect(result).toEqual({ outcome: 'error' });
   });
 
-  it('returns error when the post-hoc diagnostic SELECT itself fails', async () => {
-    const { from } = makeFakeDb({
-      events: { select: [eventFoundResult()] },
-      media_nodes: { select: [nodeFoundResult()] },
-      media_event_assignments: {
-        update: [{ data: [], error: null }],
-        select: [{ data: null, error: { message: 'connection reset' } }],
-      },
+  it('returns error when the RPC returns no row at all', async () => {
+    const { from, rpc } = makeFakeDb({
+      events: [eventFoundResult()],
+      rpc: [{ data: [], error: null }],
     });
 
-    const result = await activateAssignment({ from }, EVENT_ID);
+    const result = await activateAssignment({ from, rpc }, EVENT_ID);
+
+    expect(result).toEqual({ outcome: 'error' });
+  });
+
+  it('returns error when the RPC reports "activated" but omits ingest_hostname', async () => {
+    const { from, rpc } = makeFakeDb({
+      events: [eventFoundResult()],
+      rpc: [{ data: [{ outcome: 'activated', node_id: NODE_ID, ingest_hostname: null }], error: null }],
+    });
+
+    const result = await activateAssignment({ from, rpc }, EVENT_ID);
+
+    expect(result).toEqual({ outcome: 'error' });
+  });
+
+  it('returns error for an unrecognized RPC outcome value', async () => {
+    const { from, rpc } = makeFakeDb({
+      events: [eventFoundResult()],
+      rpc: [{ data: [{ outcome: 'something_unexpected', node_id: null, ingest_hostname: null }], error: null }],
+    });
+
+    const result = await activateAssignment({ from, rpc }, EVENT_ID);
 
     expect(result).toEqual({ outcome: 'error' });
   });
