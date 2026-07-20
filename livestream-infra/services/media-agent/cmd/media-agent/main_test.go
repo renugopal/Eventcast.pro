@@ -312,8 +312,8 @@ func TestRunSeedAssignmentEnabledIsHonoredWithOptIn(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
 		done <- run(ctx, envMap(withRequiredPaths(t, map[string]string{
-			config.EnvNodeID:                     "test-node",
-			config.EnvHTTPAddr:                   addr,
+			config.EnvNodeID:                      "test-node",
+			config.EnvHTTPAddr:                    addr,
 			config.EnvAssignmentSeedPath:          seedPath,
 			config.EnvAllowSeedEnabledAssignments: "true",
 		})), io.Discard)
