@@ -82,6 +82,17 @@ const MEDIA_AGENT_NODE_MARK_HEALTHY_PATH =
 const MEDIA_AGENT_ASSIGNMENT_ACTIVATION_PATH =
   /^\/internal\/media\/assignments\/[A-Za-z0-9._-]{1,128}\/activate\/?$/;
 
+// Same operator-only scheme, for the capacity-release counterpart
+// (`src/app/internal/media/assignments/[event_id]/deactivate/route.ts`,
+// migration 0026). Idempotent and secret-free on every branch, but still
+// must not be reachable via a studio session — no studio-facing
+// counterpart exists or is planned. Every other path — near-misses,
+// sibling actions, malformed event ids, and any future route under
+// `/internal/media/assignments/` — is deliberately NOT matched here, same
+// rationale as `MEDIA_AGENT_ASSIGNMENT_ACTIVATION_PATH` above.
+const MEDIA_AGENT_ASSIGNMENT_DEACTIVATION_PATH =
+  /^\/internal\/media\/assignments\/[A-Za-z0-9._-]{1,128}\/deactivate\/?$/;
+
 // Same operator-only scheme, for the secret-free assignment-status
 // retrieval route (`src/app/internal/media/assignments/[event_id]/status/route.ts`,
 // Slice 6). Unlike activation, this route carries no secret and is safe to
@@ -117,6 +128,7 @@ export async function middleware(req: NextRequest) {
     MEDIA_AGENT_NODE_CREDENTIALS_PATH.test(pathname) ||
     MEDIA_AGENT_NODE_MARK_HEALTHY_PATH.test(pathname) ||
     MEDIA_AGENT_ASSIGNMENT_ACTIVATION_PATH.test(pathname) ||
+    MEDIA_AGENT_ASSIGNMENT_DEACTIVATION_PATH.test(pathname) ||
     MEDIA_AGENT_ASSIGNMENT_STATUS_PATH.test(pathname)
   ) {
     return NextResponse.next();

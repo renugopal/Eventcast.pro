@@ -32,6 +32,8 @@
  * call was the one that flipped `enabled` from false to true.
  */
 
+import { eventExists, type DbResult, type MaybeSingleBuilder } from './eventExistence';
+
 const MAX_ID_COLLISION_ATTEMPTS = 3;
 
 /**
@@ -65,22 +67,6 @@ export async function hashPublishSecret(token: string): Promise<string> {
     .join('');
 }
 
-interface DbResult<T> {
-  data: T | null;
-  error: { message: string; code?: string } | null;
-}
-
-interface MaybeSingleBuilder<T> {
-  eq: (column: string, value: unknown) => MaybeSingleBuilder<T>;
-  maybeSingle: () => PromiseLike<DbResult<T>>;
-}
-
-interface EventsExistsDb {
-  from: (table: string) => {
-    select: (columns: string) => MaybeSingleBuilder<{ id: string }>;
-  };
-}
-
 interface DiagnosticDb {
   from: (table: string) => {
     select: (columns: string) => MaybeSingleBuilder<{ event_id: string; enabled: boolean }>;
@@ -98,17 +84,6 @@ interface ActivationRpcDb {
     fn: string,
     args: Record<string, unknown>
   ) => PromiseLike<DbResult<ActivationRpcRow[] | ActivationRpcRow>>;
-}
-
-/**
- * Confirms the target event row exists. Unrelated to the assignment's
- * enabled/disabled state — does not gate the activation write, and cannot
- * reintroduce the race the conditional `UPDATE` protects against.
- */
-async function eventExists(db: unknown, eventId: string): Promise<boolean> {
-  const queryableDb = db as EventsExistsDb;
-  const { data, error } = await queryableDb.from('events').select('id').eq('id', eventId).maybeSingle();
-  return !error && data !== null;
 }
 
 /**

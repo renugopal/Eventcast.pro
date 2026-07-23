@@ -3,8 +3,6 @@ import { NextRequest } from 'next/server';
 
 const PROVISIONING_SECRET = 'unit-test-provisioning-secret';
 const EVENT_ID = 'event-uuid-1';
-const NODE_ID = 'node-uuid-1';
-const NODE_HOSTNAME = 'ingest-asia-south1-01.eventcast.pro';
 
 // ── Local, hand-rolled query-builder/RPC mock — same shapes as the unit test file ──
 interface FakeResult {
@@ -43,17 +41,10 @@ function eventFoundResult(): FakeResult {
   return { data: { id: EVENT_ID }, error: null };
 }
 
-function activatedRpcResult(): FakeResult {
-  return {
-    data: [{ outcome: 'activated', node_id: NODE_ID, ingest_hostname: NODE_HOSTNAME }],
-    error: null,
-  };
+function deactivatedRpcResult(): FakeResult {
+  return { data: [{ outcome: 'deactivated' }], error: null };
 }
 
-// Loose return-type contract for `.from(table)`/`.rpc(...)` — deliberately
-// wider than any single test's concrete fake builder shape, so `mockDb.from`
-// / `mockDb.rpc` can be reassigned per-test without a `never`-typed
-// placeholder rejecting every later assignment.
 interface FakeTableApi {
   select: (columns: string) => unknown;
 }
@@ -80,14 +71,14 @@ beforeEach(() => {
 function authedRequest(secret: string | null = PROVISIONING_SECRET): Request {
   const headers = new Headers();
   if (secret !== null) headers.set('authorization', `Bearer ${secret}`);
-  return new Request(`http://test.local/internal/media/assignments/${EVENT_ID}/activate`, {
+  return new Request(`http://test.local/internal/media/assignments/${EVENT_ID}/deactivate`, {
     method: 'POST',
     headers,
   });
 }
 
 async function loadRoute() {
-  const mod = await import('@/app/internal/media/assignments/[event_id]/activate/route');
+  const mod = await import('@/app/internal/media/assignments/[event_id]/deactivate/route');
   return mod.POST;
 }
 
@@ -102,32 +93,61 @@ function useFakeDb(config: { events?: FakeResult[]; diagnostic?: FakeResult[]; r
   return fake;
 }
 
-describe('POST /internal/media/assignments/{event_id}/activate', () => {
-  it('activates on the first call and returns the raw secret exactly once, with 201', async () => {
-    useFakeDb({ events: [eventFoundResult()], rpc: [activatedRpcResult()] });
+describe('POST /internal/media/assignments/{event_id}/deactivate', () => {
+  it('deactivates on the first call and returns 200 with no secret in the body', async () => {
+    useFakeDb({ events: [eventFoundResult()], rpc: [deactivatedRpcResult()] });
 
     const POST = await loadRoute();
     const res = await POST(authedRequest(), { params: params() });
     const body = await res.json();
 
-    expect(res.status).toBe(201);
-    expect(body.eventId).toBe(EVENT_ID);
-    expect(typeof body.token).toBe('string');
-    expect(body.token).toMatch(/^[0-9a-f]{64}$/);
-    expect(body.ingestUrl).toMatch(
-      new RegExp(`^rtmp://${NODE_HOSTNAME.replace(/\./g, '\\.')}/live/[0-9a-f]{64}$`)
-    );
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ eventId: EVENT_ID, outcome: 'deactivated' });
   });
 
-  it('never exposes node credentials, digests, nonces, service-role, or YouTube-key-shaped fields in the response', async () => {
-    useFakeDb({ events: [eventFoundResult()], rpc: [activatedRpcResult()] });
+  it('returns 200 already_inactive on a retry — idempotent, not an error, not 409', async () => {
+    useFakeDb({
+      events: [eventFoundResult()],
+      rpc: [{ data: [{ outcome: 'no_row_matched' }], error: null }],
+      diagnostic: [{ data: { event_id: EVENT_ID, enabled: false }, error: null }],
+    });
 
     const POST = await loadRoute();
     const res = await POST(authedRequest(), { params: params() });
     const body = await res.json();
 
-    expect(Object.keys(body).sort()).toEqual(['eventId', 'ingestUrl', 'token']);
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ eventId: EVENT_ID, outcome: 'already_inactive' });
+  });
+
+  it('a second, repeated HTTP call after a successful deactivation also returns 200 already_inactive — simulates a repeated "End Live" click', async () => {
+    useFakeDb({
+      events: [eventFoundResult(), eventFoundResult()],
+      rpc: [deactivatedRpcResult(), { data: [{ outcome: 'no_row_matched' }], error: null }],
+      diagnostic: [{ data: { event_id: EVENT_ID, enabled: false }, error: null }],
+    });
+
+    const POST = await loadRoute();
+    const first = await POST(authedRequest(), { params: params() });
+    const second = await POST(authedRequest(), { params: params() });
+
+    expect(first.status).toBe(200);
+    expect((await first.json()).outcome).toBe('deactivated');
+    expect(second.status).toBe(200);
+    expect((await second.json()).outcome).toBe('already_inactive');
+  });
+
+  it('never exposes ingest/playback/secret/node/credential fields in the response body', async () => {
+    useFakeDb({ events: [eventFoundResult()], rpc: [deactivatedRpcResult()] });
+
+    const POST = await loadRoute();
+    const res = await POST(authedRequest(), { params: params() });
+    const body = await res.json();
+
+    expect(Object.keys(body).sort()).toEqual(['eventId', 'outcome']);
     for (const forbidden of [
+      'token',
+      'ingestUrl',
       'nodeId',
       'assignedMediaNodeId',
       'digest',
@@ -141,22 +161,6 @@ describe('POST /internal/media/assignments/{event_id}/activate', () => {
     }
   });
 
-  it('returns 409 already_activated on a retry, with no secret anywhere in the body', async () => {
-    useFakeDb({
-      events: [eventFoundResult()],
-      rpc: [{ data: [{ outcome: 'no_row_matched', node_id: null, ingest_hostname: null }], error: null }],
-      diagnostic: [{ data: { event_id: EVENT_ID, enabled: true }, error: null }],
-    });
-
-    const POST = await loadRoute();
-    const res = await POST(authedRequest(), { params: params() });
-    const body = await res.json();
-
-    expect(res.status).toBe(409);
-    expect(body).toEqual({ error: 'already_activated' });
-    expect(JSON.stringify(body)).not.toMatch(/[0-9a-f]{64}/);
-  });
-
   it('returns 404 event_not_found for an unknown event', async () => {
     useFakeDb({ events: [{ data: null, error: null }] });
 
@@ -167,10 +171,10 @@ describe('POST /internal/media/assignments/{event_id}/activate', () => {
     expect(await res.json()).toEqual({ error: 'event_not_found' });
   });
 
-  it('returns 404 no_draft_assignment when no assignment row exists', async () => {
+  it('returns 404 no_assignment when no assignment row exists for the event', async () => {
     useFakeDb({
       events: [eventFoundResult()],
-      rpc: [{ data: [{ outcome: 'no_row_matched', node_id: null, ingest_hostname: null }], error: null }],
+      rpc: [{ data: [{ outcome: 'no_row_matched' }], error: null }],
       diagnostic: [{ data: null, error: null }],
     });
 
@@ -178,33 +182,7 @@ describe('POST /internal/media/assignments/{event_id}/activate', () => {
     const res = await POST(authedRequest(), { params: params() });
 
     expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ error: 'no_draft_assignment' });
-  });
-
-  it('returns 503 no_eligible_node when there are zero eligible (healthy, non-maintenance) nodes', async () => {
-    useFakeDb({
-      events: [eventFoundResult()],
-      rpc: [{ data: [{ outcome: 'no_eligible_node', node_id: null, ingest_hostname: null }], error: null }],
-    });
-
-    const POST = await loadRoute();
-    const res = await POST(authedRequest(), { params: params() });
-
-    expect(res.status).toBe(503);
-    expect(await res.json()).toEqual({ error: 'no_eligible_node' });
-  });
-
-  it('returns 503 node_at_capacity when every eligible node is already at hard_stream_limit', async () => {
-    useFakeDb({
-      events: [eventFoundResult()],
-      rpc: [{ data: [{ outcome: 'node_at_capacity', node_id: null, ingest_hostname: null }], error: null }],
-    });
-
-    const POST = await loadRoute();
-    const res = await POST(authedRequest(), { params: params() });
-
-    expect(res.status).toBe(503);
-    expect(await res.json()).toEqual({ error: 'node_at_capacity' });
+    expect(await res.json()).toEqual({ error: 'no_assignment' });
   });
 
   it('returns 500 internal_error on a generic RPC failure, without leaking the message', async () => {
@@ -266,7 +244,7 @@ describe('POST /internal/media/assignments/{event_id}/activate', () => {
 
     it('fails closed (401) on a malformed Authorization header (wrong scheme)', async () => {
       const headers = new Headers({ authorization: `Basic ${PROVISIONING_SECRET}` });
-      const req = new Request(`http://test.local/internal/media/assignments/${EVENT_ID}/activate`, {
+      const req = new Request(`http://test.local/internal/media/assignments/${EVENT_ID}/deactivate`, {
         method: 'POST',
         headers,
       });
@@ -279,7 +257,7 @@ describe('POST /internal/media/assignments/{event_id}/activate', () => {
     });
 
     it('succeeds with the correct secret', async () => {
-      useFakeDb({ events: [eventFoundResult()], rpc: [activatedRpcResult()] });
+      useFakeDb({ events: [eventFoundResult()], rpc: [deactivatedRpcResult()] });
 
       const POST = await loadRoute();
       const res = await POST(authedRequest(), { params: params() });
@@ -289,32 +267,32 @@ describe('POST /internal/media/assignments/{event_id}/activate', () => {
   });
 });
 
-describe('Middleware — assignment-activation studio-JWT bypass', () => {
+describe('Middleware — assignment-deactivation studio-JWT bypass', () => {
   async function loadMiddleware() {
     const mod = await import('@/middleware');
     return mod.middleware;
   }
 
-  it('bypasses studio-JWT auth for the exact activation path', async () => {
+  it('bypasses studio-JWT auth for the exact deactivation path', async () => {
     const middleware = await loadMiddleware();
-    const req = new NextRequest(`http://test.local/internal/media/assignments/${EVENT_ID}/activate`);
+    const req = new NextRequest(`http://test.local/internal/media/assignments/${EVENT_ID}/deactivate`);
     const res = await middleware(req);
     expect(res.status).toBe(200);
   });
 
   it('bypasses with an optional trailing slash', async () => {
     const middleware = await loadMiddleware();
-    const req = new NextRequest(`http://test.local/internal/media/assignments/${EVENT_ID}/activate/`);
+    const req = new NextRequest(`http://test.local/internal/media/assignments/${EVENT_ID}/deactivate/`);
     const res = await middleware(req);
     expect(res.status).toBe(200);
   });
 
   it.each([
-    `/internal/media/assignments/${EVENT_ID}/activate/extra`,
-    '/internal/media/assignments/activate',
-    `/internal/media/assignments/${EVENT_ID}activate`,
-    '/internal/media/assignments//activate',
-  ])('does NOT bypass near-miss / sibling / malformed path %s — falls through to normal studio-JWT auth', async (p) => {
+    `/internal/media/assignments/${EVENT_ID}/deactivate/extra`,
+    '/internal/media/assignments/deactivate',
+    `/internal/media/assignments/${EVENT_ID}deactivate`,
+    '/internal/media/assignments//deactivate',
+  ])('does NOT bypass near-miss / malformed path %s — falls through to normal studio-JWT auth', async (p) => {
     const middleware = await loadMiddleware();
     const req = new NextRequest(`http://test.local${p}`);
     const res = await middleware(req);
@@ -324,17 +302,15 @@ describe('Middleware — assignment-activation studio-JWT bypass', () => {
     expect(body.error).toBe('Unauthorized — no session token provided');
   });
 
-  it('does not bypass the sibling node-provisioning or assignments-pull paths (unaffected by this change)', async () => {
-    const middleware = await loadMiddleware();
-    const req1 = new NextRequest('http://test.local/internal/media/nodes/provision');
-    const req2 = new NextRequest('http://test.local/internal/media/nodes/some-node/assignments');
-    expect((await middleware(req1)).status).toBe(200);
-    expect((await middleware(req2)).status).toBe(200);
-  });
-
   it('does not bypass the sibling assignment-status path (unaffected by this change)', async () => {
     const middleware = await loadMiddleware();
     const req = new NextRequest(`http://test.local/internal/media/assignments/${EVENT_ID}/status`);
+    expect((await middleware(req)).status).toBe(200);
+  });
+
+  it('the sibling activation path still bypasses too — unaffected by adding the deactivation pattern', async () => {
+    const middleware = await loadMiddleware();
+    const req = new NextRequest(`http://test.local/internal/media/assignments/${EVENT_ID}/activate`);
     expect((await middleware(req)).status).toBe(200);
   });
 });
@@ -352,7 +328,7 @@ describe('No studio-JWT authorization path exists for this route', () => {
 
   it('a request carrying a plausible-looking studio session cookie instead of the operator secret is still rejected — this route never inspects session cookies', async () => {
     const headers = new Headers({ cookie: 'sb-access-token=some-studio-jwt-looking-value' });
-    const req = new Request(`http://test.local/internal/media/assignments/${EVENT_ID}/activate`, {
+    const req = new Request(`http://test.local/internal/media/assignments/${EVENT_ID}/deactivate`, {
       method: 'POST',
       headers,
     });
