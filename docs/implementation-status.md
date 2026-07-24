@@ -3,8 +3,8 @@
 Snapshot of where the codebase stands against the target architecture. This is a
 living tracker; it records observed state, not aspirations. It changes no code.
 
-Legend: **Done** · **In progress** · **Planned** · **Legacy (to retire)** ·
-**TBD** (needs owner input, not invented here).
+Legend: **Done** · **In progress** · **Planned** · **Unverified** ·
+**Legacy (to retire)** · **TBD** (needs owner input, not invented here).
 
 ## Workspaces / repository layout
 
@@ -48,8 +48,11 @@ Legend: **Done** · **In progress** · **Planned** · **Legacy (to retire)** ·
 
 | Item | Status | Notes |
 | --- | --- | --- |
-| Restreamer stack | Legacy (to retire) | Being replaced. |
-| SRS + Media Agent | Planned | See [streaming-lifecycle.md](streaming-lifecycle.md). |
+| Restreamer repository references | Legacy (to retire) | Superseded for new work; current production use is unverified. |
+| Go EventCast Media Agent local implementation | In progress | Tracked implementation exists under `livestream-infra/services/media-agent/`; local code presence does not prove production readiness or deployment. |
+| SRS/media-node local configuration | In progress | Tracked configuration exists under `livestream-infra/infra/media-node/`; local files do not prove a live deployment. |
+| End-to-end SRS + Media Agent live-to-VOD lifecycle | In progress (completion unverified) | Phase 5 acceptance has not been verified from local evidence; see [streaming-lifecycle.md](streaming-lifecycle.md). |
+| Production deployment and cutover | Unverified | No current external deployment or routing evidence is recorded in this local tracker. |
 
 ## Auth
 
