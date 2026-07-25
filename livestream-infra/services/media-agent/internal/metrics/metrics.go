@@ -41,10 +41,9 @@ type Registry struct {
 }
 
 type series struct {
-	labels  string
-	value   atomic.Int64  // counters and integer gauges
-	fvalue  atomic.Uint64 // float gauges, stored via math.Float64bits
-	isFloat bool
+	labels string
+	value  atomic.Int64  // counter values
+	fvalue atomic.Uint64 // gauge values, stored via math.Float64bits
 }
 
 // NewRegistry returns an empty Registry.
@@ -106,7 +105,6 @@ func (g Gauge) Set(value float64, labels ...Label) {
 		return
 	}
 	s := g.reg.seriesFor(g.name, labels)
-	s.isFloat = true
 	s.fvalue.Store(math.Float64bits(value))
 }
 
@@ -156,7 +154,6 @@ func (g Gauge) SetGroup(labelName string, counts map[string]int) {
 			s = &series{labels: renderLabels(labels)}
 			byLabels[k] = s
 		}
-		s.isFloat = true
 		s.fvalue.Store(math.Float64bits(float64(n)))
 	}
 
@@ -164,7 +161,6 @@ func (g Gauge) SetGroup(labelName string, counts map[string]int) {
 		if seen[k] || !strings.HasPrefix(k, prefix) {
 			continue
 		}
-		s.isFloat = true
 		s.fvalue.Store(0)
 	}
 }
@@ -261,6 +257,7 @@ func (r *Registry) WriteTo(w io.Writer) (int64, error) {
 			seriesCopy = append(seriesCopy, s)
 		}
 		r.mu.Unlock()
+		isGauge := kind == "gauge"
 
 		sort.Slice(seriesCopy, func(i, j int) bool { return seriesCopy[i].labels < seriesCopy[j].labels })
 
@@ -271,7 +268,7 @@ func (r *Registry) WriteTo(w io.Writer) (int64, error) {
 		}
 		for _, s := range seriesCopy {
 			var valueStr string
-			if s.isFloat {
+			if isGauge {
 				valueStr = strconv.FormatFloat(math.Float64frombits(s.fvalue.Load()), 'g', -1, 64)
 			} else {
 				valueStr = strconv.FormatInt(s.value.Load(), 10)

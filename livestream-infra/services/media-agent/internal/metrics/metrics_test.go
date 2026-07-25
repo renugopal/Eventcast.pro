@@ -4,8 +4,11 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestCounterIncAndRender(t *testing.T) {
@@ -43,6 +46,105 @@ func TestGaugeSetAndRender(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "test_gauge 7\n") {
 		t.Errorf("expected the latest Set() value to win, got:\n%s", buf.String())
+	}
+}
+
+func TestGaugeLabelOutputIsDeterministic(t *testing.T) {
+	reg := NewRegistry()
+	g := reg.NewGauge("labeled_gauge", "a labeled gauge")
+	g.Set(7, Label{"b", "2"}, Label{"a", "1"})
+
+	var first, second strings.Builder
+	if _, err := reg.WriteTo(&first); err != nil {
+		t.Fatalf("first WriteTo() error: %v", err)
+	}
+	if _, err := reg.WriteTo(&second); err != nil {
+		t.Fatalf("second WriteTo() error: %v", err)
+	}
+	if first.String() != second.String() {
+		t.Fatalf("WriteTo() output changed without a metric update:\nfirst:\n%s\nsecond:\n%s", first.String(), second.String())
+	}
+	if !strings.Contains(first.String(), `labeled_gauge{a="1",b="2"} 7`) {
+		t.Errorf("expected sorted gauge labels, got:\n%s", first.String())
+	}
+}
+
+func TestGaugeUpdatesAndWriteToAreConcurrentAndRaceFree(t *testing.T) {
+	reg := NewRegistry()
+	g := reg.NewGauge("concurrent_gauge", "a concurrently updated gauge")
+	g.Set(0, Label{"status", "active"})
+
+	const iterations = 500
+	var writers sync.WaitGroup
+	writers.Add(3)
+	go func() {
+		defer writers.Done()
+		for i := 0; i < iterations; i++ {
+			g.Set(float64(i), Label{"status", "active"})
+		}
+	}()
+	go func() {
+		defer writers.Done()
+		for i := 0; i < iterations; i++ {
+			g.SetBool(i%2 == 0, Label{"ready", "true"})
+		}
+	}()
+	go func() {
+		defer writers.Done()
+		for i := 0; i < iterations; i++ {
+			g.SetGroup("status", map[string]int{"active": i, "starting": iterations - i})
+		}
+	}()
+
+	for i := 0; i < iterations; i++ {
+		var buf strings.Builder
+		if _, err := reg.WriteTo(&buf); err != nil {
+			t.Fatalf("WriteTo() error: %v", err)
+		}
+		assertConcurrentGaugeOutput(t, buf.String())
+	}
+
+	finished := make(chan struct{})
+	go func() {
+		writers.Wait()
+		close(finished)
+	}()
+	select {
+	case <-finished:
+	case <-time.After(5 * time.Second):
+		t.Fatal("concurrent gauge updates did not complete")
+	}
+
+	var buf strings.Builder
+	if _, err := reg.WriteTo(&buf); err != nil {
+		t.Fatalf("final WriteTo() error: %v", err)
+	}
+	assertConcurrentGaugeOutput(t, buf.String())
+}
+
+func assertConcurrentGaugeOutput(t *testing.T, output string) {
+	t.Helper()
+	if !strings.Contains(output, "# HELP concurrent_gauge a concurrently updated gauge\n") ||
+		!strings.Contains(output, "# TYPE concurrent_gauge gauge\n") {
+		t.Fatalf("missing concurrent gauge metadata:\n%s", output)
+	}
+
+	series := 0
+	for _, line := range strings.Split(output, "\n") {
+		if !strings.HasPrefix(line, "concurrent_gauge") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) != 2 {
+			t.Fatalf("invalid concurrent gauge sample %q", line)
+		}
+		if _, err := strconv.ParseFloat(fields[1], 64); err != nil {
+			t.Fatalf("invalid concurrent gauge value in %q: %v", line, err)
+		}
+		series++
+	}
+	if series == 0 {
+		t.Fatalf("missing concurrent gauge samples:\n%s", output)
 	}
 }
 
