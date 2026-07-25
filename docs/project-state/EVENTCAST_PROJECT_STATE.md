@@ -43,15 +43,18 @@ index, not a deployment authorization or an architecture decision record.
 ## Current livestream infrastructure status
 
 The local SRS/Media Agent Compose configuration and host-bootstrap material
-exist. The host is not authorized for deployment by this document. Local
-release preparation now specifies a future private GHCR package at
-`ghcr.io/renugopal/eventcast-media-agent`, manual Actions publication, and
-digest-only deployment identity. No package, image, tag, digest, registry
-login, or external visibility setting was created or verified by this local
-update. A published immutable Media Agent release and secret-safe environment
-provisioning remain required before deployment can proceed. The isolated HLS
-readability proof is complete; see the livestream state for its exact evidence
-boundary.
+exist. The host is not authorized for deployment by this document. The
+deployment candidate is the future private package
+`ghcr.io/renugopal/eventcast-media-agent-private`, published manually and used
+only by immutable digest. The earlier
+`ghcr.io/renugopal/eventcast-media-agent` package was directly observed as
+public and is excluded permanently from deployment and rollback. The new
+workflow requires an unused first-publish package name and immediately verifies
+private package metadata and expected repository linkage before it emits valid
+release evidence. A published immutable private Media Agent release and
+secret-safe environment provisioning remain required before deployment can
+proceed. The isolated HLS readability proof is complete; see the livestream
+state for its exact evidence boundary.
 See [`../../livestream-infra/CURRENT_STATE.md`](../../livestream-infra/CURRENT_STATE.md).
 
 ## Pending major work

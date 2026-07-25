@@ -26,7 +26,10 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE_NAME: ghcr.io/renugopal/eventcast-media-agent
+  IMAGE_NAME: ghcr.io/renugopal/eventcast-media-agent-private
+  PACKAGE_OWNER: renugopal
+  PACKAGE_NAME: eventcast-media-agent-private
+  EXPECTED_PACKAGE_REPOSITORY: renugopal/Eventcast.pro
   BUILD_CONTEXT: livestream-infra/services/media-agent
   TARGET_PLATFORM: linux/amd64
   SOURCE_REPOSITORY: https://github.com/renugopal/Eventcast.pro
@@ -73,7 +76,7 @@ jobs:
             exit 1
           }
 
-          if [[ -n "$PREVIOUS_IMAGE_REFERENCE" ]] && ! [[ "$PREVIOUS_IMAGE_REFERENCE" =~ ^ghcr\.io/renugopal/eventcast-media-agent@sha256:[0-9a-f]{64}$ ]]; then
+          if [[ -n "$PREVIOUS_IMAGE_REFERENCE" ]] && ! [[ "$PREVIOUS_IMAGE_REFERENCE" =~ ^ghcr\.io/renugopal/eventcast-media-agent-private@sha256:[0-9a-f]{64}$ ]]; then
             echo "previous image must be this package's immutable lowercase digest reference" >&2
             exit 1
           fi
@@ -178,6 +181,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: require an unused private package name before first publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          metadata="$(mktemp)"
+          trap 'rm -f "$metadata"' EXIT
+          status="$(curl --silent --show-error --output "$metadata" --write-out '%{http_code}' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header 'Accept: application/vnd.github+json' \
+            "${GITHUB_API_URL}/users/${PACKAGE_OWNER}/packages/container/${PACKAGE_NAME}")"
+          [[ "$status" == "404" ]] || {
+            echo "refusing to publish: expected unused package name returned HTTP $status" >&2
+            exit 1
+          }
+
       - id: build
         name: build and push the single approved platform
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
@@ -192,6 +212,36 @@ jobs:
             MEDIA_AGENT_VERSION=${{ needs.release-contract.outputs.release_id }}
             SOURCE_REVISION=${{ needs.release-contract.outputs.source_sha }}
             SOURCE_REPOSITORY=${{ env.SOURCE_REPOSITORY }}
+
+      - name: require private package metadata after first publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          metadata="$(mktemp)"
+          trap 'rm -f "$metadata"' EXIT
+          curl --fail --silent --show-error --output "$metadata" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header 'Accept: application/vnd.github+json' \
+            "${GITHUB_API_URL}/users/${PACKAGE_OWNER}/packages/container/${PACKAGE_NAME}"
+
+          [[ "$(jq -r '.name // empty' "$metadata")" == "$PACKAGE_NAME" ]] || {
+            echo 'published package name is unexpected' >&2
+            exit 1
+          }
+          [[ "$(jq -r '.package_type // empty' "$metadata")" == 'container' ]] || {
+            echo 'published package type is not container' >&2
+            exit 1
+          }
+          [[ "$(jq -r '.visibility // empty' "$metadata")" == 'private' ]] || {
+            echo 'published package visibility is not private' >&2
+            exit 1
+          }
+          [[ "$(jq -r '.repository.full_name // empty' "$metadata")" == "$EXPECTED_PACKAGE_REPOSITORY" ]] || {
+            echo 'published package repository linkage is unexpected' >&2
+            exit 1
+          }
 
       - id: evidence
         name: verify canonical digest and write release evidence

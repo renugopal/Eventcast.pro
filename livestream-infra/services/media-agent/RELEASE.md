@@ -7,9 +7,11 @@ create a package, authenticate, build, pull, push, deploy, or alter Git state.
 ## Inputs and identity
 
 - **Registry:** GitHub Container Registry (GHCR).
-- **Package:** `ghcr.io/renugopal/eventcast-media-agent`.
-- **Initial visibility:** private. Package visibility and access are external
-  owner-managed settings and are not changed by repository content.
+- **Package:** `ghcr.io/renugopal/eventcast-media-agent-private`.
+- **Initial visibility:** private. The former
+  `ghcr.io/renugopal/eventcast-media-agent` package is public, permanently
+  excluded from deployment, and must never be used as a release or rollback
+  reference.
 - **Build context:** `livestream-infra/services/media-agent/`.
 - **Dockerfile:** `livestream-infra/services/media-agent/Dockerfile`
 - **Platform:** `linux/amd64` only. The Dockerfile explicitly builds
@@ -18,7 +20,7 @@ create a package, authenticate, build, pull, push, deploy, or alter Git state.
   The version input is semantic version text such as `v1.2.0`; the workflow
   derives the suffix from the checked-out committed source SHA.
 - **Production identity:**
-  `ghcr.io/renugopal/eventcast-media-agent@sha256:<64-lowercase-hex>`.
+  `ghcr.io/renugopal/eventcast-media-agent-private@sha256:<64-lowercase-hex>`.
 
 The tag is a human discovery label only. `compose/deploy.sh` and
 `compose/rollback.sh` accept only the production identity, never a tag.
@@ -63,13 +65,20 @@ media URL may be passed as a build argument, label, artifact field, or log.
    `contents: read` and `packages: write`. It does not use a local PAT. The
    token is provided to Docker login through the action secret channel and is
    never echoed or written to an artifact.
-4. The workflow builds and pushes the single `linux/amd64` tag, then validates
-   the returned canonical digest with registry manifest inspection.
-5. It creates a non-secret release manifest/checksum artifact. A separately
+4. Before the first push, the workflow requires the new package name to return
+   only HTTP `404` from the GitHub Packages API; any existing package fails
+   closed. After the push and before creating release evidence, it requires
+   GitHub metadata to report the exact package name, `container` type,
+   `private` visibility, and `renugopal/Eventcast.pro` repository linkage.
+   Any API, visibility, or linkage failure fails the workflow without creating
+   a valid manifest/checksum artifact.
+5. The workflow then validates the returned canonical digest with registry
+   manifest inspection.
+6. It creates a non-secret release manifest/checksum artifact. A separately
    approved repository change may later add the real evidence files under
    `releases/`; the workflow has only read permission for repository contents
    and cannot commit them.
-6. VM registry login, immutable-digest pull/verification, Compose preflight,
+7. VM registry login, immutable-digest pull/verification, Compose preflight,
    and deployment remain separate approvals. For the initial private package,
    the VM needs separately approved minimum `read:packages` access through a
    secret-safe mechanism.
@@ -90,7 +99,7 @@ The `.release` file has these required fields, in this order:
 format=eventcast-media-agent-release-v1
 version=<vmajor.minor.patch-short-source-sha>
 source_commit=<full-40-lowercase-hex>
-image_reference=ghcr.io/renugopal/eventcast-media-agent@sha256:<64-lowercase-hex>
+image_reference=ghcr.io/renugopal/eventcast-media-agent-private@sha256:<64-lowercase-hex>
 dockerfile_sha256=<64-lowercase-hex>
 ```
 
@@ -98,7 +107,7 @@ For every release after the first, append this required immutable rollback
 record:
 
 ```text
-previous_image_reference=ghcr.io/renugopal/eventcast-media-agent@sha256:<64-lowercase-hex>
+previous_image_reference=ghcr.io/renugopal/eventcast-media-agent-private@sha256:<64-lowercase-hex>
 ```
 
 The first release omits `previous_image_reference`; it must not invent a

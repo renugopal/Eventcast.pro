@@ -35,11 +35,14 @@ This snapshot does not claim ownership of it.
 - Production Compose requires a `MEDIA_AGENT_IMAGE` immutable registry digest;
   no production default image is selected locally.
 - `deploy.sh` and `rollback.sh` reject mutable or malformed Media Agent image
-  references. Local release-preparation material now specifies future private
-  GHCR publication as `ghcr.io/renugopal/eventcast-media-agent`, with a
-  `linux/amd64` `v<semver>-<12-char-committed-sha>` tag and deployment only by
-  canonical digest. No package, registry login, image, tag, or digest was
-  created or queried in this local-only update.
+  references. Future private GHCR publication is
+  `ghcr.io/renugopal/eventcast-media-agent-private`, with a `linux/amd64`
+  `v<semver>-<12-char-committed-sha>` tag and deployment only by canonical
+  digest. The earlier `ghcr.io/renugopal/eventcast-media-agent` package was
+  directly observed as public and is permanently excluded from deployment and
+  rollback references. The replacement workflow fails closed unless its new
+  package name is unused before first push and GitHub metadata reports the
+  exact private package, type, and expected repository linkage after push.
 
 ## Prior directly observed Linode evidence — not rechecked in this phase
 
@@ -94,7 +97,8 @@ Actions workflow, clean committed-source enforcement, an allowlisted Media
 Agent build context, reproducible build flags/OCI metadata, and a real-release
 manifest/checksum format. The workflow has `contents: read` and
 `packages: write` only; it uses the ephemeral Actions `GITHUB_TOKEN`, never a
-local PAT, and cannot commit release evidence back to the repository.
+local PAT, and cannot commit release evidence back to the repository. The
+previous public package is not release evidence for this private path.
 
 The exact next recommended phase is review and separately approve staging and
 committing this local release-preparation slice. Only after that, separately
