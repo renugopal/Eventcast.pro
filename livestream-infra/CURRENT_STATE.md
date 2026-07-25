@@ -1,6 +1,6 @@
 # EventCast livestream infrastructure state
 
-**Local snapshot date:** 2026-07-25
+**Local snapshot date:** 2026-07-26
 **Evidence boundary:** Local Git and repository content were inspected for this
 update. The isolated SRS HLS result below was directly verified on the Linode
 on 2026-07-25; other Linode facts retain their stated evidence boundary. This
@@ -13,17 +13,13 @@ mutation.
 | --- | --- |
 | Repository root | `D:\Eventcast.pro` |
 | Branch | `main` |
-| `HEAD` | `f44cd3e616cf456ae00fb25fea6aab69adc1b630` |
+| `HEAD` | `38a2637adf70ff429ff59928bb576ab59f7c171b` |
 | Staged entries | 0 |
-| Remote Git tip | Unverified; no remote query/fetch was performed |
+| Remote Git tip | `38a2637adf70ff429ff59928bb576ab59f7c171b` (direct `ls-remote` observation on 2026-07-26) |
 
-The worktree is dirty. The deployment-hardening slice is deliberately
-uncommitted and includes tracked changes under
-`infra/media-node/{DEPLOYMENT.md,compose/README.md,compose/deploy.sh,compose/docker-compose.yml,compose/rollback.sh}`
-plus untracked local contract helpers/tests, release documentation, and the
-manual Media Agent release workflow.
-Unrelated dirty and untracked work exists elsewhere and remains user-owned.
-This snapshot does not claim ownership of it.
+The worktree remains dirty only in unrelated user-owned paths; no livestream
+infrastructure file is currently staged. This snapshot does not claim
+ownership of unrelated tracked or untracked work.
 
 ## Authoritative target and local implementation
 
@@ -100,21 +96,19 @@ manifest/checksum format. The workflow has `contents: read` and
 local PAT, and cannot commit release evidence back to the repository. The
 previous public package is not release evidence for this private path.
 
-The directly observed `livestream-infra CI` run `30167785722` failed before
-this corrective change for two fail-closed test-harness reasons: Compose config
-rendering did not supply the now-required `MEDIA_AGENT_IMAGE`, and the
-deterministic media-delivery overlay did not pass its existing test-only
-enabled-seed opt-in into the Media Agent container. The corrective local change
-supplies a non-routable digest-shaped image only to the CI render command and
-sets `EVENTCAST_ALLOW_SEED_ENABLED_ASSIGNMENTS=true` only in that isolated
-test overlay. The next step is to observe the CI run triggered by the committed
-correction; no production Compose default or authorization behavior is changed.
+The directly observed latest-main `livestream-infra CI` run `30172079920`
+succeeded for commit `38a2637adf70ff429ff59928bb576ab59f7c171b`. It passed
+Media Agent image build, Compose rendering, shell syntax, Go format/vet/build/
+test/race, and deterministic SRS + MinIO + relay integration. The completed
+relay correction admits only explicit local-input opening/processing diagnostics
+to the bounded uncounted startup retry; output-side and ambiguous diagnostics
+consume the normal restart budget. Its terminal-log assertion now waits for the
+supervisor lifecycle to complete, avoiding a test-only logger-buffer race.
 
-The exact next recommended phase is to observe the latest-main CI run triggered
-by this corrective change. Only after that CI evidence is green, separately
-approve a manual private-GHCR build/publish run. VM registry access,
-immutable-digest pull/verification, secret-safe environment provisioning,
-Compose preflight, and deployment remain independent gates.
+The exact next recommended phase is separately approved first publication of
+the private GHCR Media Agent release. VM registry access, immutable-digest
+pull/verification, secret-safe environment provisioning, Compose preflight,
+and deployment remain independent gates.
 
 ## Historical facts and prohibited actions
 

@@ -1,6 +1,6 @@
 # EventCast project state
 
-**Snapshot date:** 2026-07-25
+**Snapshot date:** 2026-07-26
 **Evidence boundary:** This document distinguishes repository facts, directly
 observed remote evidence, and unverified historical reports. It is a project
 index, not a deployment authorization or an architecture decision record.
@@ -36,6 +36,10 @@ index, not a deployment authorization or an architecture decision record.
   validation, rollback digest validation, and a verified SRS shared-output
   contract: the pinned SRS image with `umask 0027` creates group-readable,
   non-world-readable HLS output for Media Agent UID/GID `65532:65532`.
+- Latest-main CI directly verified the relay startup diagnostic classifier and
+  its synchronized terminal-log assertion: source-not-ready input diagnostics
+  use the bounded uncounted retry, while destination and ambiguous failures
+  consume the restart budget.
 - A Linode media-node host bootstrap and SSH-hardening phase was directly
   verified in a prior authorized operation; it was not rechecked during this
   local documentation phase.
@@ -56,21 +60,16 @@ secret-safe environment provisioning remain required before deployment can
 proceed. The isolated HLS readability proof is complete; see the livestream
 state for its exact evidence boundary.
 
-The directly observed `livestream-infra CI` run `30167785722` failed on two
-test-harness gaps: its Compose render lacked the intentionally mandatory
-Media Agent image reference, and its isolated media-delivery test did not pass
-the already-supported enabled-seed opt-in into the container. The corrective
-path keeps production fail-closed by supplying a non-routable digest only to
-the CI render command and by setting the opt-in only in the test overlay. The
-next required evidence is the resulting latest-main CI run; release, VM pull,
-and deployment remain separate approvals.
+The directly observed latest-main `livestream-infra CI` run `30172079920`
+succeeded for commit `38a2637adf70ff429ff59928bb576ab59f7c171b`. Media Agent
+image build, Compose rendering, shell syntax, Go format/vet/build/test/race,
+and deterministic SRS + MinIO + relay integration all passed. Release, VM
+pull, and deployment remain separate approvals.
 See [`../../livestream-infra/CURRENT_STATE.md`](../../livestream-infra/CURRENT_STATE.md).
 
 ## Pending major work
 
-1. Observe the latest-main `livestream-infra CI` run for the corrective
-   fail-closed render and isolated enabled-seed fixture path. Only after it is
-   green, separately approve the first manual immutable private-GHCR
+1. Separately approve the first manual immutable private-GHCR Media Agent
    build/publish/manifest run.
 2. Provision deployment secrets through an approved mechanism, then perform
    separately approved deployment, health, rollback, and live-media gates.
