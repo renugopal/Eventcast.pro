@@ -55,12 +55,23 @@ release evidence. A published immutable private Media Agent release and
 secret-safe environment provisioning remain required before deployment can
 proceed. The isolated HLS readability proof is complete; see the livestream
 state for its exact evidence boundary.
+
+The directly observed `livestream-infra CI` run `30167785722` failed on two
+test-harness gaps: its Compose render lacked the intentionally mandatory
+Media Agent image reference, and its isolated media-delivery test did not pass
+the already-supported enabled-seed opt-in into the container. The corrective
+path keeps production fail-closed by supplying a non-routable digest only to
+the CI render command and by setting the opt-in only in the test overlay. The
+next required evidence is the resulting latest-main CI run; release, VM pull,
+and deployment remain separate approvals.
 See [`../../livestream-infra/CURRENT_STATE.md`](../../livestream-infra/CURRENT_STATE.md).
 
 ## Pending major work
 
-1. Review, stage, and commit the local GHCR release-preparation contract; then
-   separately approve its first manual immutable build/publish/manifest run.
+1. Observe the latest-main `livestream-infra CI` run for the corrective
+   fail-closed render and isolated enabled-seed fixture path. Only after it is
+   green, separately approve the first manual immutable private-GHCR
+   build/publish/manifest run.
 2. Provision deployment secrets through an approved mechanism, then perform
    separately approved deployment, health, rollback, and live-media gates.
 3. Reconcile legacy Wasabi/Restreamer-era material with the current R2/B2 and

@@ -103,6 +103,9 @@ jobs:
         run: |
           set -e
           cp .env.example .env
+          # Production Compose deliberately has no default image. This
+          # non-routable, digest-shaped value exists only for config rendering.
+          export MEDIA_AGENT_IMAGE='example.invalid/eventcast-media-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
           docker compose -f docker-compose.yml config >/dev/null
           # The test-only overlay requires two variables with no default
           # (media-delivery-integration-test.sh always supplies its own

@@ -17,6 +17,13 @@
 # already validated for the primary ingest SRS service.
 
 services:
+  media-agent:
+    environment:
+      # This overlay is used only by media-delivery-integration-test.sh. It
+      # intentionally permits its generated enabled assignment fixtures; the
+      # production Compose default remains fail-closed.
+      EVENTCAST_ALLOW_SEED_ENABLED_ASSIGNMENTS: "true"
+
   minio:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     container_name: ${MINIO_CONTAINER_NAME:-eventcast-minio-test}

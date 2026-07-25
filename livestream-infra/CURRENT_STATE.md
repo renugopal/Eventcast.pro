@@ -100,8 +100,18 @@ manifest/checksum format. The workflow has `contents: read` and
 local PAT, and cannot commit release evidence back to the repository. The
 previous public package is not release evidence for this private path.
 
-The exact next recommended phase is review and separately approve staging and
-committing this local release-preparation slice. Only after that, separately
+The directly observed `livestream-infra CI` run `30167785722` failed before
+this corrective change for two fail-closed test-harness reasons: Compose config
+rendering did not supply the now-required `MEDIA_AGENT_IMAGE`, and the
+deterministic media-delivery overlay did not pass its existing test-only
+enabled-seed opt-in into the Media Agent container. The corrective local change
+supplies a non-routable digest-shaped image only to the CI render command and
+sets `EVENTCAST_ALLOW_SEED_ENABLED_ASSIGNMENTS=true` only in that isolated
+test overlay. The next step is to observe the CI run triggered by the committed
+correction; no production Compose default or authorization behavior is changed.
+
+The exact next recommended phase is to observe the latest-main CI run triggered
+by this corrective change. Only after that CI evidence is green, separately
 approve a manual private-GHCR build/publish run. VM registry access,
 immutable-digest pull/verification, secret-safe environment provisioning,
 Compose preflight, and deployment remain independent gates.
