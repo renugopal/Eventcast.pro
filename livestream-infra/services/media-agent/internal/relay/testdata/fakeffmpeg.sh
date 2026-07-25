@@ -31,6 +31,25 @@ case "$FAKE_FFMPEG_BEHAVIOR" in
         sleep 1
       done
     fi
+    echo "[in#0/flv @ 0x1] Error opening input: Invalid data found when processing input" 1>&2
+    exit 1
+    ;;
+  destination_connection_refused)
+    echo "RTMP_Connect0, failed to connect socket. 111 (Connection refused)" 1>&2
+    echo "[out#0/flv @ 0x1] Error opening output rtmp://fake.example.invalid/live2/${FAKE_STREAM_KEY_MARKER:-nokey}" 1>&2
+    exit 1
+    ;;
+  destination_output_error)
+    echo "[out#0/flv @ 0x1] Error opening output file rtmp://fake.example.invalid/live2/${FAKE_STREAM_KEY_MARKER:-nokey}" 1>&2
+    exit 1
+    ;;
+  unknown_failure)
+    echo "fake ffmpeg failure" 1>&2
+    exit 1
+    ;;
+  source_and_destination_failure)
+    echo "[in#0/flv @ 0x1] Error opening input: Invalid data found when processing input" 1>&2
+    echo "[out#0/flv @ 0x1] Error opening output rtmp://fake.example.invalid/live2/${FAKE_STREAM_KEY_MARKER:-nokey}" 1>&2
     exit 1
     ;;
   run_then_fail_once_then_hang)

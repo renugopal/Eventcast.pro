@@ -205,7 +205,7 @@ func (s *Supervisor) supervise(ctx context.Context, target Target) {
 			return
 		}
 
-		if runErr != nil && ranFor < s.cfg.SourceReadyMinRunDuration && time.Now().Before(sourceReadyDeadline) {
+		if runErr != nil && isStartupSourceNotReady(runErr) && ranFor < s.cfg.SourceReadyMinRunDuration && time.Now().Before(sourceReadyDeadline) {
 			s.logger.Info("relay: local source not yet readable, retrying without spending the restart budget",
 				slog.String("event_id", target.EventID), slog.String("session_id", target.SessionID),
 				slog.Duration("ran_for", ranFor), slog.String("error", runErr.Error()))
@@ -251,6 +251,25 @@ func (s *Supervisor) supervise(ctx context.Context, target Target) {
 		case <-time.After(delay):
 		}
 	}
+}
+
+// isStartupSourceNotReady reports whether an ffmpeg failure is a verified
+// local-input startup symptom that may use the bounded uncounted retry window.
+// It is intentionally fail-closed: unknown diagnostics and every output-side
+// diagnostic consume the normal restart budget. Output evidence is checked
+// first because ffmpeg can include more than one diagnostic in its stderr.
+func isStartupSourceNotReady(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	diagnostic := strings.ToLower(err.Error())
+	if strings.Contains(diagnostic, "[out#") || strings.Contains(diagnostic, "error opening output") {
+		return false
+	}
+
+	return strings.Contains(diagnostic, "error opening input") ||
+		strings.Contains(diagnostic, "invalid data found when processing input")
 }
 
 func (s *Supervisor) markStopped(sessionID string) {

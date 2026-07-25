@@ -3,6 +3,7 @@ package relay
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -164,6 +165,92 @@ func TestSupervisorRetriesDuringStartupRaceWithoutConsumingRestartBudget(t *test
 	}
 
 	sup.Shutdown()
+}
+
+func TestIsStartupSourceNotReady(t *testing.T) {
+	tests := []struct {
+		name       string
+		diagnostic string
+		want       bool
+	}{
+		{
+			name:       "input processing failure is eligible",
+			diagnostic: "ffmpeg exited: Invalid data found when processing input",
+			want:       true,
+		},
+		{
+			name:       "input opening failure is eligible",
+			diagnostic: "ffmpeg exited: Error opening input: Invalid data found when processing input",
+			want:       true,
+		},
+		{
+			name:       "destination connection refused is not eligible",
+			diagnostic: "ffmpeg exited: RTMP_Connect0, failed to connect socket. 111 (Connection refused) [out#0/flv] Error opening output",
+			want:       false,
+		},
+		{
+			name:       "output opening failure is not eligible",
+			diagnostic: "ffmpeg exited: [out#0/flv] Error opening output file",
+			want:       false,
+		},
+		{
+			name:       "unknown failure is not eligible",
+			diagnostic: "ffmpeg exited: exit status 1",
+			want:       false,
+		},
+		{
+			name:       "output failure takes precedence over source-like text",
+			diagnostic: "Invalid data found when processing input [out#0/flv] Error opening output",
+			want:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isStartupSourceNotReady(errors.New(tt.diagnostic)); got != tt.want {
+				t.Errorf("isStartupSourceNotReady() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSupervisorDestinationFailuresConsumeRestartBudget(t *testing.T) {
+	tests := []struct {
+		name     string
+		behavior string
+	}{
+		{name: "connection refused", behavior: "destination_connection_refused"},
+		{name: "error opening output", behavior: "destination_output_error"},
+		{name: "unknown diagnostic", behavior: "unknown_failure"},
+		{name: "output takes precedence over source-like text", behavior: "source_and_destination_failure"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var logs bytes.Buffer
+			st := openTestStore(t)
+			sup := New(st, Config{
+				FFmpegPath: fakeFFmpegPath(t), RestartMaxAttempts: 2,
+				RestartBackoffBase: 5 * time.Millisecond, RestartBackoffMax: 20 * time.Millisecond, ShutdownTimeout: 2 * time.Second,
+				SourceReadyTimeout: 2 * time.Second, SourceReadyMinRunDuration: time.Second, SourceReadyRetryInterval: 10 * time.Millisecond,
+			}, slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
+
+			t.Setenv("FAKE_FFMPEG_BEHAVIOR", tt.behavior)
+			target := Target{EventID: "evt1", SessionID: "sess1", SourceURL: "rtmp://127.0.0.1:1935/live/ingest1",
+				DestinationBaseURL: "rtmp://fake.example.invalid/live2", StreamKey: logging.Secret("test-key")}
+			if err := sup.Start(context.Background(), target); err != nil {
+				t.Fatalf("Start() error: %v", err)
+			}
+
+			rec := waitForRelayStatus(t, st, "sess1", store.RelayFailed, time.Second)
+			if rec.RestartCount != 1 {
+				t.Errorf("RestartCount = %d, want 1", rec.RestartCount)
+			}
+			if !strings.Contains(logs.String(), "restart budget exhausted") {
+				t.Errorf("logs did not contain terminal restart-budget message: %s", logs.String())
+			}
+		})
+	}
 }
 
 // TestSupervisorFallsBackToCountedRestartsAfterGracePeriodExpires proves
