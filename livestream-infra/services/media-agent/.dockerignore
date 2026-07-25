@@ -1,8 +1,11 @@
-.git
-.env
-.env.*
-!.env.example
-*.log
-tmp/
-bin/
-README.md
+# Release builds use an allowlist, not a denylist. The Dockerfile copies the
+# build context into the builder stage, so this prevents local operational
+# scripts, environment files, release evidence, and any other untracked files
+# from entering even an intermediate image layer.
+*
+!cmd/
+!cmd/**
+!internal/
+!internal/**
+!go.mod
+!go.sum

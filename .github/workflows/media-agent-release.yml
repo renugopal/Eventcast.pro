@@ -1,0 +1,241 @@
+name: Media Agent immutable release
+
+# Publishing is manual-only. A push, pull request, tag, or reusable workflow
+# call must never publish a Media Agent image.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Semantic version only (for example v1.2.0)"
+        required: true
+        type: string
+      previous_image_reference:
+        description: "Prior immutable Media Agent digest; leave empty only for the first release"
+        required: false
+        type: string
+
+# The release job needs package publication only. It deliberately has no
+# contents-write, id-token, attestation, deployment, or repository-token
+# permissions.
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: media-agent-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: ghcr.io/renugopal/eventcast-media-agent
+  BUILD_CONTEXT: livestream-infra/services/media-agent
+  TARGET_PLATFORM: linux/amd64
+  SOURCE_REPOSITORY: https://github.com/renugopal/Eventcast.pro
+
+jobs:
+  release-contract:
+    name: validate release source and inputs
+    runs-on: ubuntu-24.04
+    outputs:
+      source_sha: ${{ steps.source.outputs.source_sha }}
+      short_source_sha: ${{ steps.source.outputs.short_source_sha }}
+      release_id: ${{ steps.source.outputs.release_id }}
+      previous_image_reference: ${{ steps.source.outputs.previous_image_reference }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - id: source
+        name: require an exact clean committed source
+        shell: bash
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          PREVIOUS_IMAGE_REFERENCE: ${{ inputs.previous_image_reference }}
+        run: |
+          set -euo pipefail
+
+          [[ "$REQUESTED_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "version must be semantic v<major>.<minor>.<patch>" >&2
+            exit 1
+          }
+
+          source_sha="$(git rev-parse --verify HEAD)"
+          [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "checked-out source is not a full lowercase commit SHA" >&2
+            exit 1
+          }
+          [[ "$source_sha" == "$GITHUB_SHA" ]] || {
+            echo "checked-out source does not match GITHUB_SHA" >&2
+            exit 1
+          }
+          git diff --quiet
+          git diff --cached --quiet
+          test -z "$(git ls-files --others --exclude-standard)" || {
+            echo "release checkout contains untracked files" >&2
+            exit 1
+          }
+
+          if [[ -n "$PREVIOUS_IMAGE_REFERENCE" ]] && ! [[ "$PREVIOUS_IMAGE_REFERENCE" =~ ^ghcr\.io/renugopal/eventcast-media-agent@sha256:[0-9a-f]{64}$ ]]; then
+            echo "previous image must be this package's immutable lowercase digest reference" >&2
+            exit 1
+          fi
+
+          printf 'source_sha=%s\n' "$source_sha" >> "$GITHUB_OUTPUT"
+          printf 'short_source_sha=%s\n' "${source_sha:0:12}" >> "$GITHUB_OUTPUT"
+          printf 'release_id=%s-%s\n' "$REQUESTED_VERSION" "${source_sha:0:12}" >> "$GITHUB_OUTPUT"
+          printf 'previous_image_reference=%s\n' "$PREVIOUS_IMAGE_REFERENCE" >> "$GITHUB_OUTPUT"
+
+      - name: verify build-context allowlist and Dockerfile contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$BUILD_CONTEXT/go.mod"
+          test -f "$BUILD_CONTEXT/go.sum"
+          test -f "$BUILD_CONTEXT/Dockerfile"
+          test -f "$BUILD_CONTEXT/.dockerignore"
+          for pattern in '*' '!cmd/' '!cmd/**' '!internal/' '!internal/**' '!go.mod' '!go.sum'; do
+            grep -Fqx "$pattern" "$BUILD_CONTEXT/.dockerignore"
+          done
+          grep -Fq -- '-trimpath -buildvcs=false -mod=readonly' "$BUILD_CONTEXT/Dockerfile"
+          grep -Fq 'org.opencontainers.image.source' "$BUILD_CONTEXT/Dockerfile"
+          grep -Fq 'org.opencontainers.image.revision' "$BUILD_CONTEXT/Dockerfile"
+          grep -Fq 'org.opencontainers.image.version' "$BUILD_CONTEXT/Dockerfile"
+
+  go:
+    name: format, vet, build, and test source
+    needs: release-contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+    defaults:
+      run:
+        working-directory: livestream-infra/services/media-agent
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ needs.release-contract.outputs.source_sha }}
+
+      - name: verify tested checkout
+        shell: bash
+        env:
+          EXPECTED_SOURCE_SHA: ${{ needs.release-contract.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse --verify HEAD)" = "$EXPECTED_SOURCE_SHA"
+          git diff --quiet
+          git diff --cached --quiet
+          test -z "$(git ls-files --others --exclude-standard)"
+
+      - name: gofmt
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$(gofmt -l .)"
+          test -z "$out" || { echo "$out"; exit 1; }
+
+      - name: go vet, build, and test
+        shell: bash
+        run: |
+          set -euo pipefail
+          go vet ./...
+          go build -buildvcs=false -mod=readonly ./...
+          go test -buildvcs=false -mod=readonly ./...
+
+  publish:
+    name: build, publish, and capture immutable evidence
+    needs: [release-contract, go]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ needs.release-contract.outputs.source_sha }}
+
+      - name: re-verify publish checkout
+        shell: bash
+        env:
+          EXPECTED_SOURCE_SHA: ${{ needs.release-contract.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse --verify HEAD)" = "$EXPECTED_SOURCE_SHA"
+          git diff --quiet
+          git diff --cached --quiet
+          test -z "$(git ls-files --others --exclude-standard)"
+
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: log in to GHCR with the ephemeral workflow token
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: build
+        name: build and push the single approved platform
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: ${{ env.BUILD_CONTEXT }}
+          file: ${{ env.BUILD_CONTEXT }}/Dockerfile
+          platforms: ${{ env.TARGET_PLATFORM }}
+          push: true
+          provenance: false
+          tags: ${{ env.IMAGE_NAME }}:${{ needs.release-contract.outputs.release_id }}
+          build-args: |
+            MEDIA_AGENT_VERSION=${{ needs.release-contract.outputs.release_id }}
+            SOURCE_REVISION=${{ needs.release-contract.outputs.source_sha }}
+            SOURCE_REPOSITORY=${{ env.SOURCE_REPOSITORY }}
+
+      - id: evidence
+        name: verify canonical digest and write release evidence
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ needs.release-contract.outputs.source_sha }}
+          RELEASE_ID: ${{ needs.release-contract.outputs.release_id }}
+          PREVIOUS_IMAGE_REFERENCE: ${{ needs.release-contract.outputs.previous_image_reference }}
+          PUSHED_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          [[ "$PUSHED_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "build action did not return a lowercase canonical SHA-256 digest" >&2
+            exit 1
+          }
+
+          image_reference="${IMAGE_NAME}@${PUSHED_DIGEST}"
+          docker buildx imagetools inspect "$image_reference" >/dev/null
+
+          dockerfile_sha256="$(sha256sum "$BUILD_CONTEXT/Dockerfile" | awk '{print $1}')"
+          evidence_dir="$RUNNER_TEMP/media-agent-release-evidence"
+          mkdir -p "$evidence_dir"
+          manifest="$evidence_dir/eventcast-media-agent-${RELEASE_ID}.release"
+
+          {
+            printf 'format=eventcast-media-agent-release-v1\n'
+            printf 'version=%s\n' "$RELEASE_ID"
+            printf 'source_commit=%s\n' "$SOURCE_SHA"
+            printf 'image_reference=%s\n' "$image_reference"
+            printf 'dockerfile_sha256=%s\n' "$dockerfile_sha256"
+            if [[ -n "$PREVIOUS_IMAGE_REFERENCE" ]]; then
+              printf 'previous_image_reference=%s\n' "$PREVIOUS_IMAGE_REFERENCE"
+            fi
+          } > "$manifest"
+          (
+            cd "$evidence_dir"
+            sha256sum "$(basename "$manifest")" > "$(basename "$manifest").sha256"
+          )
+
+          printf 'image_reference=%s\n' "$image_reference" >> "$GITHUB_OUTPUT"
+          {
+            echo '### Media Agent immutable release'
+            echo
+            echo "- Release: \`$RELEASE_ID\`"
+            echo "- Canonical image: \`$image_reference\`"
+            echo "- Platform: \`$TARGET_PLATFORM\`"
+            echo '- A repository commit, VM pull, and deployment were not performed by this workflow.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: upload non-secret release manifest and checksum
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: media-agent-release-${{ needs.release-contract.outputs.release_id }}
+          path: ${{ runner.temp }}/media-agent-release-evidence/
+          if-no-files-found: error

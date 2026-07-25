@@ -30,7 +30,7 @@ ARG MEDIA_AGENT_VERSION=dev
 # CGO disabled and a static build keep the binary compatible with the
 # distroless runtime stage, which has no libc or shell.
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -trimpath \
+    go build -trimpath -buildvcs=false -mod=readonly \
     -ldflags="-s -w -X github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/health.Version=${MEDIA_AGENT_VERSION}" \
     -o /out/media-agent ./cmd/media-agent
 
@@ -40,6 +40,17 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 # HEALTHCHECK below uses the binary's own "healthcheck" subcommand
 # instead of curl/wget so no additional runtime tool is required.
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:d093aa3e30dbadd3efe1310db061a14da60299baff8450a17fe0ccc514a16639
+
+# Non-secret release metadata is supplied only by the approved release
+# workflow. These values identify the immutable source and image version;
+# credentials, tokens, environment values, and node details are never build
+# arguments or labels.
+ARG MEDIA_AGENT_VERSION=dev
+ARG SOURCE_REVISION=unknown
+ARG SOURCE_REPOSITORY=https://github.com/renugopal/Eventcast.pro
+LABEL org.opencontainers.image.source="${SOURCE_REPOSITORY}" \
+      org.opencontainers.image.revision="${SOURCE_REVISION}" \
+      org.opencontainers.image.version="${MEDIA_AGENT_VERSION}"
 
 COPY --from=builder /out/media-agent /media-agent
 COPY --from=ffmpeg /ffmpeg /usr/local/bin/ffmpeg
