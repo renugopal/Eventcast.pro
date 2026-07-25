@@ -1,0 +1,20 @@
+[Unit]
+Description=EventCast Media Node Compose Stack
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+ConditionPathExists=/opt/eventcast/media-node/app/compose/docker-compose.yml
+ConditionPathExists=/opt/eventcast/media-node/app/compose/.env
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/eventcast/media-node/app/compose
+ExecStartPre=/usr/bin/docker compose --project-name eventcast-media-node --env-file /opt/eventcast/media-node/app/compose/.env -f /opt/eventcast/media-node/app/compose/docker-compose.yml config --quiet
+ExecStart=/usr/bin/docker compose --project-name eventcast-media-node --env-file /opt/eventcast/media-node/app/compose/.env -f /opt/eventcast/media-node/app/compose/docker-compose.yml up --detach --remove-orphans
+ExecStop=/usr/bin/docker compose --project-name eventcast-media-node --env-file /opt/eventcast/media-node/app/compose/.env -f /opt/eventcast/media-node/app/compose/docker-compose.yml stop
+TimeoutStartSec=120
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target
