@@ -9,8 +9,8 @@
 # SQLite data"). Like deploy.sh, this defaults to a dry run.
 #
 # Usage:
-#   ./rollback.sh <previous-media-agent-image>            # dry run
-#   ./rollback.sh <previous-media-agent-image> --apply     # perform it
+#   ./rollback.sh <previous-media-agent-image@sha256:digest>            # dry run
+#   ./rollback.sh <previous-media-agent-image@sha256:digest> --apply     # perform it
 #
 # This script never deletes, moves, or truncates SPOOL_HOST_DIR,
 # DB_HOST_DIR, or SRS_OUTPUT_HOST_DIR - it only ever changes which image
@@ -21,7 +21,13 @@ set -euo pipefail
 COMPOSE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$COMPOSE_DIR"
 
-[[ $# -ge 1 ]] || { echo "usage: $0 <previous-media-agent-image>[:tag[@digest]] [--apply]" >&2; exit 2; }
+# shellcheck source=lib/validate-image-reference.sh
+source "$COMPOSE_DIR/lib/validate-image-reference.sh"
+
+log()  { printf '[rollback] %s\n' "$*" >&2; }
+fail() { printf '[rollback][FAIL] %s\n' "$*" >&2; exit 1; }
+
+[[ $# -ge 1 ]] || { echo "usage: $0 <previous-media-agent-image@sha256:digest> [--apply]" >&2; exit 2; }
 PREVIOUS_IMAGE="$1"; shift || true
 APPLY=0
 for arg in "$@"; do
@@ -31,13 +37,16 @@ for arg in "$@"; do
   esac
 done
 
+if ! validate_immutable_media_agent_image_reference "$PREVIOUS_IMAGE"; then
+  fail "previous media-agent image must be an immutable registry digest reference"
+fi
+
 ENV_FILE="${ENV_FILE:-/opt/eventcast/media-node/app/compose/.env}"
 COMPOSE_PROJECT="${COMPOSE_PROJECT:-eventcast-media-node}"
 HEALTH_TIMEOUT_SECS="${HEALTH_TIMEOUT_SECS:-90}"
 MEDIA_AGENT_CONTAINER="${MEDIA_AGENT_CONTAINER_NAME:-eventcast-media-agent}"
 
-log()  { printf '[rollback] %s\n' "$*" >&2; }
-fail() { printf '[rollback][FAIL] %s\n' "$*" >&2; exit 1; }
+[[ -f "$ENV_FILE" ]] || fail "env file not found: $ENV_FILE"
 
 SUDO=""
 if ! docker info >/dev/null 2>&1; then
@@ -45,9 +54,7 @@ if ! docker info >/dev/null 2>&1; then
 fi
 DOCKER="$SUDO docker"
 
-[[ -f "$ENV_FILE" ]] || fail "env file not found: $ENV_FILE"
-
-log "rolling back media-agent to image: $PREVIOUS_IMAGE"
+log "rolling back media-agent to an immutable digest-pinned image"
 if [[ "$APPLY" -eq 0 ]]; then
   log "DRY RUN: would set MEDIA_AGENT_IMAGE=$PREVIOUS_IMAGE and run 'docker compose up -d media-agent'"
   log "spool/db/srs-output host directories are never touched by this script"

@@ -1,9 +1,11 @@
 # EventCast Media Node - Compose stack (SRS + Media Agent).
 #
-# Both images are pinned: SRS by exact tag AND immutable registry digest
-# (see ../srs/README.md), Media Agent by the exact local build tag produced
-# in validation (see ../../../services/media-agent/README.md). Do not
-# replace either reference with a floating tag.
+# SRS is pinned by exact tag and immutable registry digest (see
+# ../srs/README.md). The Media Agent image is deliberately required from the
+# environment: there is no production default local tag. `deploy.sh` accepts
+# only an immutable registry digest for production deployment; isolated test
+# scripts pass their own explicitly built local tag and do not call
+# `deploy.sh`.
 #
 # This proves the two containers start, stay healthy, reach each other by
 # hostname on a private network, and that the Media Agent's SRS callback
@@ -27,7 +29,7 @@ networks:
 
 services:
   media-agent:
-    image: ${MEDIA_AGENT_IMAGE:-media-agent:phase0-task3}
+    image: "${MEDIA_AGENT_IMAGE:?MEDIA_AGENT_IMAGE must be set to an immutable Media Agent image reference}"
     container_name: ${MEDIA_AGENT_CONTAINER_NAME:-eventcast-media-agent}
     networks:
       media-node: {}
@@ -155,7 +157,10 @@ services:
     depends_on:
       media-agent:
         condition: service_healthy
-    command: ["./objs/srs", "-c", "conf/eventcast.conf"]
+    # The exact pinned image was validated with this wrapper: umask 0027
+    # produces root:65532 directories (2750) and HLS files (0640) beneath
+    # the set-group-ID SRS output directory, then exec preserves SRS as PID 1.
+    command: ["/bin/sh", "-c", "umask 0027; exec ./objs/srs -c conf/eventcast.conf"]
     volumes:
       - ${SRS_CONF_HOST_PATH:-/opt/eventcast/media-node/config/srs/srs.conf}:/usr/local/srs/conf/eventcast.conf:ro
       - ${SRS_OUTPUT_HOST_DIR:-/opt/eventcast/media-node/data/srs}:/var/lib/eventcast/srs-output

@@ -26,14 +26,17 @@
 #                                     # deploy when the node has no
 #                                     # assigned critical event)
 #
-# Environment (all optional; defaults match docker-compose.yml exactly so
-# this never silently deploys to a different path than production uses):
-#   MEDIA_AGENT_IMAGE, ENV_FILE, COMPOSE_PROJECT, HEALTH_TIMEOUT_SECS
+# Environment:
+#   MEDIA_AGENT_IMAGE (required in ENV_FILE; immutable registry digest only),
+#   ENV_FILE, COMPOSE_PROJECT, HEALTH_TIMEOUT_SECS
 
 set -euo pipefail
 
 COMPOSE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$COMPOSE_DIR"
+
+# shellcheck source=lib/validate-image-reference.sh
+source "$COMPOSE_DIR/lib/validate-image-reference.sh"
 
 APPLY=0
 FORCE=0
@@ -80,48 +83,77 @@ for required in EVENTCAST_NODE_ID; do
   fi
 done
 
-# Refuse a floating image tag outright (04_TECH_STACK_AND_VERSION_POLICY.md
-# "Every production dependency must be pinned ... Floating tags are
-# forbidden"). docker-compose.yml pins SRS by digest already; this only
-# needs to check the operator-controlled MEDIA_AGENT_IMAGE override.
-if grep -qE '^MEDIA_AGENT_IMAGE=.*:latest\s*$' "$ENV_FILE"; then
-  fail "MEDIA_AGENT_IMAGE uses the floating ':latest' tag; pin an exact tag or digest"
+# The persistent deployment must name exactly one immutable registry digest.
+# A tag (including :latest) is mutable; Compose itself deliberately has no
+# Media Agent default. Isolated integration tests build/use local tags but do
+# not invoke this production deployment script.
+MEDIA_AGENT_IMAGE_LINE_COUNT="$(grep -c '^MEDIA_AGENT_IMAGE=' "$ENV_FILE" || true)"
+[[ "$MEDIA_AGENT_IMAGE_LINE_COUNT" -eq 1 ]] || fail "ENV_FILE must contain exactly one MEDIA_AGENT_IMAGE entry"
+MEDIA_AGENT_IMAGE_VALUE="$(sed -n 's/^MEDIA_AGENT_IMAGE=//p' "$ENV_FILE")"
+if ! validate_immutable_media_agent_image_reference "$MEDIA_AGENT_IMAGE_VALUE"; then
+  fail "MEDIA_AGENT_IMAGE must be an immutable registry digest reference"
 fi
+log "MEDIA_AGENT_IMAGE is immutable digest-pinned"
 
-# ---- 2. preflight: directories, ownership, disk space --------------------
+# ---- 2. preflight: directory ownership and disk space --------------------
 
 step "2) preflight checks"
-# SPOOL_HOST_DIR and DB_HOST_DIR are written by media-agent's non-root
-# "nonroot" container user (a different UID than whatever created these
-# directories). SRS_OUTPUT_HOST_DIR is written by the srs service, which
-# runs cap_drop: [ALL] (this milestone's hardening) - removing
-# CAP_DAC_OVERRIDE means its root user can no longer bypass host
-# directory permissions either, so it needs the same permissive bits.
-# ASSIGNMENT_SEED_HOST_DIR is read-only for media-agent and needs no
-# special permissions beyond the default 0755 a normal mkdir already
-# produces.
-for dir_var_default in \
-  "SPOOL_HOST_DIR:/opt/eventcast/media-node/data/spool:0777" \
-  "DB_HOST_DIR:/opt/eventcast/media-node/data/db:0777" \
-  "SRS_OUTPUT_HOST_DIR:/opt/eventcast/media-node/data/srs:0777" \
-  "ASSIGNMENT_SEED_HOST_DIR:/opt/eventcast/media-node/config/assignments:0755"
-do
-  var="${dir_var_default%%:*}"
-  rest="${dir_var_default#*:}"
-  default="${rest%%:*}"
-  mode="${rest#*:}"
-  path="$(grep -E "^${var}=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-)"
-  path="${path:-$default}"
-  if [[ -d "$path" ]]; then
-    log "ok: $path exists"
-  elif [[ "$APPLY" -eq 1 ]]; then
-    log "creating missing directory: $path (mode $mode)"
-    $SUDO mkdir -p "$path"
-    $SUDO chmod "$mode" "$path"
-  else
-    log "would create missing directory: $path (mode $mode)"
-  fi
-done
+# The tracked Media Agent Dockerfile declares its distroless runtime user as
+# 65532:65532. Its spool and SQLite mounts therefore use owner-only access;
+# deploy.sh never creates or chmods persistent data directories.
+MEDIA_AGENT_RUNTIME_UID=65532
+MEDIA_AGENT_RUNTIME_GID=65532
+
+env_path_or_default() {
+  local variable="$1"
+  local default_path="$2"
+  local value
+
+  value="$(grep -E "^${variable}=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-)"
+  printf '%s\n' "${value:-$default_path}"
+}
+
+require_media_agent_writable_directory() {
+  local variable="$1"
+  local default_path="$2"
+  local path owner mode
+
+  path="$(env_path_or_default "$variable" "$default_path")"
+  [[ -d "$path" ]] || fail "${variable} must be pre-provisioned; deploy.sh never creates persistent writable directories"
+  owner="$(stat -c '%u:%g' "$path")"
+  mode="$(stat -c '%a' "$path")"
+  [[ "$owner" == "${MEDIA_AGENT_RUNTIME_UID}:${MEDIA_AGENT_RUNTIME_GID}" ]] || fail "${variable} must be owned by ${MEDIA_AGENT_RUNTIME_UID}:${MEDIA_AGENT_RUNTIME_GID}"
+  [[ "$mode" == "750" ]] || fail "${variable} must have mode 0750"
+  log "ok: ${variable} has the verified Media Agent ownership contract"
+}
+
+require_media_agent_writable_directory "SPOOL_HOST_DIR" "/opt/eventcast/media-node/data/spool"
+require_media_agent_writable_directory "DB_HOST_DIR" "/opt/eventcast/media-node/data/db"
+
+# The exact pinned SRS image was separately inspected: its default runtime
+# identity is root (0:0). The Media Agent is 65532:65532 and has this mount
+# read-only. The provisional host contract permits SRS to write and gives the
+# Media Agent group read/traverse access; deploy.sh only validates it.
+#
+# This directory-level gate does not prove the mode/ownership of HLS files SRS
+# creates beneath it. Deployment remains blocked by the separate real-HLS
+# readability gate documented in DEPLOYMENT.md and README.md.
+SRS_RUNTIME_UID=0
+MEDIA_AGENT_SHARED_GID=65532
+
+require_srs_output_directory() {
+  local path owner mode
+
+  path="$(env_path_or_default "SRS_OUTPUT_HOST_DIR" "/opt/eventcast/media-node/data/srs")"
+  [[ -d "$path" ]] || fail "SRS_OUTPUT_HOST_DIR must be pre-provisioned; deploy.sh never creates persistent writable directories"
+  owner="$(stat -c '%u:%g' "$path")"
+  mode="$(stat -c '%a' "$path")"
+  [[ "$owner" == "${SRS_RUNTIME_UID}:${MEDIA_AGENT_SHARED_GID}" ]] || fail "SRS_OUTPUT_HOST_DIR must be owned by ${SRS_RUNTIME_UID}:${MEDIA_AGENT_SHARED_GID}"
+  [[ "$mode" == "2750" ]] || fail "SRS_OUTPUT_HOST_DIR must have mode 2750"
+  log "ok: SRS_OUTPUT_HOST_DIR has the provisional SRS/Media Agent ownership contract"
+}
+
+require_srs_output_directory
 
 # Require at least 10% free space on the spool filesystem before
 # deploying new work onto this node (matches the disk-pressure warning

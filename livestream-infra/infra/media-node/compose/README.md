@@ -12,7 +12,7 @@ Docker Compose stack wiring the pinned SRS container (`infra/media-node/srs`, co
 
 ## Files
 
-- `docker-compose.yml` — the two-service stack. Every host-identifying value (image tag, container name, host bind port, host bind path) is overridable via an environment variable, all defaulting to the real persistent single-VM values shown below; this is what lets `phase2-integration-test.sh` and `ingest-durability-integration-test.sh` stand up a fully isolated copy without touching the persistent deployment.
+- `docker-compose.yml` — the two-service stack. Every host-identifying value is overridable via an environment variable. `MEDIA_AGENT_IMAGE` is intentionally required with no production default; this lets deployment fail closed instead of silently selecting the historical local image tag. Isolated tests pass their own explicit local tag.
 - `.env.example` — non-secret Compose variables. Copy to `.env` for local use only; never commit a real `.env`.
 - `smoke-test.sh` — automated, repeatable end-to-end validation of this stack against its real persistent paths and container names (Phase 0 Task 4). See "Automated smoke test" below.
 - `phase2-integration-test.sh` — automated, repeatable RTMP-to-HLS integration proof against a fully isolated, uniquely-named copy of this stack (Phase 2). See "Phase 2 integration test" below.
@@ -23,9 +23,29 @@ Docker Compose stack wiring the pinned SRS container (`infra/media-node/srs`, co
 | Service | Image | Pin |
 |---|---|---|
 | `srs` | `ossrs/srs:v6.0-r0` | `sha256:4e293846ad2448ff1a0157aa2c694e7c451fff5046c93b5bc6da0fa0384ef998` (registry digest, resolved in `infra/media-node/srs`) |
-| `media-agent` | `media-agent:phase0-task3` | Local build tag from Phase 0 Task 3 (image ID `sha256:df29851bb8bd`), built from `services/media-agent` commit `bb286d8`; no registry digest exists because this image has not been pushed anywhere — the tag is the immutable reference for this locally-built artifact. |
+| `media-agent` | `${MEDIA_AGENT_IMAGE}` | Production `deploy.sh` requires an immutable registry digest reference. Registry selection and image publication are separate authorized release work; this repository does not invent a registry or digest. |
 
-Neither reference is a floating tag (`latest`, `6`, etc.).
+SRS is pinned by digest. The production deployment path accepts the Media
+Agent only as a lowercase `sha256` digest reference; it does not fall back to
+the historical local build tag. The isolated integration tests deliberately
+remain able to supply their own explicitly built local tag because they do not
+call `deploy.sh`.
+
+## Immutable Media Agent deployment contract
+
+The production Compose file requires `MEDIA_AGENT_IMAGE`; it has no default.
+`deploy.sh` requires exactly one value in the environment file matching
+`<registry>/<repository>@sha256:<64-lowercase-hex>` before rendering Compose.
+It never builds or publishes an image. Run
+`bash ./image-reference-contract-test.sh` for the local static acceptance and
+rejection checks. A registry-backed Media Agent digest must be produced by a
+separately authorized release workflow before any production deployment.
+See `../../../services/media-agent/RELEASE.md` for the registry-neutral
+immutable release and rollback-record procedure.
+
+Historical GCP validation references below demonstrate prior runtime behavior
+only. They do not satisfy this immutable image contract and do not establish
+current remote state.
 
 ## Network and ports
 
@@ -48,15 +68,35 @@ The Media Agent listens on `0.0.0.0:8085` **inside its own container** (`EVENTCA
 | `/opt/eventcast/media-node/data/srs` | `/var/lib/eventcast/srs-output` (read-only) | `media-agent` | Same host directory as above, so `on_hls` file paths validate and completed segments can be hard-linked (not copied) into the spool |
 | `/opt/eventcast/media-node/data/spool` | `/var/lib/eventcast/spool` | `media-agent` | Protected durable spool (`02_V1_ARCHITECTURE_SPEC.md`) |
 | `/opt/eventcast/media-node/data/db` | `/var/lib/eventcast/db` | `media-agent` | SQLite WAL-backed durable database (assignment cache, sessions, segment queue) |
-| `/opt/eventcast/media-node/config/assignments` | `/var/lib/eventcast/config` (read-only) | `media-agent` | Optional assignment cache seed file directory; auto-created empty if the host path does not yet exist. `EVENTCAST_ASSIGNMENT_SEED_PATH` stays empty by default, so this mount is inert until an operator configures both together |
+| `/opt/eventcast/media-node/config/assignments` | `/var/lib/eventcast/config` (read-only) | `media-agent` | Optional assignment cache seed file directory. It must be separately provisioned with secret-safe ownership before use; `EVENTCAST_ASSIGNMENT_SEED_PATH` stays empty by default. |
 
 ## Host directory permissions
 
-`media-agent` runs as the image's non-root `nonroot` user. Its two writable mounts - `SPOOL_HOST_DIR` and `DB_HOST_DIR` - must be writable by that user on the host before the container can start successfully; a freshly `mkdir -p`'d directory owned by an interactive/SSH user typically is not. `deploy.sh` and every integration test script `chmod 0777` these directories for exactly this reason.
+The tracked Media Agent Dockerfile declares its runtime identity as `65532:65532`. `SPOOL_HOST_DIR` and `DB_HOST_DIR` must therefore already exist as `65532:65532`, mode `0750`; `deploy.sh` verifies that exact contract and never creates or chmods production data directories.
 
-`SRS_OUTPUT_HOST_DIR` needs the same treatment as of this milestone's security hardening: `srs` now runs with `cap_drop: [ALL]` (see "Production readiness and operations" below), which removes `CAP_DAC_OVERRIDE` - without it, `srs`'s root user can no longer bypass host directory permission checks the way an unrestricted root process could, so it is subject to the same permission bits as any other user. A directory that only a root-equivalent process could previously write to (because root ignored permission bits) will now fail with `Permission denied` unless it is actually writable by whatever UID the container runs as. `deploy.sh`'s preflight step creates `SRS_OUTPUT_HOST_DIR` with mode `0777` for this reason; an already-existing `/opt/eventcast/media-node/data/srs` from before this milestone must have its permissions updated the same way before upgrading.
+`SRS_OUTPUT_HOST_DIR` is shared: SRS writes it and the Media Agent reads it. The pinned SRS image's numeric runtime UID/GID is not established in tracked source, and `cap_drop: [ALL]` means permissions cannot be bypassed. Production `deploy.sh` consequently fails closed before Compose until a separately approved exact-image inspection records a safe shared ownership/group contract. It never substitutes world-writable mode or guesses an SRS identity.
 
-The assignment seed config directory does not need this (`media-agent` only reads it, and default `mkdir` permissions already allow that).
+The assignment seed directory is read-only but may contain sensitive event data. Provision it separately with an ownership/mode contract that lets the Media Agent read only the required file; do not rely on automatic directory creation.
+
+### Current provisional SRS contract
+
+The unresolved-SRS statement in the preceding historical text is superseded by
+a separately authorized inspection of the exact pinned SRS image. Its default
+runtime identity is `0:0`; the Media Agent runtime identity is `65532:65532`
+and its SRS-output mount is read-only. `SRS_OUTPUT_HOST_DIR` must therefore
+already be owner `0`, group `65532`, mode `2750`. Production `deploy.sh`
+requires that exact existing contract and never creates, changes ownership of,
+or changes modes on the directory.
+
+The exact pinned image was directly validated in an isolated synthetic-publish
+test with the tracked HLS paths and only `http_hooks` disabled for isolation.
+The SRS service now uses `/bin/sh -c 'umask 0027; exec ./objs/srs -c
+conf/eventcast.conf'`: generated directories were `0:65532`, mode `2750`, and
+real playlists/segments were `0:65532`, mode `0640`. UID/GID `65532:65532`
+could traverse and read through the Media Agent-style read-only mount but could
+not write; no world permissions existed. `exec` made SRS PID 1 and a `SIGTERM`
+stopped it cleanly. Do not add an SRS Compose `user:` override without a
+separate complete-runtime validation under that identity.
 
 ## Health checks and startup ordering
 
@@ -155,7 +195,8 @@ Validated on the GCP VM for this milestone: a full run printed `all checks passe
 Four additional scripts implement `../DEPLOYMENT.md` and `../BACKUP_AND_RECOVERY.md` against this same Compose stack:
 
 - `deploy.sh` — environment validation, preflight, active-session safety check, health-gated startup, post-deployment verification. Defaults to a dry run; requires `--apply`.
-- `rollback.sh <image>` — restores a previous pinned media-agent image without touching spool/database data. Defaults to a dry run; requires `--apply`.
+- `rollback.sh <image@sha256:digest>` — restores a previous immutable media-agent image without touching spool/database data. Defaults to a dry run; requires `--apply`.
+- `ownership-contract-test.sh` — local command-shim verification that deployment accepts only the exact Media Agent and provisional SRS directory contracts; it never contacts Docker or a host.
 - `backup.sh <dest>` — consistent SQLite database backup (brief agent stop, file-level copy, restart). Defaults to a dry run; requires `--apply`.
 - `restore-test.sh` — isolated, non-production proof that a `backup.sh`-style backup actually restores (see `../BACKUP_AND_RECOVERY.md` "Tested restore verification").
 
