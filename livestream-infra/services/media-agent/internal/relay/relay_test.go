@@ -234,6 +234,12 @@ func TestSupervisorDestinationFailuresConsumeRestartBudget(t *testing.T) {
 				RestartBackoffBase: 5 * time.Millisecond, RestartBackoffMax: 20 * time.Millisecond, ShutdownTimeout: 2 * time.Second,
 				SourceReadyTimeout: 2 * time.Second, SourceReadyMinRunDuration: time.Second, SourceReadyRetryInterval: 10 * time.Millisecond,
 			}, slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
+			shutdownComplete := false
+			t.Cleanup(func() {
+				if !shutdownComplete {
+					sup.Shutdown()
+				}
+			})
 
 			t.Setenv("FAKE_FFMPEG_BEHAVIOR", tt.behavior)
 			target := Target{EventID: "evt1", SessionID: "sess1", SourceURL: "rtmp://127.0.0.1:1935/live/ingest1",
@@ -246,6 +252,8 @@ func TestSupervisorDestinationFailuresConsumeRestartBudget(t *testing.T) {
 			if rec.RestartCount != 1 {
 				t.Errorf("RestartCount = %d, want 1", rec.RestartCount)
 			}
+			sup.Shutdown()
+			shutdownComplete = true
 			if !strings.Contains(logs.String(), "restart budget exhausted") {
 				t.Errorf("logs did not contain terminal restart-budget message: %s", logs.String())
 			}
