@@ -1,6 +1,6 @@
 # EventCast project state
 
-**Snapshot date:** 2026-07-26
+**Snapshot date:** 2026-07-26 (updated: recovery evidence commit)
 **Evidence boundary:** This document distinguishes repository facts, directly
 observed remote evidence, and unverified historical reports. It is a project
 index, not a deployment authorization or an architecture decision record.
@@ -47,32 +47,43 @@ index, not a deployment authorization or an architecture decision record.
 ## Current livestream infrastructure status
 
 The local SRS/Media Agent Compose configuration and host-bootstrap material
-exist. The host is not authorized for deployment by this document. The
-deployment candidate is the future private package
-`ghcr.io/renugopal/eventcast-media-agent-private`, published manually and used
-only by immutable digest. The earlier
+exist. The host is not authorized for deployment by this document.
+
+The first private GHCR Media Agent image has been published and retained.
+The canonical immutable reference is:
+`ghcr.io/renugopal/eventcast-media-agent-private@sha256:4d3c65b38843c89c97f81cab631183442b52ed7cd8a308941f8222eb385b77da`
+Tag `v1.0.0-1e6142d9b5b1` is a human discovery label only; `deploy.sh` and
+`rollback.sh` accept only the digest reference. The earlier
 `ghcr.io/renugopal/eventcast-media-agent` package was directly observed as
-public and is excluded permanently from deployment and rollback. The new
-workflow requires an unused first-publish package name and immediately verifies
-private package metadata and expected repository linkage before it emits valid
-release evidence. A published immutable private Media Agent release and
-secret-safe environment provisioning remain required before deployment can
-proceed. The isolated HLS readability proof is complete; see the livestream
+public and is excluded permanently from deployment and rollback.
+
+The first authorized publish run (30174042836, 2026-07-26) succeeded in
+building and pushing the image but failed at the post-publish visibility check:
+GHCR defaulted the new package to public because the repository is public. The
+workflow correctly caught this and emitted no release evidence. The package was
+manually changed to private. Recovery evidence (`.release` manifest and
+`.release.sha256` checksum) was reconstructed from directly verified registry
+metadata and is committed in this phase. The release workflow has a known
+structural defect — it assumes the package does not exist before any run and
+has no visibility-set step — and must be redesigned before any future publish
+attempt. The isolated HLS readability proof is complete; see the livestream
 state for its exact evidence boundary.
 
-The directly observed latest-main `livestream-infra CI` run `30172079920`
-succeeded for commit `38a2637adf70ff429ff59928bb576ab59f7c171b`. Media Agent
+The directly observed latest-main `livestream-infra CI` run `30172348444`
+succeeded for commit `1e6142d9b5b10af38c1c668272ae37accfb49a5d`. Media Agent
 image build, Compose rendering, shell syntax, Go format/vet/build/test/race,
-and deterministic SRS + MinIO + relay integration all passed. Release, VM
-pull, and deployment remain separate approvals.
+and deterministic SRS + MinIO + relay integration all passed. VM pull,
+deployment, and workflow redesign remain separate approvals.
 See [`../../livestream-infra/CURRENT_STATE.md`](../../livestream-infra/CURRENT_STATE.md).
 
 ## Pending major work
 
-1. Separately approve the first manual immutable private-GHCR Media Agent
-   build/publish/manifest run.
+1. Redesign the release workflow (`media-agent-release.yml`) to handle an
+   existing private package and to resolve the first-publish visibility defect.
+   Separately approve the redesigned workflow before any future publish run.
 2. Provision deployment secrets through an approved mechanism, then perform
-   separately approved deployment, health, rollback, and live-media gates.
+   separately approved deployment, health, rollback, and live-media gates using
+   the retained v1.0.0 digest reference.
 3. Reconcile legacy Wasabi/Restreamer-era material with the current R2/B2 and
    SRS/Media Agent decisions without treating legacy text as live state.
 4. Verify current external deployment, routing, migration, and storage state

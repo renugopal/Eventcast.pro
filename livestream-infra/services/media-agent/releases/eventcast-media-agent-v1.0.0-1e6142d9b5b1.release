@@ -1,0 +1,5 @@
+format=eventcast-media-agent-release-v1
+version=v1.0.0-1e6142d9b5b1
+source_commit=1e6142d9b5b10af38c1c668272ae37accfb49a5d
+image_reference=ghcr.io/renugopal/eventcast-media-agent-private@sha256:4d3c65b38843c89c97f81cab631183442b52ed7cd8a308941f8222eb385b77da
+dockerfile_sha256=7bbe1857fb358c8a50d77ca45a6c24bc12c7879ec07ca414cc20910150a890f2
