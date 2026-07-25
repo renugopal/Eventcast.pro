@@ -114,6 +114,14 @@ jobs:
         with:
           ref: ${{ needs.release-contract.outputs.source_sha }}
 
+      - name: trust the exact checked-out workspace for Git
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${GITHUB_WORKSPACE:-}"
+          test -d "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: verify tested checkout
         shell: bash
         env:
