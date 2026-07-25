@@ -106,6 +106,16 @@ fi
 DOCKER="$SUDO docker"
 COMPOSE="$DOCKER compose -p $PROJECT -f $COMPOSE_FILE -f $OVERLAY_FILE"
 
+# The isolated SRS output uses the same narrow host contract as production.
+# Docker access alone does not imply that the invoking user can chown, inspect,
+# or remove root-owned output created beneath that set-group-ID directory.
+HOST_ROOT=()
+if [[ "$(id -u)" -ne 0 ]]; then
+  command -v sudo >/dev/null 2>&1 || fail "passwordless sudo is required for the isolated SRS output ownership contract"
+  sudo -n true || fail "passwordless sudo is required for the isolated SRS output ownership contract"
+  HOST_ROOT=(sudo -n)
+fi
+
 find_free_loopback_port() {
   local base="$1" port listening
   listening="$(ss -ltn 2>/dev/null || true)"
@@ -171,6 +181,54 @@ verify_log_line() {
   fail "expected log line not found (${source}): ${description} (pattern: ${pattern})"
 }
 
+assert_hls_output_contract() {
+  local host_root="${TMP_BASE}/srs-output/${STREAM_APP}/${AUTH_STREAM}"
+  local container_parent="/var/lib/eventcast/srs-output"
+  local container_root="${container_parent}/${STREAM_APP}/${AUTH_STREAM}"
+  local metadata world_access path relative_path
+  local -a directories=() hls_files=() container_files=()
+
+  mapfile -t directories < <("${HOST_ROOT[@]}" find "$host_root" -type d -print)
+  (( ${#directories[@]} > 0 )) || fail "SRS generated no HLS directories to validate"
+  for path in "${directories[@]}"; do
+    metadata="$("${HOST_ROOT[@]}" stat -c '%u:%g:%a' "$path")"
+    [[ "$metadata" == "0:65532:2750" ]] || fail "HLS directory must be 0:65532:2750, got ${metadata} at ${path}"
+  done
+
+  mapfile -t hls_files < <("${HOST_ROOT[@]}" find "$host_root" -type f \( -name '*.m3u8' -o -name '*.ts' \) -print)
+  (( ${#hls_files[@]} > 0 )) || fail "SRS generated no HLS playlist or segment files to validate"
+  for path in "${hls_files[@]}"; do
+    metadata="$("${HOST_ROOT[@]}" stat -c '%u:%g:%a' "$path")"
+    [[ "$metadata" == "0:65532:640" ]] || fail "HLS file must be 0:65532:640, got ${metadata} at ${path}"
+    relative_path="${path#"${host_root}/"}"
+    container_files+=("${container_root}/${relative_path}")
+  done
+
+  world_access="$("${HOST_ROOT[@]}" find "${TMP_BASE}/srs-output" -perm /0007 -print -quit)"
+  [[ -z "$world_access" ]] || fail "HLS output must not grant any world permissions: ${world_access}"
+
+  $DOCKER exec --user 65532:65532 "$SRS_CONTAINER" /bin/sh -ceu '
+    parent="$1"
+    root="$2"
+    shift 2
+    test -x "$parent"
+    test ! -w "$parent"
+    test -x "$root"
+    test ! -w "$root"
+    found=0
+    for path in "$@"; do
+      test -r "$path"
+      test ! -w "$path"
+      found=1
+    done
+    test "$found" -eq 1
+  ' hls-output-contract "$container_parent" "$container_root" \
+    "${container_files[@]}" \
+    || fail "Media Agent UID/GID 65532:65532 cannot read/traverse HLS output read-only"
+
+  log "   HLS output ownership, mode, and Media Agent read-only access confirmed"
+}
+
 publish() {
   local stream="$1" token="$2" duration="$3" hard_timeout="$4"
   local name="ffmpeg-publish-${RUN_ID}-${stream}"
@@ -223,7 +281,7 @@ cleanup() {
   fi
 
   log "cleanup: removing this run's temp directory ${TMP_BASE} only"
-  $SUDO rm -rf "$TMP_BASE" >/dev/null 2>&1 || true
+  "${HOST_ROOT[@]}" rm -rf "$TMP_BASE" >/dev/null 2>&1 || true
 
   if [[ "$exit_code" -eq 0 ]]; then
     log "cleanup complete; media-delivery integration test PASSED (run ${RUN_ID})"
@@ -240,9 +298,15 @@ log "0) preparing isolated run ${RUN_ID}"
 mkdir -p "${TMP_BASE}/srs-output" "${TMP_BASE}/spool" "${TMP_BASE}/db" "${TMP_BASE}/config" "${TMP_BASE}/minio-data"
 # docker-compose.yml's srs service runs cap_drop: [ALL] (this milestone's
 # hardening), which removes CAP_DAC_OVERRIDE, so its root user can no
-# longer bypass host directory permissions - srs-output needs the same
-# permissive host-side bits as media-agent's spool/db mounts.
-chmod 0777 "${TMP_BASE}/spool" "${TMP_BASE}/db" "${TMP_BASE}/minio-data" "${TMP_BASE}/srs-output"
+# longer bypass host directory permissions. The SRS parent must instead
+# preserve the validated root:65532/2750 set-group-ID contract so its umask
+# 0027 child paths remain readable by the Media Agent's 65532:65532 identity.
+chmod 0777 "${TMP_BASE}/spool" "${TMP_BASE}/db" "${TMP_BASE}/minio-data"
+"${HOST_ROOT[@]}" chown 0:65532 "${TMP_BASE}/srs-output"
+"${HOST_ROOT[@]}" chmod 2750 "${TMP_BASE}/srs-output"
+srs_output_metadata="$("${HOST_ROOT[@]}" stat -c '%u:%g:%a' "${TMP_BASE}/srs-output")"
+[[ "$srs_output_metadata" == "0:65532:2750" ]] \
+  || fail "temporary SRS output must be 0:65532:2750, got ${srs_output_metadata}"
 cp "$SRS_CONF_SRC" "${TMP_BASE}/srs.conf"
 cp "$RELAY_SINK_CONF_SRC" "${TMP_BASE}/relay-sink.conf"
 
@@ -379,6 +443,7 @@ PUBLISH_PID=$!
 sleep 10
 verify_log_line "\"segment upload confirmed\".*\"event_id\":\"${AUTH_EVENT_ID}\"" "segment upload confirmed to real MinIO"
 verify_log_line "\"relay running\".*\"event_id\":\"${AUTH_EVENT_ID}\"" "youtube relay reached running state"
+assert_hls_output_contract
 
 # ---- 5. force a temporary MinIO outage: uploads must retry, then recover -
 
@@ -418,7 +483,7 @@ log "   live manifest kept ${LIVE_SEG_COUNT} of ${CONFIRMED} confirmed segments 
 # ---- 7. duplicate on_hls callback delivery remains idempotent -----------
 
 log "7) replaying a real on_hls callback directly to verify idempotency"
-seg_path="$($SUDO find "${TMP_BASE}/srs-output/${STREAM_APP}/${AUTH_STREAM}" -name '*.ts' -type f | sort | tail -1)"
+seg_path="$("${HOST_ROOT[@]}" find "${TMP_BASE}/srs-output/${STREAM_APP}/${AUTH_STREAM}" -name '*.ts' -type f | sort | tail -1)"
 [[ -n "$seg_path" ]] || fail "could not find a captured segment file to replay"
 seg_basename="$(basename "$seg_path")"
 seg_no="${seg_basename%.ts}"; seg_no="${seg_no##*-}"
@@ -428,7 +493,7 @@ for i in 1 2 3; do
   status="$(curl -s -o /dev/null -w '%{http_code}' -X POST -d "$replay_body" "http://127.0.0.1:${MA_HTTP_PORT}/internal/srs/on-hls")"
   [[ "$status" == "200" ]] || fail "replayed on_hls call ${i} = ${status}, want 200"
 done
-spool_count="$($SUDO find "${TMP_BASE}/spool" -type f 2>/dev/null | grep -vc '\.tmp-eventcast-' || true)"
+spool_count="$("${HOST_ROOT[@]}" find "${TMP_BASE}/spool" -type f 2>/dev/null | grep -vc '\.tmp-eventcast-' || true)"
 log "   duplicate on_hls replay accepted idempotently (${spool_count} durable spool files present)"
 
 # ---- 8. clean unpublish triggers VOD finalization with ENDLIST ----------
