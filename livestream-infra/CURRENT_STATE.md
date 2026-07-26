@@ -14,9 +14,8 @@ access, host changes, or Git mutation.
 | --- | --- |
 | Repository root | `D:\Eventcast.pro` |
 | Branch | `main` |
-| `HEAD` | `1e6142d9b5b10af38c1c668272ae37accfb49a5d` |
+| Phase 2 validated implementation baseline | `f88f6c533b6121f1bd27cf51baed5ec2ddf08e71` — source SHA for successful CI run `30182379874` and negative gate test run `30182697404`; local `main` and remote tip were aligned at this SHA as of 2026-07-26, before this state-record commit |
 | Staged entries | 0 |
-| Remote Git tip | `1e6142d9b5b10af38c1c668272ae37accfb49a5d` (aligned with local `main` as of 2026-07-26) |
 
 The worktree remains dirty only in unrelated user-owned paths; no livestream
 infrastructure file is currently staged. This snapshot does not claim
@@ -113,23 +112,68 @@ Image content is valid. Recovery evidence (`.release` manifest and
 `.release.sha256` checksum) is being added to `releases/` in this commit,
 reconstructed from the directly verified registry metadata above.
 
+### Release workflow redesign (Phase 2) — completed
+
+`media-agent-release.yml` was redesigned and validated in two commits:
+
+- `899f8c530160129eb678efcac8e8bb7be9cb7c60` —
+  `fix(media-agent-release): redesign workflow for existing private package`.
+  Removed the old HTTP 404 package-absence gate; the workflow now requires the
+  existing private package to return HTTP 200 with `container` type, `private`
+  visibility, and the correct repository linkage before any push. Made
+  `previous_image_reference` a mandatory input, added a fail-closed committed
+  release-evidence cross-check (Gate R-4, via
+  `scripts/validate-release-evidence.sh`), fail-closed tag-uniqueness and
+  previous-reference verification against the GHCR Packages API, post-publish
+  tag-to-digest identity verification with bounded retry, and OCI
+  label/`linux/amd64` platform verification. Future release evidence uses the
+  eight-field `release-v2` schema; the committed v1.0.0 five-field `release-v1`
+  evidence remains immutable and unchanged. No automated first-package
+  bootstrap path exists anymore, and no PAT or new secret was introduced.
+- `f88f6c533b6121f1bd27cf51baed5ec2ddf08e71` —
+  `fix(media-agent-release): group workflow output writes`. A follow-up
+  ShellCheck SC2129 fix (grouped four separate `$GITHUB_OUTPUT` appends into
+  one redirect); no gate, input, output, permission, package name, evidence
+  schema, API check, retry, or concurrency semantics changed.
+
+**Successful main CI (`livestream-infra CI`, run `30182379874`)** — source SHA
+`f88f6c533b6121f1bd27cf51baed5ec2ddf08e71`, conclusion `success`. All 7 jobs
+passed: static policy checks (release workflow), gofmt/vet/build/test/race,
+docker compose config render, shell syntax, actionlint, build media-agent
+image, and the deterministic SRS + MinIO + relay integration test. This run
+superseded the earlier failed run `30181011031` (actionlint SC2129), which the
+`f88f6c5` commit fixed.
+
+**Authorized negative release-gate test (`Media Agent immutable release`, run
+`30182697404`)** — source SHA `f88f6c533b6121f1bd27cf51baed5ec2ddf08e71`,
+dispatched with an intentionally incorrect but format-valid
+`previous_image_reference`. Conclusion: expected `failure`, at Gate R-4
+(`validate release evidence and require previous_image_reference matches`),
+message `previous_image_reference does not match latest committed release
+evidence`. The publish job was skipped; `docker/build-push-action` did not
+execute; the workflow-run artifact count was 0; no image was published. GHCR
+package visibility remained `private`, version count remained 1, the existing
+tag remained `v1.0.0-1e6142d9b5b1`, and the existing digest remained
+`sha256:4d3c65b38843c89c97f81cab631183442b52ed7cd8a308941f8222eb385b77da`.
+
 ### Remaining gates before deployment
 
-1. **Release workflow redesign (required before next publish).** The current
-   `media-agent-release.yml` assumes the package does not exist (HTTP 404
-   pre-check). That assumption is permanently false. Additionally, the workflow
-   has no step to set package visibility to private before the post-publish
-   check. Both defects must be resolved in a separately approved workflow
-   change before any future authorized publish run.
+1. **Next real publish (v1.0.1 or later).** No real publish beyond v1.0.0 has
+   been authorized. The redesigned workflow is validated but a future
+   successful release run is a separate future authorization.
 2. **VM registry access and immutable-digest pull/verification.** Requires
    separately approved secret-safe provisioning of registry pull access on the
-   Linode host.
+   Linode host. No deployment or VM pull has occurred; the Linode VM remains
+   undeployed with no EventCast containers running.
 3. **Compose preflight and deployment.** Remain independent gates after (2).
+4. **Provider/infra boundary audit and `D:\Eventcast-infra` extraction.**
+   Remain future work and are not part of this phase.
 
 The directly observed latest-main `livestream-infra CI` run `30172348444`
 succeeded for commit `1e6142d9b5b10af38c1c668272ae37accfb49a5d`. It passed
 Media Agent image build, Compose rendering, shell syntax, Go format/vet/build/
-test/race, and deterministic SRS + MinIO + relay integration.
+test/race, and deterministic SRS + MinIO + relay integration. It has since
+been superseded on `main` by run `30182379874` (above).
 
 ## Prior SRS readability gate
 
