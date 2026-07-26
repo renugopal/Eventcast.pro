@@ -15,6 +15,7 @@ access, host changes, or Git mutation.
 | Repository root | `D:\Eventcast.pro` |
 | Branch | `main` |
 | Phase 2 validated implementation baseline | `f88f6c533b6121f1bd27cf51baed5ec2ddf08e71` — source SHA for successful CI run `30182379874` and negative gate test run `30182697404`; local `main` and remote tip were aligned at this SHA as of 2026-07-26, before this state-record commit |
+| Phase 2 state-record commit | `eef2a6edad5d2abe847872b4f04012041812c644` — `chore: update state records after workflow redesign validation`; local `main` and `origin/main` were confirmed aligned at this SHA on 2026-07-26 |
 | Staged entries | 0 |
 
 The worktree remains dirty only in unrelated user-owned paths; no livestream
@@ -46,6 +47,7 @@ VM's state at the instant this local-only update was made.
 
 | Area | Last directly observed result |
 | --- | --- |
+| Provider and region | Linode/Akamai; region Mumbai |
 | Host bootstrap | Hostname `eventcast-media-node-akm-01`; `eventcast-admin` exists with passwordless sudo; controlled package/kernel upgrade completed; kernel `6.8.0-136-generic` after reboot |
 | Docker | Docker Engine `29.6.2` and Docker Compose `v5.3.1` were active; no EventCast containers were running |
 | Host layout | `/opt/eventcast/media-node` skeleton existed; its compliance with the current provisional SRS output contract was not established by this local update |
@@ -53,6 +55,30 @@ VM's state at the instant this local-only update was made.
 | SSH hardening | `eventcast-admin` key login and passwordless sudo succeeded; effective settings were `passwordauthentication no`, `kbdinteractiveauthentication no`, `permitrootlogin without-password`, `pubkeyauthentication yes` |
 | Network controls | UFW and Linode cloud firewall were not changed |
 | Application deployment | No SRS or Media Agent Compose stack was deployed; no EventCast application containers were running |
+
+Base host bootstrap and SSH hardening are complete. The production SRS + Media
+Agent stack remains undeployed on this host; private-GHCR pull/deployment has
+not been completed; no real livestream has been performed on this host.
+
+## GCP retirement status — owner-reported, not newly cloud-verified this phase
+
+The following facts about the legacy GCP validation VM were reported by the
+account owner and are recorded here for retention/deletion-safety purposes
+only. They were not established through a new GCP API or console query during
+this documentation phase; see the "Historical facts and prohibited actions"
+evidence-boundary note below.
+
+| Field | Owner-reported value |
+| --- | --- |
+| Resource name | `eventcast-server-new` |
+| Zone | `asia-south1-a` |
+| Logical alias | `media-node-staging-02` |
+| Compute state | TERMINATED / stopped |
+| Static IP | Retained |
+| Retirement status | GCP has not been fully retired |
+
+**Do not delete** the GCP VM, its disk, its static IP, or any related resource
+until Linode deployment and end-to-end validation are complete.
 
 ## SRS runtime identity and provisional shared-output contract
 
@@ -109,7 +135,7 @@ private visibility in the GitHub GHCR UI.
 | OCI `version` label | `v1.0.0-1e6142d9b5b1` ✓ |
 
 Image content is valid. Recovery evidence (`.release` manifest and
-`.release.sha256` checksum) is being added to `releases/` in this commit,
+`.release.sha256` checksum) was added to `releases/` in commit `36a46f7`,
 reconstructed from the directly verified registry metadata above.
 
 ### Release workflow redesign (Phase 2) — completed
@@ -155,19 +181,62 @@ execute; the workflow-run artifact count was 0; no image was published. GHCR
 package visibility remained `private`, version count remained 1, the existing
 tag remained `v1.0.0-1e6142d9b5b1`, and the existing digest remained
 `sha256:4d3c65b38843c89c97f81cab631183442b52ed7cd8a308941f8222eb385b77da`.
+This was a successful negative gate validation, not an active CI blocker.
+
+**Phase 2 completion — state-record commit
+`eef2a6edad5d2abe847872b4f04012041812c644`** (`chore: update state records
+after workflow redesign validation`) pushed the validated implementation and
+this state-record update to `main`. The resulting `livestream-infra CI` run
+`30183379572` — source SHA `eef2a6edad5d2abe847872b4f04012041812c644`,
+trigger `push`, status `completed`, conclusion `success` — passed all 7 jobs.
+Current `main` is green. No new `media-agent-release.yml` dispatch occurred
+after the authorized negative test run `30182697404`, and GHCR package state
+remained unchanged (private visibility, version count 1, tag
+`v1.0.0-1e6142d9b5b1`, digest
+`sha256:4d3c65b38843c89c97f81cab631183442b52ed7cd8a308941f8222eb385b77da`).
 
 ### Remaining gates before deployment
+
+The next gated work, in order, each requiring separate approval:
 
 1. **Next real publish (v1.0.1 or later).** No real publish beyond v1.0.0 has
    been authorized. The redesigned workflow is validated but a future
    successful release run is a separate future authorization.
-2. **VM registry access and immutable-digest pull/verification.** Requires
-   separately approved secret-safe provisioning of registry pull access on the
-   Linode host. No deployment or VM pull has occurred; the Linode VM remains
-   undeployed with no EventCast containers running.
-3. **Compose preflight and deployment.** Remain independent gates after (2).
-4. **Provider/infra boundary audit and `D:\Eventcast-infra` extraction.**
-   Remain future work and are not part of this phase.
+2. **Linode deployment preflight.** Requires separately approved secret-safe
+   provisioning of registry pull access on the Linode host. No deployment or
+   VM pull has occurred; the Linode VM remains undeployed with no EventCast
+   containers running.
+3. **Secure private-GHCR authentication planning.** Design and approval of the
+   mechanism for the Linode host to authenticate to the private GHCR package,
+   without introducing a PAT or exposing credentials in this repository.
+4. **Immutable image pull.** Pull only by digest reference on the Linode host,
+   under separate approval.
+5. **SRS + Media Agent deployment.** Compose preflight and deployment remain
+   independent gates after (2)–(4).
+6. **End-to-end validation.** Full deterministic validation of the deployed
+   stack before any production-like use.
+7. **Production-like soak test.** Under separate approval, after (6) passes.
+8. **Controlled real event.** Only under separate approval, after (7) passes.
+   No real livestream has been performed to date.
+9. **GCP retirement.** Only after successful Linode validation and a period of
+   stability observation; see "GCP retirement status" above for the current
+   owner-reported VM state and the do-not-delete condition.
+
+**Provider/infrastructure repository boundary (future work, not part of this
+phase).** A provider/infra boundary audit and a future `D:\Eventcast-infra`
+extraction remain future work. Guardrails for that future work:
+- Do not move the whole `livestream-infra` directory.
+- A future `D:\Eventcast-infra` would contain only provider/infrastructure
+  responsibilities, not application or architecture material.
+- Extraction and classification require a separate, dedicated **read-only**
+  Infra Boundary Audit before any move is proposed.
+- **No file movement has been authorized.**
+
+**Near-term architecture exclusions (unchanged; see
+[`01_SYSTEM_ARCHITECTURE.md`](01_SYSTEM_ARCHITECTURE.md),
+[`02_V1_ARCHITECTURE_SPEC.md`](02_V1_ARCHITECTURE_SPEC.md), and
+[`05_DECISIONS.md`](05_DECISIONS.md) for the authoritative decisions).** No
+server-side ABR, no GPU transcoding dependency, no load balancer, no LL-HLS.
 
 The directly observed latest-main `livestream-infra CI` run `30172348444`
 succeeded for commit `1e6142d9b5b10af38c1c668272ae37accfb49a5d`. It passed
