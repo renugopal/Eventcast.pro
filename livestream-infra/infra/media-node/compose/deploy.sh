@@ -107,9 +107,24 @@ MEDIA_AGENT_RUNTIME_GID=65532
 env_path_or_default() {
   local variable="$1"
   local default_path="$2"
-  local value
+  local line=""
+  local grep_rc=0
 
-  value="$(grep -E "^${variable}=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-)"
+  # grep exits 1 when the optional variable is simply absent from ENV_FILE -
+  # that must fall through to default_path, not abort the script under
+  # set -e. grep exit >=2 (e.g. a real read error) must still fail closed
+  # rather than being silently treated as "absent". `|| grep_rc=$?` is the
+  # left side of an OR list, which set -e exempts, and nothing runs between
+  # grep finishing and this capture, so $? is grep's real exit code.
+  line="$(grep -E "^${variable}=" "$ENV_FILE" 2>/dev/null)" || grep_rc=$?
+  case "$grep_rc" in
+    0) ;;
+    1) line="" ;;
+    *) fail "failed to read ${variable} from $ENV_FILE (grep exit ${grep_rc})" ;;
+  esac
+
+  local value
+  value="$(printf '%s\n' "$line" | tail -1 | cut -d= -f2-)"
   printf '%s\n' "${value:-$default_path}"
 }
 
@@ -161,7 +176,7 @@ require_srs_output_directory
 # requirements" warns below 25% free; this is deploy-time-only, more
 # permissive than the runtime alert, since an operator may be deploying
 # specifically to relieve a disk-pressure incident).
-SPOOL_DIR="$(grep -E '^SPOOL_HOST_DIR=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-)"
+SPOOL_DIR="$(env_path_or_default "SPOOL_HOST_DIR" "/opt/eventcast/media-node/data/spool")"
 SPOOL_DIR="${SPOOL_DIR:-/opt/eventcast/media-node/data/spool}"
 if [[ -d "$SPOOL_DIR" ]]; then
   AVAIL_PCT="$(df -P "$SPOOL_DIR" | awk 'NR==2 { printf "%d", 100 - $5 }' | tr -d '%')"
@@ -174,7 +189,7 @@ fi
 # ---- 3. refuse to deploy over an active ingest session, unless --force ---
 
 step "3) active-session safety check"
-MA_HTTP_ADDR="$(grep -E '^MEDIA_AGENT_HTTP_HOST_BIND=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-)"
+MA_HTTP_ADDR="$(env_path_or_default "MEDIA_AGENT_HTTP_HOST_BIND" "127.0.0.1:8085")"
 MA_HTTP_ADDR="${MA_HTTP_ADDR:-127.0.0.1:8085}"
 if $DOCKER ps --format '{{.Names}}' | grep -qx "$MEDIA_AGENT_CONTAINER"; then
   ACTIVE="$(curl -s "http://${MA_HTTP_ADDR}/metrics" 2>/dev/null | awk -F'[{} ]+' '/^media_agent_sessions\{/ && /status="active"/ { sum += $NF } END { print sum+0 }')"
