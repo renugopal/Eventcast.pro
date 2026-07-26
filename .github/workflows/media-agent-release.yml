@@ -92,10 +92,12 @@ jobs:
             exit 1
           }
 
-          printf 'source_sha=%s\n' "$source_sha" >> "$GITHUB_OUTPUT"
-          printf 'short_source_sha=%s\n' "${source_sha:0:12}" >> "$GITHUB_OUTPUT"
-          printf 'release_id=%s-%s\n' "$REQUESTED_VERSION" "${source_sha:0:12}" >> "$GITHUB_OUTPUT"
-          printf 'previous_image_reference=%s\n' "$PREVIOUS_IMAGE_REFERENCE" >> "$GITHUB_OUTPUT"
+          {
+            printf 'source_sha=%s\n' "$source_sha"
+            printf 'short_source_sha=%s\n' "${source_sha:0:12}"
+            printf 'release_id=%s-%s\n' "$REQUESTED_VERSION" "${source_sha:0:12}"
+            printf 'previous_image_reference=%s\n' "$PREVIOUS_IMAGE_REFERENCE"
+          } >> "$GITHUB_OUTPUT"
 
       - name: verify build-context allowlist and Dockerfile contract
         shell: bash
