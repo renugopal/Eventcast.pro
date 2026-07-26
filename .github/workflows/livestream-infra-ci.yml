@@ -11,10 +11,14 @@ on:
   pull_request:
     paths:
       - "livestream-infra/**"
+      - ".github/workflows/media-agent-release.yml"
+      - ".github/workflows/livestream-infra-ci.yml"
   push:
     branches: [main]
     paths:
       - "livestream-infra/**"
+      - ".github/workflows/media-agent-release.yml"
+      - ".github/workflows/livestream-infra-ci.yml"
 
 # A newer push/PR update supersedes an in-flight run for the same ref.
 concurrency:
@@ -146,3 +150,112 @@ jobs:
       # of behavior it proves.
       - name: run media-delivery-integration-test.sh
         run: livestream-infra/infra/media-node/compose/media-delivery-integration-test.sh
+
+  release-workflow-policy:
+    name: static policy checks (release workflow)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: static policy checks for release workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          wf=".github/workflows/media-agent-release.yml"
+          rel="livestream-infra/services/media-agent/releases"
+          err=0
+          rc=0
+
+          require_match() {
+            local label="$1" file="$2" pattern="$3" rc
+            grep -qE "$pattern" "$file" && rc=0 || rc=$?
+            if   [[ $rc -ge 2 ]]; then printf 'ERROR (grep): %s\n' "$label" >&2; exit 1
+            elif [[ $rc -ne 0 ]]; then printf 'FAIL [require]: %s\n' "$label" >&2; err=$((err+1))
+            else                        printf 'pass: %s\n' "$label"
+            fi
+          }
+
+          forbid_match() {
+            local label="$1" file="$2" pattern="$3" rc
+            grep -qE "$pattern" "$file" && rc=0 || rc=$?
+            if   [[ $rc -ge 2 ]]; then printf 'ERROR (grep): %s\n' "$label" >&2; exit 1
+            elif [[ $rc -eq 0 ]]; then printf 'FAIL [forbid]: %s\n' "$label" >&2; err=$((err+1))
+            else                        printf 'pass: %s\n' "$label"
+            fi
+          }
+
+          # 1. previous_image_reference input is required: true
+          require_match \
+            "previous_image_reference input key present" "$wf" \
+            'previous_image_reference:[[:space:]]*$'
+          grep -A10 'previous_image_reference:' "$wf" | grep -q 'required: true' && rc=0 || rc=$?
+          [[ $rc -lt 2 ]] || { echo "ERROR (grep): required:true check" >&2; exit 1; }
+          [[ $rc -eq 0 ]] || { echo "FAIL [require]: required: true for previous_image_reference" >&2; err=$((err+1)); }
+
+          # 2. Evidence format field is release-v2
+          require_match \
+            "evidence format is release-v2" "$wf" \
+            "printf 'format=eventcast-media-agent-release-v2"
+
+          # 3. Package metadata gate expects HTTP 200
+          require_match \
+            "package metadata gate expects HTTP 200" "$wf" \
+            '"200" \]\] \|\| \{'
+
+          # 4. Visibility check requires the string private (single-quoted in jq comparison)
+          require_match \
+            "visibility check requires string private" "$wf" \
+            "'private'"
+
+          # 5. No HTTP 404 authorization path present
+          forbid_match \
+            "no HTTP 404 authorization path (double-quote)" "$wf" '"404"'
+          forbid_match \
+            "no HTTP 404 authorization path (single-quote)" "$wf" "'404'"
+
+          # 6. Tag uniqueness check uses the Packages versions API endpoint
+          require_match \
+            "tag uniqueness uses Packages versions API" "$wf" \
+            'packages/container/\$\{?PACKAGE_NAME\}?/versions'
+
+          # 7. Old public package name (without -private suffix) is absent
+          forbid_match \
+            "old public package name absent" "$wf" \
+            'ghcr\.io/renugopal/eventcast-media-agent[^-]'
+
+          # 8. v1.0.0 release evidence is byte-for-byte unchanged
+          echo "9ce9ae5cda9543d400847e802c05bb364098359aaf6595c0965fe8d84165730e  ${rel}/eventcast-media-agent-v1.0.0-1e6142d9b5b1.release" \
+            | sha256sum --check --strict --quiet && rc=0 || rc=$?
+          if [[ $rc -ne 0 ]]; then
+            echo "FAIL: v1.0.0 release evidence has changed" >&2; err=$((err+1))
+          else
+            echo "pass: v1.0.0 release evidence is byte-for-byte unchanged"
+          fi
+
+          [[ "$err" -eq 0 ]] || { printf '%d static policy check(s) failed\n' "$err" >&2; exit 1; }
+
+  actionlint:
+    name: actionlint (workflow linting)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: install and run actionlint
+        shell: bash
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+          ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+        run: |
+          set -euo pipefail
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl --silent --fail --location \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${archive}" \
+            --output "$archive"
+          printf '%s  %s\n' "$ACTIONLINT_SHA256" "$archive" | sha256sum --check --strict
+          tar -xzf "$archive" actionlint
+          rm "$archive"
+          ./actionlint \
+            .github/workflows/media-agent-release.yml \
+            .github/workflows/livestream-infra-ci.yml

@@ -10,8 +10,8 @@ on:
         required: true
         type: string
       previous_image_reference:
-        description: "Prior immutable Media Agent digest; leave empty only for the first release"
-        required: false
+        description: "Prior immutable Media Agent digest (required; must match image_reference in the latest committed .release file)"
+        required: true
         type: string
 
 # The release job needs package publication only. It deliberately has no
@@ -31,6 +31,7 @@ env:
   PACKAGE_NAME: eventcast-media-agent-private
   EXPECTED_PACKAGE_REPOSITORY: renugopal/Eventcast.pro
   BUILD_CONTEXT: livestream-infra/services/media-agent
+  RELEASES_DIR: livestream-infra/services/media-agent/releases
   TARGET_PLATFORM: linux/amd64
   SOURCE_REPOSITORY: https://github.com/renugopal/Eventcast.pro
 
@@ -43,7 +44,17 @@ jobs:
       short_source_sha: ${{ steps.source.outputs.short_source_sha }}
       release_id: ${{ steps.source.outputs.release_id }}
       previous_image_reference: ${{ steps.source.outputs.previous_image_reference }}
+      committed_version_tag: ${{ steps.evidence_check.outputs.committed_version_tag }}
     steps:
+      - name: require main branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || {
+            echo "release workflow must run on refs/heads/main; got $GITHUB_REF" >&2
+            exit 1
+          }
+
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - id: source
@@ -76,10 +87,10 @@ jobs:
             exit 1
           }
 
-          if [[ -n "$PREVIOUS_IMAGE_REFERENCE" ]] && ! [[ "$PREVIOUS_IMAGE_REFERENCE" =~ ^ghcr\.io/renugopal/eventcast-media-agent-private@sha256:[0-9a-f]{64}$ ]]; then
-            echo "previous image must be this package's immutable lowercase digest reference" >&2
+          [[ "$PREVIOUS_IMAGE_REFERENCE" =~ ^ghcr\.io/renugopal/eventcast-media-agent-private@sha256:[0-9a-f]{64}$ ]] || {
+            echo "previous_image_reference must be an immutable lowercase digest reference: ghcr.io/renugopal/eventcast-media-agent-private@sha256:<64-hex>" >&2
             exit 1
-          fi
+          }
 
           printf 'source_sha=%s\n' "$source_sha" >> "$GITHUB_OUTPUT"
           printf 'short_source_sha=%s\n' "${source_sha:0:12}" >> "$GITHUB_OUTPUT"
@@ -101,6 +112,31 @@ jobs:
           grep -Fq 'org.opencontainers.image.source' "$BUILD_CONTEXT/Dockerfile"
           grep -Fq 'org.opencontainers.image.revision' "$BUILD_CONTEXT/Dockerfile"
           grep -Fq 'org.opencontainers.image.version' "$BUILD_CONTEXT/Dockerfile"
+
+      - id: evidence_check
+        name: validate release evidence and require previous_image_reference matches
+        shell: bash
+        env:
+          PREVIOUS_IMAGE_REFERENCE: ${{ inputs.previous_image_reference }}
+        run: |
+          set -euo pipefail
+          validator_output="$(bash "${BUILD_CONTEXT}/scripts/validate-release-evidence.sh" \
+            "$RELEASES_DIR")"
+          committed_ref="$(grep '^image_reference=' <<< "$validator_output" | cut -d= -f2-)"
+          committed_version_tag="$(grep '^version_tag=' <<< "$validator_output" | cut -d= -f2-)"
+          [[ -n "$committed_ref" ]] || {
+            echo "evidence validator: empty image_reference output" >&2; exit 1
+          }
+          [[ -n "$committed_version_tag" ]] || {
+            echo "evidence validator: empty version_tag output" >&2; exit 1
+          }
+          [[ "$committed_ref" == "$PREVIOUS_IMAGE_REFERENCE" ]] || {
+            echo "previous_image_reference does not match latest committed release evidence" >&2
+            printf '  input:     %s\n' "$PREVIOUS_IMAGE_REFERENCE" >&2
+            printf '  committed: %s\n' "$committed_ref" >&2
+            exit 1
+          }
+          printf 'committed_version_tag=%s\n' "$committed_version_tag" >> "$GITHUB_OUTPUT"
 
   go:
     name: format, vet, build, and test source
@@ -181,7 +217,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: require an unused private package name before first publish
+      - name: require existing private package
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -193,8 +229,116 @@ jobs:
             --header "Authorization: Bearer $GH_TOKEN" \
             --header 'Accept: application/vnd.github+json' \
             "${GITHUB_API_URL}/users/${PACKAGE_OWNER}/packages/container/${PACKAGE_NAME}")"
-          [[ "$status" == "404" ]] || {
-            echo "refusing to publish: expected unused package name returned HTTP $status" >&2
+          [[ "$status" == "200" ]] || {
+            echo "package metadata check: expected HTTP 200 for existing package, got HTTP $status" >&2
+            echo "The package must exist with private visibility before any release run." >&2
+            exit 1
+          }
+          [[ "$(jq -r '.name // empty' "$metadata")" == "$PACKAGE_NAME" ]] || {
+            echo 'package name is unexpected' >&2; exit 1
+          }
+          [[ "$(jq -r '.package_type // empty' "$metadata")" == 'container' ]] || {
+            echo 'package type is not container' >&2; exit 1
+          }
+          [[ "$(jq -r '.visibility // empty' "$metadata")" == 'private' ]] || {
+            echo 'package visibility is not private — set it manually in GHCR settings before releasing' >&2
+            exit 1
+          }
+          [[ "$(jq -r '.repository.full_name // empty' "$metadata")" == "$EXPECTED_PACKAGE_REPOSITORY" ]] || {
+            echo 'package repository linkage is unexpected' >&2; exit 1
+          }
+
+      - name: require proposed tag is absent from GHCR
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ needs.release-contract.outputs.release_id }}
+        run: |
+          set -euo pipefail
+          versions="$(mktemp)"
+          trap 'rm -f "$versions"' EXIT
+          tag_found=false
+          page=1
+          while true; do
+            status="$(curl --silent --show-error --output "$versions" --write-out '%{http_code}' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'Accept: application/vnd.github+json' \
+              "${GITHUB_API_URL}/users/${PACKAGE_OWNER}/packages/container/${PACKAGE_NAME}/versions?per_page=100&page=${page}")"
+            [[ "$status" == "200" ]] || {
+              echo "tag uniqueness check: API returned HTTP $status; failing closed" >&2
+              echo "Cannot authorize push without confirmed tag absence." >&2
+              exit 1
+            }
+            count="$(jq 'if type == "array" then length else error("not a JSON array") end' \
+              "$versions" 2>/dev/null)" || {
+              echo "tag uniqueness check: failed to parse versions response as JSON array" >&2
+              exit 1
+            }
+            if jq -e --arg t "$RELEASE_ID" \
+              '[.[] | select(.metadata.container.tags | contains([$t]))] | length > 0' \
+              "$versions" >/dev/null 2>&1; then
+              tag_found=true; break
+            fi
+            [[ "$count" -ge 100 ]] || break
+            ((page++))
+          done
+          [[ "$tag_found" == "false" ]] || {
+            echo "refusing: tag ${RELEASE_ID} already exists in GHCR" >&2
+            echo "Rerunning the same version+SHA combination is not permitted." >&2
+            exit 1
+          }
+
+      - name: require previous_image_reference is a known active GHCR version with committed tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIOUS_IMAGE_REFERENCE: ${{ needs.release-contract.outputs.previous_image_reference }}
+          COMMITTED_VERSION_TAG: ${{ needs.release-contract.outputs.committed_version_tag }}
+        run: |
+          set -euo pipefail
+
+          # Confirm the reference resolves via OCI manifest inspection.
+          docker buildx imagetools inspect "$PREVIOUS_IMAGE_REFERENCE" >/dev/null || {
+            echo "previous_image_reference is not OCI-resolvable: $PREVIOUS_IMAGE_REFERENCE" >&2
+            exit 1
+          }
+
+          prev_digest="${PREVIOUS_IMAGE_REFERENCE##*@}"
+
+          # Require one GHCR version object satisfying BOTH:
+          #   .name == prev_digest  (exact digest match)
+          #   .metadata.container.tags contains COMMITTED_VERSION_TAG  (active, tagged release)
+          versions="$(mktemp)"
+          trap 'rm -f "$versions"' EXIT
+          prev_found=false
+          page=1
+          while true; do
+            status="$(curl --silent --show-error --output "$versions" --write-out '%{http_code}' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header 'Accept: application/vnd.github+json' \
+              "${GITHUB_API_URL}/users/${PACKAGE_OWNER}/packages/container/${PACKAGE_NAME}/versions?per_page=100&page=${page}")"
+            [[ "$status" == "200" ]] || {
+              echo "previous-reference check: API returned HTTP $status; failing closed" >&2
+              exit 1
+            }
+            count="$(jq 'if type == "array" then length else error("not a JSON array") end' \
+              "$versions" 2>/dev/null)" || {
+              echo "previous-reference check: failed to parse versions response" >&2; exit 1
+            }
+            if jq -e --arg d "$prev_digest" --arg t "$COMMITTED_VERSION_TAG" \
+              '[.[] | select(.name == $d and (.metadata.container.tags | contains([$t])))] | length > 0' \
+              "$versions" >/dev/null 2>&1; then
+              prev_found=true; break
+            fi
+            [[ "$count" -ge 100 ]] || break
+            ((page++))
+          done
+          [[ "$prev_found" == "true" ]] || {
+            echo "previous_image_reference is not an active GHCR version with the committed tag:" >&2
+            printf '  package:   %s\n' "$PACKAGE_NAME" >&2
+            printf '  digest:    %s\n' "$prev_digest" >&2
+            printf '  req. tag:  %s\n' "$COMMITTED_VERSION_TAG" >&2
+            echo "An untagged, orphaned, or differently-tagged digest does not satisfy this gate." >&2
             exit 1
           }
 
@@ -213,7 +357,7 @@ jobs:
             SOURCE_REVISION=${{ needs.release-contract.outputs.source_sha }}
             SOURCE_REPOSITORY=${{ env.SOURCE_REPOSITORY }}
 
-      - name: require private package metadata after first publish
+      - name: require private package metadata after publish
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -221,11 +365,14 @@ jobs:
           set -euo pipefail
           metadata="$(mktemp)"
           trap 'rm -f "$metadata"' EXIT
-          curl --fail --silent --show-error --output "$metadata" \
+          status="$(curl --silent --show-error --output "$metadata" --write-out '%{http_code}' \
             --header "Authorization: Bearer $GH_TOKEN" \
             --header 'Accept: application/vnd.github+json' \
-            "${GITHUB_API_URL}/users/${PACKAGE_OWNER}/packages/container/${PACKAGE_NAME}"
-
+            "${GITHUB_API_URL}/users/${PACKAGE_OWNER}/packages/container/${PACKAGE_NAME}")"
+          [[ "$status" == "200" ]] || {
+            echo "post-publish metadata check: API returned HTTP $status; failing closed" >&2
+            exit 1
+          }
           [[ "$(jq -r '.name // empty' "$metadata")" == "$PACKAGE_NAME" ]] || {
             echo 'published package name is unexpected' >&2
             exit 1
@@ -241,6 +388,101 @@ jobs:
           [[ "$(jq -r '.repository.full_name // empty' "$metadata")" == "$EXPECTED_PACKAGE_REPOSITORY" ]] || {
             echo 'published package repository linkage is unexpected' >&2
             exit 1
+          }
+
+      - name: require tag and pushed digest are on the same GHCR version object
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ needs.release-contract.outputs.release_id }}
+          PUSHED_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          versions="$(mktemp)"
+          trap 'rm -f "$versions"' EXIT
+          MAX_ATTEMPTS=6
+          RETRY_DELAY=5
+          identity_found=false
+          attempt=0
+          while [[ $attempt -lt $MAX_ATTEMPTS ]]; do
+            ((attempt++))
+            page=1
+            attempt_found=false
+            while true; do
+              status="$(curl --silent --show-error --output "$versions" --write-out '%{http_code}' \
+                --header "Authorization: Bearer $GH_TOKEN" \
+                --header 'Accept: application/vnd.github+json' \
+                "${GITHUB_API_URL}/users/${PACKAGE_OWNER}/packages/container/${PACKAGE_NAME}/versions?per_page=100&page=${page}")"
+              [[ "$status" == "200" ]] || {
+                printf 'tag-to-digest check: API returned HTTP %s (attempt %d); failing closed\n' \
+                  "$status" "$attempt" >&2
+                exit 1
+              }
+              count="$(jq 'if type == "array" then length else error("not a JSON array") end' \
+                "$versions" 2>/dev/null)" || {
+                printf 'tag-to-digest check: JSON parse error (attempt %d)\n' "$attempt" >&2
+                exit 1
+              }
+              if jq -e --arg d "$PUSHED_DIGEST" --arg t "$RELEASE_ID" \
+                '[.[] | select(.name == $d and (.metadata.container.tags | contains([$t])))] | length > 0' \
+                "$versions" >/dev/null 2>&1; then
+                attempt_found=true; break
+              fi
+              [[ "$count" -ge 100 ]] || break
+              ((page++))
+            done
+            if [[ "$attempt_found" == "true" ]]; then
+              identity_found=true; break
+            fi
+            if [[ $attempt -lt $MAX_ATTEMPTS ]]; then
+              printf 'version object not yet visible; waiting %ss (attempt %d/%d)...\n' \
+                "$RETRY_DELAY" "$attempt" "$MAX_ATTEMPTS" >&2
+              sleep "$RETRY_DELAY"
+            fi
+          done
+          [[ "$identity_found" == "true" ]] || {
+            echo "PARTIAL PUBLISH: version object not visible after $MAX_ATTEMPTS attempts" >&2
+            printf '  required: .name == %s\n' "$PUSHED_DIGEST" >&2
+            printf '  required: .metadata.container.tags contains %s\n' "$RELEASE_ID" >&2
+            echo "Investigate GHCR package state manually before the next publish attempt." >&2
+            exit 1
+          }
+          docker buildx imagetools inspect "${IMAGE_NAME}@${PUSHED_DIGEST}" >/dev/null
+
+      - name: require OCI labels and platform match expected values
+        shell: bash
+        env:
+          PUSHED_DIGEST: ${{ steps.build.outputs.digest }}
+          SOURCE_SHA: ${{ needs.release-contract.outputs.source_sha }}
+          RELEASE_ID: ${{ needs.release-contract.outputs.release_id }}
+        run: |
+          set -euo pipefail
+          # NOTE: .Image.* template paths assume single-platform image (provenance: false).
+          # If multi-platform builds or provenance attestations are ever added, these paths
+          # must be updated to navigate through the manifest index.
+          ref="${IMAGE_NAME}@${PUSHED_DIGEST}"
+          labels="$(docker buildx imagetools inspect \
+            --format '{{json .Image.Config.Labels}}' "$ref")"
+          platform="$(docker buildx imagetools inspect \
+            --format '{{.Image.Os}}/{{.Image.Architecture}}' "$ref")"
+          oci_source="$(printf '%s' "$labels" | jq -r '."org.opencontainers.image.source" // empty')"
+          oci_revision="$(printf '%s' "$labels" | jq -r '."org.opencontainers.image.revision" // empty')"
+          oci_version="$(printf '%s' "$labels" | jq -r '."org.opencontainers.image.version" // empty')"
+          [[ "$oci_source" == "$SOURCE_REPOSITORY" ]] || {
+            printf 'OCI source label mismatch\n  expected: %s\n  got:      %s\n' \
+              "$SOURCE_REPOSITORY" "$oci_source" >&2; exit 1
+          }
+          [[ "$oci_revision" == "$SOURCE_SHA" ]] || {
+            printf 'OCI revision label mismatch\n  expected: %s\n  got:      %s\n' \
+              "$SOURCE_SHA" "$oci_revision" >&2; exit 1
+          }
+          [[ "$oci_version" == "$RELEASE_ID" ]] || {
+            printf 'OCI version label mismatch\n  expected: %s\n  got:      %s\n' \
+              "$RELEASE_ID" "$oci_version" >&2; exit 1
+          }
+          [[ "$platform" == "$TARGET_PLATFORM" ]] || {
+            printf 'platform mismatch\n  expected: %s\n  got:      %s\n' \
+              "$TARGET_PLATFORM" "$platform" >&2; exit 1
           }
 
       - id: evidence
@@ -259,22 +501,21 @@ jobs:
           }
 
           image_reference="${IMAGE_NAME}@${PUSHED_DIGEST}"
-          docker buildx imagetools inspect "$image_reference" >/dev/null
-
           dockerfile_sha256="$(sha256sum "$BUILD_CONTEXT/Dockerfile" | awk '{print $1}')"
           evidence_dir="$RUNNER_TEMP/media-agent-release-evidence"
           mkdir -p "$evidence_dir"
           manifest="$evidence_dir/eventcast-media-agent-${RELEASE_ID}.release"
 
           {
-            printf 'format=eventcast-media-agent-release-v1\n'
+            printf 'format=eventcast-media-agent-release-v2\n'
             printf 'version=%s\n' "$RELEASE_ID"
             printf 'source_commit=%s\n' "$SOURCE_SHA"
             printf 'image_reference=%s\n' "$image_reference"
             printf 'dockerfile_sha256=%s\n' "$dockerfile_sha256"
-            if [[ -n "$PREVIOUS_IMAGE_REFERENCE" ]]; then
-              printf 'previous_image_reference=%s\n' "$PREVIOUS_IMAGE_REFERENCE"
-            fi
+            printf 'platform=%s\n' "$TARGET_PLATFORM"
+            printf 'workflow_run_url=%s/%s/actions/runs/%s\n' \
+              "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
+            printf 'previous_image_reference=%s\n' "$PREVIOUS_IMAGE_REFERENCE"
           } > "$manifest"
           (
             cd "$evidence_dir"
