@@ -50,13 +50,10 @@ export default {
       eventMatch ? eventMatch[1] : (manifestMatch ? manifestMatch[1] : (swMatch ? swMatch[1] : hlsMatch![1])),
     );
     const hostname = url.hostname;
+    let deferredServiceWorkerResponse: Response | null = null;
 
-    // Proxy HLS through eventcast.pro so browser playback avoids cross-origin CORS on media.eventcast.pro
-    if (hlsMatch) {
-      return proxyHlsAsset(hlsMatch[2], url.search);
-    }
-
-    // Handle sw.js immediately to save database queries
+    // Build sw.js without returning it yet; every event-specific response is
+    // authorized by the public-and-unarchived event lookup below first.
     if (swMatch) {
       const swCode = `const CACHE_NAME = 'eventcast-pwa-v1';
 const ASSETS_TO_CACHE = [
@@ -95,7 +92,7 @@ self.addEventListener('fetch', (event) => {
   );
 });`;
 
-      return new Response(swCode, {
+      deferredServiceWorkerResponse = new Response(swCode, {
         headers: {
           'Content-Type': 'application/javascript; charset=utf-8',
           'Cache-Control': 'public, max-age=86400',
@@ -133,7 +130,7 @@ self.addEventListener('fetch', (event) => {
       }
 
       if (!studioId) {
-        return htmlError(404, 'Studio not found');
+        return htmlError(404);
       }
 
       // -----------------------------------------------------------------------
@@ -143,6 +140,7 @@ self.addEventListener('fetch', (event) => {
         `${env.SUPABASE_URL}/rest/v1/events` +
           `?slug=eq.${encodeURIComponent(slug)}` +
           `&studio_id=eq.${studioId}` +
+          `&event_visibility=eq.public` +
           `&archived_at=is.null` +
           `&select=*,photographers(*)` +
           `&limit=1`,
@@ -157,6 +155,7 @@ self.addEventListener('fetch', (event) => {
             `${env.SUPABASE_URL}/rest/v1/events` +
               `?slug=eq.${encodeURIComponent(hyphenatedSlug)}` +
               `&studio_id=eq.${studioId}` +
+              `&event_visibility=eq.public` +
               `&archived_at=is.null` +
               `&select=*,photographers(*)` +
               `&limit=1`,
@@ -167,7 +166,7 @@ self.addEventListener('fetch', (event) => {
       }
 
       if (!events || events.length === 0) {
-        return htmlError(404, `Event "${slug}" not found`);
+        return htmlError(404);
       }
 
       const event = events[0];
@@ -175,6 +174,14 @@ self.addEventListener('fetch', (event) => {
       const photographer: PhotographerRow | null = Array.isArray(event.photographers)
         ? (event.photographers[0] ?? null)
         : (event.photographers ?? null);
+
+      if (hlsMatch) {
+        return proxyHlsAsset(hlsMatch[2], url.search);
+      }
+
+      if (deferredServiceWorkerResponse) {
+        return deferredServiceWorkerResponse;
+      }
 
       // Handle manifest.json dynamic compilation
       if (manifestMatch) {
@@ -302,6 +309,9 @@ interface EventRow {
   photographers?: PhotographerRow | PhotographerRow[] | null;
   guest_photo_limit?: number | null;
   guest_photo_wall_enabled?: boolean | null;
+  deployed_at?: string | null;
+  created_at?: string | null;
+  notes?: string | null;
 }
 
 interface PhotographerRow {
@@ -336,6 +346,21 @@ function formatTime(rawTime: string): string {
   const [hours, minutes] = rawTime.split(':');
   const h = parseInt(hours, 10);
   return `${h % 12 || 12}:${minutes} ${h >= 12 ? 'PM' : 'AM'}`;
+}
+
+/** Build a browser-safe ISO timer target, e.g. 2026-07-11T09:00:00 */
+function normalizeTimerIso(eventDate: string, rawTime: string): string {
+  const [hPart = '9', mPart = '0'] = (rawTime || '09:00').split(':');
+  const hours = String(parseInt(hPart, 10) || 0).padStart(2, '0');
+  const minutes = String(parseInt(mPart, 10) || 0).padStart(2, '0');
+  return `${eventDate}T${hours}:${minutes}:00`;
+}
+
+/** True only for actual stream/archive URLs — never YouTube links. */
+function isNativePlaybackUrl(url: string): boolean {
+  if (!url) return false;
+  if (/youtube\.com|youtu\.be/i.test(url)) return false;
+  return /\.m3u8(\?|$)/i.test(url) || /\/hls\//i.test(url) || /\.mp4(\?|$)/i.test(url);
 }
 
 // ---------------------------------------------------------------------------
@@ -395,7 +420,19 @@ function splitVenue(venueName: string): { main: string; subtext: string } {
   return { main: venueName, subtext: '' };
 }
 
-function getHeroTimeLabel(eventType: string): string {
+/** Append cache-bust param for WhatsApp/Facebook OG crawlers (they cache og:image aggressively). */
+function buildOgImageUrl(thumbnailUrl: string, cacheVersion?: string | null): string {
+  if (!thumbnailUrl) return '';
+  const base = thumbnailUrl.split('?')[0];
+  const version = cacheVersion
+    ? String(new Date(cacheVersion).getTime() || cacheVersion).replace(/\D/g, '').slice(0, 14)
+    : Date.now().toString();
+  return `${base}?v=${version}`;
+}
+
+function getHeroTimeLabel(eventType: string, notes?: string | null): string {
+  const fromNotes = notes?.match(/(?:^|\n)\s*time_label\s*[:=]\s*(.+?)\s*(?:\n|$)/i)?.[1]?.trim();
+  if (fromNotes) return fromNotes;
   const t = (eventType || '').toLowerCase();
   if (t.includes('wedding') || t.includes('engagement')) return 'Sumuhurtham';
   if (!eventType) return 'Event';
@@ -442,12 +479,14 @@ function renderEvent(
   const bride      = event.bride_name ?? 'Family';
   const type       = event.event_type ?? 'wedding';
   const thumbnailUrl = event.thumbnail_url ?? '';
+  const ogImageUrl = buildOgImageUrl(thumbnailUrl, event.deployed_at ?? event.created_at);
   const vName      = event.venue_name ?? '';
   const vMap       = event.venue_map_link ?? '';
   const { main: venueMain, subtext: venueSubtext } = splitVenue(vName);
 
   const formattedDate = formatDate(event.event_date ?? '');
   const formattedTime = formatTime(event.event_time ?? '');
+  const heroTimeLabel = getHeroTimeLabel(type, event.notes);
 
   const isSinglePerson = !bride || bride.toLowerCase() === 'family';
   const mainName   = isSinglePerson ? groom : `${groom} & ${bride}`;
@@ -465,6 +504,14 @@ function renderEvent(
   const displayTitle = weddingSeo?.title ?? `${mainName} ${typeLabel} Live | `;
   const displayDesc  = weddingSeo?.description
     ?? `Join us live and be part of this beautiful ${typeLabel.toLowerCase()} celebration filled with love and joy.`;
+  const introLine = (() => {
+    const custom = event.custom_top_title?.trim();
+    if (custom) return custom;
+    const t = (type || '').toLowerCase();
+    if (t.includes('engagement')) return 'Welcome to the Engagement of';
+    if (t.includes('wedding')) return 'Welcome to the Wedding of';
+    return `Welcome to the ${typeLabel} of`;
+  })();
 
   // Gallery
   const galleryArray: string[] = (() => {
@@ -501,17 +548,19 @@ function renderEvent(
     : loaderSrc;
 
   // Timer
-  const timerTime = event.timer_target_time ?? event.event_time ?? '09:00';
+  const timerTime = (event.timer_target_time ?? event.event_time ?? '09:00').slice(0, 5);
+  const timerTarget = normalizeTimerIso(event.event_date ?? '', timerTime);
 
   // YouTube
   const youtubeId = event.youtube_broadcast_id
     || ((event.vod_link ?? '').split('/').pop() ?? '')
     || ((event.youtube_url ?? '').split('/').pop() ?? '');
 
-  // VOD / HLS playback URLs (prefer VOD archive if available, then live stream)
+  // VOD / HLS playback URLs — YouTube links stay on youtubeId only, never HLS player
   const vodArchiveUrl = event.vod_link ?? '';
   const liveHlsUrl = event.restreamer_hls_url ? `https://${hostname}/events/${slug}/hls/${slug}.m3u8` : '';
-  const primaryHlsUrl = vodArchiveUrl || liveHlsUrl;
+  const archivePlaybackUrl = isNativePlaybackUrl(vodArchiveUrl) ? vodArchiveUrl : '';
+  const primaryHlsUrl = liveHlsUrl || archivePlaybackUrl;
 
   // Map URLs
   const embedUrl    = buildEmbedUrl(vMap, venueMain || vName);
@@ -526,9 +575,9 @@ window.WEDDING_CONFIG = {
   bride: "${esc(event.bride_name ?? 'Family')}",
   date: "${esc(formattedDate)}",
   time: "${esc(formattedTime)}",
-  timeLabel: "${esc(getHeroTimeLabel(type))}",
+  timeLabel: "${esc(heroTimeLabel)}",
   timeSubtext: "",
-  timerTarget: "${esc(event.event_date ?? '')}T${esc(timerTime)}",
+  timerTarget: "${esc(timerTarget)}",
   venue: "${esc(venueMain)}",
   venueSubtext: "${esc(venueSubtext)}",
   venueUrl: ${embedUrl ? JSON.stringify(embedUrl) : 'null'},
@@ -568,9 +617,9 @@ window.WEDDING_CONFIG = {
   html = html.replace(/<meta property="og:title" content=".*?">/g,       `<meta property="og:title" content="${displayTitle}">`);
   html = html.replace(/<meta name="description" content=".*?">/g,        `<meta name="description" content="${displayDesc}">`);
   html = html.replace(/<meta property="og:description" content=".*?">/g, `<meta property="og:description" content="${displayDesc}">`);
-  html = html.replace(/<meta property="og:image" content=".*?">/g,       `<meta property="og:image" content="${thumbnailUrl}">`);
+  html = html.replace(/<meta property="og:image" content=".*?">/g,       `<meta property="og:image" content="${ogImageUrl}">`);
   html = html.replace(/<meta property="og:url" content=".*?">/g,         `<meta property="og:url" content="https://eventcast.pro/events/${slug}">`);
-  html = html.replace(/<meta name="twitter:image" content=".*?">/g,      `<meta name="twitter:image" content="${thumbnailUrl}">`);
+  html = html.replace(/<meta name="twitter:image" content=".*?">/g,      `<meta name="twitter:image" content="${ogImageUrl}">`);
 
   // --- Inject config inline; remove external config.js script tag ---
   const antiTheftScript = `
@@ -667,6 +716,49 @@ window.WEDDING_CONFIG = {
   html = html.replace(/<h1 class="logo-text">.*?<\/h1>/gs,   `<h1 class="logo-text">${finalInitials}</h1>`);
   html = html.replace(/<div class="initials">.*?<\/div>/gs,  `<div class="initials">${finalInitials}</div>`);
 
+  // --- Hero names + date/time/venue (SSR fallback before script.js runs) ---
+  html = html.replace(/<span class="first-name">[^<]*<\/span>/, `<span class="first-name">${groom}</span>`);
+  html = html.replace(/<span class="second-name">[^<]*<\/span>/, `<span class="second-name">${bride}</span>`);
+  html = html.replace(
+    /<p class="invite-header intro-text">[\s\S]*?<\/p>/,
+    `<p class="invite-header intro-text">${introLine}</p>`,
+  );
+  // Hero info labels: Date / Time|Sumuhurtham / Venue — second label is ceremony time
+  {
+    let labelIndex = 0;
+    const heroLabels = ['Date', heroTimeLabel, 'Venue'];
+    html = html.replace(/<span class="info-label">[^<]*<\/span>/g, () => {
+      const val = heroLabels[labelIndex++] ?? '';
+      return `<span class="info-label">${val}</span>`;
+    });
+  }
+  const heroInfoValues = [formattedDate, formattedTime, venueMain];
+  let heroInfoIndex = 0;
+  html = html.replace(/<span class="info-text">[^<]*<\/span>/g, () => {
+    const val = heroInfoValues[heroInfoIndex++] ?? '';
+    return `<span class="info-text">${val}</span>`;
+  });
+  const heroSubValues = ['', '', venueSubtext];
+  let heroSubIndex = 0;
+  html = html.replace(/<span class="info-subtext">[^<]*<\/span>/g, () => {
+    const val = heroSubValues[heroSubIndex++] ?? '';
+    return `<span class="info-subtext">${val}</span>`;
+  });
+
+  if (!galleryArray.length) {
+    html = html.replace(
+      /(<section id="photo-gallery"[^>]*)(>)/,
+      '$1 style="display:none"$2',
+    );
+  }
+
+  if (!invitationVideos.length) {
+    html = html.replace(
+      /(<section id="invitation-video"[^>]*)(>)/,
+      '$1 style="display:none"$2',
+    );
+  }
+
   // --- Loader photo ---
   if (hideLoaderPhoto || !optimizedLoader) {
     html = html.replace(
@@ -698,10 +790,16 @@ window.WEDDING_CONFIG = {
 // ---------------------------------------------------------------------------
 // Helper — return a minimal HTML error page
 // ---------------------------------------------------------------------------
-function htmlError(status: number, message: string): Response {
+function htmlError(status: number, message = 'Not Found'): Response {
   return new Response(
     `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${message}</title></head>`
     + `<body style="font-family:sans-serif;padding:2rem"><h1>${message}</h1></body></html>`,
-    { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+    {
+      status,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store, max-age=0',
+      },
+    },
   );
 }

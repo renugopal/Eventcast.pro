@@ -3,7 +3,7 @@
 export const runtime = 'edge';
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Heart, Eye, Users, Calendar, Activity, Clock, MapPin, Loader2 } from "lucide-react";
 
@@ -21,6 +21,8 @@ export default function ClientPortal() {
         .from('events')
         .select('*')
         .eq('slug', slug)
+        .eq('event_visibility', 'public')
+        .is('archived_at', null)
         .single();
 
       if (eventData) {
@@ -58,14 +60,7 @@ export default function ClientPortal() {
   }
 
   if (!event) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <h1 className="text-2xl font-black text-slate-800">Event Not Found</h1>
-          <p className="text-slate-500 mt-2">The link you followed may be invalid.</p>
-        </div>
-      </div>
-    );
+    notFound();
   }
 
   const title = `${event.groom_name || event.celebrant_name} ${event.bride_name ? '& ' + event.bride_name : ''}`;

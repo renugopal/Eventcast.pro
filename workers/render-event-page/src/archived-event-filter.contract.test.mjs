@@ -24,23 +24,25 @@ function blockAfter(marker, length = 400) {
   return source.slice(idx, idx + length);
 }
 
-test('primary slug lookup query filters out archived events before select/limit', () => {
+test('primary slug lookup only permits public, unarchived events before select/limit', () => {
   const block = blockAfter('`?slug=eq.${encodeURIComponent(slug)}`');
+  assert.match(block, /event_visibility=eq\.public/, 'primary lookup must include event_visibility=eq.public');
   assert.match(block, /archived_at=is\.null/, 'primary lookup must include archived_at=is.null');
   assert.match(
     block,
-    /archived_at=is\.null[\s\S]*?select=\*,photographers\(\*\)[\s\S]*?limit=1/,
-    'archived_at filter must appear before select/limit in the primary lookup',
+    /event_visibility=eq\.public[\s\S]*?archived_at=is\.null[\s\S]*?select=\*,photographers\(\*\)[\s\S]*?limit=1/,
+    'visibility and archive filters must appear before select/limit in the primary lookup',
   );
 });
 
-test('hyphenated-slug fallback lookup query filters out archived events before select/limit', () => {
+test('hyphenated-slug fallback lookup only permits public, unarchived events before select/limit', () => {
   const block = blockAfter('`?slug=eq.${encodeURIComponent(hyphenatedSlug)}`');
+  assert.match(block, /event_visibility=eq\.public/, 'fallback lookup must include event_visibility=eq.public');
   assert.match(block, /archived_at=is\.null/, 'fallback lookup must include archived_at=is.null');
   assert.match(
     block,
-    /archived_at=is\.null[\s\S]*?select=\*,photographers\(\*\)[\s\S]*?limit=1/,
-    'archived_at filter must appear before select/limit in the fallback lookup',
+    /event_visibility=eq\.public[\s\S]*?archived_at=is\.null[\s\S]*?select=\*,photographers\(\*\)[\s\S]*?limit=1/,
+    'visibility and archive filters must appear before select/limit in the fallback lookup',
   );
 });
 
@@ -48,7 +50,7 @@ test('an active (non-archived) event is unaffected: the filter only excludes row
   // Source builds the URL as concatenated template-literal segments, e.g.
   //   `&archived_at=is.null` +\n  `&select=*,photographers(*)` +\n  `&limit=1`
   // so match tolerating the intervening backtick/plus/whitespace between segments.
-  const shapePattern = /&archived_at=is\.null`\s*\+\s*`&select=\*,photographers\(\*\)`\s*\+\s*`&limit=1`/g;
+  const shapePattern = /&event_visibility=eq\.public`\s*\+\s*`&archived_at=is\.null`\s*\+\s*`&select=\*,photographers\(\*\)`\s*\+\s*`&limit=1`/g;
   const occurrences = source.match(shapePattern) ?? [];
   assert.equal(
     occurrences.length,
@@ -57,7 +59,7 @@ test('an active (non-archived) event is unaffected: the filter only excludes row
   );
 });
 
-test('archived events fall through to the existing generic not-found response; no new archived-specific branch was added', () => {
+test('private, synthetic, archived, and missing events share a generic non-cacheable not-found response', () => {
   const notFoundChecks = source.match(/if \(!events \|\| events\.length === 0\)/g) ?? [];
   assert.equal(
     notFoundChecks.length,
@@ -65,9 +67,17 @@ test('archived events fall through to the existing generic not-found response; n
     'expected exactly the two pre-existing empty-result checks (retry trigger + final not-found) — a new count would indicate an added branch',
   );
 
-  const withoutFilterMarkers = source.split('archived_at=is.null').join('');
-  assert.ok(
-    !/archived/i.test(withoutFilterMarkers),
-    'no other "archived" reference should exist outside the query filter itself, guaranteeing an archived event returns the same htmlError(404, ...) as a missing event rather than a distinct response that would leak its existence',
-  );
+  assert.match(source, /return htmlError\(404\);/, 'the empty lookup must use the generic 404 helper');
+  assert.match(source, /'Cache-Control': 'no-store, max-age=0'/, 'denied responses must not be cached');
+});
+
+test('HLS proxy, manifest, and service-worker responses cannot bypass the visibility lookup', () => {
+  const eventResolvedAt = source.indexOf('const event = events[0];');
+  const hlsReturnAt = source.indexOf('return proxyHlsAsset(hlsMatch[2], url.search);');
+  const serviceWorkerReturnAt = source.indexOf('return deferredServiceWorkerResponse;');
+  const manifestAt = source.indexOf('if (manifestMatch) {');
+
+  assert.ok(eventResolvedAt !== -1 && hlsReturnAt > eventResolvedAt, 'HLS proxy must run after the filtered event lookup');
+  assert.ok(eventResolvedAt !== -1 && serviceWorkerReturnAt > eventResolvedAt, 'service worker must run after the filtered event lookup');
+  assert.ok(eventResolvedAt !== -1 && manifestAt > eventResolvedAt, 'manifest must run after the filtered event lookup');
 });

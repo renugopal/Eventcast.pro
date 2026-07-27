@@ -183,6 +183,9 @@ export async function POST(req: Request) {
       })(),
       thumbnail_url: event.thumbnail_url || event.thumbnailUrl,
       privacy_status: event.privacy_status || event.privacyStatus,
+      // Private and synthetic visibility are controlled operational states;
+      // this legacy browser-facing route always writes public visibility.
+      event_visibility: 'public',
       gallery_urls: (() => {
         const raw = event.gallery_urls || event.galleryUrls || [];
         if (Array.isArray(raw)) return raw;

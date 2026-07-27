@@ -156,6 +156,20 @@ export async function POST(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
 
+    // Resolve visibility before rate-limit or storage work. Missing, private,
+    // synthetic, and archived events all receive the same generic 404.
+    const { data: eventRow, error: eventErr } = await supabase
+      .from('events')
+      .select('id, guest_photo_limit')
+      .eq('id', eventId)
+      .eq('event_visibility', 'public')
+      .is('archived_at', null)
+      .maybeSingle();
+
+    if (eventErr || !eventRow) {
+      return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
+    }
+
     // ── Rate limiting (per IP + event) — BEFORE any R2 write ──────────────────
     // Privacy-preserving: the raw IP is SHA-256 hashed and never stored. The
     // endpoint key is event-scoped so a burst against one event does not
@@ -170,17 +184,6 @@ export async function POST(req: NextRequest) {
         { success: false, error: 'Too many uploads from your connection. Please wait a moment and try again.' },
         { status: 429 }
       );
-    }
-
-    // 1. Fetch event photo limit
-    const { data: eventRow, error: eventErr } = await supabase
-      .from('events')
-      .select('id, guest_photo_limit')
-      .eq('id', eventId)
-      .maybeSingle();
-
-    if (eventErr || !eventRow) {
-      return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
     }
 
     const photoLimit: number = eventRow.guest_photo_limit ?? 50;

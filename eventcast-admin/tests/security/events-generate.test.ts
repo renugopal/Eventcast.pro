@@ -128,6 +128,36 @@ function findCallForTable(table: string): { args: unknown[]; result: MockQueryBu
 }
 
 describe('POST /api/events/generate — Media Agent draft assignment (Slice 3)', () => {
+  it('always writes public event visibility and ignores client-supplied synthetic visibility', async () => {
+    mockDb.from = createFromMock({
+      events: [
+        { data: [], error: null },
+        { data: [{ id: 'new-event-id' }], error: null },
+        { data: null, error: null },
+      ],
+      subscriptions: [{ data: null, error: null }],
+      media_event_assignments: [{ error: null }],
+    });
+    mockRequireAdmin.mockResolvedValue(authSuccess({ isSuperAdmin: true }));
+    mockRestreamer.setupChannel.mockResolvedValue(null);
+
+    const POST = await loadRoute();
+    const res = await POST(makeRequest({
+      groom_name: 'Groom',
+      bride_name: 'Bride',
+      event_visibility: 'synthetic',
+    }));
+
+    expect(res.status).toBe(200);
+    const insertIndex = mockDb.from.mock.calls.findIndex((args, index) =>
+      args[0] === 'events' && mockDb.from.mock.results[index].value.insert.mock.calls.length > 0
+    );
+    expect(insertIndex).toBeGreaterThanOrEqual(0);
+    const insertCall = mockDb.from.mock.results[insertIndex].value;
+    const insertedRows = insertCall.insert.mock.calls[0][0] as Array<Record<string, unknown>>;
+    expect(insertedRows[0]).toMatchObject({ event_visibility: 'public' });
+  });
+
   it('uses the newly-created event id for the draft assignment on a new-event create', async () => {
     mockDb.from = createFromMock({
       events: [

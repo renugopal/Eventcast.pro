@@ -42,6 +42,9 @@ beforeEach(() => {
 
 describe('POST /api/guest-photos/upload — rate limiting', () => {
   it('returns 429 and never writes to R2 when over the per-IP+event limit', async () => {
+    mockDb.from = createFromMock({
+      events: [{ data: { id: 'evt-1', guest_photo_limit: 50 }, error: null }],
+    });
     mockDb.rpc.mockResolvedValue({ data: false, error: null });
     const POST = await loadRoute();
     const res = await POST(uploadReq());
@@ -56,6 +59,23 @@ describe('POST /api/guest-photos/upload — rate limiting', () => {
     const args = mockDb.rpc.mock.calls[0][1] as Record<string, string>;
     expect(args.p_ip_hash).not.toContain('203.0.113.9');
     expect(args.p_ip_hash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('rejects a non-public or archived event before rate-limit and R2 work', async () => {
+    mockDb.from = createFromMock({
+      events: [{ data: null, error: null }],
+    });
+    const POST = await loadRoute();
+    const res = await POST(uploadReq());
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ success: false, error: 'Event not found' });
+    expect(mockDb.rpc).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+
+    const eventQuery = mockDb.from.mock.results[0].value;
+    expect(eventQuery.eq).toHaveBeenCalledWith('event_visibility', 'public');
+    expect(eventQuery.is).toHaveBeenCalledWith('archived_at', null);
   });
 
   it('allows a normal upload: rate check passes, then R2 write + insert happen', async () => {
