@@ -16,16 +16,22 @@ async function loadRoute() {
   return (await import('@/app/api/guest-photos/upload/route')).POST;
 }
 
-function uploadReq(): NextRequest {
+function uploadReq(eventId = 'evt-1'): NextRequest {
   const fd = new FormData();
   fd.set('file', new File([new Uint8Array(10)], 'p.webp', { type: 'image/webp' }));
-  fd.set('event_id', 'evt-1');
+  fd.set('event_id', eventId);
   fd.set('uploader_name', 'Guest');
   return new NextRequest('http://test.local/api/guest-photos/upload', {
     method: 'POST',
     headers: { 'x-forwarded-for': '203.0.113.9' },
     body: fd,
   });
+}
+
+function expectNoDownstreamWork() {
+  expect(mockDb.from).not.toHaveBeenCalled();
+  expect(mockDb.rpc).not.toHaveBeenCalled();
+  expect(fetch).not.toHaveBeenCalled();
 }
 
 beforeEach(() => {
@@ -41,6 +47,60 @@ beforeEach(() => {
 });
 
 describe('POST /api/guest-photos/upload — rate limiting', () => {
+  it('returns a generic 400 without downstream work when FormData parsing fails', async () => {
+    const POST = await loadRoute();
+    const res = await POST(
+      new NextRequest('http://test.local/api/guest-photos/upload', { method: 'POST' })
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ success: false, error: 'Invalid form data' });
+    expectNoDownstreamWork();
+  });
+
+  it('rejects malformed multipart input before any downstream work', async () => {
+    const POST = await loadRoute();
+    const res = await POST(
+      new NextRequest('http://test.local/api/guest-photos/upload', {
+        method: 'POST',
+        headers: { 'content-type': 'multipart/form-data; boundary=expected-boundary' },
+        body: '--different-boundary--\r\n',
+      })
+    );
+
+    expect(res.status).toBe(400);
+    expectNoDownstreamWork();
+  });
+
+  it('keeps the existing missing-file response for a well-formed empty multipart body', async () => {
+    const POST = await loadRoute();
+    const res = await POST(
+      new NextRequest('http://test.local/api/guest-photos/upload', {
+        method: 'POST',
+        body: new FormData(),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ success: false, error: 'No file provided' });
+    expectNoDownstreamWork();
+  });
+
+  it('rejects a valid upload for an unknown event before rate-limit, R2, or insert work', async () => {
+    mockDb.from = createFromMock({
+      events: [{ data: null, error: null }],
+    });
+    const POST = await loadRoute();
+    const res = await POST(uploadReq(crypto.randomUUID()));
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ success: false, error: 'Event not found' });
+    expect(mockDb.from).toHaveBeenCalledTimes(1);
+    expect(mockDb.rpc).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(mockDb.from.mock.results[0].value.insert).not.toHaveBeenCalled();
+  });
+
   it('returns 429 and never writes to R2 when over the per-IP+event limit', async () => {
     mockDb.from = createFromMock({
       events: [{ data: { id: 'evt-1', guest_photo_limit: 50 }, error: null }],

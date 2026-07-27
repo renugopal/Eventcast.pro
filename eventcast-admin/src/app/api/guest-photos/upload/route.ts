@@ -127,8 +127,17 @@ async function uploadToR2(
 
 // ─── Main Handler ─────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  let formData: FormData;
   try {
-    const formData     = await req.formData();
+    formData = await req.formData();
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'Invalid form data' },
+      { status: 400 }
+    );
+  }
+
+  try {
     const file         = formData.get('file') as File | null;
     const eventId      = (formData.get('event_id') as string | null)?.trim();
     const uploaderName = (formData.get('uploader_name') as string | null)?.trim();
