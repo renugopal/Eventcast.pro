@@ -165,3 +165,20 @@ at the wrong node identifier.
   check is an explicit, documented proxy, not a replacement.
 - Production deployment of any kind.
 - Applying or modifying any Supabase migration.
+
+## Result — Gate 10B (2026-07-29)
+
+An equivalent first-publish validation completed successfully against the
+deployed Linode stack, using an automated synthetic FFmpeg publisher in place
+of a real encoder (steps 7/9 above were performed by that publisher rather
+than manual OBS/Kiloview configuration). All other stages of the procedure —
+activation, encoder-facing credential handling, publish, and HLS output —
+were exercised end-to-end and passed.
+
+This result does not supersede the procedure above, which remains the
+governing steps for any future first-publish attempt using a real encoder.
+No raw publish URL, token, or other credential is recorded here or in the
+full evidence record. See
+[`../../CURRENT_STATE.md`](../../CURRENT_STATE.md)'s "Gate 10B — first
+end-to-end RTMP-to-HLS validation (2026-07-29)" section for identifiers,
+root cause, evidence, and cleanup detail.

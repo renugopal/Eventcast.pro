@@ -56,9 +56,100 @@ VM's state at the instant this local-only update was made.
 | Network controls | UFW and Linode cloud firewall were not changed |
 | Application deployment | No SRS or Media Agent Compose stack was deployed; no EventCast application containers were running |
 
-Base host bootstrap and SSH hardening are complete. The production SRS + Media
-Agent stack remains undeployed on this host; private-GHCR pull/deployment has
-not been completed; no real livestream has been performed on this host.
+Base host bootstrap and SSH hardening are complete. Private-GHCR authentication
+and the immutable Media Agent/SRS pulls have since completed (see "Linode
+deployment gate status" immediately below). The production SRS + Media Agent
+Compose stack has since been started with a provisioned `.env`, and a first
+end-to-end synthetic RTMP-to-HLS livestream has been performed and validated
+on this host — see "Gate 10B — first end-to-end RTMP-to-HLS validation
+(2026-07-29)" below.
+
+## Linode deployment gate status (through Gate 6C)
+
+**Evidence boundary**: Gates 1, 1.5, the Linode Cloud Firewall audit, 2, 4, 5,
+and 6C below were executed externally through ChatGPT Work and reported to the
+repository maintainer; they were **not independently re-run or verified by
+Claude Code** in any session. Gate 6B (bundle manifest construction) **was**
+verified directly by Claude Code from this repository's Git-blob content. This
+section is the current authoritative gate record and supersedes the older
+"private-GHCR pull/deployment has not been completed" framing found elsewhere
+in this file's history.
+
+| Gate | Result | Provenance |
+| --- | --- | --- |
+| 1 — first read-only SSH preflight | PASSED WITH WARNINGS | External (ChatGPT Work) |
+| 1.5 — host directory/permission remediation | PASS | External (ChatGPT Work) |
+| Linode Cloud Firewall audit | PASS | External (ChatGPT Work) |
+| 2 — private GHCR authentication | PASS | External (ChatGPT Work) |
+| 4 — Media Agent immutable pull | PASS | External (ChatGPT Work) |
+| 5 — SRS immutable verification | PASS | External (ChatGPT Work) |
+| 6A — deployment bundle presence on host | FAIL (bundle absent at that time) | External (ChatGPT Work) |
+| 6B — deployment bundle manifest construction | PASS | **Claude Code, this repository's Git-blob content** |
+| 6C — deployment bundle installation | PASS | External (ChatGPT Work) |
+
+**Gate 1 (PASSED WITH WARNINGS)**: hostname exactly `eventcast-media-node-akm-01`;
+Ubuntu 24.04.4; 2 vCPU; ~3.8 GiB RAM; ~70 GiB disk free; Docker `29.6.2` active;
+zero containers; `eventcast-media-node.service` inactive and disabled; TCP
+`1935` not listening; UFW inactive; no Restreamer, excluded public package,
+`bc43702`, or `media-agent:v1.2-*` artifacts found; no host write occurred.
+
+**Gate 1.5 (PASS)**: `/opt/eventcast/media-node/data/spool` = `65532:65532`,
+mode `0750`, empty. `/opt/eventcast/media-node/data/db` = `65532:65532`, mode
+`0750`, empty. `/opt/eventcast/media-node/data/srs` = `root:65532`, mode
+`2750`, empty, setgid bit present. The forbidden top-level
+`/opt/eventcast/media-node/srs-output` path is absent.
+
+**Linode Cloud Firewall audit (PASS)**: firewall `eventcast-media-node-fw-01`
+is enabled and attached only to the intended node. Inbound default `Drop`;
+outbound default `Accept`. TCP `22` and ICMP are allowed. `1935`, `1985`,
+`9972`, and `8085` are all blocked. RTMP `1935` must remain blocked until a
+separately approved publisher-CIDR rule is added, and only immediately before
+first container start.
+
+**Gate 2 (PASS)**: `/root/.docker` = `root:root`, mode `0700`.
+`/root/.docker/config.json` = `root:root`, mode `0600`. `docker login`
+succeeded. Config file contents were never printed or read.
+
+**Gate 4 (PASS)**: exact approved image confirmed present —
+`ghcr.io/renugopal/eventcast-media-agent-private@sha256:4d3c65b38843c89c97f81cab631183442b52ed7cd8a308941f8222eb385b77da`.
+
+**Gate 5 (PASS)**: exact approved image confirmed present —
+`ossrs/srs@sha256:4e293846ad2448ff1a0157aa2c694e7c451fff5046c93b5bc6da0fa0384ef998`.
+
+**Gate 6A (FAIL, expected)**: the deployment bundle was confirmed absent from
+the host at the time this gate was checked — this failure is exactly why Gate
+6B/6C exist and is not an anomaly.
+
+**Gate 6B (PASS, Claude-session-verified)**: the minimum five-file non-secret
+production bundle was identified and verified directly from this repository's
+Git-blob content (bypassing this Windows checkout's CRLF working-tree
+conversion): `livestream-infra/infra/media-node/compose/docker-compose.yml`,
+`compose/deploy.sh`, `compose/rollback.sh`,
+`compose/lib/validate-image-reference.sh`, and `livestream-infra/infra/media-node/srs/srs.conf`.
+Canonical checksums, ownership/mode targets, symlink checks, shell-syntax
+checks, and CRLF-freedom were all confirmed. See the deployment plan record for
+the full manifest.
+
+**Gate 6C (PASS)**: the five files above were installed atomically on the host
+from exact Git blob content, with checksums, ownership, modes, zero CR bytes,
+and shell syntax verified post-install. Created:
+`/opt/eventcast/media-node/app/compose` and
+`/opt/eventcast/media-node/app/compose/lib`, both `root:root`, mode `0750`.
+Installed: `app/compose/docker-compose.yml`, `app/compose/deploy.sh`,
+`app/compose/rollback.sh`, `app/compose/lib/validate-image-reference.sh`, and
+`config/srs/srs.conf` (the pre-existing `config/srs` directory was reused
+unchanged). No temporary files remain. `config/assignments` was untouched.
+`.env` remains absent. Zero containers running; service still inactive; TCP
+`1935` still not listening. No Compose render, firewall change, Docker-auth
+change, image change, or repository/Git mutation occurred as part of this
+gate.
+
+**Status update (2026-07-29)**: the `.env` contract audit, `.env`
+provisioning, Compose render, first container start, and a first end-to-end
+validation publish have all since completed — see "Gate 10B — first
+end-to-end RTMP-to-HLS validation (2026-07-29)" below for the full record.
+**Current next action**: a production-like soak test, then a controlled real
+event, each still requires separate approval.
 
 ## GCP retirement status — owner-reported, not newly cloud-verified this phase
 
@@ -79,6 +170,13 @@ evidence-boundary note below.
 
 **Do not delete** the GCP VM, its disk, its static IP, or any related resource
 until Linode deployment and end-to-end validation are complete.
+
+**DNS note (2026-07-29)**: during Gate 10B, `live.eventcast.pro` was found
+still resolving to the GCP VM's old IP (`34.100.142.25`) rather than the
+Linode host, and was corrected to `172.105.52.253`. This confirms the GCP
+IP was still live in DNS up to that point — a relevant fact for any future
+GCP retirement decision, independent of the VM's own reported compute state
+above.
 
 ## SRS runtime identity and provisional shared-output contract
 
@@ -101,6 +199,55 @@ UID/GID `65532:65532`, and its SRS-output mount is read-only.
 creates it, changes its ownership, or changes its mode. No SRS Compose `user:`
 override is configured or approved. The tracked Compose command uses
 `umask 0027; exec ./objs/srs -c conf/eventcast.conf` through `/bin/sh`.
+
+## Gate 10B — first end-to-end RTMP-to-HLS validation (2026-07-29)
+
+The first successful end-to-end RTMP-to-HLS validation was performed against
+the deployed Linode stack using a synthetic FFmpeg publisher (controlled test
+traffic, not a real event).
+
+**Identifiers**
+
+| Field | Value |
+| --- | --- |
+| Event ID | `f097036e-e02e-4554-992a-b4c66e863a09` |
+| Assignment ID | `26cc7be0-796c-41bd-b80a-c0ed62c003a4` |
+| Media node | `media-node-staging-02` |
+| Node UUID | `0c7d321f-43a6-42b9-93d4-ee641f6f307f` |
+| Linode hostname | `eventcast-media-node-akm-01` |
+| Linode public IP | `172.105.52.253` |
+| Ingest hostname | `live.eventcast.pro` |
+
+**Root cause found before the successful retry**: `live.eventcast.pro` still
+resolved to the retired/old GCP IP `34.100.142.25` rather than the Linode
+host. The Cloudflare A record (DNS-only, no proxy) was corrected to
+`172.105.52.253`. After correction, and while a temporary firewall rule was
+active, `Test-NetConnection live.eventcast.pro:1935` succeeded. The earlier
+FFmpeg timeout was therefore caused by stale DNS, not by the publisher, SRS,
+Media Agent, or the Linode firewall.
+
+**Successful controlled publisher result**: `classification=success`,
+`wrapper_exit_code=0`, `ffmpeg_exit_code=0`, `process_started=True`,
+`timed_out=False`, `sanitized_failure_category=none`, `frames_sent=146`,
+`elapsed_seconds=5.14`; publisher process exit code `0`; no publisher stderr.
+
+**Server-side evidence**: SRS container found; Media Agent container found;
+SRS handshake count `1`; SRS publish count `5`; SRS `on_publish` count `1`;
+Media Agent `on_publish` count `2`; Media Agent accept count `1`; Media Agent
+reject count `0`; HLS playlist count `1`; HLS segment count `14`.
+
+**Cleanup completed**: the temporary Linode firewall rule for TCP `1935` from
+`122.175.55.11/32` was removed; `Test-NetConnection live.eventcast.pro:1935`
+returned `False` afterward; assignment deactivation returned HTTP `200`; the
+retry relay file was deleted; current state is safe idle — no active stream,
+assignment disabled, TCP `1935` externally closed, R2 disabled, YouTube
+disabled.
+
+**Interpretation**: Gate 10B proves the complete path — synthetic FFmpeg
+publisher → public DNS → Linode firewall → SRS RTMP ingest → Media Agent
+authorization → HLS playlist and segments. A production-like soak test and a
+controlled real event both remain separate, not-yet-performed, future
+approvals (see "Remaining gates before deployment" below).
 
 ## v1.0.0 publish event and recovery status
 
@@ -197,27 +344,26 @@ remained unchanged (private visibility, version count 1, tag
 
 ### Remaining gates before deployment
 
-The next gated work, in order, each requiring separate approval:
+Gates 1 through 6C (Linode read-only preflight, host directory remediation,
+firewall audit, private-GHCR authentication, immutable Media Agent/SRS pulls,
+and non-secret deployment-bundle installation) are complete — see "Linode
+deployment gate status" above for the full record and provenance. The next
+gated work, in order, each requiring separate approval:
 
 1. **Next real publish (v1.0.1 or later).** No real publish beyond v1.0.0 has
    been authorized. The redesigned workflow is validated but a future
-   successful release run is a separate future authorization.
-2. **Linode deployment preflight.** Requires separately approved secret-safe
-   provisioning of registry pull access on the Linode host. No deployment or
-   VM pull has occurred; the Linode VM remains undeployed with no EventCast
-   containers running.
-3. **Secure private-GHCR authentication planning.** Design and approval of the
-   mechanism for the Linode host to authenticate to the private GHCR package,
-   without introducing a PAT or exposing credentials in this repository.
-4. **Immutable image pull.** Pull only by digest reference on the Linode host,
-   under separate approval.
-5. **SRS + Media Agent deployment.** Compose preflight and deployment remain
-   independent gates after (2)–(4).
-6. **End-to-end validation.** Full deterministic validation of the deployed
-   stack before any production-like use.
-7. **Production-like soak test.** Under separate approval, after (6) passes.
-8. **Controlled real event.** Only under separate approval, after (7) passes.
-   No real livestream has been performed to date.
+   successful release run is a separate future authorization. (Unrelated to
+   the livestream publish validation in items 2-8 below — this item concerns
+   the Media Agent Docker image release workflow.)
+2. **Read-only `.env` contract audit.** ✅ Complete.
+3. **`.env` provisioning.** ✅ Complete.
+4. **Compose render.** ✅ Complete.
+5. **First container start.** ✅ Complete.
+6. **End-to-end validation.** ✅ Complete — see "Gate 10B — first end-to-end
+   RTMP-to-HLS validation (2026-07-29)" above.
+7. **Production-like soak test.** Still open, under separate approval.
+8. **Controlled real event.** Still open, under separate approval, after (7)
+   passes. No real (non-synthetic) livestream has been performed to date.
 9. **GCP retirement.** Only after successful Linode validation and a period of
    stability observation; see "GCP retirement status" above for the current
    owner-reported VM state and the do-not-delete condition.
@@ -259,9 +405,11 @@ permissions existed, and `SIGTERM` cleanly stopped the exec-wrapped PID 1.
 - Older GCP validation claims and legacy v1.2 runbook statements are historical
   only; they do not establish the current Linode, cloud, Docker, routing, or
   production state.
-- Current external state for DNS, firewalls, Supabase, R2, B2, YouTube, node
-  registration, GHCR package visibility/publication, and live traffic is
-  unverified here.
+- Current external state for DNS, Supabase, R2, B2, YouTube, node
+  registration, and live traffic is unverified here. The Linode Cloud
+  Firewall and GHCR package visibility/publication/pull state are recorded
+  above ("Linode deployment gate status") as externally reported through
+  ChatGPT Work, not independently re-verified by Claude Code.
 - Still prohibited without separate approval: VM changes, Docker daemon or
   registry access, image build/pull/push, deployment, secret access, DNS,
   firewall changes, node registration, storage changes, staging, commit, push,

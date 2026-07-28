@@ -47,6 +47,11 @@ index, not a deployment authorization or an architecture decision record.
 - A Linode media-node host bootstrap and SSH-hardening phase was directly
   verified in a prior authorized operation; it was not rechecked during this
   local documentation phase.
+- Gate 10B (2026-07-29): a first end-to-end synthetic RTMP-to-HLS publish
+  validation succeeded against the deployed Linode stack, after correcting a
+  stale DNS record. See
+  [`../../livestream-infra/CURRENT_STATE.md`](../../livestream-infra/CURRENT_STATE.md)
+  for the full record.
 - The Media Agent release workflow redesign (Phase 2) is complete and
   validated: commits `899f8c530160129eb678efcac8e8bb7be9cb7c60` and
   `f88f6c533b6121f1bd27cf51baed5ec2ddf08e71` (the Phase 2 validated
@@ -67,7 +72,14 @@ index, not a deployment authorization or an architecture decision record.
 ## Current livestream infrastructure status
 
 The local SRS/Media Agent Compose configuration and host-bootstrap material
-exist. The host is not authorized for deployment by this document.
+exist. Private-GHCR authentication, the immutable Media Agent/SRS pulls, and
+non-secret deployment-bundle installation on the Linode host are complete —
+see "Linode deployment gate status (through Gate 6C)" below. The Compose
+stack has since been started with a provisioned `.env`, and a synthetic
+FFmpeg end-to-end RTMP-to-HLS validation succeeded (Gate 10B, 2026-07-29) —
+see the linked livestream state below for the full record. A production-like
+soak test and a real-encoder/controlled real-event validation both remain
+pending, each under separate approval.
 
 The first private GHCR Media Agent image has been published and retained.
 The canonical immutable reference is:
@@ -96,9 +108,13 @@ all 7 jobs green, and an authorized negative `workflow_dispatch` (run
 `30182697404`) confirmed the redesigned committed-evidence cross-check fails
 closed before any push — a successful negative gate validation, not an active
 CI blocker. No real v1.0.1 (or later) publish has been authorized; the next
-successful Media Agent release remains a separate future authorization. No
-deployment or VM pull has occurred; the Linode VM remains undeployed with no
-EventCast containers running, and no real livestream has been performed.
+successful Media Agent release remains a separate future authorization. The
+Linode host has since completed the immutable Media Agent pull and the
+non-secret deployment-bundle installation (see "Linode deployment gate status"
+below); the Compose stack has since been started with a provisioned `.env`,
+and a synthetic FFmpeg end-to-end RTMP-to-HLS validation succeeded (Gate 10B,
+2026-07-29). A production-like soak test and a real-encoder/controlled
+real-event validation both remain pending, each under separate approval.
 
 The state-record commit `eef2a6edad5d2abe847872b4f04012041812c644` (`chore:
 update state records after workflow redesign validation`) is the current `main`
@@ -116,18 +132,45 @@ VM pull and deployment remain separate approvals.
 See [`../../livestream-infra/CURRENT_STATE.md`](../../livestream-infra/CURRENT_STATE.md)
 for the GCP retirement status and the full next-gated-work sequence.
 
+## Linode deployment gate status (through Gate 6C)
+
+**Evidence boundary**: Gates 1, 1.5, the Linode Cloud Firewall audit, 2, 4, 5,
+and 6C were executed externally through ChatGPT Work and reported to the
+repository maintainer; they were **not independently re-run or verified by
+Claude Code** in any session. Gate 6B was verified directly by Claude Code
+from this repository's Git-blob content. Full per-gate evidence (host facts,
+directory ownership/mode, firewall rule set, image digests, bundle manifest)
+is recorded in [`../../livestream-infra/CURRENT_STATE.md`](../../livestream-infra/CURRENT_STATE.md)
+under "Linode deployment gate status" — this section is a summary index only.
+
+| Gate | Result | Provenance |
+| --- | --- | --- |
+| 1 — first read-only SSH preflight | PASSED WITH WARNINGS | External (ChatGPT Work) |
+| 1.5 — host directory/permission remediation | PASS | External (ChatGPT Work) |
+| Linode Cloud Firewall audit | PASS | External (ChatGPT Work) |
+| 2 — private GHCR authentication | PASS | External (ChatGPT Work) |
+| 4 — Media Agent immutable pull | PASS | External (ChatGPT Work) |
+| 5 — SRS immutable verification | PASS | External (ChatGPT Work) |
+| 6A — deployment bundle presence on host | FAIL (bundle absent at that time) | External (ChatGPT Work) |
+| 6B — deployment bundle manifest construction | PASS | **Claude Code, this repository's Git-blob content** |
+| 6C — deployment bundle installation | PASS | External (ChatGPT Work) |
+
+**Current next action**: a read-only `.env` contract audit only. `.env`
+provisioning, Compose render, container start, and firewall changes each
+remain separate future approvals.
+
 ## Pending major work
 
 1. Authorize and execute the next real Media Agent publish (v1.0.1 or later)
    using the redesigned, validated `media-agent-release.yml`. This is a
    separate future authorization; no real publish beyond v1.0.0 has occurred.
-2. Provision deployment secrets through an approved mechanism, then perform
-   separately approved Linode deployment preflight, secure private-GHCR
-   authentication planning, immutable-digest image pull, SRS + Media Agent
-   deployment, end-to-end validation, and — only afterward — a production-like
-   soak test and a controlled real event, each under separate approval. No
-   deployment or VM pull has occurred; the Linode VM remains undeployed with
-   no EventCast containers running; no real livestream has been performed.
+2. The `.env` contract audit, `.env` provisioning, Compose render, first
+   container start, and a first end-to-end synthetic validation publish
+   (Gate 10B, 2026-07-29) are all now complete — see
+   [`../../livestream-infra/CURRENT_STATE.md`](../../livestream-infra/CURRENT_STATE.md)
+   for the full record. A production-like soak test and a controlled real
+   event remain, each under separate approval; no real (non-synthetic)
+   livestream has been performed to date.
 3. Reconcile legacy Wasabi/Restreamer-era material with the current R2/B2 and
    SRS/Media Agent decisions without treating legacy text as live state.
 4. Verify current external deployment, routing, migration, and storage state

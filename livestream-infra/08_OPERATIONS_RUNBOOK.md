@@ -4,6 +4,8 @@
 
 Confirm that the event is assigned to a healthy node, the publishing window is correct, the stream key is enabled, disk capacity is sufficient, R2 uploads are healthy, the Media Agent queue is empty or current, the live-manifest cache bypass is active, and the node is not in maintenance mode. Verify the encoder profile and perform a short private publish test when operationally possible.
 
+Before opening RTMP access or publishing, confirm the ingest hostname resolves to the currently active media node's IP — a stale DNS record pointing at a retired node has caused a publish failure before (Gate 10B, 2026-07-29) and produces a connection timeout that is easy to misattribute to the publisher, SRS, or the firewall.
+
 For a YouTube-enabled event, verify that the secret reference resolves and the destination is scheduled. Do not expose or paste the key into logs or tickets.
 
 ## Start of live
