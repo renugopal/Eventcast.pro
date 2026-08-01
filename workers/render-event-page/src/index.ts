@@ -1,5 +1,13 @@
 import weddingTemplate01 from '../templates/wedding-template-01/index.html';
 import { generateWeddingWebSEO } from './wedding-web-seo';
+import {
+  buildR2Key,
+  fallbackCacheControl,
+  fallbackContentType,
+  isValidPlaybackId,
+  parseHlsAssetPath,
+  rewriteManifest,
+} from './hls-playback.mjs';
 import dhotiTemplate from '../templates/dhoti-ceremony-template-01/index.html';
 import halfSareeTemplate from '../templates/half-saree-template-01/index.html';
 import engagementTemplate from '../templates/harika-adithya-engagement/index.html';
@@ -14,6 +22,16 @@ export interface Env {
   SUPABASE_SERVICE_ROLE_KEY: string;
   /** Anon key — injected into window.WEDDING_CONFIG for client-side Supabase calls */
   SUPABASE_ANON_KEY: string;
+  /**
+   * Private R2 bucket holding Media Agent output (manifests + segments).
+   * Read exclusively through this binding — the bucket is never public and
+   * no direct R2 URL is ever constructed or returned.
+   *
+   * Optional at the type level on purpose: the binding is configured in a
+   * follow-up slice, and until then every playback request must fail as an
+   * ordinary 404 rather than a runtime exception.
+   */
+  MEDIA_R2?: R2Bucket;
 }
 
 // Map template_id → bundled HTML string. Add new entries here as you add templates.
@@ -176,7 +194,7 @@ self.addEventListener('fetch', (event) => {
         : (event.photographers ?? null);
 
       if (hlsMatch) {
-        return proxyHlsAsset(hlsMatch[2], url.search);
+        return serveHlsAssetFromR2(env, slug, event.id, hlsMatch[2]);
       }
 
       if (deferredServiceWorkerResponse) {
@@ -254,7 +272,14 @@ self.addEventListener('fetch', (event) => {
       // Falls back to 'Unknown' on local dev or if the header is absent.
       const countryCode = request.headers.get('CF-IPCountry') ?? 'Unknown';
 
-      const rendered = renderEvent(templateHtml, event, photographer, slug, env, countryCode, hostname);
+      // Live playback is offered only when this event currently has an
+      // enabled media assignment; the playback_id itself never reaches the
+      // page, only the fact that the public live route is servable.
+      const hasLivePlayback = (await resolveEnabledPlaybackId(env, event.id)) !== null;
+
+      const rendered = renderEvent(
+        templateHtml, event, photographer, slug, env, countryCode, hostname, hasLivePlayback,
+      );
 
       return new Response(rendered, {
         status: 200,
@@ -442,28 +467,103 @@ function getHeroTimeLabel(eventType: string, notes?: string | null): string {
 // ---------------------------------------------------------------------------
 // Core renderer — mirrors every HTML mutation that used to happen in route.ts
 // ---------------------------------------------------------------------------
-async function proxyHlsAsset(assetPath: string, search: string): Promise<Response> {
-  const upstream = `https://media.eventcast.pro/memfs/${assetPath}${search}`;
-  const upstreamRes = await fetch(upstream, {
-    headers: { Accept: '*/*' },
-    cf: { cacheTtl: 0 },
-  });
+/**
+ * Look up this event's currently-enabled playback_id via the service-role
+ * PostgREST endpoint. Returns null for a disabled/absent assignment, a
+ * malformed playback_id, or any upstream failure — callers must treat every
+ * null identically so a caller can never distinguish "no assignment" from
+ * "assignment disabled" from "lookup failed".
+ */
+async function resolveEnabledPlaybackId(env: Env, eventId: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/media_event_assignments` +
+        `?event_id=eq.${encodeURIComponent(eventId)}` +
+        `&enabled=is.true` +
+        `&select=playback_id` +
+        `&limit=1`,
+      {
+        headers: {
+          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+    if (!res.ok) return null;
 
-  if (!upstreamRes.ok) {
-    return new Response(upstreamRes.body, { status: upstreamRes.status, statusText: upstreamRes.statusText });
+    const rows: { playback_id?: string | null }[] = await res.json();
+    const playbackId = rows[0]?.playback_id;
+    return isValidPlaybackId(playbackId) ? (playbackId as string) : null;
+  } catch {
+    // Log the failure class only — never the event id or the playback id.
+    console.error('[render-event-page] playback assignment lookup failed');
+    return null;
+  }
+}
+
+/**
+ * Serve one HLS asset out of the private R2 bucket.
+ *
+ * Ordering is the security property: the caller has already passed the
+ * public-and-unarchived event gate, so this function only ever runs for an
+ * event a visitor is allowed to watch. Within it, the request path is
+ * validated against a strict allowlist *before* a playback_id is resolved
+ * and before any key is constructed.
+ *
+ * Every failure — unparseable path, no enabled assignment, unconfigured
+ * binding, missing object, R2 error, unrewritable manifest — returns the
+ * exact same 404, so responses reveal nothing about which objects, buckets,
+ * or assignments exist.
+ */
+async function serveHlsAssetFromR2(
+  env: Env,
+  slug: string,
+  eventId: string,
+  assetPath: string,
+): Promise<Response> {
+  const asset = parseHlsAssetPath(assetPath);
+  if (!asset) return notFound();
+
+  const bucket = env.MEDIA_R2;
+  if (!bucket) return notFound();
+
+  const playbackId = await resolveEnabledPlaybackId(env, eventId);
+  if (!playbackId) return notFound();
+
+  const key = buildR2Key(playbackId, asset.assetPath);
+  if (!key) return notFound();
+
+  let object: R2ObjectBody | null;
+  try {
+    object = await bucket.get(key);
+  } catch {
+    console.error('[render-event-page] R2 read failed');
+    return notFound();
+  }
+  if (!object) return notFound();
+
+  const contentType = object.httpMetadata?.contentType ?? fallbackContentType(asset);
+  const cacheControl = object.httpMetadata?.cacheControl ?? fallbackCacheControl(asset);
+  const headers = {
+    'Content-Type': contentType,
+    'Cache-Control': cacheControl,
+    'Access-Control-Allow-Origin': '*',
+  };
+
+  if (asset.kind === 'segment') {
+    // Segments are opaque media bytes — streamed straight through.
+    return new Response(object.body, { status: 200, headers });
   }
 
-  const contentType = upstreamRes.headers.get('Content-Type')
-    ?? (assetPath.endsWith('.ts') ? 'video/MP2T' : 'application/vnd.apple.mpegurl');
+  // Manifests carry absolute-path segment references addressed by the
+  // private playback_id; they must be rewritten onto the public route
+  // before leaving the Worker. rewriteManifest fails closed, and a failure
+  // is indistinguishable from a missing object.
+  const rewritten = rewriteManifest(await object.text(), playbackId, slug);
+  if (rewritten === null) return notFound();
 
-  return new Response(upstreamRes.body, {
-    status: upstreamRes.status,
-    headers: {
-      'Content-Type': contentType,
-      'Cache-Control': 'no-store, no-cache, must-revalidate',
-      'Access-Control-Allow-Origin': '*',
-    },
-  });
+  return new Response(rewritten, { status: 200, headers });
 }
 
 function renderEvent(
@@ -474,6 +574,7 @@ function renderEvent(
   env: Env,
   countryCode: string = 'Unknown',
   hostname: string = 'eventcast.pro',
+  hasLivePlayback: boolean = false,
 ): string {
   const groom      = event.groom_name ?? event.celebrant_name ?? 'Event';
   const bride      = event.bride_name ?? 'Family';
@@ -558,7 +659,12 @@ function renderEvent(
 
   // VOD / HLS playback URLs — YouTube links stay on youtubeId only, never HLS player
   const vodArchiveUrl = event.vod_link ?? '';
-  const liveHlsUrl = event.restreamer_hls_url ? `https://${hostname}/events/${slug}/hls/${slug}.m3u8` : '';
+  // Live playback now comes from the private R2 bucket via this Worker's own
+  // route; the legacy Restreamer/memfs URL shape is gone. VOD selection is
+  // unchanged: it still follows vod_link exactly as before.
+  const liveHlsUrl = hasLivePlayback
+    ? `https://${hostname}/events/${encodeURIComponent(slug)}/hls/live/index.m3u8`
+    : '';
   const archivePlaybackUrl = isNativePlaybackUrl(vodArchiveUrl) ? vodArchiveUrl : '';
   const primaryHlsUrl = liveHlsUrl || archivePlaybackUrl;
 
@@ -785,6 +891,21 @@ window.WEDDING_CONFIG = {
   }
 
   return html;
+}
+
+/**
+ * The single 404 used by every playback-path failure. Body, headers, and
+ * status are constant so no failure mode is distinguishable from another,
+ * and nothing about buckets, keys, playback ids, or object existence leaks.
+ */
+function notFound(): Response {
+  return new Response('Not Found', {
+    status: 404,
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-store, max-age=0',
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -73,7 +73,7 @@ test('private, synthetic, archived, and missing events share a generic non-cache
 
 test('HLS proxy, manifest, and service-worker responses cannot bypass the visibility lookup', () => {
   const eventResolvedAt = source.indexOf('const event = events[0];');
-  const hlsReturnAt = source.indexOf('return proxyHlsAsset(hlsMatch[2], url.search);');
+  const hlsReturnAt = source.indexOf('return serveHlsAssetFromR2(env, slug, event.id, hlsMatch[2]);');
   const serviceWorkerReturnAt = source.indexOf('return deferredServiceWorkerResponse;');
   const manifestAt = source.indexOf('if (manifestMatch) {');
 
