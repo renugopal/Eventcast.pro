@@ -34,6 +34,7 @@ type Session struct {
 	ID             string
 	EventID        string
 	IngestID       string
+	PlaybackID     string
 	Status         string
 	StartedAt      time.Time
 	DisconnectedAt sql.NullTime
@@ -47,14 +48,18 @@ type Session struct {
 // Callers map this to the SRS on_publish DUPLICATE_PUBLISHER rejection.
 var ErrConflictingActivePublisher = errors.New("store: a session is already active for this event")
 
-// CreateSession inserts a new active session for eventID/ingestID. The
-// partial unique index idx_ingest_sessions_one_active_per_event is the
-// authoritative concurrency guard: if another goroutine committed a
-// starting/active session for the same event first, this call returns
+// CreateSession inserts a new active session for eventID/ingestID,
+// pinning playbackID for the lifetime of this session: every segment
+// uploaded under this session's id uses this exact value, never a later
+// value the assignment's playback_id may take on after a subsequent
+// activation. The partial unique index
+// idx_ingest_sessions_one_active_per_event is the authoritative
+// concurrency guard: if another goroutine committed a starting/active
+// session for the same event first, this call returns
 // ErrConflictingActivePublisher rather than racing an application-level
 // check-then-insert. Reconnection always reaches this path with a fresh
 // session id; it never reopens or mutates a prior session's identity.
-func (s *Store) CreateSession(ctx context.Context, eventID, ingestID string, now time.Time) (Session, error) {
+func (s *Store) CreateSession(ctx context.Context, eventID, ingestID, playbackID string, now time.Time) (Session, error) {
 	id, err := newID("sess")
 	if err != nil {
 		return Session{}, err
@@ -62,9 +67,9 @@ func (s *Store) CreateSession(ctx context.Context, eventID, ingestID string, now
 
 	nowStr := now.UTC().Format(time.RFC3339Nano)
 	_, err = s.db.ExecContext(ctx, `
-		INSERT INTO ingest_sessions (id, event_id, ingest_id, status, started_at, end_reason, last_activity_at, segment_count)
-		VALUES (?, ?, ?, ?, ?, '', ?, 0)`,
-		id, eventID, ingestID, SessionActive, nowStr, nowStr)
+		INSERT INTO ingest_sessions (id, event_id, ingest_id, playback_id, status, started_at, end_reason, last_activity_at, segment_count)
+		VALUES (?, ?, ?, ?, ?, ?, '', ?, 0)`,
+		id, eventID, ingestID, playbackID, SessionActive, nowStr, nowStr)
 	if err != nil {
 		if isUniqueConstraintErr(err) {
 			return Session{}, ErrConflictingActivePublisher
@@ -76,10 +81,28 @@ func (s *Store) CreateSession(ctx context.Context, eventID, ingestID string, now
 		ID:             id,
 		EventID:        eventID,
 		IngestID:       ingestID,
+		PlaybackID:     playbackID,
 		Status:         SessionActive,
 		StartedAt:      now.UTC(),
 		LastActivityAt: now.UTC(),
 	}, nil
+}
+
+// GetSessionPlaybackID returns the playback_id pinned to sessionID at
+// creation time, or found=false if no such session exists. Deliberately
+// narrower than a full Session fetch: this is the upload worker's hot
+// path for every segment, and it needs exactly this one column, not a
+// full row scan/timestamp parse.
+func (s *Store) GetSessionPlaybackID(ctx context.Context, sessionID string) (string, bool, error) {
+	var playbackID string
+	err := s.db.QueryRowContext(ctx, `SELECT playback_id FROM ingest_sessions WHERE id = ?`, sessionID).Scan(&playbackID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("store: get session %s playback_id: %w", sessionID, err)
+	}
+	return playbackID, true, nil
 }
 
 // FindMostRecentByIngestID returns the most recently started session
@@ -90,7 +113,7 @@ func (s *Store) CreateSession(ctx context.Context, eventID, ingestID string, now
 // a given ingest_id can ever be starting/active at once.
 func (s *Store) FindMostRecentByIngestID(ctx context.Context, ingestID string) (Session, bool, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, event_id, ingest_id, status, started_at, disconnected_at, end_reason, last_activity_at, segment_count
+		SELECT id, event_id, ingest_id, playback_id, status, started_at, disconnected_at, end_reason, last_activity_at, segment_count
 		FROM ingest_sessions WHERE ingest_id = ? ORDER BY started_at DESC LIMIT 1`, ingestID)
 	sess, err := scanSession(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -107,7 +130,7 @@ func scanSession(row *sql.Row) (Session, error) {
 	var startedAt string
 	var disconnectedAt sql.NullString
 	var lastActivityAt string
-	if err := row.Scan(&sess.ID, &sess.EventID, &sess.IngestID, &sess.Status, &startedAt,
+	if err := row.Scan(&sess.ID, &sess.EventID, &sess.IngestID, &sess.PlaybackID, &sess.Status, &startedAt,
 		&disconnectedAt, &sess.EndReason, &lastActivityAt, &sess.SegmentCount); err != nil {
 		return Session{}, err
 	}
@@ -189,7 +212,7 @@ func (s *Store) ReconcileStaleActive(ctx context.Context, staleBefore, now time.
 // confirm no session is still starting/active before it will finalize.
 func (s *Store) ListSessionsByEvent(ctx context.Context, eventID string) ([]Session, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, event_id, ingest_id, status, started_at, disconnected_at, end_reason, last_activity_at, segment_count
+		SELECT id, event_id, ingest_id, playback_id, status, started_at, disconnected_at, end_reason, last_activity_at, segment_count
 		FROM ingest_sessions WHERE event_id = ? ORDER BY started_at`, eventID)
 	if err != nil {
 		return nil, fmt.Errorf("store: list sessions for event %s: %w", eventID, err)
@@ -202,7 +225,7 @@ func (s *Store) ListSessionsByEvent(ctx context.Context, eventID string) ([]Sess
 		var startedAt string
 		var disconnectedAt sql.NullString
 		var lastActivityAt string
-		if err := rows.Scan(&sess.ID, &sess.EventID, &sess.IngestID, &sess.Status, &startedAt,
+		if err := rows.Scan(&sess.ID, &sess.EventID, &sess.IngestID, &sess.PlaybackID, &sess.Status, &startedAt,
 			&disconnectedAt, &sess.EndReason, &lastActivityAt, &sess.SegmentCount); err != nil {
 			return nil, fmt.Errorf("store: scan session: %w", err)
 		}

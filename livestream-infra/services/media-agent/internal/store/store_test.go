@@ -55,7 +55,7 @@ func TestOpenIsReentrantOnExistingDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open() first error: %v", err)
 	}
-	if _, err := first.CreateSession(ctx, "event-1", "ingest-1", time.Now()); err != nil {
+	if _, err := first.CreateSession(ctx, "event-1", "ingest-1", "pb-1", time.Now()); err != nil {
 		t.Fatalf("CreateSession() error: %v", err)
 	}
 	if err := first.Close(); err != nil {
@@ -90,7 +90,7 @@ func TestPingReportsHealthyDatabase(t *testing.T) {
 func TestCheckpointSucceeds(t *testing.T) {
 	st := openTestStore(t)
 	ctx := context.Background()
-	if _, err := st.CreateSession(ctx, "event-1", "ingest-1", time.Now()); err != nil {
+	if _, err := st.CreateSession(ctx, "event-1", "ingest-1", "pb-1", time.Now()); err != nil {
 		t.Fatalf("CreateSession() error: %v", err)
 	}
 	if err := st.Checkpoint(ctx); err != nil {

@@ -26,7 +26,7 @@ func TestGetMetricsSnapshotReflectsState(t *testing.T) {
 	if _, err := st.ImportAssignments(ctx, []Assignment{testAssignment("stream-1")}); err != nil {
 		t.Fatalf("ImportAssignments() error: %v", err)
 	}
-	sess, err := st.CreateSession(ctx, "event-stream-1", "stream-1", time.Now())
+	sess, err := st.CreateSession(ctx, "event-stream-1", "stream-1", "pb-1", time.Now())
 	if err != nil {
 		t.Fatalf("CreateSession() error: %v", err)
 	}

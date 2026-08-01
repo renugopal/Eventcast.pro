@@ -224,8 +224,8 @@ func TestRealMigration0002UpgradesAnExistingV1Database(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SchemaVersion() error: %v", err)
 	}
-	if version != 3 {
-		t.Errorf("SchemaVersion() after upgrade = %d, want 3", version)
+	if version != 4 {
+		t.Errorf("SchemaVersion() after upgrade = %d, want 4", version)
 	}
 
 	// Pre-existing data must survive untouched, and new columns must

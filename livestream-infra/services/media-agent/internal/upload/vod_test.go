@@ -17,7 +17,7 @@ func TestFinalizeBlocksOnActiveSession(t *testing.T) {
 	ctx := context.Background()
 	st := openTestStore(t)
 	importTestAssignment(t, st, "evt1", "ingest1", "pb1")
-	if _, err := st.CreateSession(ctx, "evt1", "ingest1", time.Now()); err != nil {
+	if _, err := st.CreateSession(ctx, "evt1", "ingest1", "pb-1", time.Now()); err != nil {
 		t.Fatalf("CreateSession() error: %v", err)
 	}
 
@@ -35,7 +35,7 @@ func TestFinalizeBlocksOnUnresolvedSegments(t *testing.T) {
 	ctx := context.Background()
 	st := openTestStore(t)
 	importTestAssignment(t, st, "evt1", "ingest1", "pb1")
-	sess, err := st.CreateSession(ctx, "evt1", "ingest1", time.Now())
+	sess, err := st.CreateSession(ctx, "evt1", "ingest1", "pb-1", time.Now())
 	if err != nil {
 		t.Fatalf("CreateSession() error: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestFinalizeBuildsPlayableEndlistPlaylist(t *testing.T) {
 	ctx := context.Background()
 	st := openTestStore(t)
 	importTestAssignment(t, st, "evt1", "ingest1", "pb1")
-	sess, err := st.CreateSession(ctx, "evt1", "ingest1", time.Now())
+	sess, err := st.CreateSession(ctx, "evt1", "ingest1", "pb-1", time.Now())
 	if err != nil {
 		t.Fatalf("CreateSession() error: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestFinalizeIsIdempotentForUnchangedSet(t *testing.T) {
 	ctx := context.Background()
 	st := openTestStore(t)
 	importTestAssignment(t, st, "evt1", "ingest1", "pb1")
-	sess, err := st.CreateSession(ctx, "evt1", "ingest1", time.Now())
+	sess, err := st.CreateSession(ctx, "evt1", "ingest1", "pb-1", time.Now())
 	if err != nil {
 		t.Fatalf("CreateSession() error: %v", err)
 	}
@@ -146,7 +146,7 @@ func TestFinalizeProceedsPastDeadLetteredGap(t *testing.T) {
 	ctx := context.Background()
 	st := openTestStore(t)
 	importTestAssignment(t, st, "evt1", "ingest1", "pb1")
-	sess, err := st.CreateSession(ctx, "evt1", "ingest1", time.Now())
+	sess, err := st.CreateSession(ctx, "evt1", "ingest1", "pb-1", time.Now())
 	if err != nil {
 		t.Fatalf("CreateSession() error: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestFinalizeFailsIfAReferencedObjectIsMissing(t *testing.T) {
 	ctx := context.Background()
 	st := openTestStore(t)
 	importTestAssignment(t, st, "evt1", "ingest1", "pb1")
-	sess, err := st.CreateSession(ctx, "evt1", "ingest1", time.Now())
+	sess, err := st.CreateSession(ctx, "evt1", "ingest1", "pb-1", time.Now())
 	if err != nil {
 		t.Fatalf("CreateSession() error: %v", err)
 	}

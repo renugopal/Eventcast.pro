@@ -274,7 +274,7 @@ func (h *Handlers) handlePublish(ctx context.Context, p Payload) (bool, string) 
 		return true, "PUBLISH_WINDOW_CLOSED"
 	}
 
-	session, err := h.Store.CreateSession(ctx, assignment.EventID, ingestID, now)
+	session, err := h.Store.CreateSession(ctx, assignment.EventID, ingestID, assignment.PlaybackID, now)
 	if err != nil {
 		if errors.Is(err, store.ErrConflictingActivePublisher) {
 			h.Logger.Warn("on_publish rejected: a publisher is already active for this event",

@@ -130,22 +130,29 @@ func (w *Worker) upload(ctx context.Context, job store.SegmentJob) {
 	reqCtx, cancel := context.WithTimeout(ctx, w.cfg.RequestTimeout)
 	defer cancel()
 
-	assignment, found, err := w.store.GetAssignmentByEventID(reqCtx, job.EventID)
+	// The playback_id used for this segment's object key is the one
+	// pinned to its session at on_publish time (internal/srs.handlePublish),
+	// never resolved fresh from the mutable cached assignment here. The
+	// assignment's own playback_id can change after a later activation
+	// while this session's uploads are still in flight; using the
+	// session's pinned value keeps every segment of one continuous RTMP
+	// session under the same R2 prefix regardless of that.
+	playbackID, found, err := w.store.GetSessionPlaybackID(reqCtx, job.SessionID)
 	if err != nil || !found {
-		// No cached assignment yet (or a lookup error): the playback_id
+		// No session record yet (or a lookup error): the playback_id
 		// needed to compute this segment's object key is not available.
 		// This is not a data-loss or corruption condition - it resolves
-		// itself once the assignment is seeded - so it is always
+		// itself once the session is visible - so it is always
 		// retryable, never dead-lettered.
-		msg := "no cached assignment for event"
+		msg := "no session record for segment"
 		if err != nil {
-			msg = "assignment lookup failed: " + err.Error()
+			msg = "session lookup failed: " + err.Error()
 		}
 		w.retryLater(reqCtx, job, msg)
 		return
 	}
 
-	key := SegmentKey(w.cfg.ObjectPrefix, assignment.PlaybackID, job.SessionID, job.LocalFileIdentity)
+	key := SegmentKey(w.cfg.ObjectPrefix, playbackID, job.SessionID, job.LocalFileIdentity)
 
 	file, err := os.Open(job.SpoolPath)
 	if err != nil {

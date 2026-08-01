@@ -59,6 +59,21 @@ func importTestAssignment(t *testing.T, st *store.Store, eventID, ingestID, play
 	}
 }
 
+// pinTestSession creates a real ingest_sessions row with playbackID
+// pinned at creation, matching how internal/srs.handlePublish pins the
+// assignment's current playback_id onto the session in production. Tests
+// use the returned session's generated ID as the sessionID for segments
+// that must resolve their R2 key from this pinned value, not from
+// whatever cached_event_assignments currently holds.
+func pinTestSession(t *testing.T, st *store.Store, eventID, ingestID, playbackID string) store.Session {
+	t.Helper()
+	sess, err := st.CreateSession(context.Background(), eventID, ingestID, playbackID, time.Now().UTC())
+	if err != nil {
+		t.Fatalf("CreateSession() error: %v", err)
+	}
+	return sess
+}
+
 // setupQueuedSegment writes content to a real spool file and creates a
 // fully finalized (status=queued) segment_jobs row for it, matching how
 // internal/spool + internal/srs would have left it after a real on_hls
@@ -119,7 +134,8 @@ func TestWorkerUploadsAndConfirmsSegment(t *testing.T) {
 	ctx := context.Background()
 	st := openTestStore(t)
 	importTestAssignment(t, st, "evt1", "ingest1", "pb1")
-	seg := setupQueuedSegment(t, st, "evt1", "sess1", 1, []byte("hello ts data"))
+	sess := pinTestSession(t, st, "evt1", "ingest1", "pb1")
+	seg := setupQueuedSegment(t, st, "evt1", sess.ID, 1, []byte("hello ts data"))
 
 	fake := newFakeObjectStore()
 	w := testWorker(st, fake, testLogger(t))
@@ -136,7 +152,7 @@ func TestWorkerUploadsAndConfirmsSegment(t *testing.T) {
 	if got.UploadStatus != store.UploadConfirmed {
 		t.Fatalf("UploadStatus = %q, want %q (last_error=%q)", got.UploadStatus, store.UploadConfirmed, got.UploadLastError)
 	}
-	wantKey := SegmentKey("", "pb1", "sess1", seg.LocalFileIdentity)
+	wantKey := SegmentKey("", "pb1", sess.ID, seg.LocalFileIdentity)
 	if got.R2Key != wantKey {
 		t.Errorf("R2Key = %q, want %q", got.R2Key, wantKey)
 	}
@@ -152,9 +168,10 @@ func TestWorkerIsIdempotentWhenObjectAlreadyUploaded(t *testing.T) {
 	ctx := context.Background()
 	st := openTestStore(t)
 	importTestAssignment(t, st, "evt1", "ingest1", "pb1")
-	seg := setupQueuedSegment(t, st, "evt1", "sess1", 1, []byte("crash after upload"))
+	sess := pinTestSession(t, st, "evt1", "ingest1", "pb1")
+	seg := setupQueuedSegment(t, st, "evt1", sess.ID, 1, []byte("crash after upload"))
 
-	key := SegmentKey("", "pb1", "sess1", seg.LocalFileIdentity)
+	key := SegmentKey("", "pb1", sess.ID, seg.LocalFileIdentity)
 	fake := newFakeObjectStore()
 	// Simulate a prior worker that PUT the object successfully but
 	// crashed before it could call ConfirmUpload: the object already
@@ -189,7 +206,8 @@ func TestWorkerRetriesTransientProviderErrorThenSucceeds(t *testing.T) {
 	ctx := context.Background()
 	st := openTestStore(t)
 	importTestAssignment(t, st, "evt1", "ingest1", "pb1")
-	seg := setupQueuedSegment(t, st, "evt1", "sess1", 1, []byte("retry me"))
+	sess := pinTestSession(t, st, "evt1", "ingest1", "pb1")
+	seg := setupQueuedSegment(t, st, "evt1", sess.ID, 1, []byte("retry me"))
 
 	fake := newFakeObjectStore()
 	fake.failPutNTimes = 1
@@ -237,7 +255,8 @@ func TestWorkerDeadLettersMissingLocalFile(t *testing.T) {
 	ctx := context.Background()
 	st := openTestStore(t)
 	importTestAssignment(t, st, "evt1", "ingest1", "pb1")
-	seg := setupQueuedSegment(t, st, "evt1", "sess1", 1, []byte("will be deleted"))
+	sess := pinTestSession(t, st, "evt1", "ingest1", "pb1")
+	seg := setupQueuedSegment(t, st, "evt1", sess.ID, 1, []byte("will be deleted"))
 	if err := os.Remove(seg.SpoolPath); err != nil {
 		t.Fatalf("remove spool file: %v", err)
 	}
@@ -261,7 +280,8 @@ func TestWorkerDeadLettersCorruptedLocalFile(t *testing.T) {
 	ctx := context.Background()
 	st := openTestStore(t)
 	importTestAssignment(t, st, "evt1", "ingest1", "pb1")
-	seg := setupQueuedSegment(t, st, "evt1", "sess1", 1, []byte("original content"))
+	sess := pinTestSession(t, st, "evt1", "ingest1", "pb1")
+	seg := setupQueuedSegment(t, st, "evt1", sess.ID, 1, []byte("original content"))
 	if err := os.WriteFile(seg.SpoolPath, []byte("tampered content!!"), 0o640); err != nil {
 		t.Fatalf("tamper with spool file: %v", err)
 	}
@@ -285,9 +305,10 @@ func TestWorkerDeadLettersObjectMismatchNeverOverwrites(t *testing.T) {
 	ctx := context.Background()
 	st := openTestStore(t)
 	importTestAssignment(t, st, "evt1", "ingest1", "pb1")
-	seg := setupQueuedSegment(t, st, "evt1", "sess1", 1, []byte("expected content"))
+	sess := pinTestSession(t, st, "evt1", "ingest1", "pb1")
+	seg := setupQueuedSegment(t, st, "evt1", sess.ID, 1, []byte("expected content"))
 
-	key := SegmentKey("", "pb1", "sess1", seg.LocalFileIdentity)
+	key := SegmentKey("", "pb1", sess.ID, seg.LocalFileIdentity)
 	fake := newFakeObjectStore()
 	if err := fake.PutObject(ctx, PutObjectInput{
 		Key: key, Body: strings.NewReader("different content!"), Size: int64(len("different content!")),
@@ -313,6 +334,57 @@ func TestWorkerDeadLettersObjectMismatchNeverOverwrites(t *testing.T) {
 	after := mustHeadMetadata(ctx, t, fake, key)
 	if before["sha256"] != after["sha256"] {
 		t.Errorf("conflicting object must never be overwritten: before=%v after=%v", before, after)
+	}
+}
+
+// TestWorkerUsesSessionPinnedPlaybackIDEvenAfterAssignmentPlaybackIDChanges
+// proves the fix for the R2 prefix mismatch observed in the first live
+// test: a session's segments must always resolve their R2 key under the
+// playback_id pinned at session creation, never a newer value the
+// assignment's playback_id takes on afterward (e.g. from a later
+// activation while this session's uploads are still in flight).
+func TestWorkerUsesSessionPinnedPlaybackIDEvenAfterAssignmentPlaybackIDChanges(t *testing.T) {
+	ctx := context.Background()
+	st := openTestStore(t)
+
+	importTestAssignment(t, st, "evt1", "ingest1", "pb-old")
+	sess := pinTestSession(t, st, "evt1", "ingest1", "pb-old")
+	seg := setupQueuedSegment(t, st, "evt1", sess.ID, 1, []byte("session pinned"))
+
+	// Simulate a later activation for the same event overwriting the
+	// cached assignment's playback_id, while this session's segment is
+	// still queued for upload - exactly what the real control-plane sync
+	// does on every cycle (internal/store/controlplane.go upserts
+	// cached_event_assignments unconditionally).
+	importTestAssignment(t, st, "evt1", "ingest1", "pb-new")
+
+	fake := newFakeObjectStore()
+	w := testWorker(st, fake, testLogger(t))
+
+	claimed, err := w.processOnce(ctx, "worker-1")
+	if err != nil || !claimed {
+		t.Fatalf("processOnce() claimed=%v err=%v", claimed, err)
+	}
+
+	got, err := st.GetSegmentByID(ctx, seg.ID)
+	if err != nil {
+		t.Fatalf("GetSegmentByID() error: %v", err)
+	}
+	if got.UploadStatus != store.UploadConfirmed {
+		t.Fatalf("UploadStatus = %q, want %q (last_error=%q)", got.UploadStatus, store.UploadConfirmed, got.UploadLastError)
+	}
+
+	wantKey := SegmentKey("", "pb-old", sess.ID, seg.LocalFileIdentity)
+	if got.R2Key != wantKey {
+		t.Errorf("R2Key = %q, want %q (must use the session-pinned playback_id, not the assignment's current one)", got.R2Key, wantKey)
+	}
+	if !fake.has(wantKey) {
+		t.Errorf("expected object store to contain key %q", wantKey)
+	}
+
+	unwantedKey := SegmentKey("", "pb-new", sess.ID, seg.LocalFileIdentity)
+	if fake.has(unwantedKey) {
+		t.Errorf("object must not have been uploaded under the post-activation playback_id %q", unwantedKey)
 	}
 }
 

@@ -447,7 +447,7 @@ func TestCollectMetricsResetsSessionsAndRelaysToZeroAfterStateTransitions(t *tes
 	collect := collectMetrics(st, config.Config{}, nil, sink, time.Now(), &reconcileLastRunAt, &shuttingDown)
 
 	now := time.Now().UTC()
-	session, err := st.CreateSession(ctx, "evt1", "ingest1", now)
+	session, err := st.CreateSession(ctx, "evt1", "ingest1", "pb-1", now)
 	if err != nil {
 		t.Fatalf("CreateSession() error: %v", err)
 	}

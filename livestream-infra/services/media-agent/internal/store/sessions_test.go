@@ -13,7 +13,7 @@ func TestCreateSessionSucceeds(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
 
-	sess, err := st.CreateSession(ctx, "event-1", "ingest-1", now)
+	sess, err := st.CreateSession(ctx, "event-1", "ingest-1", "pb-1", now)
 	if err != nil {
 		t.Fatalf("CreateSession() error: %v", err)
 	}
@@ -28,16 +28,69 @@ func TestCreateSessionSucceeds(t *testing.T) {
 	}
 }
 
+// TestCreateSessionPinsPlaybackID proves the playback_id passed to
+// CreateSession is durably persisted on the session and returned exactly
+// as given, independent of anything in cached_event_assignments.
+func TestCreateSessionPinsPlaybackID(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Now()
+
+	sess, err := st.CreateSession(ctx, "event-1", "ingest-1", "pb-pinned", now)
+	if err != nil {
+		t.Fatalf("CreateSession() error: %v", err)
+	}
+	if sess.PlaybackID != "pb-pinned" {
+		t.Errorf("CreateSession() returned PlaybackID = %q, want %q", sess.PlaybackID, "pb-pinned")
+	}
+
+	got, found, err := st.GetSessionPlaybackID(ctx, sess.ID)
+	if err != nil {
+		t.Fatalf("GetSessionPlaybackID() error: %v", err)
+	}
+	if !found {
+		t.Fatal("GetSessionPlaybackID() found = false, want true")
+	}
+	if got != "pb-pinned" {
+		t.Errorf("GetSessionPlaybackID() = %q, want %q", got, "pb-pinned")
+	}
+
+	// Also confirm the persisted value survives a fresh read via the
+	// full-row query path (FindMostRecentByIngestID), not just the
+	// narrow accessor.
+	reread, found, err := st.FindMostRecentByIngestID(ctx, "ingest-1")
+	if err != nil {
+		t.Fatalf("FindMostRecentByIngestID() error: %v", err)
+	}
+	if !found {
+		t.Fatal("FindMostRecentByIngestID() found = false, want true")
+	}
+	if reread.PlaybackID != "pb-pinned" {
+		t.Errorf("FindMostRecentByIngestID() PlaybackID = %q, want %q", reread.PlaybackID, "pb-pinned")
+	}
+}
+
+func TestGetSessionPlaybackIDNotFound(t *testing.T) {
+	st := openTestStore(t)
+	_, found, err := st.GetSessionPlaybackID(context.Background(), "does-not-exist")
+	if err != nil {
+		t.Fatalf("GetSessionPlaybackID() error: %v", err)
+	}
+	if found {
+		t.Error("GetSessionPlaybackID() found = true for unknown session id, want false")
+	}
+}
+
 func TestCreateSessionRejectsConflictingActivePublisher(t *testing.T) {
 	st := openTestStore(t)
 	ctx := context.Background()
 	now := time.Now()
 
-	if _, err := st.CreateSession(ctx, "event-1", "ingest-1", now); err != nil {
+	if _, err := st.CreateSession(ctx, "event-1", "ingest-1", "pb-1", now); err != nil {
 		t.Fatalf("CreateSession() first error: %v", err)
 	}
 
-	_, err := st.CreateSession(ctx, "event-1", "ingest-1-second-connection", now)
+	_, err := st.CreateSession(ctx, "event-1", "ingest-1-second-connection", "pb-1", now)
 	if !errors.Is(err, ErrConflictingActivePublisher) {
 		t.Fatalf("CreateSession() second error = %v, want ErrConflictingActivePublisher", err)
 	}
@@ -48,7 +101,7 @@ func TestCreateSessionAllowsReconnectAfterDisconnect(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
 
-	first, err := st.CreateSession(ctx, "event-1", "ingest-1", now)
+	first, err := st.CreateSession(ctx, "event-1", "ingest-1", "pb-1", now)
 	if err != nil {
 		t.Fatalf("CreateSession() first error: %v", err)
 	}
@@ -56,7 +109,7 @@ func TestCreateSessionAllowsReconnectAfterDisconnect(t *testing.T) {
 		t.Fatalf("MarkDisconnected() error: %v", err)
 	}
 
-	second, err := st.CreateSession(ctx, "event-1", "ingest-1", now.Add(time.Second))
+	second, err := st.CreateSession(ctx, "event-1", "ingest-1", "pb-1", now.Add(time.Second))
 	if err != nil {
 		t.Fatalf("CreateSession() reconnect error: %v", err)
 	}
@@ -79,7 +132,7 @@ func TestCreateSessionConcurrentOnlyOneWins(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			sess, err := st.CreateSession(ctx, "event-race", "ingest-race", now)
+			sess, err := st.CreateSession(ctx, "event-race", "ingest-race", "pb-race", now)
 			if err == nil {
 				successes <- sess.ID
 				return
@@ -116,14 +169,14 @@ func TestFindMostRecentByIngestIDReturnsLatest(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
 
-	first, err := st.CreateSession(ctx, "event-1", "ingest-1", now)
+	first, err := st.CreateSession(ctx, "event-1", "ingest-1", "pb-1", now)
 	if err != nil {
 		t.Fatalf("CreateSession() first error: %v", err)
 	}
 	if err := st.MarkDisconnected(ctx, first.ID, EndReasonUnpublish, now); err != nil {
 		t.Fatalf("MarkDisconnected() error: %v", err)
 	}
-	second, err := st.CreateSession(ctx, "event-1", "ingest-1", now.Add(time.Minute))
+	second, err := st.CreateSession(ctx, "event-1", "ingest-1", "pb-1", now.Add(time.Minute))
 	if err != nil {
 		t.Fatalf("CreateSession() second error: %v", err)
 	}
@@ -156,7 +209,7 @@ func TestMarkDisconnectedIsIdempotent(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
 
-	sess, err := st.CreateSession(ctx, "event-1", "ingest-1", now)
+	sess, err := st.CreateSession(ctx, "event-1", "ingest-1", "pb-1", now)
 	if err != nil {
 		t.Fatalf("CreateSession() error: %v", err)
 	}
@@ -193,7 +246,7 @@ func TestTouchActivityIncrementsSegmentCount(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
 
-	sess, err := st.CreateSession(ctx, "event-1", "ingest-1", now)
+	sess, err := st.CreateSession(ctx, "event-1", "ingest-1", "pb-1", now)
 	if err != nil {
 		t.Fatalf("CreateSession() error: %v", err)
 	}
@@ -226,11 +279,11 @@ func TestReconcileStaleActiveOnlyAffectsOldSessions(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
 
-	stale, err := st.CreateSession(ctx, "event-stale", "ingest-stale", now.Add(-time.Hour))
+	stale, err := st.CreateSession(ctx, "event-stale", "ingest-stale", "pb-stale", now.Add(-time.Hour))
 	if err != nil {
 		t.Fatalf("CreateSession() stale error: %v", err)
 	}
-	fresh, err := st.CreateSession(ctx, "event-fresh", "ingest-fresh", now)
+	fresh, err := st.CreateSession(ctx, "event-fresh", "ingest-fresh", "pb-fresh", now)
 	if err != nil {
 		t.Fatalf("CreateSession() fresh error: %v", err)
 	}
@@ -271,7 +324,7 @@ func TestReconcileStaleActiveFreesEventForNewPublisher(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
 
-	if _, err := st.CreateSession(ctx, "event-1", "ingest-1", now.Add(-time.Hour)); err != nil {
+	if _, err := st.CreateSession(ctx, "event-1", "ingest-1", "pb-1", now.Add(-time.Hour)); err != nil {
 		t.Fatalf("CreateSession() error: %v", err)
 	}
 
@@ -279,7 +332,7 @@ func TestReconcileStaleActiveFreesEventForNewPublisher(t *testing.T) {
 		t.Fatalf("ReconcileStaleActive() error: %v", err)
 	}
 
-	if _, err := st.CreateSession(ctx, "event-1", "ingest-1", now); err != nil {
+	if _, err := st.CreateSession(ctx, "event-1", "ingest-1", "pb-1", now); err != nil {
 		t.Fatalf("CreateSession() after stale reconciliation should succeed, got error: %v", err)
 	}
 }

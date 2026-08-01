@@ -270,7 +270,7 @@ func TestRunOnceReconcilesStaleSessions(t *testing.T) {
 	st := testStore(t)
 	r := New(st, Config{SpoolRoot: spoolRoot, SessionStaleTimeout: 10 * time.Second}, silentLogger())
 
-	if _, err := st.CreateSession(context.Background(), "event-1", "ingest-1", time.Now().Add(-time.Hour)); err != nil {
+	if _, err := st.CreateSession(context.Background(), "event-1", "ingest-1", "pb-1", time.Now().Add(-time.Hour)); err != nil {
 		t.Fatalf("CreateSession() error: %v", err)
 	}
 
