@@ -172,6 +172,56 @@ func TestRebuildLiveTrimsToApproximateDVRWindow(t *testing.T) {
 	}
 }
 
+// TestRebuildLiveAddressesSegmentsByTheirOwnPinnedKeyAfterAssignmentRotates
+// proves the manifest-side counterpart of the fix in
+// TestWorkerUsesSessionPinnedPlaybackIDEvenAfterAssignmentPlaybackIDChanges:
+// a live manifest's own object address correctly tracks the event's
+// current/enabled assignment playback_id, but every segment URL inside
+// it must still resolve to that segment's own already-recorded r2_key -
+// never a path reconstructed under the manifest's playback_id - since a
+// segment uploaded under an earlier session keeps the playback_id that
+// was pinned to it at the time, which can differ once the assignment has
+// since rotated to a new playback_id (e.g. a later re-activation).
+func TestRebuildLiveAddressesSegmentsByTheirOwnPinnedKeyAfterAssignmentRotates(t *testing.T) {
+	ctx := context.Background()
+	st := openTestStore(t)
+
+	importTestAssignment(t, st, "evt1", "ingest1", "pb-old")
+	sess := pinTestSession(t, st, "evt1", "ingest1", "pb-old")
+	fake := newFakeObjectStore()
+
+	s1 := setupQueuedSegment(t, st, "evt1", sess.ID, 1, []byte("a"))
+	confirmSegment(t, st, fake, s1, "pb-old")
+
+	// Simulate a later activation for the same event rotating the cached
+	// assignment's playback_id - exactly what the real control-plane sync
+	// does on every cycle - while the earlier session's segment remains
+	// confirmed only under its own pinned key.
+	importTestAssignment(t, st, "evt1", "ingest1", "pb-new")
+
+	mgr := NewManifestManager(st, fake, ManifestConfig{DVRWindow: 900 * time.Second, RequestTimeout: time.Second}, testLogger(t))
+	if err := mgr.RebuildLive(ctx, "evt1"); err != nil {
+		t.Fatalf("RebuildLive() error: %v", err)
+	}
+
+	// The manifest's own object address correctly tracks the event's
+	// current/enabled assignment playback_id.
+	manifestKey := LivePlaylistKey("", "pb-new")
+	if !fake.has(manifestKey) {
+		t.Fatalf("expected live manifest object at %q", manifestKey)
+	}
+	body := fakeBody(t, fake, manifestKey)
+
+	wantSegmentKey := SegmentKey("", "pb-old", sess.ID, s1.LocalFileIdentity)
+	if !strings.Contains(body, wantSegmentKey) {
+		t.Errorf("manifest does not reference the segment's actual key %q:\n%s", wantSegmentKey, body)
+	}
+	unwantedSegmentKey := SegmentKey("", "pb-new", sess.ID, s1.LocalFileIdentity)
+	if strings.Contains(body, unwantedSegmentKey) {
+		t.Errorf("manifest must not reference a reconstructed key under the rotated playback_id %q:\n%s", unwantedSegmentKey, body)
+	}
+}
+
 func fakeBody(t *testing.T, fake *fakeObjectStore, key string) string {
 	t.Helper()
 	fake.mu.Lock()

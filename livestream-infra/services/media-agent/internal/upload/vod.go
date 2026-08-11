@@ -155,9 +155,14 @@ func (f *VODFinalizer) Finalize(ctx context.Context, eventID string) (FinalizeRe
 	// always emits well-formed HLS); this loop is the "fetch every
 	// referenced object" half, scoped to this Media Agent's own view of
 	// the object store (it does not have access to the production CDN
-	// path from inside this process).
+	// path from inside this process). Each segment's own already-recorded
+	// r2_key is validated directly - never reconstructed from
+	// assignment.PlaybackID - since that is exactly the key buildPlaylist
+	// below will reference, and a segment's key is pinned to its own
+	// ingest session's playback_id, which can differ from the event's
+	// current assignment playback_id once the assignment has rotated.
 	for _, s := range confirmed {
-		key := SegmentKey(f.cfg.ObjectPrefix, assignment.PlaybackID, s.SessionID, s.LocalFileIdentity)
+		key := s.R2Key
 		headCtx, cancel := context.WithTimeout(ctx, f.cfg.RequestTimeout)
 		info, err := f.objectStore.HeadObject(headCtx, key)
 		cancel()
@@ -172,7 +177,7 @@ func (f *VODFinalizer) Finalize(ctx context.Context, eventID string) (FinalizeRe
 		}
 	}
 
-	body := buildPlaylist(confirmed, 0, assignment.PlaybackID, f.cfg.ObjectPrefix, f.cfg.PublicBaseURL, true)
+	body := buildPlaylist(confirmed, 0, f.cfg.PublicBaseURL, true)
 	key := VODPlaylistKey(f.cfg.ObjectPrefix, assignment.PlaybackID)
 
 	putCtx, cancel := context.WithTimeout(ctx, f.cfg.RequestTimeout)

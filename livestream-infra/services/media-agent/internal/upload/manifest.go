@@ -60,12 +60,22 @@ func mediaSequenceOf(all, kept []store.SegmentJob) int {
 // buildPlaylist renders an HLS media playlist from kept, in order.
 // mediaSequence is EXT-X-MEDIA-SEQUENCE; endlist appends
 // EXT-X-ENDLIST for a finalized VOD playlist and is false for a live
-// playlist. Every referenced segment is addressed by its already
-// server-confirmed R2 key (never a locally-captured-but-unconfirmed
-// path), satisfying "Never publish a manifest that references an object
-// that has not been confirmed available" by construction: kept is only
-// ever populated from Store.ListConfirmedSegmentsByEvent.
-func buildPlaylist(kept []store.SegmentJob, mediaSequence int, playbackID, objectPrefix, publicBaseURL string, endlist bool) string {
+// playlist. Every referenced segment is addressed by its own already
+// server-confirmed r2_key (never a locally-captured-but-unconfirmed
+// path, and never reconstructed from the manifest's own playback_id),
+// satisfying "Never publish a manifest that references an object that
+// has not been confirmed available" by construction: kept is only ever
+// populated from Store.ListConfirmedSegmentsByEvent. Using each
+// segment's own recorded key - rather than rebuilding
+// events/{playback_id}/media/... from the caller's playbackID - matters
+// because a segment's key is pinned to the playback_id its own ingest
+// session had at upload time (see internal/upload/worker.go), while the
+// manifest's own object address intentionally tracks the event's
+// current/enabled assignment playback_id; those two can differ once an
+// event's assignment has rotated to a new playback_id since an earlier
+// session uploaded. Addressing segments by their own key keeps every
+// manifest correct regardless of that difference.
+func buildPlaylist(kept []store.SegmentJob, mediaSequence int, publicBaseURL string, endlist bool) string {
 	target := defaultTargetDuration
 	for _, s := range kept {
 		if d := int(math.Ceil(s.DurationSeconds)); d > target {
@@ -87,7 +97,7 @@ func buildPlaylist(kept []store.SegmentJob, mediaSequence int, playbackID, objec
 		previousSession = s.SessionID
 
 		fmt.Fprintf(&b, "#EXTINF:%s,\n", strconv.FormatFloat(s.DurationSeconds, 'f', 3, 64))
-		b.WriteString(segmentURL(objectPrefix, publicBaseURL, playbackID, s.SessionID, s.LocalFileIdentity))
+		b.WriteString(segmentURL(publicBaseURL, s.R2Key))
 		b.WriteString("\n")
 	}
 
@@ -97,12 +107,11 @@ func buildPlaylist(kept []store.SegmentJob, mediaSequence int, playbackID, objec
 	return b.String()
 }
 
-func segmentURL(objectPrefix, publicBaseURL, playbackID, sessionID, localFileIdentity string) string {
-	key := SegmentKey(objectPrefix, playbackID, sessionID, localFileIdentity)
+func segmentURL(publicBaseURL, r2Key string) string {
 	if publicBaseURL == "" {
-		return "/" + key
+		return "/" + r2Key
 	}
-	return strings.TrimSuffix(publicBaseURL, "/") + "/" + key
+	return strings.TrimSuffix(publicBaseURL, "/") + "/" + r2Key
 }
 
 func idsOf(segments []store.SegmentJob) []int64 {

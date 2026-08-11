@@ -192,6 +192,51 @@ func TestFinalizeProceedsPastDeadLetteredGap(t *testing.T) {
 	}
 }
 
+// TestFinalizeAddressesSegmentsByTheirOwnPinnedKeyAfterAssignmentRotates
+// is the VOD-finalization counterpart of the manifestmanager_test.go
+// regression of the same name: a finalized playlist's own object address
+// tracks the event's current/enabled assignment playback_id, but every
+// segment it references - both in the pre-publish HeadObject validation
+// pass and in the playlist body itself - must resolve to that segment's
+// own already-recorded r2_key, never a path reconstructed under the
+// finalized playlist's playback_id.
+func TestFinalizeAddressesSegmentsByTheirOwnPinnedKeyAfterAssignmentRotates(t *testing.T) {
+	ctx := context.Background()
+	st := openTestStore(t)
+	importTestAssignment(t, st, "evt1", "ingest1", "pb-old")
+	sess := pinTestSession(t, st, "evt1", "ingest1", "pb-old")
+
+	fake := newFakeObjectStore()
+	s1 := setupQueuedSegment(t, st, "evt1", sess.ID, 1, []byte("a"))
+	confirmSegment(t, st, fake, s1, "pb-old")
+	if err := st.MarkDisconnected(ctx, sess.ID, store.EndReasonUnpublish, time.Now()); err != nil {
+		t.Fatalf("MarkDisconnected() error: %v", err)
+	}
+
+	// Rotate the assignment's playback_id after the session ended, exactly
+	// as a later re-activation would before finalization ever runs.
+	importTestAssignment(t, st, "evt1", "ingest1", "pb-new")
+
+	f := testVODFinalizer(t, st, fake)
+	result, err := f.Finalize(ctx, "evt1")
+	if err != nil {
+		t.Fatalf("Finalize() error: %v", err)
+	}
+	if !result.Finalized {
+		t.Fatalf("expected Finalized=true, reason=%q", result.Reason)
+	}
+
+	body := fakeBody(t, fake, VODPlaylistKey("", "pb-new"))
+	wantSegmentKey := SegmentKey("", "pb-old", sess.ID, s1.LocalFileIdentity)
+	if !strings.Contains(body, wantSegmentKey) {
+		t.Errorf("VOD playlist does not reference the segment's actual key %q:\n%s", wantSegmentKey, body)
+	}
+	unwantedSegmentKey := SegmentKey("", "pb-new", sess.ID, s1.LocalFileIdentity)
+	if strings.Contains(body, unwantedSegmentKey) {
+		t.Errorf("VOD playlist must not reference a reconstructed key under the rotated playback_id %q:\n%s", unwantedSegmentKey, body)
+	}
+}
+
 func TestFinalizeFailsIfAReferencedObjectIsMissing(t *testing.T) {
 	ctx := context.Background()
 	st := openTestStore(t)

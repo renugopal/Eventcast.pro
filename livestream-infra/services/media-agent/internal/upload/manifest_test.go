@@ -7,8 +7,19 @@ import (
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/store"
 )
 
+// seg builds a fixture SegmentJob with R2Key already set as
+// ConfirmUpload would have recorded it for playback_id "pb" - matching
+// what buildPlaylist now reads directly instead of reconstructing from a
+// separately-passed playback_id/prefix (see TestBuildPlaylist* below).
 func seg(id int64, sessionID string, duration float64) store.SegmentJob {
-	return store.SegmentJob{ID: id, SessionID: sessionID, LocalFileIdentity: sessionID + "-seg", DurationSeconds: duration}
+	localFileIdentity := sessionID + "-seg"
+	return store.SegmentJob{
+		ID:                id,
+		SessionID:         sessionID,
+		LocalFileIdentity: localFileIdentity,
+		DurationSeconds:   duration,
+		R2Key:             SegmentKey("", "pb", sessionID, localFileIdentity),
+	}
 }
 
 func TestWindowLiveSegmentsKeepsApproximatelyTheWindow(t *testing.T) {
@@ -48,7 +59,7 @@ func TestMediaSequenceOfTracksTrimmedPrefix(t *testing.T) {
 
 func TestBuildPlaylistInsertsDiscontinuityAtSessionBoundary(t *testing.T) {
 	kept := []store.SegmentJob{seg(1, "s1", 4), seg(2, "s1", 4), seg(3, "s2", 4)}
-	body := buildPlaylist(kept, 0, "pb", "", "", false)
+	body := buildPlaylist(kept, 0, "", false)
 
 	if !strings.HasPrefix(body, "#EXTM3U\n") {
 		t.Fatalf("playlist does not start with #EXTM3U:\n%s", body)
@@ -66,7 +77,7 @@ func TestBuildPlaylistInsertsDiscontinuityAtSessionBoundary(t *testing.T) {
 
 func TestBuildPlaylistVODIncludesEndlist(t *testing.T) {
 	kept := []store.SegmentJob{seg(1, "s1", 4)}
-	body := buildPlaylist(kept, 0, "pb", "", "", true)
+	body := buildPlaylist(kept, 0, "", true)
 	if !strings.HasSuffix(strings.TrimRight(body, "\n"), "#EXT-X-ENDLIST") {
 		t.Errorf("VOD playlist must end with ENDLIST:\n%s", body)
 	}
@@ -74,7 +85,7 @@ func TestBuildPlaylistVODIncludesEndlist(t *testing.T) {
 
 func TestBuildPlaylistUsesPublicBaseURLWhenSet(t *testing.T) {
 	kept := []store.SegmentJob{seg(1, "s1", 4)}
-	body := buildPlaylist(kept, 0, "pb", "", "https://cdn.example.com", false)
+	body := buildPlaylist(kept, 0, "https://cdn.example.com", false)
 	if !strings.Contains(body, "https://cdn.example.com/events/pb/media/s1/s1-seg") {
 		t.Errorf("expected absolute segment URL, got:\n%s", body)
 	}
@@ -82,7 +93,7 @@ func TestBuildPlaylistUsesPublicBaseURLWhenSet(t *testing.T) {
 
 func TestBuildPlaylistTargetDurationCoversLongestSegment(t *testing.T) {
 	kept := []store.SegmentJob{seg(1, "s1", 3.2), seg(2, "s1", 6.1)}
-	body := buildPlaylist(kept, 0, "pb", "", "", false)
+	body := buildPlaylist(kept, 0, "", false)
 	if !strings.Contains(body, "#EXT-X-TARGETDURATION:7\n") {
 		t.Errorf("expected target duration 7 (ceil of 6.1), got:\n%s", body)
 	}

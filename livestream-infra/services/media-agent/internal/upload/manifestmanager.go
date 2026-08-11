@@ -157,7 +157,7 @@ func (m *ManifestManager) RebuildLive(ctx context.Context, eventID string) error
 		return nil
 	}
 
-	body := buildPlaylist(kept, mediaSeq, assignment.PlaybackID, m.cfg.ObjectPrefix, m.cfg.PublicBaseURL, false)
+	body := buildPlaylist(kept, mediaSeq, m.cfg.PublicBaseURL, false)
 	key := LivePlaylistKey(m.cfg.ObjectPrefix, assignment.PlaybackID)
 
 	putCtx, cancel := context.WithTimeout(ctx, m.cfg.RequestTimeout)
