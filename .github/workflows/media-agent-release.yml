@@ -407,7 +407,7 @@ jobs:
           identity_found=false
           attempt=0
           while [[ $attempt -lt $MAX_ATTEMPTS ]]; do
-            ((attempt++))
+            attempt=$((attempt + 1))
             page=1
             attempt_found=false
             while true; do
