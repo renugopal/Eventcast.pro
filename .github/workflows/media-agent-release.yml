@@ -402,8 +402,8 @@ jobs:
           set -euo pipefail
           versions="$(mktemp)"
           trap 'rm -f "$versions"' EXIT
-          MAX_ATTEMPTS=6
-          RETRY_DELAY=5
+          MAX_ATTEMPTS=20
+          RETRY_DELAY=10
           identity_found=false
           attempt=0
           while [[ $attempt -lt $MAX_ATTEMPTS ]]; do
