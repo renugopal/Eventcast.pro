@@ -466,7 +466,7 @@ jobs:
           labels="$(docker buildx imagetools inspect \
             --format '{{json .Image.Config.Labels}}' "$ref")"
           platform="$(docker buildx imagetools inspect \
-            --format '{{.Image.Os}}/{{.Image.Architecture}}' "$ref")"
+            --format '{{.Image.OS}}/{{.Image.Architecture}}' "$ref")"
           oci_source="$(printf '%s' "$labels" | jq -r '."org.opencontainers.image.source" // empty')"
           oci_revision="$(printf '%s' "$labels" | jq -r '."org.opencontainers.image.revision" // empty')"
           oci_version="$(printf '%s' "$labels" | jq -r '."org.opencontainers.image.version" // empty')"
