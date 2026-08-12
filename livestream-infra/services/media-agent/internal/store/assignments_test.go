@@ -279,6 +279,137 @@ func TestGetAssignmentByEventID(t *testing.T) {
 	}
 }
 
+// TestGetAssignmentByEventIDSelectsCurrentControlPlaneRowByConfigVersion
+// reproduces the exact production failure shape observed on validation
+// event b68d4796-e234-42af-9efc-39576125e9a0: many historical rows for
+// the same event_id, inserted out of order relative to config_version,
+// where the current row is neither the newest by insertion nor the only
+// enabled one. This must select purely by (source, config_version),
+// never by physical insertion order.
+func TestGetAssignmentByEventIDSelectsCurrentControlPlaneRowByConfigVersion(t *testing.T) {
+	ctx := context.Background()
+	st := openTestStore(t)
+
+	old := testAssignment("ingest-old")
+	old.EventID = "event-multi"
+	old.PlaybackID = "pb-old"
+	old.Enabled = false
+	old.ConfigVersion = "2"
+
+	current := testAssignment("ingest-current")
+	current.EventID = "event-multi"
+	current.PlaybackID = "pb-current"
+	current.Enabled = true
+	current.ConfigVersion = "26"
+
+	// Deliberately imported current-before-old so a physical/insertion-
+	// order-based query would pick the wrong row.
+	if _, err := st.ImportAssignments(ctx, []Assignment{current, old}); err != nil {
+		t.Fatalf("ImportAssignments() error: %v", err)
+	}
+	markControlPlaneSourced(t, st, "ingest-old", "ingest-current")
+
+	got, found, err := st.GetAssignmentByEventID(ctx, "event-multi")
+	if err != nil || !found {
+		t.Fatalf("GetAssignmentByEventID() found=%v err=%v", found, err)
+	}
+	if got.PlaybackID != "pb-current" {
+		t.Errorf("PlaybackID = %q, want %q (the current, higher config_version row)", got.PlaybackID, "pb-current")
+	}
+	if got.ConfigVersion != "26" {
+		t.Errorf("ConfigVersion = %q, want %q", got.ConfigVersion, "26")
+	}
+}
+
+// TestGetAssignmentByEventIDPrefersHigherConfigVersionOverEnabled proves
+// the inverse of the naive "just filter enabled=true" fix: a newer,
+// disabled row (the real current state - e.g. deactivated pending
+// reactivation) must still beat an older, enabled historical row.
+// enabled/disabled is assignment state, not row freshness, and must
+// never be used as the selection signal.
+func TestGetAssignmentByEventIDPrefersHigherConfigVersionOverEnabled(t *testing.T) {
+	ctx := context.Background()
+	st := openTestStore(t)
+
+	olderEnabled := testAssignment("ingest-older-enabled")
+	olderEnabled.EventID = "event-disabled-current"
+	olderEnabled.PlaybackID = "pb-older-enabled"
+	olderEnabled.Enabled = true
+	olderEnabled.ConfigVersion = "4"
+
+	newerDisabled := testAssignment("ingest-newer-disabled")
+	newerDisabled.EventID = "event-disabled-current"
+	newerDisabled.PlaybackID = "pb-newer-disabled"
+	newerDisabled.Enabled = false
+	newerDisabled.ConfigVersion = "6"
+
+	if _, err := st.ImportAssignments(ctx, []Assignment{olderEnabled, newerDisabled}); err != nil {
+		t.Fatalf("ImportAssignments() error: %v", err)
+	}
+	markControlPlaneSourced(t, st, "ingest-older-enabled", "ingest-newer-disabled")
+
+	got, found, err := st.GetAssignmentByEventID(ctx, "event-disabled-current")
+	if err != nil || !found {
+		t.Fatalf("GetAssignmentByEventID() found=%v err=%v", found, err)
+	}
+	if got.PlaybackID != "pb-newer-disabled" {
+		t.Errorf("PlaybackID = %q, want %q (higher config_version wins even though disabled)", got.PlaybackID, "pb-newer-disabled")
+	}
+	if got.Enabled {
+		t.Error("Enabled = true, want false (the correct current row is disabled)")
+	}
+}
+
+// TestGetAssignmentByEventIDPrefersControlPlaneOverSeedRegardlessOfVersion
+// proves the documented precedence (controlplane.go: "a seed row is
+// never allowed to overwrite a controlplane row") holds even when a
+// seed row's arbitrary, operator-supplied config_version number is
+// numerically higher than the real control-plane row's.
+func TestGetAssignmentByEventIDPrefersControlPlaneOverSeedRegardlessOfVersion(t *testing.T) {
+	ctx := context.Background()
+	st := openTestStore(t)
+
+	seedRow := testAssignment("ingest-seed")
+	seedRow.EventID = "event-seed-vs-cp"
+	seedRow.PlaybackID = "pb-seed"
+	seedRow.ConfigVersion = "999"
+
+	cpRow := testAssignment("ingest-cp")
+	cpRow.EventID = "event-seed-vs-cp"
+	cpRow.PlaybackID = "pb-cp"
+	cpRow.ConfigVersion = "3"
+
+	// seedRow stays source='seed' (ImportAssignments' default); only
+	// cpRow is marked controlplane-sourced.
+	if _, err := st.ImportAssignments(ctx, []Assignment{seedRow, cpRow}); err != nil {
+		t.Fatalf("ImportAssignments() error: %v", err)
+	}
+	markControlPlaneSourced(t, st, "ingest-cp")
+
+	got, found, err := st.GetAssignmentByEventID(ctx, "event-seed-vs-cp")
+	if err != nil || !found {
+		t.Fatalf("GetAssignmentByEventID() found=%v err=%v", found, err)
+	}
+	if got.PlaybackID != "pb-cp" {
+		t.Errorf("PlaybackID = %q, want %q (controlplane source must win despite the seed row's higher config_version)", got.PlaybackID, "pb-cp")
+	}
+}
+
+// markControlPlaneSourced sets source='controlplane' for the given
+// ingest_ids. ImportAssignments (the seed-file path) never touches
+// source, so every row it inserts keeps the column's own schema default
+// ('seed') unless a test explicitly promotes it here - this exercises
+// GetAssignmentByEventID's source precedence without duplicating
+// ApplyControlPlaneAssignments' own separately-tested upsert logic.
+func markControlPlaneSourced(t *testing.T, st *Store, ingestIDs ...string) {
+	t.Helper()
+	for _, id := range ingestIDs {
+		if _, err := st.db.Exec(`UPDATE cached_event_assignments SET source = 'controlplane' WHERE ingest_id = ?`, id); err != nil {
+			t.Fatalf("markControlPlaneSourced(%s): %v", id, err)
+		}
+	}
+}
+
 func TestYouTubeFieldsPersistExceptTheRawStreamKey(t *testing.T) {
 	ctx := context.Background()
 	st := openTestStore(t)

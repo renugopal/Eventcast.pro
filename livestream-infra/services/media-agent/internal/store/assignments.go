@@ -255,6 +255,35 @@ func (s *Store) GetAssignment(ctx context.Context, ingestID string) (Assignment,
 // intermediate call site. found=false if no assignment is cached for
 // this event (e.g. it was never seeded, or reconciliation is running
 // against a database from before this event's assignment existed).
+//
+// cached_event_assignments is keyed by ingest_id, not event_id, so one
+// event accumulates a historical row per activation:
+// ApplyControlPlaneAssignments (controlplane.go) upserts the control
+// plane's current row under its (new) ingest_id on every sync and
+// disables-in-place any previously-cached row no longer returned,
+// without ever deleting it. A plain "WHERE event_id = ? LIMIT 1" is
+// therefore non-deterministic across more than one row and can return a
+// stale, disabled row instead of the event's current one.
+//
+// The deterministic selection below resolves that using only signals
+// this cache already carries and already documents an intended
+// precedence for:
+//   - source: "a stale seed can never be mistaken for fresher
+//     control-plane state" (migrations/0003_production_readiness.sql) and
+//     "a seed row is never allowed to overwrite a controlplane row"
+//     (controlplane.go) - so a controlplane-sourced row always outranks a
+//     seed-sourced row for the same event, regardless of config_version.
+//   - config_version: the control plane's public.media_event_assignments
+//     has event_id UNIQUE with config_version a trigger-owned bigint that
+//     starts at 1 and strictly increments on every identity/state change
+//     (eventcast-admin/supabase/migrations/0020_media_agent_assignments.sql),
+//     so exactly one authoritative lineage exists per event and the
+//     highest config_version among same-source rows is always the
+//     current one. It is cast to INTEGER because the SQLite column is
+//     TEXT, and plain string ordering ("9" > "10") would be wrong.
+//   - updated_at: a defensive final tie-break using an existing column
+//     only; the config_version guarantee above means it should never be
+//     needed in practice.
 func (s *Store) GetAssignmentByEventID(ctx context.Context, eventID string) (Assignment, bool, error) {
 	var a Assignment
 	var startAt, endAt, updatedAt string
@@ -262,7 +291,13 @@ func (s *Store) GetAssignmentByEventID(ctx context.Context, eventID string) (Ass
 		SELECT ingest_id, event_id, playback_id, secret_token_hash, enabled,
 		       publish_window_start_at, publish_window_end_at, config_version, updated_at,
 		       youtube_enabled, youtube_destination_base_url
-		FROM cached_event_assignments WHERE event_id = ? LIMIT 1`, eventID,
+		FROM cached_event_assignments
+		WHERE event_id = ?
+		ORDER BY
+			CASE WHEN source = 'controlplane' THEN 0 ELSE 1 END ASC,
+			CAST(config_version AS INTEGER) DESC,
+			updated_at DESC
+		LIMIT 1`, eventID,
 	).Scan(&a.IngestID, &a.EventID, &a.PlaybackID, &a.SecretTokenHash, &a.Enabled,
 		&startAt, &endAt, &a.ConfigVersion, &updatedAt,
 		&a.YouTubeEnabled, &a.YouTubeDestinationBaseURL)
