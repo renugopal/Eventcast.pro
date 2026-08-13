@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -140,6 +141,22 @@ func (c *R2Client) HeadObject(ctx context.Context, key string) (ObjectInfo, erro
 		info.ContentType = *out.ContentType
 	}
 	return info, nil
+}
+
+// GetObject implements ObjectStore. The caller owns the returned body and
+// must Close it.
+func (c *R2Client) GetObject(ctx context.Context, key string) (io.ReadCloser, error) {
+	out, err := c.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		if isNotFound(err) {
+			return nil, fmt.Errorf("%w: %s", ErrObjectNotFound, key)
+		}
+		return nil, fmt.Errorf("upload: get object %s: %w", key, err)
+	}
+	return out.Body, nil
 }
 
 // isNotFound reports whether err represents a 404 from HeadObject. S3

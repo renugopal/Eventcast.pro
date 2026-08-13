@@ -76,4 +76,13 @@ type ObjectStore interface {
 	// HeadObject returns ErrObjectNotFound (wrapped) if the key does not
 	// exist, or any other error verbatim (classified by the caller).
 	HeadObject(ctx context.Context, key string) (ObjectInfo, error)
+	// GetObject streams the stored object's bytes. The caller must Close
+	// the returned reader.
+	//
+	// It exists so B2IntegrityReadBack can hash what the provider actually
+	// returns, rather than trusting HEAD metadata this same process
+	// supplied. It returns ErrObjectNotFound (wrapped) on a missing key,
+	// matching HeadObject. No archival or upload path reads objects back
+	// for any other purpose - there is still no GetObject-based backfill.
+	GetObject(ctx context.Context, key string) (io.ReadCloser, error)
 }

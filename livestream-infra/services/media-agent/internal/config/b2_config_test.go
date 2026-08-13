@@ -3,6 +3,8 @@ package config
 import (
 	"strings"
 	"testing"
+
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/upload"
 )
 
 // b2Env returns a complete, valid baseline environment plus whatever B2
@@ -26,6 +28,66 @@ func completeB2() map[string]string {
 		EnvB2Bucket:          "eventcast-vod-prod",
 		EnvB2AccessKeyID:     "key-id",
 		EnvB2SecretAccessKey: "secret",
+	}
+}
+
+// The integrity mode defaults to "none", so an existing deployment that
+// never sets it keeps exactly its current archival behaviour and makes no
+// unearned strong-integrity claim.
+func TestB2IntegrityModeDefaultsToNone(t *testing.T) {
+	cfg, err := Load(b2Env(t, completeB2()))
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.B2IntegrityMode != upload.B2IntegrityNone {
+		t.Errorf("B2IntegrityMode = %q, want %q", cfg.B2IntegrityMode, upload.B2IntegrityNone)
+	}
+	if cfg.B2IntegrityMode.StrongVerification() {
+		t.Error("the default mode must not claim strong verification")
+	}
+}
+
+func TestB2IntegrityModeAcceptsBothStrongMechanisms(t *testing.T) {
+	for raw, want := range map[string]upload.B2IntegrityMode{
+		"provider_checksum": upload.B2IntegrityProviderChecksum,
+		"read_back":         upload.B2IntegrityReadBack,
+	} {
+		env := completeB2()
+		env[EnvB2IntegrityMode] = raw
+		cfg, err := Load(b2Env(t, env))
+		if err != nil {
+			t.Fatalf("Load() with %s=%q error: %v", EnvB2IntegrityMode, raw, err)
+		}
+		if cfg.B2IntegrityMode != want {
+			t.Errorf("B2IntegrityMode = %q, want %q", cfg.B2IntegrityMode, want)
+		}
+	}
+}
+
+// An unsupported mode must stop startup. Falling back to "none" would
+// leave an operator believing verification was on when it was not.
+func TestB2UnsupportedIntegrityModeFailsFast(t *testing.T) {
+	env := completeB2()
+	env[EnvB2IntegrityMode] = "sha256-maybe"
+	_, err := Load(b2Env(t, env))
+	if err == nil {
+		t.Fatal("Load() accepted an unsupported integrity mode")
+	}
+	if !strings.Contains(err.Error(), EnvB2IntegrityMode) {
+		t.Errorf("error %q does not name the offending variable", err)
+	}
+}
+
+// Selecting a strong mode must not, by itself, turn archival on.
+func TestB2IntegrityModeDoesNotEnableArchival(t *testing.T) {
+	env := completeB2()
+	env[EnvB2IntegrityMode] = "read_back"
+	cfg, err := Load(b2Env(t, env))
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.B2ArchivalEnabled {
+		t.Error("archival enabled purely because an integrity mode was selected")
 	}
 }
 

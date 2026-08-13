@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/logging"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/upload"
 )
 
 // Supported environment variables. This is the complete set for the
@@ -124,6 +125,13 @@ const (
 	// false in production; it exists only so isolated tests can target a
 	// local S3-compatible container with a self-signed certificate.
 	EnvB2InsecureSkipVerify = "EVENTCAST_B2_INSECURE_SKIP_VERIFY"
+	// EnvB2IntegrityMode selects strong byte-integrity verification for
+	// archived objects: "none" (default), "provider_checksum", or
+	// "read_back". An unrecognised value is a startup error, never a
+	// silent downgrade to no verification. Which non-none mode is
+	// actually usable depends on real Backblaze behaviour, which the
+	// isolated connectivity test is the authority for.
+	EnvB2IntegrityMode = "EVENTCAST_B2_INTEGRITY_MODE"
 
 	// EnvDVRWindow is the live-manifest retention window. Production
 	// must not change this from the ADR-004 default without a new
@@ -361,6 +369,10 @@ type Config struct {
 	B2ArchiveInterval    time.Duration
 	B2ReportInterval     time.Duration
 	B2InsecureSkipVerify bool
+	// B2IntegrityMode is the validated strong-verification selection.
+	// It defaults to upload.B2IntegrityNone, so archival keeps its
+	// existing behaviour unless an operator explicitly opts in.
+	B2IntegrityMode upload.B2IntegrityMode
 	// b2ArchiveEnabledRequested records the raw operator intent, before it
 	// is ANDed with B2Configured, so Validate can fail fast on
 	// "enabled but not configured" instead of silently disabling.
@@ -495,6 +507,11 @@ func Load(getenv func(string) string) (Config, error) {
 	cfg.b2ArchiveEnabledRequested, err = parseBoolOrDefault(getenv(EnvB2ArchiveEnabled), false)
 	if err != nil {
 		return Config{}, fmt.Errorf("config: %s is not a valid boolean: %w", EnvB2ArchiveEnabled, err)
+	}
+
+	cfg.B2IntegrityMode, err = upload.ParseB2IntegrityMode(strings.TrimSpace(getenv(EnvB2IntegrityMode)))
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s: %w", EnvB2IntegrityMode, err)
 	}
 	// Real archival requires BOTH explicit operator intent and a complete
 	// configuration. Validate() below turns the "requested but not

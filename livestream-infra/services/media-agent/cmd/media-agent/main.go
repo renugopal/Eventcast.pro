@@ -61,6 +61,16 @@ func main() {
 		return
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "b2-connectivity" {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		if err := runB2Connectivity(ctx, os.Getenv, os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -432,6 +442,7 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 					Bucket:         cfg.B2Bucket,
 					ObjectPrefix:   cfg.B2ObjectPrefix,
 					RequestTimeout: cfg.B2RequestTimeout,
+					IntegrityMode:  cfg.B2IntegrityMode,
 				}, logger)
 				b2ArchiveWorker = upload.NewB2ArchiveWorker(st, archiver, upload.B2ArchiveWorkerConfig{
 					RetryBaseDelay: cfg.B2RetryBaseDelay,
@@ -459,7 +470,11 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 					logger.Warn("B2 archival enabled without a control plane: recording evidence will be archived durably but not reported")
 				}
 
-				logger.Info("B2 authoritative archival enabled", slog.String("bucket", cfg.B2Bucket))
+				logger.Info("B2 authoritative archival enabled",
+					slog.String("bucket", cfg.B2Bucket),
+					slog.String("integrity_mode", string(cfg.B2IntegrityMode)),
+					slog.Bool("strong_integrity_verification", cfg.B2IntegrityMode.StrongVerification()),
+				)
 			}
 		} else if cfg.B2Configured {
 			logger.Info("B2 configured but production archival is disabled; only the isolated connectivity test may use it")
@@ -591,6 +606,92 @@ func readinessChecks(st *store.Store, spoolRoot string, cpSyncer *controlplane.S
 			_, err := st.AssignmentCount(ctx)
 			return err
 		},
+	}
+}
+
+// runB2Connectivity implements the "media-agent b2-connectivity"
+// subcommand: one isolated, explicitly-operator-invoked write/read probe
+// against the configured B2 bucket.
+//
+// It exists because the probe capability itself already existed but had no
+// way to be reached from the production binary, leaving the one question
+// that gates strong integrity verification unanswerable on a real node.
+//
+// Deliberate properties:
+//
+//   - It requires a COMPLETE B2 configuration and fails closed otherwise.
+//   - It does NOT require, check, or change EVENTCAST_B2_ARCHIVE_ENABLED.
+//     Holding valid credentials so this can run is explicitly not the same
+//     as authorising production archival.
+//   - It opens no database, starts no worker, and serves no HTTP. Nothing
+//     about running it can begin archiving real recordings.
+//   - Output is sanitized: booleans, the bucket, and the probe key only.
+//     Credentials, the endpoint, and raw provider errors are never printed.
+func runB2Connectivity(ctx context.Context, getenv func(string) string, stdout io.Writer) error {
+	cfg, err := config.Load(getenv)
+	if err != nil {
+		return err
+	}
+
+	if !cfg.B2Configured {
+		return fmt.Errorf("b2-connectivity: incomplete B2 configuration; %s, %s, %s, %s, and %s are all required",
+			config.EnvB2Endpoint, config.EnvB2Region, config.EnvB2Bucket,
+			config.EnvB2AccessKeyID, config.EnvB2SecretAccessKey)
+	}
+
+	b2Client, err := upload.NewS3CompatibleClient(upload.S3Config{
+		Endpoint:           cfg.B2Endpoint,
+		Region:             cfg.B2Region,
+		Bucket:             cfg.B2Bucket,
+		AccessKeyID:        cfg.B2AccessKeyID,
+		SecretAccessKey:    cfg.B2SecretAccessKey,
+		InsecureSkipVerify: cfg.B2InsecureSkipVerify,
+	})
+	if err != nil {
+		return fmt.Errorf("b2-connectivity: construct B2 client: %w", err)
+	}
+
+	result, runErr := upload.RunB2ConnectivityTest(ctx, b2Client, cfg.B2Bucket, cfg.B2ObjectPrefix, cfg.NodeID, cfg.B2RequestTimeout)
+
+	// Print whatever the probe did establish even when it later failed:
+	// a successful PUT followed by a failed HEAD is materially different
+	// evidence from a total failure, and the operator needs to see which.
+	fmt.Fprintf(stdout, "bucket=%s\n", result.Bucket)
+	fmt.Fprintf(stdout, "key=%s\n", result.Key)
+	fmt.Fprintf(stdout, "put_succeeded=%t\n", result.PutSucceeded)
+	fmt.Fprintf(stdout, "head_matched=%t\n", result.HeadMatched)
+	fmt.Fprintf(stdout, "checksum_attempted=%t\n", result.ChecksumAttempted)
+	fmt.Fprintf(stdout, "checksum_accepted=%t\n", result.ChecksumAccepted)
+	fmt.Fprintf(stdout, "corrupt_checksum_rejected=%t\n", result.CorruptChecksumRejected)
+	if result.Detail != "" {
+		fmt.Fprintf(stdout, "detail=%s\n", result.Detail)
+	}
+
+	// The recommendation is advisory evidence for the separate,
+	// human-approved integrity-mode decision - it never selects a mode.
+	fmt.Fprintf(stdout, "supports_provider_checksum=%t\n",
+		result.ChecksumAccepted && result.CorruptChecksumRejected)
+
+	if runErr != nil {
+		// Classified, non-secret: the provider's raw error can echo request
+		// context, so only the stage that failed is reported here.
+		return fmt.Errorf("b2-connectivity: probe failed at %s", b2ProbeFailureStage(result))
+	}
+
+	fmt.Fprintln(stdout, "result=ok")
+	return nil
+}
+
+// b2ProbeFailureStage names the first stage that did not complete, so a
+// failure is actionable without printing a provider error verbatim.
+func b2ProbeFailureStage(result upload.B2ConnectivityResult) string {
+	switch {
+	case !result.PutSucceeded:
+		return "put"
+	case !result.HeadMatched:
+		return "head"
+	default:
+		return "verification"
 	}
 }
 

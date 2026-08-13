@@ -95,6 +95,11 @@ services:
       EVENTCAST_B2_ARCHIVE_INTERVAL: ${EVENTCAST_B2_ARCHIVE_INTERVAL:-30s}
       EVENTCAST_B2_REPORT_INTERVAL: ${EVENTCAST_B2_REPORT_INTERVAL:-30s}
       EVENTCAST_B2_INSECURE_SKIP_VERIFY: ${EVENTCAST_B2_INSECURE_SKIP_VERIFY:-false}
+      # Strong byte-integrity verification: none (default),
+      # provider_checksum, or read_back. Stays "none" until the isolated
+      # connectivity probe proves which mechanism the real endpoint
+      # actually supports; an unrecognised value fails startup closed.
+      EVENTCAST_B2_INTEGRITY_MODE: ${EVENTCAST_B2_INTEGRITY_MODE:-none}
       # YouTube relay (internal/relay). /usr/local/bin/ffmpeg is the
       # static binary the Dockerfile copies into the distroless runtime
       # image; it is set as an absolute path here rather than relying on

@@ -34,6 +34,11 @@ type B2ArchiveConfig struct {
 	Bucket         string
 	ObjectPrefix   string
 	RequestTimeout time.Duration
+	// IntegrityMode selects strong byte-integrity verification. The zero
+	// value is B2IntegrityNone, preserving the original behaviour exactly:
+	// an existing caller that does not set it gets no strong claim and no
+	// extra provider request.
+	IntegrityMode B2IntegrityMode
 }
 
 // B2Archiver copies one event's authoritative finalized recording - the
@@ -111,13 +116,20 @@ func (a *B2Archiver) ArchiveEvent(ctx context.Context, eventID, generation strin
 
 	playlistKey := B2VODPlaylistKey(a.cfg.ObjectPrefix, eventID, generation)
 	body := buildB2Playlist(confirmed)
+	// The playlist carries its own digest, both as user metadata (mirroring
+	// segments) and as the expected value strong integrity modes verify
+	// against - otherwise the rebuilt manifest, which is what a replay
+	// actually resolves segments through, would be the one archived object
+	// no strong mode covered.
+	playlistSHA256 := sha256HexOfBytes([]byte(body))
 	if err := a.putAndVerify(ctx, PutObjectInput{
 		Key:          playlistKey,
 		Body:         strings.NewReader(body),
 		Size:         int64(len(body)),
 		ContentType:  manifestContentType,
 		CacheControl: b2PlaylistCacheControl,
-	}, int64(len(body)), ""); err != nil {
+		Metadata:     map[string]string{"sha256": playlistSHA256},
+	}, int64(len(body)), playlistSHA256); err != nil {
 		return B2ArchiveResult{}, fmt.Errorf("b2: publish archive playlist for %s: %w", eventID, err)
 	}
 
@@ -184,15 +196,40 @@ func (a *B2Archiver) archiveSegment(ctx context.Context, eventID string, s store
 	}, s.ByteSize, s.SHA256)
 }
 
-// putAndVerify writes one object and then re-reads its metadata to confirm
-// the store actually holds what was sent.
+// putAndVerify writes one object and then re-reads it to confirm the store
+// actually holds what was sent.
 //
-// expectedSHA256 empty means "verify size only" (the playlist, which
-// carries no segment digest). This post-PUT HEAD is why a 200 from the
-// provider is never on its own treated as archival success - but note it
-// still proves only presence and metadata consistency, which is why it
-// never sets strong byte-integrity verification either.
+// expectedSHA256 empty means "verify size only". This post-PUT HEAD is why
+// a 200 from the provider is never on its own treated as archival success -
+// but on its own it still proves only presence and metadata consistency,
+// since the provider is echoing back metadata this same process supplied.
+//
+// When cfg.IntegrityMode requests strong verification, that weaker check is
+// additionally backed by a real claim about the stored bytes:
+//
+//   - B2IntegrityProviderChecksum sends x-amz-checksum-sha256 on the PUT,
+//     so a corrupted upload is rejected server-side. It never retries
+//     without the header - a downgrade would silently void the claim.
+//   - B2IntegrityReadBack re-reads the object and hashes what was actually
+//     returned.
+//
+// A strong mode with no expected digest to verify against is treated as a
+// programming error rather than quietly skipped, so no object can pass
+// through a strong mode unverified.
 func (a *B2Archiver) putAndVerify(ctx context.Context, in PutObjectInput, expectedSize int64, expectedSHA256 string) error {
+	strong := a.cfg.IntegrityMode.StrongVerification()
+	if strong && expectedSHA256 == "" {
+		return fmt.Errorf("b2: integrity mode %q requires an expected sha256 for key %s", a.cfg.IntegrityMode, in.Key)
+	}
+
+	if a.cfg.IntegrityMode == B2IntegrityProviderChecksum {
+		checksum, err := sha256HexToBase64(expectedSHA256)
+		if err != nil {
+			return fmt.Errorf("b2: build provider checksum for key %s: %w", in.Key, err)
+		}
+		in.ChecksumSHA256 = checksum
+	}
+
 	putCtx, cancel := context.WithTimeout(ctx, a.cfg.RequestTimeout)
 	err := a.objectStore.PutObject(putCtx, in)
 	cancel()
@@ -212,6 +249,16 @@ func (a *B2Archiver) putAndVerify(ctx context.Context, in PutObjectInput, expect
 	if expectedSHA256 != "" && info.Metadata["sha256"] != expectedSHA256 {
 		return fmt.Errorf("b2: sha256 metadata mismatch after upload for key %s", in.Key)
 	}
+
+	if a.cfg.IntegrityMode == B2IntegrityReadBack {
+		readCtx, cancel := context.WithTimeout(ctx, a.cfg.RequestTimeout)
+		err := verifyObjectReadBack(readCtx, a.objectStore, in.Key, expectedSHA256)
+		cancel()
+		if err != nil {
+			return fmt.Errorf("b2: %w", err)
+		}
+	}
+
 	return nil
 }
 

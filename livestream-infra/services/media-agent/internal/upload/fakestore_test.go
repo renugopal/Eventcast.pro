@@ -2,9 +2,12 @@ package upload
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 )
 
@@ -39,8 +42,20 @@ type fakeObjectStore struct {
 	// HEAD-before-PUT).
 	failHeadWith error
 
+	// enforceChecksum makes the fake behave like a provider that actually
+	// VERIFIES x-amz-checksum-sha256: a PUT whose declared checksum does
+	// not match the body it received is rejected.
+	enforceChecksum bool
+
+	// rejectChecksumHeader makes the fake behave like a provider that does
+	// not support the checksum header at all, rejecting any PUT that
+	// carries one. Used to prove production archival never silently
+	// downgrades to an unverified upload.
+	rejectChecksumHeader bool
+
 	putCount  int
 	headCount int
+	getCount  int
 }
 
 func newFakeObjectStore() *fakeObjectStore {
@@ -65,12 +80,57 @@ func (f *fakeObjectStore) PutObject(ctx context.Context, in PutObjectInput) erro
 		return fmt.Errorf("fake: body length %d does not match declared size %d", len(body), in.Size)
 	}
 
+	if in.ChecksumSHA256 != "" {
+		if f.rejectChecksumHeader {
+			return fmt.Errorf("fake: endpoint does not support x-amz-checksum-sha256")
+		}
+		if f.enforceChecksum {
+			sum := sha256.Sum256(body)
+			if base64.StdEncoding.EncodeToString(sum[:]) != in.ChecksumSHA256 {
+				return fmt.Errorf("fake: checksum mismatch, rejecting upload")
+			}
+		}
+	}
+
 	metadata := make(map[string]string, len(in.Metadata))
 	for k, v := range in.Metadata {
 		metadata[k] = v
 	}
 	f.objects[in.Key] = fakeObject{body: string(body), size: in.Size, contentType: in.ContentType, metadata: metadata}
 	return nil
+}
+
+// GetObject implements ObjectStore, returning the exact stored bytes so a
+// read-back verification test can observe real corruption.
+func (f *fakeObjectStore) GetObject(ctx context.Context, key string) (io.ReadCloser, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.getCount++
+
+	obj, ok := f.objects[key]
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", ErrObjectNotFound, key)
+	}
+	return io.NopCloser(strings.NewReader(obj.body)), nil
+}
+
+// corruptBody replaces the stored BYTES (not merely metadata) for key,
+// simulating silent at-rest corruption that only a real read-back can
+// detect - size and metadata are deliberately left consistent.
+func (f *fakeObjectStore) corruptBody(key string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	obj, ok := f.objects[key]
+	if !ok {
+		return
+	}
+	corrupted := []byte(obj.body)
+	if len(corrupted) == 0 {
+		return
+	}
+	corrupted[0] ^= 0xFF
+	obj.body = string(corrupted)
+	f.objects[key] = obj
 }
 
 func (f *fakeObjectStore) HeadObject(ctx context.Context, key string) (ObjectInfo, error) {
