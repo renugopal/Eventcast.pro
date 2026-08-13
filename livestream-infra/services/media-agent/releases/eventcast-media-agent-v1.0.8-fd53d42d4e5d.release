@@ -1,0 +1,8 @@
+format=eventcast-media-agent-release-v2
+version=v1.0.8-fd53d42d4e5d
+source_commit=fd53d42d4e5d1ddd3d541fac1066855c55f62a7a
+image_reference=ghcr.io/renugopal/eventcast-media-agent-private@sha256:61472fe78416b2d20882df87bb1f9fc07d40e431be43500147bcd5987673cff5
+dockerfile_sha256=7261fe92c688745a5af94eff5e3ad92fe6827816f1c88aab07a2474832620449
+platform=linux/amd64
+workflow_run_url=https://github.com/renugopal/Eventcast.pro/actions/runs/31747879867
+previous_image_reference=ghcr.io/renugopal/eventcast-media-agent-private@sha256:e7839bb7b7f748da411b6fc6f097020ab963443aca1e2d21600fc44ec3f8b353
