@@ -237,11 +237,52 @@ func (s *Store) ResolveVODGap(ctx context.Context, eventID, action, actor, reaso
 // passes now().Add(-LocalRetentionDelay) as cutoff, so a result here
 // means the configured local safety period has already elapsed
 // (02_V1_ARCHITECTURE_SPEC.md "Retention and deletion").
-func (s *Store) ListFinalizedEventsEligibleForCleanup(ctx context.Context, cutoff time.Time) ([]string, error) {
+//
+// Once B2 is in the picture the elapsed delay is no longer sufficient on
+// its own, because the local spool is the archiver's only byte source -
+// releasing it early would destroy the only recoverable copy of a
+// recording that has not yet reached the authoritative store. Two rules
+// therefore apply on top of the delay:
+//
+//   - b2ArchivalEnabled selects whether an event with NO archival history
+//     may still be released under the original 24-hour-only behavior. When
+//     archival is enabled, an event that has not yet produced a completed,
+//     acknowledged, strongly-verified archive is retained.
+//
+//   - An event that HAS archival history is never released under the
+//     legacy rule, regardless of the flag. Turning archival off must not
+//     become a data-destruction path for work that already started: such a
+//     row stays retained until its archive is genuinely safe, or until a
+//     deliberate future recovery action resolves it.
+//
+// Both conditions are fail-closed: missing or inconsistent evidence
+// retains the spool rather than releasing it.
+func (s *Store) ListFinalizedEventsEligibleForCleanup(ctx context.Context, cutoff time.Time, b2ArchivalEnabled bool) ([]string, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT event_id FROM vod_finalizations
-		WHERE status = ? AND finalized_at <> '' AND finalized_at <= ?`,
-		VODFinalized, cutoff.UTC().Format(time.RFC3339Nano))
+		SELECT vf.event_id FROM vod_finalizations vf
+		WHERE vf.status = ? AND vf.finalized_at <> '' AND vf.finalized_at <= ?
+		  AND (
+		    (
+		      -- Legacy path: archival disabled AND this event never started
+		      -- any B2 work at all.
+		      ? = 0
+		      AND NOT EXISTS (SELECT 1 FROM b2_archives b WHERE b.event_id = vf.event_id)
+		    )
+		    OR EXISTS (
+		      -- Fully satisfied path. Applies whether or not archival is
+		      -- currently enabled, so an event whose archival completed
+		      -- safely before the flag was turned off is still releasable.
+		      SELECT 1 FROM b2_archives b
+		      WHERE b.event_id = vf.event_id
+		        AND b.state = ?
+		        AND b.strong_verified = 1
+		        AND b.reported_generation = b.generation
+		        AND b.reported_at <> ''
+		        AND (b.gap_count = 0 OR b.gap_status = ?)
+		    )
+		  )`,
+		VODFinalized, cutoff.UTC().Format(time.RFC3339Nano),
+		boolToInt(b2ArchivalEnabled), B2ArchiveArchived, VODGapAcknowledged)
 	if err != nil {
 		return nil, fmt.Errorf("store: list finalized events eligible for cleanup: %w", err)
 	}

@@ -22,6 +22,7 @@ interface DbQueryResult<T> {
 interface DbQueryBuilder<T> extends PromiseLike<DbQueryResult<T>> {
   eq: (column: string, value: unknown) => DbQueryBuilder<T>;
   is: (column: string, value: null) => DbQueryBuilder<T>;
+  limit: (count: number) => DbQueryBuilder<T>;
   maybeSingle: () => PromiseLike<DbQueryResult<T>>;
 }
 
@@ -118,6 +119,60 @@ export async function loadActiveCredentialDigests(
     else if (row.slot === 2) slot2 = row.digest;
   }
   return { slot1, slot2 };
+}
+
+export type NodeActivationCheckResult = 'authorized' | 'not_authorized' | 'error';
+
+/**
+ * Proves that `mediaNodeId` genuinely produced a recording for `eventId`,
+ * by requiring an append-only activation-history row for that exact pair.
+ *
+ * Reads `media_event_assignment_activations` (migration `0036`), never
+ * `media_event_assignments.assigned_media_node_id`. That column is
+ * overwritten on every activation by `activate_media_event_assignment`
+ * (migration `0024`), so after a reassignment it names the *current* node
+ * rather than the one that produced an earlier recording — using it here
+ * would simultaneously reject the legitimate producing node's late
+ * finalization report and authorize a node that produced none of those
+ * bytes.
+ *
+ * Deliberately ignores `enabled` and does not require the current
+ * assignment to still point at this node: recording finalization and B2
+ * archival legitimately happen well after the live assignment is disabled.
+ *
+ * Fails closed — a query error is `error`, never `authorized` — and the
+ * caller must not invoke the recording-transition RPC unless this returns
+ * `authorized`.
+ *
+ * This is an EXISTENCE check (`.limit(1)`), deliberately not
+ * `.maybeSingle()`. `media_event_assignment_activations` is append-only and
+ * holds one row per activation, so a node legitimately accumulates several
+ * rows for the same `(event_id, media_node_id)` pair whenever an event is
+ * deactivated (migration `0026`) and activated again — and oldest-first
+ * node selection makes reselecting the same node the expected outcome, not
+ * an edge case. `.maybeSingle()` treats >1 match as a query error, which
+ * would have collapsed to a permanent 401 for exactly the reactivated
+ * events this table exists to handle correctly. Multiple rows are valid
+ * evidence and must never be resolved with a UNIQUE constraint: that would
+ * contradict the append-only design and make a second activation fail.
+ */
+export async function nodeHasEventActivation(
+  db: unknown,
+  eventId: string,
+  mediaNodeId: string
+): Promise<NodeActivationCheckResult> {
+  const queryableDb = db as MediaAgentDb;
+  const { data, error } = await queryableDb
+    .from('media_event_assignment_activations')
+    .select('id')
+    .eq('event_id', eventId)
+    .eq('media_node_id', mediaNodeId)
+    .limit(1);
+
+  if (error) return 'error';
+  // Anything that is not a populated row set is a denial, so an unexpected
+  // response shape fails closed rather than authorizing.
+  return Array.isArray(data) && data.length > 0 ? 'authorized' : 'not_authorized';
 }
 
 export type NonceClaimResult = 'claimed' | 'conflict' | 'error';

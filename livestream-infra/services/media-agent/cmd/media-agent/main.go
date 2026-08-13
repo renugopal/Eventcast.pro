@@ -354,7 +354,12 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 
 	mux := http.NewServeMux()
 	mux.Handle("/healthz", health.Handler())
-	mux.Handle("/readyz", health.ReadinessHandler(readinessChecks(st, cfg.SpoolRoot, cpSyncer)))
+	mux.Handle("/readyz", health.ReadinessHandlerWithB2(
+		readinessChecks(st, cfg.SpoolRoot, cpSyncer),
+		// Booleans only - this is how an operator confirms the B2
+		// configuration landed without any credential value being read back.
+		health.B2Status{Configured: cfg.B2Configured, ArchivalEnabled: cfg.B2ArchivalEnabled},
+	))
 	mux.Handle("/metrics", metrics.Handler(metricsReg, collectMetrics(st, cfg, cpSyncer, sink, startTime, &reconcileLastRunAt, &shuttingDown)))
 	mux.Handle("/internal/srs/on-publish", rateLimited(srsHandlers.OnPublish()))
 	mux.Handle("/internal/srs/on-hls", rateLimited(srsHandlers.OnHLS()))
@@ -398,7 +403,67 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		retentionWorker := upload.NewRetentionWorker(st, upload.RetentionConfig{
 			SpoolRoot:           cfg.SpoolRoot,
 			LocalRetentionDelay: cfg.LocalRetentionDelay,
+			// With archival on, the local spool is the archiver's only byte
+			// source, so the elapsed delay alone must no longer release it.
+			B2ArchivalEnabled: cfg.B2ArchivalEnabled,
 		}, logger)
+
+		// B2 authoritative archival. Deliberately gated on
+		// B2ArchivalEnabled, not merely on B2Configured: holding valid
+		// credentials (so the isolated connectivity test can run) must never
+		// by itself start archiving real recordings. When this is off, no
+		// enqueue happens, no archive row is ever created, and both local
+		// finalization and the original 24-hour spool behavior are unchanged.
+		var b2ArchiveWorker *upload.B2ArchiveWorker
+		var recordingReporter *controlplane.RecordingReporter
+		if cfg.B2ArchivalEnabled {
+			b2Client, err := upload.NewS3CompatibleClient(upload.S3Config{
+				Endpoint:           cfg.B2Endpoint,
+				Region:             cfg.B2Region,
+				Bucket:             cfg.B2Bucket,
+				AccessKeyID:        cfg.B2AccessKeyID,
+				SecretAccessKey:    cfg.B2SecretAccessKey,
+				InsecureSkipVerify: cfg.B2InsecureSkipVerify,
+			})
+			if err != nil {
+				logger.Error("failed to construct B2 client; B2 archival stays disabled", slog.String("error", err.Error()))
+			} else {
+				archiver := upload.NewB2Archiver(st, b2Client, upload.B2ArchiveConfig{
+					Bucket:         cfg.B2Bucket,
+					ObjectPrefix:   cfg.B2ObjectPrefix,
+					RequestTimeout: cfg.B2RequestTimeout,
+				}, logger)
+				b2ArchiveWorker = upload.NewB2ArchiveWorker(st, archiver, upload.B2ArchiveWorkerConfig{
+					RetryBaseDelay: cfg.B2RetryBaseDelay,
+					RetryMaxDelay:  cfg.B2RetryMaxDelay,
+				}, logger)
+
+				// Finalization only ENQUEUES the work; the worker above does
+				// the transfer, so an operator finalize request never waits on
+				// B2 network I/O.
+				vodFinalizer = vodFinalizer.WithB2Enqueuer(upload.NewB2Enqueuer(st))
+
+				if cfg.ControlPlaneEnabled {
+					recordingReporter = controlplane.NewRecordingReporter(st,
+						controlplane.NewHTTPClient(cfg.ControlPlaneBaseURL, cfg.ControlPlaneNodeToken,
+							&http.Client{Timeout: cfg.ControlPlaneRequestTimeout}),
+						controlplane.RecordingReporterConfig{
+							NodeID:         cfg.NodeID,
+							RetryBaseDelay: cfg.B2RetryBaseDelay,
+							RetryMaxDelay:  cfg.B2RetryMaxDelay,
+						}, logger)
+				} else {
+					// Archival still proceeds and stays durable; the evidence
+					// simply cannot be delivered until a control plane is
+					// configured. Nothing is lost - the outbox retains it.
+					logger.Warn("B2 archival enabled without a control plane: recording evidence will be archived durably but not reported")
+				}
+
+				logger.Info("B2 authoritative archival enabled", slog.String("bucket", cfg.B2Bucket))
+			}
+		} else if cfg.B2Configured {
+			logger.Info("B2 configured but production archival is disabled; only the isolated connectivity test may use it")
+		}
 
 		if n, err := st.ReclaimExpiredUploadLeases(ctx, time.Now().UTC()); err != nil {
 			logger.Error("failed to reclaim expired upload leases", slog.String("error", err.Error()))
@@ -412,6 +477,14 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		go func() { defer uploadWG.Done(); uploadWorker.Run(uploadCtx) }()
 		go func() { defer uploadWG.Done(); manifestManager.Run(uploadCtx, cfg.ManifestRebuildInterval) }()
 		go func() { defer uploadWG.Done(); retentionWorker.Run(uploadCtx, cfg.CleanupInterval) }()
+		if b2ArchiveWorker != nil {
+			uploadWG.Add(1)
+			go func() { defer uploadWG.Done(); b2ArchiveWorker.Run(uploadCtx, cfg.B2ArchiveInterval) }()
+		}
+		if recordingReporter != nil {
+			uploadWG.Add(1)
+			go func() { defer uploadWG.Done(); recordingReporter.Run(uploadCtx, cfg.B2ReportInterval) }()
+		}
 		defer func() {
 			cancelUpload()
 			uploadWG.Wait()

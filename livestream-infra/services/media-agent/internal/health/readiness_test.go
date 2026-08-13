@@ -105,3 +105,53 @@ func containsAny(s string, substrs ...string) bool {
 	}
 	return false
 }
+
+// The B2 booleans are informational, not readiness requirements. They must
+// stay OUT of Checks, whose contract (asserted by TestReadinessHandlerAllPass)
+// is that every entry must be true - otherwise a legitimately disabled
+// archival subsystem would look like a failing check to monitoring.
+func TestReadinessB2StatusIsInformationalAndOutsideChecks(t *testing.T) {
+	checks := ReadinessChecks{
+		Database:          func(ctx context.Context) error { return nil },
+		SpoolWritable:     func(ctx context.Context) error { return nil },
+		AssignmentCache:   func(ctx context.Context) error { return nil },
+		ControlPlaneCache: func(ctx context.Context) error { return nil },
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	rec := httptest.NewRecorder()
+	// Configured but archival deliberately switched off - the normal
+	// production posture before the connectivity test is approved.
+	ReadinessHandlerWithB2(checks, B2Status{Configured: true, ArchivalEnabled: false}).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: disabled B2 archival must never make a node unready", rec.Code, http.StatusOK)
+	}
+
+	var resp ReadinessResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid JSON body: %v", err)
+	}
+	for name := range resp.Checks {
+		if strings.HasPrefix(name, "b2_") {
+			t.Errorf("B2 status leaked into Checks as %q", name)
+		}
+	}
+	if resp.B2 == nil {
+		t.Fatal("B2 status missing from the response")
+	}
+	if !resp.B2.Configured || resp.B2.ArchivalEnabled {
+		t.Errorf("B2 = %+v, want Configured=true ArchivalEnabled=false", *resp.B2)
+	}
+}
+
+// The plain handler keeps its original response shape for existing consumers.
+func TestReadinessHandlerOmitsB2WhenNotProvided(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	rec := httptest.NewRecorder()
+	ReadinessHandler(ReadinessChecks{}).ServeHTTP(rec, req)
+
+	if strings.Contains(rec.Body.String(), `"b2"`) {
+		t.Errorf("plain ReadinessHandler emitted a b2 field: %s", rec.Body.String())
+	}
+}

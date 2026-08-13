@@ -29,6 +29,17 @@ type VODFinalizer struct {
 	cfg         ManifestConfig
 	logger      *slog.Logger
 
+	// b2Enqueuer records durable B2 archive work after a successful local
+	// finalization. Nil unless production B2 archival is explicitly
+	// enabled, so a node without it behaves exactly as before - and, just
+	// as importantly, never acquires archival history that would hold its
+	// spool under the fail-closed retention gate.
+	//
+	// Enqueuing only records WHICH generation must be archived; the network
+	// transfer is the background worker's job, so finalization latency is
+	// unchanged.
+	b2Enqueuer *B2Enqueuer
+
 	locksMu sync.Mutex
 	locks   map[string]*sync.Mutex
 }
@@ -36,6 +47,32 @@ type VODFinalizer struct {
 // NewVODFinalizer returns a VODFinalizer. logger must not be nil.
 func NewVODFinalizer(st *store.Store, objectStore ObjectStore, cfg ManifestConfig, logger *slog.Logger) *VODFinalizer {
 	return &VODFinalizer{store: st, objectStore: objectStore, cfg: cfg, logger: logger, locks: make(map[string]*sync.Mutex)}
+}
+
+// WithB2Enqueuer enables durable B2 archive enqueueing on successful
+// finalization. Called from wiring only when B2ArchivalEnabled holds.
+func (f *VODFinalizer) WithB2Enqueuer(e *B2Enqueuer) *VODFinalizer {
+	f.b2Enqueuer = e
+	return f
+}
+
+// enqueueB2Archive records archive work for a finalized event, if enabled.
+//
+// A failure here is logged and does not fail the finalize request: local
+// finalization genuinely succeeded and that fact must still be reported.
+// Nothing is lost by deferring - the enqueue is derived entirely from
+// durable state, so the next finalize call (or a restart) reconstructs the
+// identical work. Critically, this cannot cause premature spool deletion:
+// with archival enabled, the retention gate already refuses to release an
+// event that has no completed, acknowledged, verified archive.
+func (f *VODFinalizer) enqueueB2Archive(ctx context.Context, eventID string) {
+	if f.b2Enqueuer == nil {
+		return
+	}
+	if err := f.b2Enqueuer.Enqueue(ctx, eventID); err != nil {
+		f.logger.Error("vod: enqueue b2 archive work failed",
+			slog.String("event_id", eventID), slog.String("error", err.Error()))
+	}
 }
 
 func (f *VODFinalizer) lockFor(eventID string) *sync.Mutex {
@@ -121,6 +158,11 @@ func (f *VODFinalizer) Finalize(ctx context.Context, eventID string) (FinalizeRe
 	}
 	segmentIDs := idsOf(confirmed)
 	if hasExisting && existing.Status == store.VODFinalized && int64SlicesEqual(existing.SegmentIDs, segmentIDs) {
+		// Unchanged segment set: nothing to republish, but still ensure the
+		// archive work row exists. This is what makes a repeated finalize
+		// call the recovery path if an earlier enqueue failed, and it is
+		// safe because enqueueing an unchanged generation is a no-op.
+		f.enqueueB2Archive(ctx, eventID)
 		return FinalizeResult{Finalized: true, R2Key: existing.R2Key}, nil
 	}
 
@@ -203,6 +245,11 @@ func (f *VODFinalizer) Finalize(ctx context.Context, eventID string) (FinalizeRe
 	if _, err := f.store.RecordManifestGeneration(ctx, eventID, store.ManifestTypeVOD, segmentIDs, 0, key, now); err != nil {
 		f.logger.Error("vod: record manifest generation failed", slog.String("event_id", eventID), slog.String("error", err.Error()))
 	}
+
+	// Local finalization is now durable. Record the B2 archive work for this
+	// exact generation before returning, so the operator request completes
+	// with the work persisted rather than merely intended.
+	f.enqueueB2Archive(ctx, eventID)
 
 	f.logger.Info("vod finalized", slog.String("event_id", eventID), slog.Int("segment_count", len(confirmed)), slog.Int("session_count", sessionCount))
 	return FinalizeResult{Finalized: true, R2Key: key}, nil

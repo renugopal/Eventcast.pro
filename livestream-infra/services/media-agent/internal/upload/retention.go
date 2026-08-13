@@ -28,6 +28,18 @@ type RetentionConfig struct {
 	// becomes eligible. Default 24h (02_V1_ARCHITECTURE_SPEC.md
 	// "Retention and deletion").
 	LocalRetentionDelay time.Duration
+	// B2ArchivalEnabled mirrors config.Config.B2ArchivalEnabled and makes
+	// the delay above insufficient on its own: the local spool is the B2
+	// archiver's ONLY byte source, so releasing it before an event has a
+	// completed, acknowledged, strongly-verified archive would destroy the
+	// only recoverable copy.
+	//
+	// It gates only the "never archived anything" case. An event that has
+	// archival history is held to the full B2 conditions regardless of this
+	// flag - turning archival off must not become a data-destruction path
+	// for work that already began. See
+	// store.ListFinalizedEventsEligibleForCleanup.
+	B2ArchivalEnabled bool
 }
 
 // RetentionWorker deletes local spool copies only once they are fully
@@ -73,7 +85,7 @@ func (w *RetentionWorker) Run(ctx context.Context, interval time.Duration) {
 // and deletes each eligible segment's local spool copy.
 func (w *RetentionWorker) RunOnce(ctx context.Context) {
 	cutoff := w.now().UTC().Add(-w.cfg.LocalRetentionDelay)
-	eventIDs, err := w.store.ListFinalizedEventsEligibleForCleanup(ctx, cutoff)
+	eventIDs, err := w.store.ListFinalizedEventsEligibleForCleanup(ctx, cutoff, w.cfg.B2ArchivalEnabled)
 	if err != nil {
 		w.logger.Error("retention: list eligible events failed", slog.String("error", err.Error()))
 		return

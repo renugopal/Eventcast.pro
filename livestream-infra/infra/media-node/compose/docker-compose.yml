@@ -76,6 +76,25 @@ services:
       EVENTCAST_LOCAL_RETENTION_DELAY: ${EVENTCAST_LOCAL_RETENTION_DELAY:-24h}
       EVENTCAST_MANIFEST_REBUILD_INTERVAL: ${EVENTCAST_MANIFEST_REBUILD_INTERVAL:-5s}
       EVENTCAST_CLEANUP_INTERVAL: ${EVENTCAST_CLEANUP_INTERVAL:-15m}
+      # Backblaze B2 authoritative VOD archival. Configuration presence and
+      # archival enablement are deliberately separate: a node may hold a
+      # complete, valid B2 configuration so the isolated connectivity test
+      # can run, while EVENTCAST_B2_ARCHIVE_ENABLED stays false and no real
+      # event recording is ever archived. All values come from the host
+      # .env, which is never committed.
+      EVENTCAST_B2_ENDPOINT: ${EVENTCAST_B2_ENDPOINT:-}
+      EVENTCAST_B2_REGION: ${EVENTCAST_B2_REGION:-}
+      EVENTCAST_B2_BUCKET: ${EVENTCAST_B2_BUCKET:-}
+      EVENTCAST_B2_ACCESS_KEY_ID: ${EVENTCAST_B2_ACCESS_KEY_ID:-}
+      EVENTCAST_B2_SECRET_ACCESS_KEY: ${EVENTCAST_B2_SECRET_ACCESS_KEY:-}
+      EVENTCAST_B2_OBJECT_PREFIX: ${EVENTCAST_B2_OBJECT_PREFIX:-}
+      EVENTCAST_B2_ARCHIVE_ENABLED: ${EVENTCAST_B2_ARCHIVE_ENABLED:-false}
+      EVENTCAST_B2_REQUEST_TIMEOUT: ${EVENTCAST_B2_REQUEST_TIMEOUT:-60s}
+      EVENTCAST_B2_RETRY_BASE_DELAY: ${EVENTCAST_B2_RETRY_BASE_DELAY:-1s}
+      EVENTCAST_B2_RETRY_MAX_DELAY: ${EVENTCAST_B2_RETRY_MAX_DELAY:-60s}
+      EVENTCAST_B2_ARCHIVE_INTERVAL: ${EVENTCAST_B2_ARCHIVE_INTERVAL:-30s}
+      EVENTCAST_B2_REPORT_INTERVAL: ${EVENTCAST_B2_REPORT_INTERVAL:-30s}
+      EVENTCAST_B2_INSECURE_SKIP_VERIFY: ${EVENTCAST_B2_INSECURE_SKIP_VERIFY:-false}
       # YouTube relay (internal/relay). /usr/local/bin/ffmpeg is the
       # static binary the Dockerfile copies into the distroless runtime
       # image; it is set as an absolute path here rather than relying on

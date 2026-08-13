@@ -164,7 +164,9 @@ func TestListFinalizedEventsEligibleForCleanup(t *testing.T) {
 	}
 
 	cutoff := time.Now().UTC().Add(-24 * time.Hour)
-	eligible, err := st.ListFinalizedEventsEligibleForCleanup(ctx, cutoff)
+	// b2ArchivalEnabled=false with no b2_archives row for either event is
+	// the legacy path: behavior must be exactly as before B2 existed.
+	eligible, err := st.ListFinalizedEventsEligibleForCleanup(ctx, cutoff, false)
 	if err != nil {
 		t.Fatalf("ListFinalizedEventsEligibleForCleanup() error: %v", err)
 	}

@@ -33,13 +33,30 @@ type R2Config struct {
 	InsecureSkipVerify bool
 }
 
+// S3Config is the provider-neutral alias of R2Config. The struct was
+// already documented as provider-agnostic S3-compatible configuration;
+// naming it explicitly lets a second endpoint (Backblaze B2's
+// S3-compatible API, see internal/upload/b2archive.go) be constructed
+// from the same proven code path instead of growing a second, divergent
+// storage client.
+type S3Config = R2Config
+
 // R2Client is the production ObjectStore implementation: a thin wrapper
-// over the S3-compatible API, used for both live Cloudflare R2 traffic
-// and (pointed at a local pinned MinIO container) the integration-test
-// proof.
+// over the S3-compatible API, used for live Cloudflare R2 traffic, for
+// Backblaze B2 archival, and (pointed at a local pinned MinIO container)
+// the integration-test proof. One client type, one code path, several
+// independently-configured instances - never several storage
+// architectures.
 type R2Client struct {
 	client *s3.Client
 	bucket string
+}
+
+// NewS3CompatibleClient builds a client for any S3-compatible endpoint
+// from cfg. NewR2Client is the R2-named wrapper retained so every
+// existing caller and test is untouched; B2 archival calls this directly.
+func NewS3CompatibleClient(cfg S3Config) (*R2Client, error) {
+	return NewR2Client(cfg)
 }
 
 // NewR2Client builds an R2Client from cfg. It performs no network I/O;
@@ -92,6 +109,9 @@ func (c *R2Client) PutObject(ctx context.Context, in PutObjectInput) error {
 		ContentType:   aws.String(in.ContentType),
 		CacheControl:  nonEmptyOrNil(in.CacheControl),
 		Metadata:      in.Metadata,
+		// Left nil unless the caller explicitly opted in. No production
+		// path sets this today - see PutObjectInput.ChecksumSHA256.
+		ChecksumSHA256: nonEmptyOrNil(in.ChecksumSHA256),
 	})
 	if err != nil {
 		return fmt.Errorf("upload: put object %s: %w", in.Key, err)

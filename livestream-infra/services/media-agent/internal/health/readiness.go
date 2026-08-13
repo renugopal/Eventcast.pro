@@ -35,6 +35,25 @@ type ReadinessChecks struct {
 	ControlPlaneCache func(ctx context.Context) error
 }
 
+// B2Status reports the two independent B2 facts an operator needs in
+// order to verify configuration WITHOUT any credential value ever being
+// read back or displayed: whether a complete configuration is present,
+// and whether production archival is actually switched on. They are
+// deliberately separate, because a node may legitimately hold valid
+// credentials for the isolated connectivity test while real event
+// archival stays off.
+//
+// These are reported in their own response field rather than inside
+// Checks. Every entry in Checks is a readiness requirement that must be
+// true, and monitoring may reasonably alert on any false one; a legitimate
+// "archival is switched off" would then look like a failure. Keeping the
+// two apart preserves that contract, and B2 archival - an optional
+// subsystem - correctly never affects readiness.
+type B2Status struct {
+	Configured      bool `json:"configured"`
+	ArchivalEnabled bool `json:"archival_enabled"`
+}
+
 // ReadinessResponse is the stable JSON shape returned by GET /readyz.
 // Checks are booleans only - no paths, counts, or other filesystem or
 // database detail that could aid an attacker or leak operational
@@ -42,6 +61,10 @@ type ReadinessChecks struct {
 type ReadinessResponse struct {
 	Status string          `json:"status"`
 	Checks map[string]bool `json:"checks"`
+	// B2 is informational, not a readiness requirement - see B2Status.
+	// Omitted entirely by the plain ReadinessHandler so existing consumers
+	// see an unchanged response shape.
+	B2 *B2Status `json:"b2,omitempty"`
 }
 
 // ReadinessHandler returns an http.Handler serving GET /readyz. It
@@ -49,6 +72,17 @@ type ReadinessResponse struct {
 // passes, otherwise HTTP 503 with status "not_ready" and the per-check
 // boolean breakdown.
 func ReadinessHandler(checks ReadinessChecks) http.Handler {
+	return readinessHandler(checks, B2Status{}, false)
+}
+
+// ReadinessHandlerWithB2 is ReadinessHandler plus the informational B2
+// status object. Kept as a separate constructor so every existing caller
+// and test of ReadinessHandler sees an unchanged response shape.
+func ReadinessHandlerWithB2(checks ReadinessChecks, b2 B2Status) http.Handler {
+	return readinessHandler(checks, b2, true)
+}
+
+func readinessHandler(checks ReadinessChecks, b2 B2Status, includeB2 bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.Header().Set("Allow", http.MethodGet)
@@ -69,6 +103,13 @@ func ReadinessHandler(checks ReadinessChecks) http.Handler {
 		ready := results["database"] && results["spool_writable"] && results["assignment_cache"] && results["control_plane_cache"]
 
 		resp := ReadinessResponse{Checks: results}
+		if includeB2 {
+			// Booleans only, never a credential value, and deliberately
+			// outside Checks so they cannot be mistaken for readiness
+			// requirements.
+			status := b2
+			resp.B2 = &status
+		}
 		status := http.StatusOK
 		resp.Status = "ready"
 		if !ready {

@@ -76,6 +76,19 @@ func mediaSequenceOf(all, kept []store.SegmentJob) int {
 // session uploaded. Addressing segments by their own key keeps every
 // manifest correct regardless of that difference.
 func buildPlaylist(kept []store.SegmentJob, mediaSequence int, publicBaseURL string, endlist bool) string {
+	return renderPlaylist(kept, mediaSequence, endlist, func(s store.SegmentJob) string {
+		return segmentURL(publicBaseURL, s.R2Key)
+	})
+}
+
+// renderPlaylist is the single HLS media-playlist renderer. It exists so
+// the B2 archive playlist (b2playlist.go), which must address segments by
+// playlist-relative content-addressed URI rather than by R2 key, reuses
+// exactly this target-duration, discontinuity, and EXTINF logic instead of
+// growing a parallel copy that could silently drift. buildPlaylist's
+// output is unchanged: it passes the same R2-key URI function it always
+// used.
+func renderPlaylist(kept []store.SegmentJob, mediaSequence int, endlist bool, uriFor func(store.SegmentJob) string) string {
 	target := defaultTargetDuration
 	for _, s := range kept {
 		if d := int(math.Ceil(s.DurationSeconds)); d > target {
@@ -97,7 +110,7 @@ func buildPlaylist(kept []store.SegmentJob, mediaSequence int, publicBaseURL str
 		previousSession = s.SessionID
 
 		fmt.Fprintf(&b, "#EXTINF:%s,\n", strconv.FormatFloat(s.DurationSeconds, 'f', 3, 64))
-		b.WriteString(segmentURL(publicBaseURL, s.R2Key))
+		b.WriteString(uriFor(s))
 		b.WriteString("\n")
 	}
 

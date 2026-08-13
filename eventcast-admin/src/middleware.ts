@@ -47,6 +47,18 @@ const PUBLIC_PREFIXES = [
 // left unprotected.
 const MEDIA_AGENT_ASSIGNMENTS_PATH = /^\/internal\/media\/nodes\/[A-Za-z0-9._-]{1,128}\/assignments\/?$/;
 
+// Same node machine-auth scheme, for the node-originated recording-state
+// report route (`src/app/internal/media/nodes/[node_id]/recordings/[event_id]/route.ts`).
+// It authenticates itself via `@/lib/media-agent/nodeAuth` exactly like the
+// assignments endpoint above — not a studio user's Supabase session JWT —
+// and additionally requires an activation-history row binding the node to
+// the event before it will touch recording state. Matched as its own exact
+// two-segment shape rather than by broadening the `/internal/media/nodes/`
+// prefix, so every other path under that prefix still falls through to
+// normal studio-JWT authentication instead of being silently unprotected.
+const MEDIA_AGENT_RECORDING_REPORT_PATH =
+  /^\/internal\/media\/nodes\/[A-Za-z0-9._-]{1,128}\/recordings\/[A-Za-z0-9._-]{1,128}\/?$/;
+
 // ─── Media Agent operator-only provisioning bypass ───────────────────────────
 // Matches ONLY the exact node-registration and credential-issuance route
 // shapes (`src/app/internal/media/nodes/provision/route.ts` and
@@ -124,6 +136,7 @@ export async function middleware(req: NextRequest) {
   // else, ahead of the general /api//internal prefix guard below.
   if (
     MEDIA_AGENT_ASSIGNMENTS_PATH.test(pathname) ||
+    MEDIA_AGENT_RECORDING_REPORT_PATH.test(pathname) ||
     MEDIA_AGENT_NODE_PROVISIONING_PATH.test(pathname) ||
     MEDIA_AGENT_NODE_CREDENTIALS_PATH.test(pathname) ||
     MEDIA_AGENT_NODE_MARK_HEALTHY_PATH.test(pathname) ||

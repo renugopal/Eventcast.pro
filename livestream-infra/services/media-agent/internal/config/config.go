@@ -90,6 +90,41 @@ const (
 	// container) does not need this flag at all.
 	EnvR2InsecureSkipVerify = "EVENTCAST_R2_INSECURE_SKIP_VERIFY"
 
+	// Backblaze B2 authoritative VOD archival. Two deliberately separate
+	// concepts, unlike the single-flag R2 block above:
+	//
+	//   B2Configured       - the endpoint/region/bucket/credential set is
+	//                        present and valid.
+	//   B2ArchivalEnabled  - an explicit operational switch (EnvB2ArchiveEnabled,
+	//                        default false) authorizing REAL event recordings
+	//                        to be archived to B2.
+	//
+	// Configuration presence must never by itself start archiving production
+	// recordings: a node may hold valid B2 credentials purely so the isolated
+	// connectivity test can run, while real archival stays off. Setting
+	// EnvB2ArchiveEnabled without a complete configuration is a startup error
+	// rather than a silently disabled subsystem.
+	EnvB2Endpoint        = "EVENTCAST_B2_ENDPOINT"
+	EnvB2Region          = "EVENTCAST_B2_REGION"
+	EnvB2Bucket          = "EVENTCAST_B2_BUCKET"
+	EnvB2AccessKeyID     = "EVENTCAST_B2_ACCESS_KEY_ID"
+	EnvB2SecretAccessKey = "EVENTCAST_B2_SECRET_ACCESS_KEY"
+	EnvB2ObjectPrefix    = "EVENTCAST_B2_OBJECT_PREFIX"
+	// EnvB2ArchiveEnabled gates production archival only. It defaults to
+	// false and must be set deliberately.
+	EnvB2ArchiveEnabled = "EVENTCAST_B2_ARCHIVE_ENABLED"
+	EnvB2RequestTimeout = "EVENTCAST_B2_REQUEST_TIMEOUT"
+	EnvB2RetryBaseDelay = "EVENTCAST_B2_RETRY_BASE_DELAY"
+	EnvB2RetryMaxDelay  = "EVENTCAST_B2_RETRY_MAX_DELAY"
+	// EnvB2ArchiveInterval is the background archival worker's tick;
+	// EnvB2ReportInterval is the durable control-plane reporter's tick.
+	EnvB2ArchiveInterval = "EVENTCAST_B2_ARCHIVE_INTERVAL"
+	EnvB2ReportInterval  = "EVENTCAST_B2_REPORT_INTERVAL"
+	// EnvB2InsecureSkipVerify mirrors EnvR2InsecureSkipVerify and must stay
+	// false in production; it exists only so isolated tests can target a
+	// local S3-compatible container with a self-signed certificate.
+	EnvB2InsecureSkipVerify = "EVENTCAST_B2_INSECURE_SKIP_VERIFY"
+
 	// EnvDVRWindow is the live-manifest retention window. Production
 	// must not change this from the ADR-004 default without a new
 	// decision record; it is exposed as configuration only so isolated
@@ -215,6 +250,19 @@ const (
 	DefaultR2RequestTimeout      = 20 * time.Second
 	DefaultR2UploadLeaseDuration = 30 * time.Second
 
+	// B2 archival defaults. There is deliberately no default region: unlike
+	// R2's "auto", Backblaze's S3 endpoint is region-bound and its SigV4
+	// signature is region-specific, so guessing one would produce confusing
+	// authentication failures instead of a clear configuration error.
+	// The archive/report intervals keep both background loops unobtrusive;
+	// archival is not latency-sensitive and must never hold an operator
+	// finalize request open.
+	DefaultB2RequestTimeout  = 60 * time.Second
+	DefaultB2RetryBaseDelay  = 1 * time.Second
+	DefaultB2RetryMaxDelay   = 60 * time.Second
+	DefaultB2ArchiveInterval = 30 * time.Second
+	DefaultB2ReportInterval  = 30 * time.Second
+
 	// DefaultDVRWindow is ADR-004's fifteen-minute (~900 second) live
 	// DVR window. Production must not override this default without a
 	// new decision record; EnvDVRWindow exists so isolated integration
@@ -292,6 +340,31 @@ type Config struct {
 	R2RequestTimeout      time.Duration
 	R2UploadLeaseDuration time.Duration
 	R2InsecureSkipVerify  bool
+
+	// B2Configured reports whether the complete B2 configuration set is
+	// present and valid. It authorizes the isolated connectivity-test path
+	// ONLY - it never by itself archives a production recording.
+	B2Configured bool
+	// B2ArchivalEnabled reports whether real event recordings may be
+	// archived to B2. False unless EnvB2ArchiveEnabled is explicitly set
+	// true AND B2Configured holds.
+	B2ArchivalEnabled    bool
+	B2Endpoint           string
+	B2Region             string
+	B2Bucket             string
+	B2AccessKeyID        string
+	B2SecretAccessKey    logging.Secret
+	B2ObjectPrefix       string
+	B2RequestTimeout     time.Duration
+	B2RetryBaseDelay     time.Duration
+	B2RetryMaxDelay      time.Duration
+	B2ArchiveInterval    time.Duration
+	B2ReportInterval     time.Duration
+	B2InsecureSkipVerify bool
+	// b2ArchiveEnabledRequested records the raw operator intent, before it
+	// is ANDed with B2Configured, so Validate can fail fast on
+	// "enabled but not configured" instead of silently disabling.
+	b2ArchiveEnabledRequested bool
 
 	DVRWindow               time.Duration
 	LocalRetentionDelay     time.Duration
@@ -405,6 +478,53 @@ func Load(getenv func(string) string) (Config, error) {
 	cfg.R2InsecureSkipVerify, err = parseBoolOrDefault(getenv(EnvR2InsecureSkipVerify), false)
 	if err != nil {
 		return Config{}, fmt.Errorf("config: %s is not a valid boolean: %w", EnvR2InsecureSkipVerify, err)
+	}
+
+	cfg.B2Endpoint = strings.TrimSpace(getenv(EnvB2Endpoint))
+	cfg.B2Region = strings.TrimSpace(getenv(EnvB2Region))
+	cfg.B2Bucket = strings.TrimSpace(getenv(EnvB2Bucket))
+	cfg.B2AccessKeyID = strings.TrimSpace(getenv(EnvB2AccessKeyID))
+	cfg.B2SecretAccessKey = logging.Secret(getenv(EnvB2SecretAccessKey))
+	cfg.B2ObjectPrefix = strings.TrimSpace(getenv(EnvB2ObjectPrefix))
+	// Configured requires the COMPLETE set, not merely a bucket name - a
+	// half-configured B2 client could otherwise pass as "configured" and
+	// then fail at the first request.
+	cfg.B2Configured = cfg.B2Endpoint != "" && cfg.B2Region != "" && cfg.B2Bucket != "" &&
+		cfg.B2AccessKeyID != "" && cfg.B2SecretAccessKey.Reveal() != ""
+
+	cfg.b2ArchiveEnabledRequested, err = parseBoolOrDefault(getenv(EnvB2ArchiveEnabled), false)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid boolean: %w", EnvB2ArchiveEnabled, err)
+	}
+	// Real archival requires BOTH explicit operator intent and a complete
+	// configuration. Validate() below turns the "requested but not
+	// configured" combination into a startup error rather than letting it
+	// quietly resolve to false here.
+	cfg.B2ArchivalEnabled = cfg.b2ArchiveEnabledRequested && cfg.B2Configured
+
+	cfg.B2RequestTimeout, err = parseDurationOrDefault(getenv(EnvB2RequestTimeout), DefaultB2RequestTimeout)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvB2RequestTimeout, err)
+	}
+	cfg.B2RetryBaseDelay, err = parseDurationOrDefault(getenv(EnvB2RetryBaseDelay), DefaultB2RetryBaseDelay)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvB2RetryBaseDelay, err)
+	}
+	cfg.B2RetryMaxDelay, err = parseDurationOrDefault(getenv(EnvB2RetryMaxDelay), DefaultB2RetryMaxDelay)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvB2RetryMaxDelay, err)
+	}
+	cfg.B2ArchiveInterval, err = parseDurationOrDefault(getenv(EnvB2ArchiveInterval), DefaultB2ArchiveInterval)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvB2ArchiveInterval, err)
+	}
+	cfg.B2ReportInterval, err = parseDurationOrDefault(getenv(EnvB2ReportInterval), DefaultB2ReportInterval)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvB2ReportInterval, err)
+	}
+	cfg.B2InsecureSkipVerify, err = parseBoolOrDefault(getenv(EnvB2InsecureSkipVerify), false)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid boolean: %w", EnvB2InsecureSkipVerify, err)
 	}
 
 	cfg.DVRWindow, err = parseDurationOrDefault(getenv(EnvDVRWindow), DefaultDVRWindow)
@@ -628,6 +748,10 @@ func (c Config) Validate() error {
 		return err
 	}
 
+	if err := c.validateB2(); err != nil {
+		return err
+	}
+
 	if err := c.validateControlPlane(); err != nil {
 		return err
 	}
@@ -693,6 +817,49 @@ func (c Config) validateR2() error {
 	}
 	if c.LocalRetentionDelay <= 0 {
 		return fmt.Errorf("config: %s must be positive", EnvLocalRetentionDelay)
+	}
+
+	return nil
+}
+
+// validateB2 enforces the two-concept model documented on EnvB2Bucket
+// above. Unlike validateR2, a partially-populated B2 block is NOT an
+// error on its own: an operator may legitimately leave B2 entirely unset,
+// and B2Configured simply stays false. What is an error is asking for
+// production archival (EnvB2ArchiveEnabled) without a complete, valid
+// configuration to perform it with - that must fail fast rather than
+// silently resolve to "archival disabled", because the operator's stated
+// intent would then be quietly ignored.
+//
+// When any B2 field is present, the whole set is validated for shape, so
+// a typo in an endpoint surfaces at startup rather than at the first
+// archival attempt. Errors name the offending variable and never echo a
+// value.
+func (c Config) validateB2() error {
+	anyPresent := c.B2Endpoint != "" || c.B2Region != "" || c.B2Bucket != "" ||
+		c.B2AccessKeyID != "" || c.B2SecretAccessKey.Reveal() != "" || c.B2ObjectPrefix != ""
+
+	if c.b2ArchiveEnabledRequested && !c.B2Configured {
+		return fmt.Errorf(
+			"config: %s is true but the B2 configuration is incomplete; %s, %s, %s, %s, and %s are all required",
+			EnvB2ArchiveEnabled, EnvB2Endpoint, EnvB2Region, EnvB2Bucket, EnvB2AccessKeyID, EnvB2SecretAccessKey)
+	}
+
+	if !anyPresent {
+		return nil
+	}
+
+	if c.B2Endpoint != "" {
+		parsed, err := url.Parse(c.B2Endpoint)
+		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+			return fmt.Errorf("config: %s must be an absolute http:// or https:// URL", EnvB2Endpoint)
+		}
+		if parsed.Scheme != "http" && parsed.Scheme != "https" {
+			return fmt.Errorf("config: %s must use http or https", EnvB2Endpoint)
+		}
+	}
+	if c.B2RetryMaxDelay < c.B2RetryBaseDelay {
+		return fmt.Errorf("config: %s must be >= %s", EnvB2RetryMaxDelay, EnvB2RetryBaseDelay)
 	}
 
 	return nil

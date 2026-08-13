@@ -45,6 +45,18 @@ type PutObjectInput struct {
 	// cache rules key off of (ADR-021: live manifests must never be
 	// cached; immutable segments and finalized VOD manifests may be).
 	CacheControl string
+	// ChecksumSHA256 is the base64-encoded SHA-256 digest of Body, sent as
+	// the S3 x-amz-checksum-sha256 header so the PROVIDER verifies the
+	// bytes it stored and rejects a corrupted upload server-side.
+	//
+	// Deliberately empty on every production path today. Whether the real
+	// Backblaze B2 S3 endpoint accepts and *enforces* this header is
+	// unproven, and an unverified assumption must not sit underneath the
+	// authoritative archive's integrity claim. It is exercised only by the
+	// isolated connectivity-test capability (b2connectivity.go), whose
+	// result will decide whether strong byte-integrity verification is
+	// wired to this header or to a read-back/hash fallback.
+	ChecksumSHA256 string
 }
 
 // ObjectStore is the minimal S3-compatible surface the upload worker,

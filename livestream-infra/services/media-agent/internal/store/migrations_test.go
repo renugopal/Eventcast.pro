@@ -224,8 +224,10 @@ func TestRealMigration0002UpgradesAnExistingV1Database(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SchemaVersion() error: %v", err)
 	}
-	if version != 4 {
-		t.Errorf("SchemaVersion() after upgrade = %d, want 4", version)
+	// Tracks the highest embedded migration version: 0005 added
+	// b2_archives for authoritative B2 archival.
+	if version != 5 {
+		t.Errorf("SchemaVersion() after upgrade = %d, want 5", version)
 	}
 
 	// Pre-existing data must survive untouched, and new columns must
