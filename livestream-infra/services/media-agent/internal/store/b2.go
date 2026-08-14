@@ -231,17 +231,25 @@ func (s *Store) ClaimB2ArchiveWork(ctx context.Context, now time.Time, leaseDura
 // UPDATE matches nothing and the completed work is correctly discarded as
 // describing a superseded segment set.
 //
-// It deliberately does not set strong_verified. Presence and metadata
-// consistency are not byte-level integrity proof.
-func (s *Store) MarkB2Archived(ctx context.Context, eventID, generation, bucket, playlistKey string, objectCount int, now time.Time) (bool, error) {
+// strongVerified records whether a strong integrity mode actually proved
+// this generation's bytes (provider-enforced checksum on write, or a
+// byte-level read-back hash). It is written in the SAME statement as the
+// archived state, so the reporter can never observe an archived row whose
+// strong claim has not yet been settled.
+//
+// It is always written explicitly, never left untouched: a later weaker or
+// unverified pass over the same generation must clear a previous strong
+// claim rather than letting it persist. Presence and metadata consistency
+// alone still never set it - that is exactly what "strong" excludes.
+func (s *Store) MarkB2Archived(ctx context.Context, eventID, generation, bucket, playlistKey string, objectCount int, strongVerified bool, now time.Time) (bool, error) {
 	nowStr := now.UTC().Format(time.RFC3339Nano)
 	res, err := s.db.ExecContext(ctx, `
 		UPDATE b2_archives
 		SET state = 'archived', bucket = ?, playlist_key = ?, object_count = ?,
-		    archived_at = ?, last_error = '', next_attempt_at = '',
+		    strong_verified = ?, archived_at = ?, last_error = '', next_attempt_at = '',
 		    next_report_at = '', updated_at = ?
 		WHERE event_id = ? AND generation = ?`,
-		bucket, playlistKey, objectCount, nowStr, nowStr, eventID, generation)
+		bucket, playlistKey, objectCount, boolToInt(strongVerified), nowStr, nowStr, eventID, generation)
 	if err != nil {
 		return false, fmt.Errorf("store: mark b2 archived for %s: %w", eventID, err)
 	}

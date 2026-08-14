@@ -28,7 +28,7 @@ func TestEnqueueB2ArchiveIsANoOpForAnUnchangedGeneration(t *testing.T) {
 	st := openTestStore(t)
 
 	enqueueTestArchive(t, st, "evt-1", "gen-a")
-	if _, err := st.MarkB2Archived(ctx, "evt-1", "gen-a", "bucket", "playlist-key", 3, time.Now().UTC()); err != nil {
+	if _, err := st.MarkB2Archived(ctx, "evt-1", "gen-a", "bucket", "playlist-key", 3, false, time.Now().UTC()); err != nil {
 		t.Fatalf("MarkB2Archived() error: %v", err)
 	}
 
@@ -48,7 +48,7 @@ func TestEnqueueB2ArchiveConvergesToANewerGeneration(t *testing.T) {
 	st := openTestStore(t)
 
 	enqueueTestArchive(t, st, "evt-1", "gen-a")
-	if _, err := st.MarkB2Archived(ctx, "evt-1", "gen-a", "bucket", "playlist-a", 3, time.Now().UTC()); err != nil {
+	if _, err := st.MarkB2Archived(ctx, "evt-1", "gen-a", "bucket", "playlist-a", 3, false, time.Now().UTC()); err != nil {
 		t.Fatalf("MarkB2Archived() error: %v", err)
 	}
 
@@ -74,7 +74,7 @@ func TestMarkB2ArchivedRejectsAStaleGeneration(t *testing.T) {
 	st := openTestStore(t)
 
 	enqueueTestArchive(t, st, "evt-1", "gen-b")
-	applied, err := st.MarkB2Archived(ctx, "evt-1", "gen-a", "bucket", "playlist-a", 3, time.Now().UTC())
+	applied, err := st.MarkB2Archived(ctx, "evt-1", "gen-a", "bucket", "playlist-a", 3, false, time.Now().UTC())
 	if err != nil {
 		t.Fatalf("MarkB2Archived() error: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestSpoolGateRetainsWhileArchiveIsIncomplete(t *testing.T) {
 	}
 
 	// Archived, but neither reported nor strongly verified.
-	if _, err := st.MarkB2Archived(ctx, "evt-1", "gen-a", "bucket", "playlist", 3, time.Now().UTC()); err != nil {
+	if _, err := st.MarkB2Archived(ctx, "evt-1", "gen-a", "bucket", "playlist", 3, false, time.Now().UTC()); err != nil {
 		t.Fatalf("MarkB2Archived() error: %v", err)
 	}
 	if ids := eligibleIDs(t, st, true); len(ids) != 0 {
@@ -188,16 +188,14 @@ func TestSpoolGateReleasesOnlyWhenEveryConditionHolds(t *testing.T) {
 	finalizeForCleanup(t, st, "evt-1")
 	enqueueTestArchive(t, st, "evt-1", "gen-a")
 
-	if _, err := st.MarkB2Archived(ctx, "evt-1", "gen-a", "bucket", "playlist", 3, time.Now().UTC()); err != nil {
+	// Records strong verification through the real production path (a
+	// strong integrity mode having proven this generation's bytes) rather
+	// than simulating it with a raw UPDATE.
+	if _, err := st.MarkB2Archived(ctx, "evt-1", "gen-a", "bucket", "playlist", 3, true, time.Now().UTC()); err != nil {
 		t.Fatalf("MarkB2Archived() error: %v", err)
 	}
 	if err := st.MarkB2Reported(ctx, "evt-1", "gen-a", B2ArchiveArchived, time.Now().UTC()); err != nil {
 		t.Fatalf("MarkB2Reported() error: %v", err)
-	}
-	// Simulates the future state in which strong verification has been
-	// proven and recorded.
-	if _, err := st.db.ExecContext(ctx, `UPDATE b2_archives SET strong_verified = 1 WHERE event_id = ?`, "evt-1"); err != nil {
-		t.Fatalf("set strong_verified: %v", err)
 	}
 
 	ids := eligibleIDs(t, st, true)
@@ -222,14 +220,11 @@ func TestSpoolGateRetainsOnAnUnresolvedGap(t *testing.T) {
 	}, time.Now().UTC()); err != nil {
 		t.Fatalf("EnqueueB2Archive() error: %v", err)
 	}
-	if _, err := st.MarkB2Archived(ctx, "evt-1", "gen-a", "bucket", "playlist", 3, time.Now().UTC()); err != nil {
+	if _, err := st.MarkB2Archived(ctx, "evt-1", "gen-a", "bucket", "playlist", 3, true, time.Now().UTC()); err != nil {
 		t.Fatalf("MarkB2Archived() error: %v", err)
 	}
 	if err := st.MarkB2Reported(ctx, "evt-1", "gen-a", B2ArchiveArchived, time.Now().UTC()); err != nil {
 		t.Fatalf("MarkB2Reported() error: %v", err)
-	}
-	if _, err := st.db.ExecContext(ctx, `UPDATE b2_archives SET strong_verified = 1 WHERE event_id = ?`, "evt-1"); err != nil {
-		t.Fatalf("set strong_verified: %v", err)
 	}
 
 	if ids := eligibleIDs(t, st, true); len(ids) != 0 {

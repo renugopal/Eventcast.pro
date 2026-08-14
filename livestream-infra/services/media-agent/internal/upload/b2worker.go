@@ -125,7 +125,7 @@ func (w *B2ArchiveWorker) process(ctx context.Context, work store.B2Archive) {
 	}
 
 	applied, err := w.store.MarkB2Archived(ctx, work.EventID, work.Generation,
-		w.archiver.cfg.Bucket, result.PlaylistKey, result.ObjectCount, now)
+		w.archiver.cfg.Bucket, result.PlaylistKey, result.ObjectCount, result.StrongVerified, now)
 	if err != nil {
 		w.logger.Error("b2 archive worker: record success failed",
 			slog.String("event_id", work.EventID), slog.String("error", err.Error()))

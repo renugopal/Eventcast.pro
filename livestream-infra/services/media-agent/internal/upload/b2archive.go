@@ -73,6 +73,17 @@ type B2ArchiveResult struct {
 	// present in B2 and passed post-PUT verification for this exact
 	// generation.
 	Archived bool
+	// StrongVerified is true only when Archived is true AND a strong
+	// integrity mode actually proved this generation's bytes.
+	//
+	// It is strictly stronger than Archived: presence plus matching size and
+	// our own sha256 user metadata proves an object is there and
+	// self-consistent, but not that B2's stored bytes hash to that value.
+	// Because any strong-mode verification failure aborts the pass with an
+	// error, Archived can only be true when every object either passed the
+	// provider-enforced checksum on write or was read back and hashed - so
+	// this flag is derived, never independently asserted.
+	StrongVerified bool
 	// Superseded is true when the local finalization moved to a different
 	// generation during or before this pass, so the work performed does not
 	// describe the current authoritative segment set.
@@ -147,9 +158,14 @@ func (a *B2Archiver) ArchiveEvent(ctx context.Context, eventID, generation strin
 	}
 
 	return B2ArchiveResult{
-		Archived:    true,
-		PlaylistKey: playlistKey,
-		ObjectCount: len(confirmed) + 1, // segments plus the playlist
+		Archived: true,
+		// Safe to derive rather than track per object: every object in this
+		// pass was either written through putAndVerify (which fails the whole
+		// pass on a strong-mode verification failure) or reused only after
+		// archiveSegment re-proved it by read-back under a strong mode.
+		StrongVerified: a.cfg.IntegrityMode.StrongVerification(),
+		PlaylistKey:    playlistKey,
+		ObjectCount:    len(confirmed) + 1, // segments plus the playlist
 	}, nil
 }
 
@@ -170,6 +186,23 @@ func (a *B2Archiver) archiveSegment(ctx context.Context, eventID string, s store
 		// bytes a previously verified generation's playlist may reference.
 		if !objectMatches(existing, s) {
 			return fmt.Errorf("%w: key %s", ErrB2ContentAddressMismatch, key)
+		}
+		// A reused object was written by an earlier pass, so this pass never
+		// sent it through putAndVerify's strong check - and that earlier pass
+		// may have run under a weaker mode. Reporting strong verification for
+		// bytes this pass never examined would be false evidence, so under a
+		// strong mode the existing object is proven by reading it back and
+		// hashing what B2 actually returns. That keeps the reuse fast path
+		// (no re-upload) while making the strong claim honest, and it also
+		// lets an event archived earlier under "none" converge to genuinely
+		// verified on a later pass instead of being stuck unverified.
+		if a.cfg.IntegrityMode.StrongVerification() {
+			readCtx, cancel := context.WithTimeout(ctx, a.cfg.RequestTimeout)
+			err := verifyObjectReadBack(readCtx, a.objectStore, key, s.SHA256)
+			cancel()
+			if err != nil {
+				return fmt.Errorf("b2: %w", err)
+			}
 		}
 		return nil
 	case headErr != nil && !isObjectNotFound(headErr):

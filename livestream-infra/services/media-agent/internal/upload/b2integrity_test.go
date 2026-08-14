@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"strings"
+
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/store"
 	"testing"
 	"time"
 )
@@ -220,5 +222,157 @@ func TestPutAndVerifyStrongModeRequiresAnExpectedDigest(t *testing.T) {
 	}
 	if f.b2.has("some/key") {
 		t.Error("no object may be written when the strong-mode precondition fails")
+	}
+}
+
+// ── strong_verified propagation ───────────────────────────────────────────
+//
+// These cover the path from a strong integrity mode actually proving bytes,
+// through B2ArchiveResult and the worker, into durable b2_archives state -
+// the evidence the reporter and the retention/spool gate both depend on.
+
+func TestArchiveResultClaimsStrongVerificationOnlyUnderAStrongMode(t *testing.T) {
+	for _, tc := range []struct {
+		mode            B2IntegrityMode
+		enforceChecksum bool
+		wantStrong      bool
+	}{
+		{B2IntegrityNone, false, false},
+		{B2IntegrityProviderChecksum, true, true},
+		{B2IntegrityReadBack, false, true},
+	} {
+		f := newArchiveFixture(t).withIntegrityMode(t, tc.mode)
+		f.b2.enforceChecksum = tc.enforceChecksum
+
+		result, err := f.archiver.ArchiveEvent(context.Background(), f.eventID, f.generation())
+		if err != nil {
+			t.Fatalf("mode %q: ArchiveEvent() error: %v", tc.mode, err)
+		}
+		if !result.Archived {
+			t.Fatalf("mode %q: did not archive: %s", tc.mode, result.Reason)
+		}
+		if result.StrongVerified != tc.wantStrong {
+			t.Errorf("mode %q: StrongVerified = %v, want %v", tc.mode, result.StrongVerified, tc.wantStrong)
+		}
+	}
+}
+
+// The worker must persist the strong claim atomically with the archived
+// state, so the reporter can never read an archived row whose strong claim
+// is still unsettled.
+func TestB2ArchiveWorkerPersistsStrongVerificationUnderProviderChecksum(t *testing.T) {
+	f := newArchiveFixture(t).withIntegrityMode(t, B2IntegrityProviderChecksum)
+	f.b2.enforceChecksum = true
+	ctx := context.Background()
+
+	if err := NewB2Enqueuer(f.store).Enqueue(ctx, f.eventID); err != nil {
+		t.Fatalf("Enqueue() error: %v", err)
+	}
+	testB2Worker(f, t).RunOnce(ctx)
+
+	archive, found, err := f.store.GetB2Archive(ctx, f.eventID)
+	if err != nil || !found {
+		t.Fatalf("GetB2Archive() error=%v found=%v", err, found)
+	}
+	if archive.State != store.B2ArchiveArchived {
+		t.Fatalf("state = %q, want archived", archive.State)
+	}
+	if !archive.StrongVerified {
+		t.Error("provider-checksum verified archive was not durably recorded as strongly verified")
+	}
+}
+
+func TestB2ArchiveWorkerPersistsStrongVerificationUnderReadBack(t *testing.T) {
+	f := newArchiveFixture(t).withIntegrityMode(t, B2IntegrityReadBack)
+	ctx := context.Background()
+
+	if err := NewB2Enqueuer(f.store).Enqueue(ctx, f.eventID); err != nil {
+		t.Fatalf("Enqueue() error: %v", err)
+	}
+	testB2Worker(f, t).RunOnce(ctx)
+
+	archive, _, err := f.store.GetB2Archive(ctx, f.eventID)
+	if err != nil {
+		t.Fatalf("GetB2Archive() error: %v", err)
+	}
+	if !archive.StrongVerified {
+		t.Error("read-back verified archive was not durably recorded as strongly verified")
+	}
+}
+
+// A failed strong verification must leave no archived row at all, and
+// therefore no strong claim - the fail-closed property the retention gate
+// relies on.
+func TestFailedStrongVerificationLeavesNoStrongClaim(t *testing.T) {
+	f := newArchiveFixture(t).withIntegrityMode(t, B2IntegrityReadBack)
+	ctx := context.Background()
+	corruptSpoolFile(t, f.confirmed[0].SpoolPath, int(f.confirmed[0].ByteSize))
+
+	if err := NewB2Enqueuer(f.store).Enqueue(ctx, f.eventID); err != nil {
+		t.Fatalf("Enqueue() error: %v", err)
+	}
+	testB2Worker(f, t).RunOnce(ctx)
+
+	archive, _, err := f.store.GetB2Archive(ctx, f.eventID)
+	if err != nil {
+		t.Fatalf("GetB2Archive() error: %v", err)
+	}
+	if archive.State == store.B2ArchiveArchived {
+		t.Error("an integrity failure was recorded as a completed archive")
+	}
+	if archive.StrongVerified {
+		t.Error("an integrity failure was recorded as strong verification")
+	}
+}
+
+// Reuse must not inherit an earlier pass's (possibly weaker) verification:
+// an object written under mode none and reused under a strong mode is
+// re-proved by read-back before any strong claim is made.
+func TestReusedObjectIsReprovedUnderAStrongMode(t *testing.T) {
+	f := newArchiveFixture(t).withIntegrityMode(t, B2IntegrityNone)
+	ctx := context.Background()
+
+	if _, err := f.archiver.ArchiveEvent(ctx, f.eventID, f.generation()); err != nil {
+		t.Fatalf("first ArchiveEvent() error: %v", err)
+	}
+	beforeGets := f.b2.getCount
+
+	// Same content-addressed objects now exist, so the second pass takes the
+	// reuse path - which must still read them back under a strong mode.
+	f = f.withIntegrityMode(t, B2IntegrityReadBack)
+	result, err := f.archiver.ArchiveEvent(ctx, f.eventID, f.generation())
+	if err != nil {
+		t.Fatalf("second ArchiveEvent() error: %v", err)
+	}
+	if !result.StrongVerified {
+		t.Error("reused objects were not re-proved, so the strong claim is missing")
+	}
+	if f.b2.getCount <= beforeGets {
+		t.Error("reuse path made no read-back requests under a strong mode")
+	}
+}
+
+// The same reuse path must catch corruption rather than trusting the
+// earlier pass.
+func TestReusedObjectCorruptionIsCaughtUnderAStrongMode(t *testing.T) {
+	f := newArchiveFixture(t).withIntegrityMode(t, B2IntegrityNone)
+	ctx := context.Background()
+
+	if _, err := f.archiver.ArchiveEvent(ctx, f.eventID, f.generation()); err != nil {
+		t.Fatalf("first ArchiveEvent() error: %v", err)
+	}
+	key := B2SegmentKey("", f.eventID, f.confirmed[0].SessionID, f.confirmed[0].SHA256, f.confirmed[0].LocalFileIdentity)
+	f.b2.corruptBody(key)
+
+	f = f.withIntegrityMode(t, B2IntegrityReadBack)
+	result, err := f.archiver.ArchiveEvent(ctx, f.eventID, f.generation())
+	if err == nil {
+		t.Fatalf("ArchiveEvent() succeeded over corrupted reused bytes; result=%+v", result)
+	}
+	if !errors.Is(err, ErrB2IntegrityVerificationFailed) {
+		t.Errorf("error = %v, want it to wrap ErrB2IntegrityVerificationFailed", err)
+	}
+	if result.StrongVerified {
+		t.Error("corrupted reused bytes produced a strong claim")
 	}
 }

@@ -63,10 +63,11 @@ func TestB2ArchiveWorkerDrainsPendingWork(t *testing.T) {
 	if archive.PlaylistKey != B2VODPlaylistKey("", f.eventID, archive.Generation) {
 		t.Errorf("playlist key = %q, want the generation-specific key", archive.PlaylistKey)
 	}
-	// Archival completing is NOT byte-integrity proof, and must never be
-	// recorded as such - retention freeze depends on this staying false.
+	// This fixture runs the default "none" integrity mode, where archival
+	// completing is NOT byte-integrity proof and must never be recorded as
+	// such - retention freeze depends on this staying false.
 	if archive.StrongVerified {
-		t.Error("archival success was recorded as strong byte-integrity verification")
+		t.Error("archival success under mode none was recorded as strong byte-integrity verification")
 	}
 }
 
