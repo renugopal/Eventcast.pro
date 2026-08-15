@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
-import fs from 'node:fs';
-import path from 'node:path';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
 import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
+import { CANONICAL_WEDDING_TEMPLATE_01_HTML } from '@/lib/canonicalWeddingTemplateHtml';
 import {
   canonicalRecordToWeddingTemplateRenderRow,
   primaryPublicEventCreditToPhotographerRow,
@@ -17,10 +16,16 @@ import { renderEvent, type EventRow } from '@/lib/weddingTemplateRenderer';
  * (= TLF-001) renderer the public Worker uses (baseline TPL-003/CRT-011
  * preview parity foundation). Deliberately read-only and side-effect-free:
  * no write to `events`, no SRS/Media Agent lookup, no YouTube/media/billing
- * call — the Draft stays exactly as it was before this request. This route
- * needs the Node.js runtime (not `edge`, unlike the other Draft routes) to
- * read the canonical template HTML file from disk.
+ * call — the Draft stays exactly as it was before this request.
+ *
+ * The template markup comes from `@/lib/canonicalWeddingTemplateHtml`, an
+ * embedded copy of the Worker's template asset, because this route runs on the
+ * Edge Runtime where there is no filesystem to read that asset from. The two
+ * cannot drift: `tests/contract/canonicalWeddingTemplateHtml.test.ts` fails if
+ * the embedded copy stops matching the Worker template file.
  */
+
+export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 
@@ -49,27 +54,6 @@ interface RouteParams {
 // different template's markup (baseline CRT-003) if this ever drifts.
 const SUPPORTED_TEMPLATE_ID = 'wedding-template-01';
 
-function readCanonicalTemplateHtml(): string | null {
-  try {
-    // The exact template asset the public Worker deploys from — reading it
-    // here (rather than keeping a second copy) is what keeps this a single
-    // canonical template source (baseline TPL-002) instead of a second,
-    // divergent TLF-001 implementation.
-    const templatePath = path.join(
-      process.cwd(),
-      '..',
-      'workers',
-      'render-event-page',
-      'templates',
-      'wedding-template-01',
-      'index.html'
-    );
-    return fs.readFileSync(templatePath, 'utf-8');
-  } catch {
-    return null;
-  }
-}
-
 export async function GET(req: Request, { params }: RouteParams) {
   const auth = await requireAdmin(req);
   if (auth instanceof NextResponse) return auth;
@@ -95,13 +79,7 @@ export async function GET(req: Request, { params }: RouteParams) {
     return NextResponse.json({ success: false, error: 'This Draft is missing a link (slug).' }, { status: 400 });
   }
 
-  const templateHtml = readCanonicalTemplateHtml();
-  if (!templateHtml) {
-    return NextResponse.json(
-      { success: false, error: 'The canonical template asset is unavailable.' },
-      { status: 500 }
-    );
-  }
+  const templateHtml = CANONICAL_WEDDING_TEMPLATE_01_HTML;
 
   const ownedCredits = await loadOwnedEventCreditsWithPartners(db, event.id);
   if (ownedCredits === null) {
