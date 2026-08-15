@@ -165,17 +165,26 @@ export async function POST(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
 
-    // Resolve visibility before rate-limit or storage work. Missing, private,
-    // synthetic, and archived events all receive the same generic 404.
+    // Resolve visibility before rate-limit or storage work. Missing, Draft,
+    // private, synthetic, and archived events all receive the same generic
+    // 404. This is an ordinary page-runtime action scoped to a known
+    // event_id (not a discovery surface), so a Published + Unlisted event is
+    // eligible on the same terms as Published + Public (Visibility
+    // Foundation Gate compatibility correction) — legacy private/synthetic
+    // and any non-Published page_state remain excluded, matching the
+    // widened public.guest_photos RLS policies (migration 0032). The
+    // event_visibility allowlist is applied in application code (rather than
+    // a query-level `.in()`) to keep this query's shape unchanged.
     const { data: eventRow, error: eventErr } = await supabase
       .from('events')
-      .select('id, guest_photo_limit')
+      .select('id, guest_photo_limit, event_visibility, guest_photo_moderation')
       .eq('id', eventId)
-      .eq('event_visibility', 'public')
+      .eq('page_state', 'published')
       .is('archived_at', null)
       .maybeSingle();
 
-    if (eventErr || !eventRow) {
+    const CANONICAL_PUBLISHED_VISIBILITIES = ['public', 'unlisted'];
+    if (eventErr || !eventRow || !CANONICAL_PUBLISHED_VISIBILITIES.includes(eventRow.event_visibility)) {
       return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
     }
 
@@ -197,12 +206,12 @@ export async function POST(req: NextRequest) {
 
     const photoLimit: number = eventRow.guest_photo_limit ?? 50;
 
-    // 2. Count existing photos for this event
+    // 2. Count existing photos for this event (approved + pending, so a
+    // Manual Approval queue cannot be used to bypass the limit)
     const { count: existingCount, error: countErr } = await supabase
       .from('guest_photos')
       .select('id', { count: 'exact', head: true })
-      .eq('event_id', eventId)
-      .eq('approved', true);
+      .eq('event_id', eventId);
 
     if (countErr) {
       console.error('[guest-photos/upload] Count error:', countErr);
@@ -227,6 +236,12 @@ export async function POST(req: NextRequest) {
 
     const publicUrl = await uploadToR2(fileBuffer, objectKey, contentType);
 
+    // Manual Approval mode (GM-004, `events.guest_photo_moderation`): a new
+    // Guest Memory enters Pending Review (approved = false) instead of the
+    // GM-003 Auto Approval default, until a studio owner/admin approves it
+    // via PATCH /api/events/[eventId]/guest-memories/[photoId].
+    const manualApprovalEnabled = eventRow.guest_photo_moderation === true;
+
     // ── Insert into Supabase ──────────────────────────────────────────────────
     const { data: photoRow, error: insertErr } = await supabase
       .from('guest_photos')
@@ -236,7 +251,7 @@ export async function POST(req: NextRequest) {
         r2_key:          objectKey,
         file_size_bytes: file.size,
         uploader_name:   uploaderName,
-        approved:        true,
+        approved:        !manualApprovalEnabled,
       })
       .select('id')
       .single();
@@ -250,6 +265,7 @@ export async function POST(req: NextRequest) {
       success:   true,
       photo_url: publicUrl,
       photo_id:  photoRow.id,
+      pendingReview: manualApprovalEnabled,
     });
 
   } catch (err: any) {

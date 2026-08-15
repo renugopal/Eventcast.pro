@@ -1,5 +1,4 @@
 import weddingTemplate01 from '../templates/wedding-template-01/index.html';
-import { generateWeddingWebSEO } from './wedding-web-seo';
 import {
   buildR2Key,
   fallbackCacheControl,
@@ -8,6 +7,18 @@ import {
   parseHlsAssetPath,
   rewriteManifest,
 } from './hls-playback.mjs';
+import {
+  buildB2PlaylistKey,
+  buildB2SegmentKey,
+  buildSignedB2GetRequest,
+  parseB2VodAssetPath,
+  rewriteB2Manifest,
+} from './b2playback.mjs';
+import { renderEvent, type EventRow, type PhotographerRow } from '../../../eventcast-admin/src/lib/weddingTemplateRenderer';
+import {
+  primaryPublicEventCreditToPhotographerRow,
+  type PublicEventCredit,
+} from '../../../eventcast-admin/src/lib/eventContract';
 import dhotiTemplate from '../templates/dhoti-ceremony-template-01/index.html';
 import halfSareeTemplate from '../templates/half-saree-template-01/index.html';
 import engagementTemplate from '../templates/harika-adithya-engagement/index.html';
@@ -32,6 +43,26 @@ export interface Env {
    * ordinary 404 rather than a runtime exception.
    */
   MEDIA_R2?: R2Bucket;
+
+  /**
+   * Backblaze B2 authoritative-VOD read credentials. B2 has no
+   * Cloudflare-native binding, so this is a plain S3-compatible endpoint +
+   * key pair used to sign an outbound GET (`b2playback.mjs`), never a
+   * bucket URL or credential returned to a browser. Names mirror the
+   * eventcast-admin `b2Client.ts` convention. All optional at the type
+   * level: no B2 credentials are configured in any environment today (only
+   * the Media Agent's separate write-capable credentials exist, and those
+   * are never reused here), so every B2-VOD request must fail as the same
+   * ordinary 404 rather than a runtime exception until a read-only
+   * credential pair is explicitly provisioned as a Worker secret.
+   */
+  B2_S3_ENDPOINT?: string;
+  B2_REGION?: string;
+  B2_BUCKET_NAME?: string;
+  B2_ACCESS_KEY_ID?: string;
+  B2_SECRET_ACCESS_KEY?: string;
+  /** Matches the Media Agent's own EVENTCAST_B2_OBJECT_PREFIX; empty by default. */
+  B2_KEY_PREFIX?: string;
 }
 
 // Map template_id → bundled HTML string. Add new entries here as you add templates.
@@ -43,6 +74,18 @@ const TEMPLATES: Record<string, string> = {
   'birthday-template-01': birthdayTemplate,
 };
 const DEFAULT_TEMPLATE_ID = 'wedding-template-01';
+
+/**
+ * The public event row as PostgREST returns it for `select=*`, plus the
+ * Publish-time public Event Credit snapshot column (`published_credits`,
+ * migration 0030). The snapshot is written only by the controlled Publish
+ * endpoint, already redacted through `projectPublicEventCredits()`; the
+ * Worker consumes it as-is and never reads `partners`/`event_credits`.
+ */
+interface PublicEventRow extends EventRow {
+  published_credits?: PublicEventCredit[] | null;
+  event_visibility?: string | null;
+}
 
 // ---------------------------------------------------------------------------
 // Worker entry point
@@ -59,13 +102,22 @@ export default {
     const manifestMatch = url.pathname.match(/^\/events\/([^/]+?)\/manifest\.json$/);
     const swMatch = url.pathname.match(/^\/events\/([^/]+?)\/sw\.js$/);
     const hlsMatch = url.pathname.match(/^\/events\/([^/]+)\/hls\/(.+)$/);
+    const b2VodMatch = url.pathname.match(/^\/events\/([^/]+)\/vod\/b2\/(.+)$/);
 
-    if (!eventMatch && !manifestMatch && !swMatch && !hlsMatch) {
+    if (!eventMatch && !manifestMatch && !swMatch && !hlsMatch && !b2VodMatch) {
       return fetch(request);
     }
 
     const slug = decodeURIComponent(
-      eventMatch ? eventMatch[1] : (manifestMatch ? manifestMatch[1] : (swMatch ? swMatch[1] : hlsMatch![1])),
+      eventMatch
+        ? eventMatch[1]
+        : manifestMatch
+          ? manifestMatch[1]
+          : swMatch
+            ? swMatch[1]
+            : hlsMatch
+              ? hlsMatch[1]
+              : b2VodMatch![1],
     );
     const hostname = url.hostname;
     let deferredServiceWorkerResponse: Response | null = null;
@@ -153,18 +205,39 @@ self.addEventListener('fetch', (event) => {
 
       // -----------------------------------------------------------------------
       // 2. Fetch event row + related photographer in one PostgREST call
+      //
+      // `page_state=eq.published` is the public-page availability gate: this
+      // Worker reads with the service-role key, which bypasses the
+      // `events_public_select_policy` RLS rule (migration 0029) installed for
+      // anonymous reads, so the same Published requirement is applied here
+      // explicitly. Without it a Draft would be renderable before the
+      // controlled Publish action ran.
+      //
+      // Widening event_visibility to also accept "unlisted" here is the
+      // Visibility Foundation Gate's deliberate security boundary: this
+      // Worker (service-role,
+      // single exact-slug lookup only, never a listing query) is the sole
+      // path that delivers a Published + Unlisted page by direct link.
+      // `events_public_select_policy` (the anonymous Supabase SELECT policy,
+      // migration 0031) is intentionally left Public-only and NOT widened
+      // here or anywhere else, so an Unlisted row can never be anonymously
+      // enumerated through a direct Supabase query — only resolved one exact
+      // slug at a time by this Worker. Legacy `private`/`synthetic` values
+      // remain excluded from both paths, unchanged. This gates page
+      // availability only; it is unrelated to livestream start/activation.
       // -----------------------------------------------------------------------
       let eventRes = await fetch(
         `${env.SUPABASE_URL}/rest/v1/events` +
           `?slug=eq.${encodeURIComponent(slug)}` +
           `&studio_id=eq.${studioId}` +
-          `&event_visibility=eq.public` +
+          `&page_state=eq.published` +
+          `&event_visibility=in.(public,unlisted)` +
           `&archived_at=is.null` +
           `&select=*,photographers(*)` +
           `&limit=1`,
         { headers: sbHeaders },
       );
-      let events: EventRow[] = await eventRes.json();
+      let events: PublicEventRow[] = await eventRes.json();
 
       if (!events || events.length === 0) {
         const hyphenatedSlug = slug.replace(/\s+/g, '-');
@@ -173,7 +246,8 @@ self.addEventListener('fetch', (event) => {
             `${env.SUPABASE_URL}/rest/v1/events` +
               `?slug=eq.${encodeURIComponent(hyphenatedSlug)}` +
               `&studio_id=eq.${studioId}` +
-              `&event_visibility=eq.public` +
+              `&page_state=eq.published` +
+              `&event_visibility=in.(public,unlisted)` +
               `&archived_at=is.null` +
               `&select=*,photographers(*)` +
               `&limit=1`,
@@ -189,12 +263,35 @@ self.addEventListener('fetch', (event) => {
 
       const event = events[0];
       // PostgREST returns a nested array for the foreign-key join
-      const photographer: PhotographerRow | null = Array.isArray(event.photographers)
+      const legacyPhotographer: PhotographerRow | null = Array.isArray(event.photographers)
         ? (event.photographers[0] ?? null)
         : (event.photographers ?? null);
 
+      // A published page renders the credit snapshot frozen into this row at
+      // Publish time (baseline PART-006: "published events preserve a snapshot
+      // of public credit details so that later partner-profile edits do not
+      // rewrite historical event pages"). The mutable `partners` /
+      // `event_credits` tables are deliberately never queried here — the
+      // snapshot is already the redacted `PublicEventCredit` projection, so
+      // the Worker re-projects nothing and can expose no private Partner field.
+      const publishedCredits: PublicEventCredit[] = Array.isArray(event.published_credits)
+        ? event.published_credits
+        : [];
+      event.event_credits = publishedCredits;
+
+      // Same single footer credit slot the Admin Draft Preview already fills
+      // (preview/production parity, CRT-011) — no second credit surface. Rows
+      // with no snapshot (legacy events published before this capability) keep
+      // their existing legacy `photographers` footer behavior unchanged.
+      const photographer: PhotographerRow | null =
+        primaryPublicEventCreditToPhotographerRow(publishedCredits) ?? legacyPhotographer;
+
       if (hlsMatch) {
         return serveHlsAssetFromR2(env, slug, event.id, hlsMatch[2]);
+      }
+
+      if (b2VodMatch) {
+        return serveB2VodAsset(env, slug, event.id, b2VodMatch[2]);
       }
 
       if (deferredServiceWorkerResponse) {
@@ -277,18 +374,44 @@ self.addEventListener('fetch', (event) => {
       // page, only the fact that the public live route is servable.
       const hasLivePlayback = (await resolveEnabledPlaybackId(env, event.id)) !== null;
 
+      // B2-authoritative replay (Milestone N): resolved independently of
+      // live state so a page can offer the finalized recording once the
+      // stream has ended, and stops offering it once retention expires.
+      const recordingEvidence = await loadEventRecordingEvidence(env, event.id);
+      const hasB2Replay = !hasLivePlayback && isB2ReplayEligible(env, recordingEvidence);
+      // Verified YouTube fallback (STO-005) only ever displaces the player
+      // once neither live nor B2 replay can be offered — never before.
+      // `youtube_fallback_verified` has no producer yet anywhere in this
+      // repository (see event_recordings migration 0035's own comment), so
+      // this resolves to null for every event today; the wiring exists so a
+      // future verification mechanism has nothing left to build in the
+      // delivery path itself.
+      const verifiedYoutubeFallbackUrl =
+        !hasLivePlayback && !hasB2Replay && recordingEvidence?.youtube_fallback_verified === true
+          ? (recordingEvidence.youtube_fallback_url ?? null)
+          : null;
+
       const rendered = renderEvent(
-        templateHtml, event, photographer, slug, env, countryCode, hostname, hasLivePlayback,
+        templateHtml, event, photographer, slug, env, countryCode, hostname,
+        hasLivePlayback, hasB2Replay, verifiedYoutubeFallbackUrl,
       );
+
+      const responseHeaders: Record<string, string> = {
+        'Content-Type': 'text/html; charset=utf-8',
+        // Cache 60 s at edge; stale responses still served for 5 min while revalidating
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+        'X-Rendered-By': 'render-event-page-worker',
+      };
+      // Unlisted pages stay link-accessible but must not be publicly
+      // indexed/discovered (Visibility Foundation Gate). Public responses
+      // never receive this header.
+      if (event.event_visibility === 'unlisted') {
+        responseHeaders['X-Robots-Tag'] = 'noindex';
+      }
 
       return new Response(rendered, {
         status: 200,
-        headers: {
-          'Content-Type': 'text/html; charset=utf-8',
-          // Cache 60 s at edge; stale responses still served for 5 min while revalidating
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
-          'X-Rendered-By': 'render-event-page-worker',
-        },
+        headers: responseHeaders,
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -298,175 +421,6 @@ self.addEventListener('fetch', (event) => {
   },
 };
 
-// ---------------------------------------------------------------------------
-// Types (minimal shape — extend as the schema evolves)
-// ---------------------------------------------------------------------------
-interface EventRow {
-  id: string;
-  slug: string;
-  studio_id: string;
-  template_id?: string | null;
-  event_type?: string | null;
-  groom_name?: string | null;
-  bride_name?: string | null;
-  celebrant_name?: string | null;
-  custom_top_title?: string | null;
-  event_date?: string | null;
-  event_time?: string | null;
-  timer_target_time?: string | null;
-  show_timer?: boolean | null;
-  venue_name?: string | null;
-  venue_map_link?: string | null;
-  thumbnail_url?: string | null;
-  gallery_urls?: string[] | null;
-  invitation_video_url?: string | null;
-  vod_link?: string | null;
-  youtube_broadcast_id?: string | null;
-  privacy_status?: string | null;
-  custom_initials?: string | null;
-  hide_loader_photo?: boolean | null;
-  loader_photo_url?: string | null;
-  restreamer_ingest_url?: string | null;
-  restreamer_hls_url?: string | null;
-  restreamer_player_url?: string | null;
-  youtube_url?: string | null;
-  photographer_id?: string | null;
-  photographers?: PhotographerRow | PhotographerRow[] | null;
-  guest_photo_limit?: number | null;
-  guest_photo_wall_enabled?: boolean | null;
-  deployed_at?: string | null;
-  created_at?: string | null;
-  notes?: string | null;
-}
-
-interface PhotographerRow {
-  id: string;
-  name?: string | null;
-  instagram?: string | null;
-  website?: string | null;
-  logo_url?: string | null;
-  [key: string]: unknown;
-}
-
-// ---------------------------------------------------------------------------
-// Date / time helpers — identical logic to the original route.ts
-// ---------------------------------------------------------------------------
-function formatDate(rawDate: string): string {
-  if (!rawDate) return '';
-  const [y, m, d] = rawDate.split('-').map(Number);
-  const dateObj = new Date(Date.UTC(y, m - 1, d));
-  let formatted = new Intl.DateTimeFormat('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC',
-  }).format(dateObj);
-  const day = dateObj.getUTCDate();
-  const suffix =
-    day % 10 === 1 && day !== 11 ? 'st' :
-    day % 10 === 2 && day !== 12 ? 'nd' :
-    day % 10 === 3 && day !== 13 ? 'rd' : 'th';
-  return formatted.replace(String(day), `${day}${suffix}`);
-}
-
-function formatTime(rawTime: string): string {
-  if (!rawTime) return '';
-  const [hours, minutes] = rawTime.split(':');
-  const h = parseInt(hours, 10);
-  return `${h % 12 || 12}:${minutes} ${h >= 12 ? 'PM' : 'AM'}`;
-}
-
-/** Build a browser-safe ISO timer target, e.g. 2026-07-11T09:00:00 */
-function normalizeTimerIso(eventDate: string, rawTime: string): string {
-  const [hPart = '9', mPart = '0'] = (rawTime || '09:00').split(':');
-  const hours = String(parseInt(hPart, 10) || 0).padStart(2, '0');
-  const minutes = String(parseInt(mPart, 10) || 0).padStart(2, '0');
-  return `${eventDate}T${hours}:${minutes}:00`;
-}
-
-/** True only for actual stream/archive URLs — never YouTube links. */
-function isNativePlaybackUrl(url: string): boolean {
-  if (!url) return false;
-  if (/youtube\.com|youtu\.be/i.test(url)) return false;
-  return /\.m3u8(\?|$)/i.test(url) || /\/hls\//i.test(url) || /\.mp4(\?|$)/i.test(url);
-}
-
-// ---------------------------------------------------------------------------
-// Venue / map URL helpers
-// ---------------------------------------------------------------------------
-function parseVenueMapLinks(vMap: string | null | undefined): { navigate: string; embed: string } {
-  if (!vMap) return { navigate: '', embed: '' };
-  const lines = vMap.split('\n').map((s) => s.trim()).filter(Boolean);
-  const embed = lines.find((l) => /google\.com\/maps\/embed/i.test(l)) ?? '';
-  const navigate = lines.find((l) => !/google\.com\/maps\/embed/i.test(l)) ?? lines[0] ?? '';
-  return { navigate, embed };
-}
-
-function buildEmbedUrl(vMap: string | null | undefined, vName: string | null | undefined): string {
-  const { embed, navigate } = parseVenueMapLinks(vMap);
-  if (embed) return embed;
-
-  const name = vName ?? '';
-  if (!navigate && !name) return '';
-  if (navigate && navigate.includes('<iframe')) {
-    const m = navigate.match(/src="([^"]+)"/);
-    return m ? m[1] : '';
-  }
-  let q = name;
-  const mapLine = navigate || vMap || '';
-  if (mapLine) {
-    try {
-      const urlStr = mapLine.startsWith('http') ? mapLine : `https://${mapLine}`;
-      const parsed = new URL(urlStr);
-      const coords = parsed.pathname.match(/\/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-      if (coords) {
-        q = `${coords[1]},${coords[2]}`;
-      } else if (parsed.pathname.includes('/place/')) {
-        q = decodeURIComponent(parsed.pathname.split('/place/')[1].split('/')[0]);
-      } else if (parsed.searchParams.has('q')) {
-        q = parsed.searchParams.get('q') ?? name;
-      } else if (parsed.pathname.includes('/search/')) {
-        q = decodeURIComponent(parsed.pathname.split('/search/')[1].split('/')[0]);
-      }
-    } catch (_) { /* malformed URL — fall back to name */ }
-  }
-  return `https://maps.google.com/maps?q=${encodeURIComponent(q || name)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
-}
-
-function buildNavigateUrl(vMap: string | null | undefined, vName: string | null | undefined): string {
-  const { navigate } = parseVenueMapLinks(vMap);
-  if (navigate && !navigate.includes('<iframe') && !/google\.com\/maps\/embed/i.test(navigate)) return navigate;
-  if (vName) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(vName)}`;
-  return '';
-}
-
-function splitVenue(venueName: string): { main: string; subtext: string } {
-  const parts = venueName.split(',').map((s) => s.trim()).filter(Boolean);
-  if (parts.length >= 2) {
-    return { main: parts[0], subtext: parts.slice(1).join(', ') };
-  }
-  return { main: venueName, subtext: '' };
-}
-
-/** Append cache-bust param for WhatsApp/Facebook OG crawlers (they cache og:image aggressively). */
-function buildOgImageUrl(thumbnailUrl: string, cacheVersion?: string | null): string {
-  if (!thumbnailUrl) return '';
-  const base = thumbnailUrl.split('?')[0];
-  const version = cacheVersion
-    ? String(new Date(cacheVersion).getTime() || cacheVersion).replace(/\D/g, '').slice(0, 14)
-    : Date.now().toString();
-  return `${base}?v=${version}`;
-}
-
-function getHeroTimeLabel(eventType: string, notes?: string | null): string {
-  const fromNotes = notes?.match(/(?:^|\n)\s*time_label\s*[:=]\s*(.+?)\s*(?:\n|$)/i)?.[1]?.trim();
-  if (fromNotes) return fromNotes;
-  const t = (eventType || '').toLowerCase();
-  if (t.includes('wedding') || t.includes('engagement')) return 'Sumuhurtham';
-  if (!eventType) return 'Event';
-  return eventType.charAt(0).toUpperCase() + eventType.slice(1);
-}
-
-// ---------------------------------------------------------------------------
-// Core renderer — mirrors every HTML mutation that used to happen in route.ts
-// ---------------------------------------------------------------------------
 /**
  * Look up this event's currently-enabled playback_id via the service-role
  * PostgREST endpoint. Returns null for a disabled/absent assignment, a
@@ -500,6 +454,166 @@ async function resolveEnabledPlaybackId(env: Env, eventId: string): Promise<stri
     console.error('[render-event-page] playback assignment lookup failed');
     return null;
   }
+}
+
+/**
+ * The provider-facing/public-safe subset of `event_recordings` this Worker
+ * ever needs. Never `b2_object_key`/`b2_bucket` directly — those are
+ * resolved server-side inside `serveB2VodAsset` from `finalization_generation`
+ * via the same deterministic key layout the Media Agent used to write them,
+ * so no raw B2 identifier needs to travel through this lookup at all.
+ */
+interface RecordingEvidenceRow {
+  recording_state: string;
+  finalization_generation: string | null;
+  integrity_verified_at: string | null;
+  retention_expires_at: string | null;
+  youtube_fallback_url: string | null;
+  youtube_fallback_verified: boolean;
+}
+
+/**
+ * Loads this event's `event_recordings` row (if any) via the service-role
+ * PostgREST endpoint. Every failure — no row, upstream error — collapses to
+ * `null`, exactly like `resolveEnabledPlaybackId`, so a caller can never
+ * distinguish "not recorded yet" from "lookup failed".
+ */
+async function loadEventRecordingEvidence(env: Env, eventId: string): Promise<RecordingEvidenceRow | null> {
+  try {
+    const res = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/event_recordings` +
+        `?event_id=eq.${encodeURIComponent(eventId)}` +
+        `&select=recording_state,finalization_generation,integrity_verified_at,retention_expires_at,youtube_fallback_url,youtube_fallback_verified` +
+        `&limit=1`,
+      {
+        headers: {
+          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+    if (!res.ok) return null;
+    const rows: RecordingEvidenceRow[] = await res.json();
+    return rows[0] ?? null;
+  } catch {
+    console.error('[render-event-page] recording evidence lookup failed');
+    return null;
+  }
+}
+
+/**
+ * Reads B2 read-credential names only from `env` — mirrors
+ * eventcast-admin's `loadB2ConfigFromEnv()` convention. Returns `null`
+ * (never throws) if any required binding is absent, which is expected in
+ * every environment today: no B2 read credentials have been provisioned as
+ * a Worker secret anywhere, so this always resolves `null` in production
+ * until that separate, explicit credential-provisioning approval happens.
+ */
+function loadB2PlaybackConfigFromEnv(env: Env): {
+  endpoint: string; region: string; bucket: string; accessKeyId: string; secretAccessKey: string; prefix: string;
+} | null {
+  const { B2_S3_ENDPOINT, B2_REGION, B2_BUCKET_NAME, B2_ACCESS_KEY_ID, B2_SECRET_ACCESS_KEY } = env;
+  if (!B2_S3_ENDPOINT || !B2_REGION || !B2_BUCKET_NAME || !B2_ACCESS_KEY_ID || !B2_SECRET_ACCESS_KEY) return null;
+  return {
+    endpoint: B2_S3_ENDPOINT,
+    region: B2_REGION,
+    bucket: B2_BUCKET_NAME,
+    accessKeyId: B2_ACCESS_KEY_ID,
+    secretAccessKey: B2_SECRET_ACCESS_KEY,
+    prefix: env.B2_KEY_PREFIX ?? '',
+  };
+}
+
+/**
+ * The full B2 replay-eligibility gate (Milestone N). Fails closed on any
+ * missing evidence, mirroring `eventcast-admin`'s `isR2CleanupEligible()`
+ * fail-closed posture for the analogous R2-side question:
+ *  - a real B2 read path must actually be configured (never advertise a URL
+ *    that cannot be served)
+ *  - `recording_state` must be exactly 'b2_finalized'
+ *  - `finalization_generation` must be present (it addresses the B2 key)
+ *  - `integrity_verified_at` must be present (byte-integrity proven)
+ *  - `retention_expires_at` must be present AND still in the future — an
+ *    expired recording is not offered, which is what lets the verified
+ *    YouTube fallback (STO-005) take over automatically with no extra flag.
+ */
+function isB2ReplayEligible(env: Env, recording: RecordingEvidenceRow | null): boolean {
+  if (!recording) return false;
+  if (!loadB2PlaybackConfigFromEnv(env)) return false;
+  if (recording.recording_state !== 'b2_finalized') return false;
+  if (!recording.finalization_generation) return false;
+  if (!recording.integrity_verified_at) return false;
+  if (!recording.retention_expires_at) return false;
+  return new Date(recording.retention_expires_at).getTime() > Date.now();
+}
+
+/**
+ * Serve one B2-authoritative VOD asset (manifest or segment) through an
+ * authenticated server-to-server B2 fetch. The bucket stays private: no B2
+ * host, key, or credential ever reaches the browser — only this Worker's
+ * own `/events/{slug}/vod/b2/...` route does, exactly mirroring
+ * `serveHlsAssetFromR2`'s posture for the R2 live path.
+ *
+ * Re-checks eligibility itself (defense in depth: the caller already
+ * gated the page's advertised URL on it, but a direct request to this path
+ * must be independently authorized, not just trust an earlier decision).
+ */
+async function serveB2VodAsset(
+  env: Env,
+  slug: string,
+  eventId: string,
+  assetPath: string,
+): Promise<Response> {
+  const asset = parseB2VodAssetPath(assetPath);
+  if (!asset) return notFound();
+
+  const config = loadB2PlaybackConfigFromEnv(env);
+  if (!config) return notFound();
+
+  const recording = await loadEventRecordingEvidence(env, eventId);
+  if (!isB2ReplayEligible(env, recording)) return notFound();
+
+  let key: string | null;
+  if (asset.kind === 'manifest') {
+    key = buildB2PlaylistKey(config.prefix, eventId, recording!.finalization_generation!);
+  } else {
+    key = buildB2SegmentKey(config.prefix, eventId, asset.sessionId, asset.objectName);
+  }
+  if (!key) return notFound();
+
+  let upstream: Response;
+  try {
+    const signedRequest = await buildSignedB2GetRequest(config, key);
+    upstream = await fetch(signedRequest);
+  } catch {
+    console.error('[render-event-page] B2 read failed');
+    return notFound();
+  }
+  if (!upstream.ok || !upstream.body) return notFound();
+
+  if (asset.kind === 'segment') {
+    return new Response(upstream.body, {
+      status: 200,
+      headers: {
+        'Content-Type': upstream.headers.get('content-type') ?? 'video/MP2T',
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
+  }
+
+  const rewritten = rewriteB2Manifest(await upstream.text(), slug);
+  if (rewritten === null) return notFound();
+
+  return new Response(rewritten, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/vnd.apple.mpegurl',
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
 }
 
 /**
@@ -564,333 +678,6 @@ async function serveHlsAssetFromR2(
   if (rewritten === null) return notFound();
 
   return new Response(rewritten, { status: 200, headers });
-}
-
-function renderEvent(
-  templateHtml: string,
-  event: EventRow,
-  photographer: PhotographerRow | null,
-  slug: string,
-  env: Env,
-  countryCode: string = 'Unknown',
-  hostname: string = 'eventcast.pro',
-  hasLivePlayback: boolean = false,
-): string {
-  const groom      = event.groom_name ?? event.celebrant_name ?? 'Event';
-  const bride      = event.bride_name ?? 'Family';
-  const type       = event.event_type ?? 'wedding';
-  const thumbnailUrl = event.thumbnail_url ?? '';
-  const ogImageUrl = buildOgImageUrl(thumbnailUrl, event.deployed_at ?? event.created_at);
-  const vName      = event.venue_name ?? '';
-  const vMap       = event.venue_map_link ?? '';
-  const { main: venueMain, subtext: venueSubtext } = splitVenue(vName);
-
-  const formattedDate = formatDate(event.event_date ?? '');
-  const formattedTime = formatTime(event.event_time ?? '');
-  const heroTimeLabel = getHeroTimeLabel(type, event.notes);
-
-  const isSinglePerson = !bride || bride.toLowerCase() === 'family';
-  const mainName   = isSinglePerson ? groom : `${groom} & ${bride}`;
-  const typeLabel  = type.charAt(0).toUpperCase() + type.slice(1);
-  const templateId = event.template_id ?? DEFAULT_TEMPLATE_ID;
-  const isWeddingTemplate = templateId === 'wedding-template-01';
-  const weddingSeo = isWeddingTemplate
-    ? generateWeddingWebSEO({
-        groom,
-        bride: isSinglePerson ? undefined : bride,
-        eventType: type,
-        eventDate: event.event_date ?? '',
-      })
-    : null;
-  const displayTitle = weddingSeo?.title ?? `${mainName} ${typeLabel} Live | `;
-  const displayDesc  = weddingSeo?.description
-    ?? `Join us live and be part of this beautiful ${typeLabel.toLowerCase()} celebration filled with love and joy.`;
-  const introLine = (() => {
-    const custom = event.custom_top_title?.trim();
-    if (custom) return custom;
-    const t = (type || '').toLowerCase();
-    if (t.includes('engagement')) return 'Welcome to the Engagement of';
-    if (t.includes('wedding')) return 'Welcome to the Wedding of';
-    return `Welcome to the ${typeLabel} of`;
-  })();
-
-  // Gallery
-  const galleryArray: string[] = (() => {
-    const raw = event.gallery_urls;
-    if (Array.isArray(raw)) return raw.filter(Boolean);
-    return [];
-  })();
-
-  // Invitation videos
-  const invitationVideos: string[] = (() => {
-    const raw = event.invitation_video_url ?? '';
-    if (Array.isArray(raw)) return (raw as string[]).filter(Boolean);
-    if (typeof raw === 'string') return raw.split('\n').map(u => u.trim()).filter(Boolean);
-    return [];
-  })();
-
-  // Initials
-  const customInitials = event.custom_initials ?? '';
-  const groomInitial = (event.groom_name ?? event.celebrant_name ?? groom).charAt(0).toUpperCase();
-  const brideRaw    = event.bride_name ?? bride;
-  const brideIsGeneric = brideRaw.toLowerCase() === 'family' || brideRaw.toLowerCase() === 'event';
-  const brideInitial = brideIsGeneric ? '' : brideRaw.charAt(0).toUpperCase();
-  const autoInitials = groomInitial && brideInitial
-    ? `${groomInitial} & ${brideInitial}`
-    : groomInitial || brideInitial || 'E';
-  const finalInitials = customInitials || autoInitials;
-
-  // Loader photo
-  const hideLoaderPhoto = event.hide_loader_photo ?? false;
-  const loaderPhotoUrl  = event.loader_photo_url ?? '';
-  const loaderSrc       = loaderPhotoUrl || thumbnailUrl || (galleryArray[0] ?? '');
-  const optimizedLoader = loaderSrc.includes('/upload/')
-    ? loaderSrc.replace('/upload/', '/upload/f_auto,q_auto/')
-    : loaderSrc;
-
-  // Timer
-  const timerTime = (event.timer_target_time ?? event.event_time ?? '09:00').slice(0, 5);
-  const timerTarget = normalizeTimerIso(event.event_date ?? '', timerTime);
-
-  // YouTube
-  const youtubeId = event.youtube_broadcast_id
-    || ((event.vod_link ?? '').split('/').pop() ?? '')
-    || ((event.youtube_url ?? '').split('/').pop() ?? '');
-
-  // VOD / HLS playback URLs — YouTube links stay on youtubeId only, never HLS player
-  const vodArchiveUrl = event.vod_link ?? '';
-  // Live playback now comes from the private R2 bucket via this Worker's own
-  // route; the legacy Restreamer/memfs URL shape is gone. VOD selection is
-  // unchanged: it still follows vod_link exactly as before.
-  const liveHlsUrl = hasLivePlayback
-    ? `https://${hostname}/events/${encodeURIComponent(slug)}/hls/live/index.m3u8`
-    : '';
-  const archivePlaybackUrl = isNativePlaybackUrl(vodArchiveUrl) ? vodArchiveUrl : '';
-  const primaryHlsUrl = liveHlsUrl || archivePlaybackUrl;
-
-  // Map URLs
-  const embedUrl    = buildEmbedUrl(vMap, venueMain || vName);
-  const navigateUrl = buildNavigateUrl(vMap, venueMain || vName);
-
-  // Config object strings — escape for safe JS string literal embedding
-  const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
-
-  const configScript = `<script>
-window.WEDDING_CONFIG = {
-  groom: "${esc(event.groom_name ?? event.celebrant_name ?? '')}",
-  bride: "${esc(event.bride_name ?? 'Family')}",
-  date: "${esc(formattedDate)}",
-  time: "${esc(formattedTime)}",
-  timeLabel: "${esc(heroTimeLabel)}",
-  timeSubtext: "",
-  timerTarget: "${esc(timerTarget)}",
-  venue: "${esc(venueMain)}",
-  venueSubtext: "${esc(venueSubtext)}",
-  venueUrl: ${embedUrl ? JSON.stringify(embedUrl) : 'null'},
-  venueNavigateUrl: ${navigateUrl ? JSON.stringify(navigateUrl) : 'null'},
-  youtubeId: "${esc(youtubeId)}",
-  vodArchiveUrl: "${esc(vodArchiveUrl)}",
-  restreamerUrl: "${esc(primaryHlsUrl)}",
-  restreamerPlayer: "${esc(primaryHlsUrl)}",
-  invitationVideo: "${esc(invitationVideos[0] ?? '')}",
-  invitationVideos: ${JSON.stringify(invitationVideos)},
-  thumbnail: "${esc(thumbnailUrl)}",
-  gallery: ${JSON.stringify(galleryArray)},
-  supabaseUrl: "${esc(env.SUPABASE_URL)}",
-  supabaseKey: "${esc(env.SUPABASE_ANON_KEY)}",
-  eventId: "${esc(event.id)}",
-  studioId: "${esc(event.studio_id ?? '')}",
-  eventDate: "${esc(event.event_date ?? '')}",
-  eventType: "${esc(type)}",
-  introText: "${esc(event.custom_top_title ?? '')}",
-  photographer: ${JSON.stringify(photographer)},
-  customInitials: "${esc(customInitials)}",
-  hideLoaderPhoto: ${hideLoaderPhoto ? 'true' : 'false'},
-  loaderPhotoUrl: "${esc(loaderPhotoUrl)}",
-  country: "${esc(countryCode)}",
-  guestPhotoWallEnabled: ${event.guest_photo_wall_enabled !== false ? 'true' : 'false'},
-  guestPhotoLimit: ${event.guest_photo_limit ?? 50}
-};
-</script>`;
-
-  let html = templateHtml;
-
-  // --- Inject base tag for relative assets ---
-  html = html.replace(/<head>/i, `<head>\n    <base href="/events/${encodeURIComponent(slug)}/">`);
-
-  // --- SEO meta tags ---
-  html = html.replace(/<title>.*?<\/title>/gs,       `<title>${displayTitle}</title>`);
-  html = html.replace(/<meta property="og:title" content=".*?">/g,       `<meta property="og:title" content="${displayTitle}">`);
-  html = html.replace(/<meta name="description" content=".*?">/g,        `<meta name="description" content="${displayDesc}">`);
-  html = html.replace(/<meta property="og:description" content=".*?">/g, `<meta property="og:description" content="${displayDesc}">`);
-  html = html.replace(/<meta property="og:image" content=".*?">/g,       `<meta property="og:image" content="${ogImageUrl}">`);
-  html = html.replace(/<meta property="og:url" content=".*?">/g,         `<meta property="og:url" content="https://eventcast.pro/events/${slug}">`);
-  html = html.replace(/<meta name="twitter:image" content=".*?">/g,      `<meta name="twitter:image" content="${ogImageUrl}">`);
-
-  // --- Inject config inline; remove external config.js script tag ---
-  const antiTheftScript = `
-<style>
-  /* Sprint H: IP & Anti-Theft Protection Styles */
-  body {
-    -webkit-user-select: none !important;
-    -moz-user-select: none !important;
-    -ms-user-select: none !important;
-    user-select: none !important;
-  }
-  input, textarea, select, [contenteditable="true"] {
-    -webkit-user-select: text !important;
-    -moz-user-select: text !important;
-    -ms-user-select: text !important;
-    user-select: text !important;
-  }
-  img {
-    -webkit-user-drag: none !important;
-    user-drag: none !important;
-    -webkit-touch-callout: none !important;
-  }
-</style>
-<script>
-(function() {
-  if (
-    window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1' ||
-    window.location.hostname.startsWith('192.168.')
-  ) {
-    return;
-  }
-
-  // 1. Disable context menu
-  document.addEventListener('contextmenu', function(e) {
-    e.preventDefault();
-  }, false);
-
-  // 2. Disable image dragging
-  document.addEventListener('dragstart', function(e) {
-    if (e.target.tagName === 'IMG') {
-      e.preventDefault();
-    }
-  }, false);
-
-  // 3. Disable DevTools & Inspect shortcuts
-  document.addEventListener('keydown', function(e) {
-    if (e.keyCode === 123 || e.key === 'F12') {
-      e.preventDefault();
-      return false;
-    }
-    if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.keyCode === 73)) {
-      e.preventDefault();
-      return false;
-    }
-    if (e.ctrlKey && e.shiftKey && (e.key === 'J' || e.key === 'j' || e.keyCode === 74)) {
-      e.preventDefault();
-      return false;
-    }
-    if (e.ctrlKey && e.shiftKey && (e.key === 'C' || e.key === 'c' || e.keyCode === 67)) {
-      e.preventDefault();
-      return false;
-    }
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'U' || e.key === 'u' || e.keyCode === 85)) {
-      e.preventDefault();
-      return false;
-    }
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'S' || e.key === 's' || e.keyCode === 83)) {
-      e.preventDefault();
-      return false;
-    }
-  }, false);
-
-  // 4. Active Anti-Debugging Freeze Loop
-  function checkDebugger() {
-    var startTime = performance.now();
-    debugger;
-    var endTime = performance.now();
-    if (endTime - startTime > 100) {
-      document.body.innerHTML = '<div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;background:#0d0d12;color:#ff4444;font-family:sans-serif;text-align:center;padding:20px;">' +
-        '<h1 style="font-size:2rem;margin-bottom:10px;font-weight:600;letter-spacing:-0.025em;">Unauthorized Access Detected</h1>' +
-        '<p style="color:rgba(255,255,255,0.6);font-size:1rem;max-width:400px;line-height:1.5;">To protect photographer intellectual property, developer tools are disabled on this live broadcast page.</p>' +
-        '</div>';
-    }
-  }
-  setInterval(checkDebugger, 1000);
-})();
-</script>`;
-
-  html = html.replace('</head>', `${configScript}\n${antiTheftScript}\n</head>`);
-  html = html.replace(/<script\s+src=["']config\.js["'][^>]*><\/script>/g, '');
-
-  // --- Logo / initials ---
-  html = html.replace(/<h1 class="logo-text">.*?<\/h1>/gs,   `<h1 class="logo-text">${finalInitials}</h1>`);
-  html = html.replace(/<div class="initials">.*?<\/div>/gs,  `<div class="initials">${finalInitials}</div>`);
-
-  // --- Hero names + date/time/venue (SSR fallback before script.js runs) ---
-  html = html.replace(/<span class="first-name">[^<]*<\/span>/, `<span class="first-name">${groom}</span>`);
-  html = html.replace(/<span class="second-name">[^<]*<\/span>/, `<span class="second-name">${bride}</span>`);
-  html = html.replace(
-    /<p class="invite-header intro-text">[\s\S]*?<\/p>/,
-    `<p class="invite-header intro-text">${introLine}</p>`,
-  );
-  // Hero info labels: Date / Time|Sumuhurtham / Venue — second label is ceremony time
-  {
-    let labelIndex = 0;
-    const heroLabels = ['Date', heroTimeLabel, 'Venue'];
-    html = html.replace(/<span class="info-label">[^<]*<\/span>/g, () => {
-      const val = heroLabels[labelIndex++] ?? '';
-      return `<span class="info-label">${val}</span>`;
-    });
-  }
-  const heroInfoValues = [formattedDate, formattedTime, venueMain];
-  let heroInfoIndex = 0;
-  html = html.replace(/<span class="info-text">[^<]*<\/span>/g, () => {
-    const val = heroInfoValues[heroInfoIndex++] ?? '';
-    return `<span class="info-text">${val}</span>`;
-  });
-  const heroSubValues = ['', '', venueSubtext];
-  let heroSubIndex = 0;
-  html = html.replace(/<span class="info-subtext">[^<]*<\/span>/g, () => {
-    const val = heroSubValues[heroSubIndex++] ?? '';
-    return `<span class="info-subtext">${val}</span>`;
-  });
-
-  if (!galleryArray.length) {
-    html = html.replace(
-      /(<section id="photo-gallery"[^>]*)(>)/,
-      '$1 style="display:none"$2',
-    );
-  }
-
-  if (!invitationVideos.length) {
-    html = html.replace(
-      /(<section id="invitation-video"[^>]*)(>)/,
-      '$1 style="display:none"$2',
-    );
-  }
-
-  // --- Loader photo ---
-  if (hideLoaderPhoto || !optimizedLoader) {
-    html = html.replace(
-      /<div class="loader-photo">[\s\S]*?<\/div>/g,
-      '<div class="loader-photo" style="display:none;"></div>',
-    );
-  } else {
-    html = html.replace(
-      /<div class="loader-photo">\s*<img src="[^"]*"/g,
-      `<div class="loader-photo">\n                <img src="${optimizedLoader}"`,
-    );
-  }
-
-  // --- Venue / maps ---
-  if (vName || vMap) {
-    html = html.replace(/src="https:\/\/(www\.)?google\.com\/maps\/embed[^"]*"/g, `src="${embedUrl}"`);
-    html = html.replace(/src="https:\/\/maps\.google\.com\/maps\?q=[^"]*"/g,      `src="${embedUrl}"`);
-    html = html.replace(/id="venue-iframe" src=""/g,  `id="venue-iframe" src="${embedUrl}"`);
-    html = html.replace(/id="venue-iframe" src=''/g,  `id="venue-iframe" src="${embedUrl}"`);
-    html = html.replace(/class="subtitle config-venue-full">[^<]*/g, `class="subtitle config-venue-full">${vName}`);
-    html = html.replace(/id="venue-nav-btn" href="#"/g, `id="venue-nav-btn" href="${navigateUrl}"`);
-    html = html.replace(/href="https:\/\/(www\.)?google\.com\/maps[^"]*"/g, `href="${navigateUrl}"`);
-    html = html.replace(/href="https:\/\/maps\.app\.goo\.gl[^"]*"/g,        `href="${navigateUrl}"`);
-  }
-
-  return html;
 }
 
 /**

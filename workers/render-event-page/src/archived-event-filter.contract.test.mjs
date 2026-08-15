@@ -24,24 +24,24 @@ function blockAfter(marker, length = 400) {
   return source.slice(idx, idx + length);
 }
 
-test('primary slug lookup only permits public, unarchived events before select/limit', () => {
+test('primary slug lookup permits public and unlisted (not private/synthetic), unarchived events before select/limit', () => {
   const block = blockAfter('`?slug=eq.${encodeURIComponent(slug)}`');
-  assert.match(block, /event_visibility=eq\.public/, 'primary lookup must include event_visibility=eq.public');
+  assert.match(block, /event_visibility=in\.\(public,unlisted\)/, 'primary lookup must include event_visibility=in.(public,unlisted)');
   assert.match(block, /archived_at=is\.null/, 'primary lookup must include archived_at=is.null');
   assert.match(
     block,
-    /event_visibility=eq\.public[\s\S]*?archived_at=is\.null[\s\S]*?select=\*,photographers\(\*\)[\s\S]*?limit=1/,
+    /event_visibility=in\.\(public,unlisted\)[\s\S]*?archived_at=is\.null[\s\S]*?select=\*,photographers\(\*\)[\s\S]*?limit=1/,
     'visibility and archive filters must appear before select/limit in the primary lookup',
   );
 });
 
-test('hyphenated-slug fallback lookup only permits public, unarchived events before select/limit', () => {
+test('hyphenated-slug fallback lookup permits public and unlisted (not private/synthetic), unarchived events before select/limit', () => {
   const block = blockAfter('`?slug=eq.${encodeURIComponent(hyphenatedSlug)}`');
-  assert.match(block, /event_visibility=eq\.public/, 'fallback lookup must include event_visibility=eq.public');
+  assert.match(block, /event_visibility=in\.\(public,unlisted\)/, 'fallback lookup must include event_visibility=in.(public,unlisted)');
   assert.match(block, /archived_at=is\.null/, 'fallback lookup must include archived_at=is.null');
   assert.match(
     block,
-    /event_visibility=eq\.public[\s\S]*?archived_at=is\.null[\s\S]*?select=\*,photographers\(\*\)[\s\S]*?limit=1/,
+    /event_visibility=in\.\(public,unlisted\)[\s\S]*?archived_at=is\.null[\s\S]*?select=\*,photographers\(\*\)[\s\S]*?limit=1/,
     'visibility and archive filters must appear before select/limit in the fallback lookup',
   );
 });
@@ -50,12 +50,12 @@ test('an active (non-archived) event is unaffected: the filter only excludes row
   // Source builds the URL as concatenated template-literal segments, e.g.
   //   `&archived_at=is.null` +\n  `&select=*,photographers(*)` +\n  `&limit=1`
   // so match tolerating the intervening backtick/plus/whitespace between segments.
-  const shapePattern = /&event_visibility=eq\.public`\s*\+\s*`&archived_at=is\.null`\s*\+\s*`&select=\*,photographers\(\*\)`\s*\+\s*`&limit=1`/g;
+  const shapePattern = /&event_visibility=in\.\(public,unlisted\)`\s*\+\s*`&archived_at=is\.null`\s*\+\s*`&select=\*,photographers\(\*\)`\s*\+\s*`&limit=1`/g;
   const occurrences = source.match(shapePattern) ?? [];
   assert.equal(
     occurrences.length,
     2,
-    'both queries must retain their original select/limit shape unchanged (with the new filter inserted just before it), so active events keep the exact same row shape returned today',
+    'both queries must retain their original select/limit shape unchanged (with the widened filter inserted just before it), so active events keep the exact same row shape returned today',
   );
 });
 

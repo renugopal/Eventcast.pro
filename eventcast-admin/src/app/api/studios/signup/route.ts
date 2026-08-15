@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { normalizeIndianMobileToE164 } from '@/lib/phoneIdentity';
 
 export const runtime = 'edge';
 
@@ -12,7 +13,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { email, password, studioName, slug, brandColorHex } = await req.json();
+    const { email, password, studioName, slug, brandColorHex, phone } = await req.json();
 
     // 1. Validation
     if (!email || !password || !studioName || !slug) {
@@ -20,6 +21,22 @@ export async function POST(req: Request) {
         { error: 'Please fill in all required fields' },
         { status: 400 }
       );
+    }
+
+    // Phone-first Auth preparation (Baseline AUTH-001/AUTH-008): capture and
+    // associate a mobile number with the new Supabase Auth user, but never
+    // claim it is verified — phone_confirm stays false below, and no OTP is
+    // sent or checked anywhere in this route. Optional for now: existing
+    // email/password signup must keep working even with no phone supplied.
+    let normalizedPhone: string | null = null;
+    if (phone) {
+      normalizedPhone = normalizeIndianMobileToE164(phone);
+      if (!normalizedPhone) {
+        return NextResponse.json(
+          { error: 'Please enter a valid 10-digit Indian mobile number' },
+          { status: 400 }
+        );
+      }
     }
 
     if (password.length < 6) {
@@ -68,11 +85,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. Create the user in Supabase Auth (Auto-confirm email)
+    // 3. Create the user in Supabase Auth (Auto-confirm email; phone, if
+    // supplied, is stored but explicitly left unconfirmed — phone_confirm:
+    // false — matching Supabase Auth's own confirmation semantics rather
+    // than a second, EventCast-owned "verified" flag. No OTP is sent by
+    // this admin-level create call.)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true
+      email_confirm: true,
+      ...(normalizedPhone ? { phone: normalizedPhone, phone_confirm: false } : {}),
     });
 
     if (authError || !authData.user) {

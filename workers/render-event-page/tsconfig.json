@@ -5,6 +5,9 @@
     "moduleResolution": "bundler",
     "lib": ["ES2022", "WebWorker"],
     "types": ["@cloudflare/workers-types"],
+    // src/hls-playback.mjs is plain JS (JSDoc-typed) so `node --test` can run
+    // its unit tests without a TS transform or any new dependency.
+    "allowJs": true,
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,

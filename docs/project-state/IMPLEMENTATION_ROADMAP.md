@@ -74,19 +74,25 @@ Acceptance evidence on zero-history synthetic event `dc6bde2d-91dd-410c-aa21-10c
 
 **Bounded historical limitation (recorded, not a failure of the go-forward path).** Events containing sessions that predate migration `0004` (empty `playback_id`) fail closed at B2 enqueue because playback provenance cannot be resolved; events carrying unresolved legacy `missing` segments produce a non-zero `gap_count`/`pending_review`, which correctly withholds the integrity grant and retention freeze even after a successful archive. Both are the designed fail-closed protections. Events created after playback pinning are unaffected. Remediating historical events is **not** part of any current package and would need its own separate decision.
 
-### Exact next delivery package: remaining Milestone N VOD lifecycle work
+### Completed delivery package: remaining Milestone N VOD lifecycle work (2026-08-15)
 
-**Not started.** With production archival now live and authoritative, the remaining Milestone N items are: a B2 playback-delivery path (provider-safe replay currently stays `processing`, never `available`); R2 cleanup once B2 is authoritative; replay-expiry and verified YouTube-fallback integration; and any remaining retention-lifecycle work. Each remains its own approval boundary. Do not fold historical-data remediation into this.
+**COMPLETE / PASS for the approved V1 scope.** With production archival already live and authoritative (above), this package delivered the rest of Milestone N: a B2 playback-delivery path (public render Worker, authenticated Worker-to-B2 SigV4-signed reads, no credential/URL ever reaches the browser); replay-expiry behavior (B2 replay offered only within its retention window, live > B2 replay > legacy `vod_link` priority preserved); and verified YouTube-fallback integration, including the previously-undefined product/security decision it depended on — **explicit user decision (2026-08-15): V1 YouTube-fallback verification is manual Super Admin attestation with an audit trail, never a provider action, never an OAuth/API call** (deferred to a future phase). New migration `0037_youtube_fallback_verification_rpc.sql` (no new column; one `SECURITY DEFINER` RPC reusing `0035`'s `platform_audit_log` mechanism) was applied to the linked Supabase project and post-apply verified. A new narrow `requireSuperAdmin()`-gated route, `POST /api/platform/events/[eventId]/youtube-fallback-verification`, is the only Platform-Operations-adjacent surface this package added — deliberately not Milestone M. R2 cleanup once B2 is authoritative remains explicitly deferred to Milestone M (its eligibility predicate already existed from the `0035`/`0036` package and needed no reporting/dry-run consumer built here). See `CURRENT_STATE.md` and `WORKLOG.md` for full evidence. **Do not re-audit, re-design, re-apply, or reimplement any of it.**
+
+### Completed delivery package: Super Admin Operations Console (Milestone M)
+
+**COMPLETE / PASS for the approved V1 scope (2026-08-15).** Delivered in full as one coherent package: users/studios (+ studio drill-down), all events (+ per-event operational drill-down), the enabled-assignment stream roster, SRS/media nodes, read-only templates, media operations, support with reason-gated audited content access and audited triage, notifications, security/audit, retention controls, Super Admin storage visibility, and the non-destructive R2 cleanup eligibility report/dry run. **No new schema was required.** Every platform API is `requireSuperAdmin()`-gated server-side with sanitized, secret-free, PII-free allowlist projections, and every unmeasurable fact is reported as explicitly unavailable rather than synthesized. R2 destructive execution remains approval-gated and unimplemented for four precisely-recorded reasons. Full detail in the Milestone M section below; full evidence in `CURRENT_STATE.md` and `WORKLOG.md`. **Do not re-audit, re-design, or re-implement any of it.**
+
+### Exact next delivery package: Controlled Legacy Retirement / Cutover (Milestone O)
+
+**Not started, and deliberately not begun during Milestone M.** With Milestone M complete and validated, Milestone O is the next and final planned package: cut root navigation to V2, retire the legacy UI deliberately, controlled Restreamer cleanup, controlled GrapesJS cleanup, retire duplicate preview/render paths, and retire fake analytics and obsolete stubs. No mass cleanup of historical customer directories or scratch operational tooling without a separate inventory task. Requires its own fresh bounded-task scoping pass before implementation begins.
 
 ### Remaining delivery packages
 
-Grouped from the remaining Baseline V2.1 work (see Milestones M–O below for full detail, preserved unchanged), in Baseline-dependency order — Livestream + YouTube + Live Control Room (Milestone H) and Analytics + Provider operational/support/auth capabilities (Milestones J and L, for their approved provider-independent scope, above) are now both complete and no longer listed here:
+Grouped from the remaining Baseline V2.1 work (see Milestones M–O below for full detail, preserved unchanged), in Baseline-dependency order — Livestream + YouTube + Live Control Room (Milestone H), Analytics + Provider operational/support/auth capabilities (Milestones J and L), the remaining Milestone N VOD lifecycle work, and the Super Admin Operations Console (Milestone M) are now all complete and no longer listed here:
 
-1. **Remaining Milestone N VOD lifecycle work** — the immediate next package; see above. The production Media Agent release/deployment, B2 configuration/connectivity, provider-checksum verification, strong-verification propagation, archival enablement, and real archival acceptance portions of Milestone N are **COMPLETE / PASS (2026-08-14)**; what remains is B2 playback delivery, R2 cleanup after B2 authority, replay-expiry/YouTube fallback, and remaining retention lifecycle work.
-2. **Super Admin Operations Console** (Milestone M) — not started; not part of the B2 VOD Foundation package above, which touched only the narrow retention-policy/override/extension API surface migration `0035` required (gated by the same `requireSuperAdmin()` primitive the full console will also use), not the console itself (users/studios, all events, active streams roster, SRS/media nodes, templates, media operations, support, notifications, security/audit).
-3. **Controlled legacy cutover** (Milestone O) — must come last, only after production B2 archival (Milestone N) is validated.
+1. **Controlled legacy cutover** (Milestone O) — the only remaining planned package, and the last one. Milestone M is now complete and validated, which was its precondition.
 
-Not folded into this or any package above — separate, unstarted dependencies each needing their own future task/approval boundary: real outbound WhatsApp OTP/alert, SMS fallback, and application-level email provider integration (Milestone L's deferred external-provider boundary); real technical stream telemetry once an authoritative source exists (Milestone J/H's deferred telemetry boundary); OAuth-connected YouTube channels and any further real SRS/Media Agent activation beyond the already-closed production-acceptance package (Milestone H's remaining boundaries). The separately flagged legacy `photographers` RLS exposure remains its own unresolved, dedicated task and is not folded into any of the packages above.
+Not folded into this or any package above — separate, unstarted dependencies each needing their own future task/approval boundary: real outbound WhatsApp OTP/alert, SMS fallback, and application-level email provider integration (Milestone L's deferred external-provider boundary); real technical stream telemetry once an authoritative source exists (Milestone J/H's deferred telemetry boundary); OAuth-connected YouTube channels and any further real SRS/Media Agent activation beyond the already-closed production-acceptance package (Milestone H's remaining boundaries); and **R2 cleanup destructive execution**, which now has a complete non-destructive reporting/dry-run surface from Milestone M but stays blocked on an undefined post-B2 grace duration, an undefined deletion scope, and the absence of any media-R2 credential/endpoint in the admin application. The separately flagged legacy `photographers` RLS exposure remains its own unresolved, dedicated task and is not folded into any of the packages above.
 
 ## Milestone A — Admin V2 Shell
 
@@ -274,9 +280,17 @@ Restreamer routes were not used or reintroduced. See `CURRENT_STATE.md`/`WORKLOG
 
 ## Milestone M — Super Admin Operations Console
 
-**Status: PENDING**
+**Status: COMPLETE / PASS for the approved V1 scope (2026-08-15).** Delivered as one coherent platform-only package inside the existing `/platform` route boundary, reusing `requireSuperAdmin()`, `platform_users`, `platform_audit_log`, the studio/event/assignment/node data, `event_recordings` and its `0035`/`0036`/`0037` RPCs, `0034`'s Support/Notifications schema, `CANONICAL_TEMPLATES`, and `isR2CleanupEligible()`. **No new migration was required** — a targeted reconciliation established that every listed capability is expressible on the existing schema, so none was invented for query convenience.
 
-Platform-only operational surface:
+Every one of the eleven required surfaces below is built. Every platform API is server-side, edge-runtime, and `requireSuperAdmin()`-gated as its first statement; responses are explicit allowlists carrying no stream/publish/OAuth/storage secrets and no contact PII. Facts with no authoritative source (real ingest state, technical stream metrics, node CPU/memory/network, OAuth YouTube state, outbound message delivery, per-object R2/B2 bytes) are returned as explicit unavailable facts with reasons, never synthesized. Reading private Support content requires a stated reason and is audited before disclosure (ADM-007/ADM-008).
+
+**R2 cleanup execution/reporting — the part this milestone owned — landed as a complete non-destructive eligibility report and dry run** reusing `isR2CleanupEligible()` verbatim and failing closed to zero candidate prefixes. **Destructive execution remains approval-gated and unimplemented**, because its semantics are not authoritatively defined: no post-B2 grace duration exists anywhere; this application holds no media-R2 credential/endpoint (`eventcast-livestream-media` is reachable only via the render Worker's `MEDIA_R2` binding); the deletion scope is undecided; and the node-side `EVENTCAST_R2_OBJECT_PREFIX` is unreadable here. No R2 or B2 object was listed, read, modified, or deleted.
+
+**Deliberately not invented, each reported honestly in the UI:** account suspend/restore, session termination, entitlement changes and trial extension (no mechanism exists; billing deferred by PLAN-007); a template deployment/editor/publishing pipeline; and a platform-side Support reply (`support_ticket_messages` has no authorship-role column, so a Super Admin reply would reach the provider unattributed — that needs an additive migration plus a provider-surface attribution change).
+
+Validation: new focused suites 77/77 PASS; directly-related regression suites 79/79 PASS; full `eventcast-admin` Vitest 984/984 PASS across 88 files; `npx tsc --noEmit` byte-identical to the pre-change 59-line baseline with zero new errors. See `CURRENT_STATE.md` and `WORKLOG.md` for full evidence. **Do not re-audit, re-design, or re-implement any of it.**
+
+Platform-only operational surface (all delivered):
 
 - users/studios
 - all events
@@ -294,11 +308,11 @@ Do not expose secrets as ordinary UI data.
 
 ## Milestone N — VOD / Retention Lifecycle
 
-**Status: PARTIALLY COMPLETE (2026-08-14) — DB foundation, local implementation, AND the full production rollout/archival acceptance are done; remaining VOD lifecycle work is PENDING.**
+**Status: COMPLETE / PASS for the approved V1 scope (2026-08-15).** DB foundation, local implementation, the full production rollout/archival acceptance, and the remaining VOD lifecycle work (B2 playback delivery, replay expiry, verified YouTube-fallback consumption + its manual Super Admin attestation producer) are all done.
 
-**COMPLETE / PASS:** migrations `0035`/`0036` applied and verified; the Media Agent B2 archival subsystem; source control + Linux CI + Cloudflare admin deploy; **and the entire production side** — Media Agent v1.0.7/v1.0.8/v1.0.9 releases with committed evidence, production deployment to v1.0.9, B2 credential configuration, the real Backblaze connectivity probe proving server-side SHA-256 enforcement, the `provider_checksum` strong-verification decision, the `strong_verified` propagation correction, production archival enablement, and one real end-to-end archival acceptance reaching `b2_finalized` with `integrity_verified_at` and natural retention freeze. See "Completed delivery package: Media Agent B2 Production Rollout / Archival Acceptance" above.
+**COMPLETE / PASS:** migrations `0035`/`0036`/`0037` applied and verified; the Media Agent B2 archival subsystem; source control + Linux CI + Cloudflare admin deploy; the entire production side — Media Agent v1.0.7/v1.0.8/v1.0.9 releases with committed evidence, production deployment to v1.0.9, B2 credential configuration, the real Backblaze connectivity probe proving server-side SHA-256 enforcement, the `provider_checksum` strong-verification decision, the `strong_verified` propagation correction, production archival enablement, and one real end-to-end archival acceptance reaching `b2_finalized` with `integrity_verified_at` and natural retention freeze (see "Completed delivery package: Media Agent B2 Production Rollout / Archival Acceptance" above); **and** the remaining VOD lifecycle work — a real B2 playback-delivery path (authenticated Worker-to-B2 proxy, provider-safe replay reaches `available` once fully evidenced and a B2 read path is configured), replay-expiry behavior (B2 replay offered only within its retention window), and verified YouTube-fallback integration with V1's manual-Super-Admin-attestation verification model (migration `0037`, applied and post-apply verified 2026-08-15) (see "Completed delivery package: remaining Milestone N VOD lifecycle work" above).
 
-**Still PENDING — do not mark this milestone fully complete:** a B2 playback-delivery path (provider-safe replay stays `processing`, never `available`); R2 cleanup once B2 is authoritative; replay-expiry and verified YouTube-fallback integration; and remaining retention-lifecycle work. Separately noted, not scheduled: historical events with pre-`0004` empty `playback_id` sessions or unresolved legacy `missing` segments fail closed from authoritative B2 archival/integrity promotion by design.
+**Explicitly deferred, not a gap in this milestone's approved V1 scope:** R2 cleanup execution/reporting once B2 is authoritative is Milestone M's surface (the eligibility predicate itself already exists and is proven); OAuth/API-based YouTube verification remains a distinct future phase. Separately noted, not scheduled: historical events with pre-`0004` empty `playback_id` sessions or unresolved legacy `missing` segments fail closed from authoritative B2 archival/integrity promotion by design.
 
 Target:
 
@@ -311,9 +325,15 @@ Target:
 
 ## Milestone O — Legacy Retirement / Cutover
 
-**Status: FUTURE**
+**Status: LOCAL CUTOVER COMPLETE / PASS (2026-08-15) — production deployment pending explicit approval.** Every target below was executed and validated locally. The live/production cutover is **not** complete: deploying the retirement and the `cron-jobs.yml` change, plus post-deploy verification, is the single remaining Milestone O hard boundary.
 
-Only after V2 capability is validated:
+**Delivered:** root `/` now redirects to the V2 `/dashboard`; the legacy Admin UI (16 components), GrapesJS + `/api/local-sync`, the retired Restreamer application paths, the duplicate GitHub-Raw preview path, the obsolete `/api/events/generate` path, and the fake-analytics/obsolete stubs are retired, together with their now-obsolete tests. `/portal/[slug]` and the named compatibility layers are intentionally retained. **No migration and no dependency/lockfile change** was required — migration history remains `0001`–`0037`. `.github/workflows/cron-jobs.yml` now retains only `sync-live-status` on the approved 15-minute cadence.
+
+**Validation:** focused 96/96; full `eventcast-admin` Vitest **957/957 across 82 files**; `npm run build` PASS with a route manifest containing no retired route; `npx tsc --noEmit` exit 2 with **zero new diagnostics** (59 → 14 lines, a strict subset of the pre-Milestone-O baseline); `git diff --check` exit 0; authenticated browser smoke PASS (all 10 retired APIs return 404 when authenticated). Milestones N and M remained closed and were not reopened.
+
+Full detail: `WORKLOG.md` and `CURRENT_STATE.md`, "Completed Delivery Package — Milestone O Controlled Legacy Retirement / Cutover (2026-08-15)".
+
+Original target list, all now delivered locally:
 
 - cut root navigation to V2
 - remove/retire legacy UI deliberately

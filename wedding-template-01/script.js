@@ -1,5 +1,15 @@
 // --- CONFIG DRIVEN LOGIC ---
 // These values should be provided by config.js
+function parseTimerTarget(value) {
+    if (!value) return NaN;
+    const direct = new Date(value);
+    if (!Number.isNaN(direct.getTime())) return direct.getTime();
+    const match = String(value).match(/^(\d{4}-\d{2}-\d{2})T(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (!match) return NaN;
+    const [, date, hh, mm, ss] = match;
+    return new Date(`${date}T${hh.padStart(2, '0')}:${mm}:${ss || '00'}`).getTime();
+}
+
 const CONFIG = window.WEDDING_CONFIG || {
     groom: "Sample",
     bride: "Event",
@@ -23,12 +33,62 @@ const CONFIG = window.WEDDING_CONFIG || {
     photographer: null
 };
 
-const WEDDING_DATE = new Date(CONFIG.timerTarget).getTime();
+const WEDDING_DATE = parseTimerTarget(CONFIG.timerTarget);
+
+function isHlsStreamUrl(url) {
+    if (!url) return false;
+    if (/youtube\.com|youtu\.be/i.test(url)) return false;
+    return /\.m3u8(\?|$)/i.test(url) || /\/hls\//i.test(url) || /\.mp4(\?|$)/i.test(url);
+}
 
 // --- SUPABASE WISHES LOGIC ---
-const _supabase = (CONFIG.supabaseUrl && CONFIG.supabaseKey) 
-    ? supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey) 
+const _supabase = (CONFIG.supabaseUrl && CONFIG.supabaseKey)
+    ? supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey)
     : null;
+
+// --- PRIVACY-SAFE VISITOR IDENTITY (Analytics + Audience delivery package) ---
+// One opaque, browser-generated random identifier, persisted in
+// localStorage so repeat visits from the same browser can be recognized as
+// the same "unique visitor". Never derived from IP, user-agent
+// fingerprinting, or any advertising identifier. If localStorage is
+// unavailable (privacy mode, storage blocked), a fresh id is generated per
+// page load instead of failing — that visit still counts as a page view,
+// it just can't be recognized as a repeat visitor.
+//
+// Always UUID-shaped: the audience-heartbeat RPC takes uuid parameters, so
+// a structurally invalid identifier is rejected by the database's type
+// system before it can reach any table.
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function randomUuid() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        const bytes = crypto.getRandomValues(new Uint8Array(16));
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+    });
+}
+
+function getOrCreateVisitorId() {
+    const STORAGE_KEY = 'ec_visitor_id';
+    try {
+        let id = window.localStorage.getItem(STORAGE_KEY);
+        if (!id || !UUID_PATTERN.test(id)) {
+            id = randomUuid();
+            window.localStorage.setItem(STORAGE_KEY, id);
+        }
+        return id;
+    } catch {
+        return randomUuid();
+    }
+}
+const VISITOR_ID = getOrCreateVisitorId();
 
 // --- CLOUDINARY OPTIMIZATION ---
 const optimizeUrl = (url) => {
@@ -179,6 +239,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (CONFIG.introText) {
             const lines = CONFIG.introText.split('\n');
             introEl.innerHTML = lines.map(line => `<span style="display:block;text-align:center;">${line}</span>`).join('');
+        } else {
+            const et = (CONFIG.eventType || 'Wedding').toLowerCase();
+            if (et.includes('engagement')) introEl.innerText = 'Welcome to the Engagement of';
+            else if (et.includes('wedding')) introEl.innerText = 'Welcome to the Wedding of';
+            else introEl.innerText = `Welcome to the ${CONFIG.eventType || 'Event'} of`;
         }
     }
 
@@ -215,12 +280,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- SAVE TO CALENDAR DYNAMIC LINK ---
     const saveCalBtn = document.getElementById('save-calendar-btn');
     if (saveCalBtn) {
-        const calTitle = encodeURIComponent(`${CONFIG.groom} ${CONFIG.bride ? '& ' + CONFIG.bride : ''} ${CONFIG.eventType}`);
-        const calDate = new Date(CONFIG.timerTarget).toISOString().replace(/-|:|\.\d\d\d/g, "");
-        const calEndDate = new Date(new Date(CONFIG.timerTarget).getTime() + 3600000).toISOString().replace(/-|:|\.\d\d\d/g, "");
-        const calDetails = encodeURIComponent(`Join us live and bless the couple: ${window.location.href}`);
-        const calLoc = encodeURIComponent(CONFIG.venue);
-        saveCalBtn.href = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${calTitle}&dates=${calDate}/${calEndDate}&details=${calDetails}&location=${calLoc}`;
+        const startMs = parseTimerTarget(CONFIG.timerTarget);
+        if (!Number.isNaN(startMs)) {
+            const calTitle = encodeURIComponent(`${CONFIG.groom} ${CONFIG.bride ? '& ' + CONFIG.bride : ''} ${CONFIG.eventType}`);
+            const calDate = new Date(startMs).toISOString().replace(/-|:|\.\d\d\d/g, "");
+            const calEndDate = new Date(startMs + 3600000).toISOString().replace(/-|:|\.\d\d\d/g, "");
+            const calDetails = encodeURIComponent(`Join us live and bless the couple: ${window.location.href}`);
+            const calLoc = encodeURIComponent(CONFIG.venue);
+            saveCalBtn.href = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${calTitle}&dates=${calDate}/${calEndDate}&details=${calDetails}&location=${calLoc}`;
+        }
     }
 
     // --- ANALYTICS: Track Page View ---
@@ -244,6 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     referrer: referrer,
                     user_agent: userAgent,
                     country: CONFIG.country || 'Unknown',
+                    visitor_id: VISITOR_ID,
                 };
                 if (CONFIG.studioId) viewRow.studio_id = CONFIG.studioId;
 
@@ -377,28 +446,47 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (videoOverlay) {
+            videoOverlay.style.display = 'flex';
             videoOverlay.addEventListener('click', startVideoManually);
         }
 
+        function primeInvitationSource() {
+            if (videoSourceLoaded) return;
+            videoSourceLoaded = true;
+            const src = invVideo.querySelector('source');
+            if (src) src.setAttribute('src', optimizeUrl(allVideos[currentVideoIndex]));
+            invVideo.load();
+        }
+
+        function tryAutoplayInvitation() {
+            if (!isLoopingEnabled) return;
+            primeInvitationSource();
+            invVideo.play()
+                .then(() => { if (videoOverlay) videoOverlay.style.display = 'none'; })
+                .catch(() => { if (videoOverlay) videoOverlay.style.display = 'flex'; });
+        }
+
         // --- Intersection Observer: Lazy-load + play only when visible ---
-        // Zero bytes are downloaded until the video wrapper crosses the threshold.
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting && isLoopingEnabled) {
-                    if (!videoSourceLoaded) {
-                        videoSourceLoaded = true;
-                        const src = invVideo.querySelector('source');
-                        if (src) src.setAttribute('src', optimizeUrl(allVideos[currentVideoIndex]));
-                        invVideo.load(); // First network request for video bytes happens here
-                    }
-                    invVideo.play().catch(() => {});
+                    tryAutoplayInvitation();
                 } else {
                     invVideo.pause();
                 }
             });
-        }, { threshold: 0.3 });
+        }, { threshold: 0.2 });
 
         if (videoWrapper) observer.observe(videoWrapper);
+
+        // Layout settles after loader — prime if section is already on screen
+        window.addEventListener('load', () => {
+            if (!videoWrapper) return;
+            const rect = videoWrapper.getBoundingClientRect();
+            if (rect.top < window.innerHeight && rect.bottom > 0) {
+                tryAutoplayInvitation();
+            }
+        });
 
         // Initial setup
         if (allVideos.length > 1 && videoDotsContainer) {
@@ -462,8 +550,19 @@ document.addEventListener('DOMContentLoaded', () => {
             logo.style.display = 'block';
         } else if (logo) logo.style.display = 'none';
 
-        // Footer: logo + phone only (studio/person name kept in DB for reference)
-        if (name) name.style.display = 'none';
+        const studioLabel =
+          CONFIG.photographer.studio_name ||
+          CONFIG.photographer.name ||
+          CONFIG.photographer.nickname ||
+          '';
+        if (name) {
+          if (studioLabel) {
+            name.innerText = studioLabel;
+            name.style.display = 'block';
+          } else {
+            name.style.display = 'none';
+          }
+        }
 
         if (phone && CONFIG.photographer.phone_number) {
             phone.href = `tel:${CONFIG.photographer.phone_number.replace(/\s+/g, '')}`;
@@ -561,13 +660,13 @@ function onYouTubeIframeAPIReady() {
     const playerContainer = document.getElementById('youtube-player');
     const statusBadge = document.querySelector('.status-badge');
 
-    if (!CONFIG.youtubeId && !CONFIG.restreamerPlayer) {
+    if (!CONFIG.youtubeId && !isHlsStreamUrl(CONFIG.restreamerPlayer)) {
         if (livestreamSection) livestreamSection.style.display = 'none';
         return;
     }
 
-    // 1. Check if we have a Restreamer Player (High Quality Choice)
-    if (CONFIG.restreamerUrl) {
+    // 1. Native HLS/MP4 player only for Restreamer or archived file URLs
+    if (isHlsStreamUrl(CONFIG.restreamerUrl)) {
         console.log("Using Native HLS Player for Restreamer...");
         if (playerContainer) {
             playerContainer.innerHTML = `
@@ -680,7 +779,83 @@ function onYouTubeIframeAPIReady() {
                     hls = null;
                 }
                 isPlaying = false;
+                stopHeartbeat();
+                heartbeatSessionId = null;
             };
+
+            // --- AUDIENCE HEARTBEAT (EventCast private-stream player only) ---
+            // Emits a heartbeat only while this EventCast HLS <video> element
+            // is genuinely in the 'playing' state — never merely because the page
+            // is open (that is the separate, weaker page-presence widget below),
+            // and never for YouTube playback (YouTube renders through a different
+            // iframe player with no access to this code path).
+            //
+            // The client has no direct INSERT privilege on the heartbeat table:
+            // it calls record_event_audience_heartbeat(), which re-checks event
+            // eligibility server-side, stamps the bucket from database time, and
+            // accepts at most one row per session per 20-second interval. Calling
+            // it more often than the interval simply returns false and records
+            // nothing, so repeated calls cannot manufacture watch time.
+            const HEARTBEAT_INTERVAL_MS = 20000;
+            let heartbeatSessionId = null;
+            let heartbeatTimer = null;
+            let heartbeatFailureCount = 0;
+
+            function reportHeartbeatFailure(reason) {
+                // Never interrupts playback, but a total instrumentation outage
+                // must not be invisible during troubleshooting. Logs the failure
+                // reason only — never the viewer, session, or any credential.
+                heartbeatFailureCount += 1;
+                if (heartbeatFailureCount === 1 || heartbeatFailureCount % 5 === 0) {
+                    console.warn(
+                        `EventCast audience heartbeat not recorded (${heartbeatFailureCount} so far):`,
+                        reason || 'unknown error'
+                    );
+                }
+            }
+
+            function sendHeartbeat() {
+                if (!_supabase || !CONFIG.eventId || !heartbeatSessionId) return;
+                _supabase.rpc('record_event_audience_heartbeat', {
+                    p_event_id: CONFIG.eventId,
+                    p_viewer_id: VISITOR_ID,
+                    p_session_id: heartbeatSessionId,
+                }).then(({ data, error }) => {
+                    if (error) reportHeartbeatFailure(error.message);
+                    // false = server declined: the event is no longer eligible
+                    // (unpublished/archived/assignment disabled) or this session
+                    // was already counted for this interval. Expected
+                    // occasionally; a sustained run of them is a real outage.
+                    else if (data === false) reportHeartbeatFailure('declined by server (event ineligible, or already counted for this interval)');
+                    else heartbeatFailureCount = 0;
+                }, (err) => {
+                    // Transport-level failure (offline, blocked request).
+                    reportHeartbeatFailure(err && err.message);
+                });
+            }
+
+            function startHeartbeat() {
+                if (heartbeatTimer) return;
+                sendHeartbeat();
+                heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
+            }
+
+            function stopHeartbeat() {
+                if (heartbeatTimer) {
+                    clearInterval(heartbeatTimer);
+                    heartbeatTimer = null;
+                }
+            }
+
+            const bindAudienceHeartbeat = () => {
+                if (!video || video._audienceHeartbeatBound) return;
+                video.addEventListener('playing', startHeartbeat);
+                video.addEventListener('pause', stopHeartbeat);
+                video.addEventListener('ended', stopHeartbeat);
+                video.addEventListener('waiting', stopHeartbeat);
+                video._audienceHeartbeatBound = true;
+            };
+            bindAudienceHeartbeat();
 
             const seekToLiveEdge = () => {
                 if (!video) return;
@@ -750,6 +925,7 @@ function onYouTubeIframeAPIReady() {
                             hideLoader();
                             isPlaying = true;
                             updateStatus(true);
+                            heartbeatSessionId = randomUuid();
                             
                             if (typeof Hls !== 'undefined' && Hls.isSupported()) {
                                 hls = new Hls({ 
@@ -850,6 +1026,36 @@ function onYouTubeIframeAPIReady() {
 
     // 2. Fallback to standard YouTube Player API
     if (CONFIG.youtubeId) {
+        // Build a pre-live overlay so upcoming streams show thumbnail
+        // instead of YouTube's default "Video unavailable / Offline" slate.
+        const overlay = document.createElement('div');
+        overlay.id = 'yt-prelive-overlay';
+        const thumbSrc = CONFIG.thumbnail
+            || `https://i.ytimg.com/vi/${CONFIG.youtubeId}/maxresdefault.jpg`;
+        overlay.innerHTML = `
+            <img src="${thumbSrc}" alt="Live Stream Preview"
+                 style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;">
+            <div style="position:absolute;top:0;left:0;width:100%;height:100%;
+                        background:rgba(0,0,0,0.35);display:flex;flex-direction:column;
+                        align-items:center;justify-content:center;gap:14px;">
+                <a href="https://www.youtube.com/live/${CONFIG.youtubeId}" target="_blank"
+                   rel="noopener" aria-label="Watch on YouTube"
+                   style="width:72px;height:72px;border-radius:50%;background:rgba(255,0,0,0.85);
+                          display:flex;align-items:center;justify-content:center;
+                          box-shadow:0 4px 24px rgba(0,0,0,0.5);transition:transform .2s;">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="#fff"><polygon points="9.5,7 9.5,17 17,12"/></svg>
+                </a>
+                <span style="color:#fff;font-family:'Playfair Display',serif;font-size:clamp(0.85rem,2.5vw,1.1rem);
+                             letter-spacing:1.5px;text-shadow:0 2px 8px rgba(0,0,0,0.6);text-align:center;">
+                    LIVE SOON
+                </span>
+            </div>`;
+        overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:5;cursor:pointer;';
+        const videoContainer = playerContainer ? playerContainer.closest('.video-container') : null;
+        if (videoContainer) {
+            videoContainer.appendChild(overlay);
+        }
+
         player = new YT.Player('youtube-player', {
             height: '100%',
             width: '100%',
@@ -857,23 +1063,48 @@ function onYouTubeIframeAPIReady() {
             playerVars: {
                 'playsinline': 1,
                 'rel': 0,
-                'modestbranding': 1
+                'modestbranding': 1,
+                'origin': window.location.origin
             },
             events: {
-                'onStateChange': onPlayerStateChange
+                'onReady': onPlayerReady,
+                'onStateChange': onPlayerStateChange,
+                'onError': onPlayerError
             }
         });
     }
 }
 
-function onPlayerStateChange(event) {
-    if (event.data == YT.PlayerState.PLAYING) {
-        // Handle audio if needed
+function removePreliveOverlay() {
+    const ov = document.getElementById('yt-prelive-overlay');
+    if (ov) ov.remove();
+}
+
+function onPlayerReady(event) {
+    const state = event.target.getPlayerState();
+    // YT.PlayerState: PLAYING=1, BUFFERING=3
+    if (state === 1 || state === 3) {
+        removePreliveOverlay();
     }
+}
+
+function onPlayerStateChange(event) {
+    if (event.data === YT.PlayerState.PLAYING || event.data === YT.PlayerState.BUFFERING) {
+        removePreliveOverlay();
+        const statusBadge = document.querySelector('.status-badge');
+        if (statusBadge) statusBadge.innerHTML = '<span class="pulse"></span> LIVE NOW';
+    }
+}
+
+function onPlayerError(event) {
+    // Keep the overlay visible — YouTube can't play the upcoming stream yet.
+    console.log('YT player error (stream likely not live yet):', event.data);
 }
 
 // --- COUNTDOWN TIMER ---
 function updateCountdown() {
+    if (Number.isNaN(WEDDING_DATE)) return;
+
     const now = new Date().getTime();
     const distance = WEDDING_DATE - now;
 

@@ -31,7 +31,6 @@ const PUBLIC_PREFIXES = [
   '/api/resolve-url',            // Cloudflare Worker domain resolver
   '/api/billing/webhook',        // Payment provider webhooks (use own signature)
   '/api/guest-photos/upload',    // Guest Photo Wall — guests upload without login
-  '/api/local-sync',             // Local template builder sync — no login required
 ];
 
 // ─── Media Agent internal control-plane bypass ───────────────────────────────
@@ -113,6 +112,15 @@ const MEDIA_AGENT_ASSIGNMENT_DEACTIVATION_PATH =
 const MEDIA_AGENT_ASSIGNMENT_STATUS_PATH =
   /^\/internal\/media\/assignments\/[A-Za-z0-9._-]{1,128}\/status\/?$/;
 
+// ─── Anonymous studio signup bypass ──────────────────────────────────────────
+// Matches ONLY the exact `/api/studios/signup` endpoint
+// (`src/app/api/studios/signup/route.ts`), which creates a brand-new studio
+// account for an anonymous visitor and therefore cannot require a session
+// JWT — the caller doesn't have one yet. An exact-path regex (rather than
+// adding a `/api/studios` prefix to `PUBLIC_PREFIXES`) keeps every other
+// route under `/api/studios/` on normal studio-JWT authentication.
+const STUDIO_SIGNUP_PATH = /^\/api\/studios\/signup\/?$/;
+
 // ─── Routes that are fully public (non-API) ───────────────────────────────────
 const ALWAYS_PUBLIC_PREFIXES = [
   '/_next/',
@@ -124,7 +132,8 @@ const ALWAYS_PUBLIC_PREFIXES = [
 function isPublicRoute(pathname: string): boolean {
   return (
     ALWAYS_PUBLIC_PREFIXES.some((p) => pathname.startsWith(p)) ||
-    PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
+    PUBLIC_PREFIXES.some((p) => pathname.startsWith(p)) ||
+    STUDIO_SIGNUP_PATH.test(pathname)
   );
 }
 

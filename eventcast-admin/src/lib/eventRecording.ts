@@ -1,5 +1,6 @@
 import { supabase, supabaseAdmin } from './supabase';
 import { getOwnedEventById, isOwnershipError } from './ownership';
+import { loadB2ConfigFromEnv } from './b2Client';
 
 const db = supabaseAdmin || supabase;
 
@@ -185,6 +186,39 @@ export async function extendEventRetention(
   return { status: 'ok', recording: data as EventRecordingRow };
 }
 
+export type VerifyYoutubeFallbackResult =
+  | { status: 'ok'; recording: EventRecordingRow }
+  | { status: 'rejected'; message: string };
+
+/**
+ * Calls the database's `apply_youtube_fallback_verification()` RPC
+ * (migration `0037`, local design only — not yet applied) — the sole write
+ * path that may ever set `youtube_fallback_verified = true`. Manual Super
+ * Admin attestation only (STO-005/YTB-008); this wrapper, like the RPC
+ * itself, never calls or simulates the YouTube API. The RPC re-verifies the
+ * caller is `super_admin` and requires `youtubeUrl` to equal the event's
+ * current provider-supplied `events.youtube_url` at the moment of
+ * verification, so a stale or cross-event attestation is rejected rather
+ * than silently accepted. The route calling this must already be
+ * `requireSuperAdmin`-gated.
+ */
+export async function verifyYoutubeFallback(
+  eventId: string,
+  youtubeUrl: string,
+  actorUserId: string
+): Promise<VerifyYoutubeFallbackResult> {
+  const { data, error } = await db.rpc('apply_youtube_fallback_verification', {
+    p_event_id: eventId,
+    p_youtube_url: youtubeUrl,
+    p_actor: actorUserId,
+  });
+
+  if (error) {
+    return { status: 'rejected', message: error.message };
+  }
+  return { status: 'ok', recording: data as EventRecordingRow };
+}
+
 export interface ProviderSafeRecordingView {
   replayStatus: 'not_available' | 'processing' | 'available' | 'failed';
   retentionExpiresAt: string | null;
@@ -197,35 +231,46 @@ export interface ProviderSafeRecordingView {
  * `local_finalized_at`, `finalization_failure_reason`, or any other
  * infrastructure/storage-internal field — none of those are secrets, but
  * they are never returned to a normal provider anyway.
+ *
+ * `b2PlaybackConfigured` is supplied by the caller (never read from
+ * `process.env` here, so this function stays pure/trivially testable) — it
+ * is the same "is a real B2 read credential pair actually present" question
+ * `loadB2ConfigFromEnv()` answers for the write side, and the render
+ * Worker's own `loadB2PlaybackConfigFromEnv()` answers independently for
+ * public delivery. No B2 read credentials are configured in this
+ * repository's environments today, so every caller resolves this `false`
+ * and `available` stays unreachable exactly as it did before this
+ * parameter existed — this only makes the condition explicit and testable
+ * rather than removing it.
  */
-export function toProviderSafeRecordingView(recording: EventRecordingRow | null): ProviderSafeRecordingView {
+export function toProviderSafeRecordingView(
+  recording: EventRecordingRow | null,
+  b2PlaybackConfigured: boolean = false
+): ProviderSafeRecordingView {
   if (!recording) {
     return { replayStatus: 'not_available', retentionExpiresAt: null, youtubeFallbackAvailable: false };
   }
 
-  // `available` is deliberately unreachable through the B2 path in this
-  // package, and `b2_finalized` alone is NOT enough to claim it.
-  //
-  // Two independent things must be true before a provider may be told a
-  // replay is ready, and neither holds yet:
-  //
-  //  1. The archive must be trustworthy. Reaching `b2_finalized` proves the
-  //     objects are present and self-consistent, not that their bytes are
-  //     verified — `integrity_verified_at` is the evidence for that, and it
-  //     stays null until a real byte-integrity mechanism is proven against
-  //     the live endpoint.
-  //  2. The recording must actually be playable. The B2 bucket is private
-  //     and no read path (presigned URL, Worker proxy, or CDN origin) has
-  //     been approved, so even a fully verified archive cannot currently be
-  //     consumed by a player.
-  //
-  // Reporting `processing` is therefore the honest answer, not a
-  // placeholder. A later B2 playback-delivery package will make
-  // `available` reachable once both conditions genuinely hold. The existing
-  // status vocabulary is unchanged and the verified-YouTube fallback below
-  // is untouched.
+  // `available` requires every one of:
+  //  1. The archive is trustworthy: `recording_state = 'b2_finalized'` AND
+  //     `integrity_verified_at` present (reaching `b2_finalized` alone only
+  //     proves the objects exist and are self-consistent, not that their
+  //     bytes are verified).
+  //  2. The recording is still within its promised retention window
+  //     (`retention_expires_at` in the future) — an expired recording must
+  //     never be reported "available" even if it once was.
+  //  3. A real playback-delivery path is actually configured
+  //     (`b2PlaybackConfigured`) — the render Worker performs this exact
+  //     same check independently before it will actually serve a byte, so
+  //     this route can never promise more than the Worker can deliver.
+  const isArchiveVerified = recording.recording_state === 'b2_finalized' && recording.integrity_verified_at !== null;
+  const isWithinRetention =
+    recording.retention_expires_at !== null && new Date(recording.retention_expires_at).getTime() > Date.now();
+
   let replayStatus: ProviderSafeRecordingView['replayStatus'] = 'not_available';
-  if (
+  if (isArchiveVerified && isWithinRetention && b2PlaybackConfigured) {
+    replayStatus = 'available';
+  } else if (
     recording.recording_state === 'recording' ||
     recording.recording_state === 'local_finalized' ||
     recording.recording_state === 'b2_finalizing' ||
@@ -256,5 +301,6 @@ export async function getProviderSafeRecordingViewForOwnedEvent(
   }
 
   const recording = await getEventRecordingState(eventId);
-  return { ok: true, view: toProviderSafeRecordingView(recording) };
+  const b2PlaybackConfigured = loadB2ConfigFromEnv() !== null;
+  return { ok: true, view: toProviderSafeRecordingView(recording, b2PlaybackConfigured) };
 }

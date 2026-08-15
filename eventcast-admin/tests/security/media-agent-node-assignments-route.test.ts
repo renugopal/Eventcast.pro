@@ -966,7 +966,7 @@ describe('Middleware — Media Agent assignments studio-JWT bypass', () => {
 
   it('does not bypass an unrelated /api path (still requires studio JWT)', async () => {
     const middleware = await loadMiddleware();
-    const req = new NextRequest('http://test.local/api/media/live-status');
+    const req = new NextRequest('http://test.local/api/media/assignment-status');
     const res = await middleware(req);
 
     expect(res.status).toBe(401);

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Lock, Mail, Loader2, AlertCircle, Camera, Globe,
-  Palette, CheckCircle2, ArrowRight, Sparkles
+  Palette, CheckCircle2, ArrowRight, Sparkles, Phone
 } from "lucide-react";
 import { AuthShell } from "../components/AuthShell";
 
@@ -20,6 +20,7 @@ const BRAND_COLORS = [
 export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
   const [studioName, setStudioName] = useState("");
   const [slug, setSlug] = useState("");
   const [brandColorHex, setBrandColorHex] = useState("#5B21B6");
@@ -54,7 +55,7 @@ export default function SignupPage() {
       const res = await fetch("/api/studios/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, studioName, slug, brandColorHex }),
+        body: JSON.stringify({ email, password, studioName, slug, brandColorHex, phone }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -167,6 +168,27 @@ export default function SignupPage() {
             />
             <Lock className="ec-auth-field-icon" size={18} />
           </div>
+        </div>
+
+        <div>
+          <label className="ec-auth-label" htmlFor="signup-phone">
+            Mobile number
+          </label>
+          <div className="relative ec-auth-input-wrap">
+            <input
+              id="signup-phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="10-digit Indian mobile number"
+              className="ec-input w-full"
+              autoComplete="tel"
+            />
+            <Phone className="ec-auth-field-icon" size={18} />
+          </div>
+          <p style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "4px" }}>
+            Optional for now — saved with your account, not yet verified by OTP.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

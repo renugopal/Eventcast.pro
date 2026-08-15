@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   getOwnedEventById,
   getOwnedEventBySlug,
+  getGuestPhotoById,
+  getWishById,
   isOwnershipError,
 } from '@/lib/ownership';
 import { createFromMock } from './support/mocks';
@@ -96,5 +98,61 @@ describe('getOwnedEventBySlug', () => {
     if (!isOwnershipError(result)) throw new Error('unreachable');
     expect(result.error.status).toBe(404);
     expect(await result.error.json()).toEqual({ success: false, error: 'Event not found' });
+  });
+});
+
+describe('getGuestPhotoById', () => {
+  it('returns the photo scoped by both id and the already-owned event id', async () => {
+    const fromMock = createFromMock({
+      guest_photos: [{ data: { id: 'photo-1', approved: true }, error: null }],
+    });
+
+    const result = await getGuestPhotoById({ from: fromMock }, 'photo-1', 'evt-1');
+    expect(isOwnershipError(result)).toBe(false);
+    if (isOwnershipError(result)) throw new Error('unreachable');
+    expect(result.event).toEqual({ id: 'photo-1', approved: true });
+
+    const builder = fromMock.mock.results[0].value;
+    expect(builder.eq.mock.calls).toEqual([
+      ['id', 'photo-1'],
+      ['event_id', 'evt-1'],
+    ]);
+  });
+
+  it('returns a generic 404 for a photo belonging to a different event', async () => {
+    const fromMock = createFromMock({ guest_photos: [{ data: null, error: null }] });
+    const result = await getGuestPhotoById({ from: fromMock }, 'photo-1', 'evt-2');
+    expect(isOwnershipError(result)).toBe(true);
+    if (!isOwnershipError(result)) throw new Error('unreachable');
+    expect(result.error.status).toBe(404);
+    expect(await result.error.json()).toEqual({ success: false, error: 'Guest memory not found' });
+  });
+});
+
+describe('getWishById', () => {
+  it('returns the wish scoped by both id and the already-owned event id', async () => {
+    const fromMock = createFromMock({
+      wishes: [{ data: { id: 'wish-1', status: 'approved' }, error: null }],
+    });
+
+    const result = await getWishById({ from: fromMock }, 'wish-1', 'evt-1');
+    expect(isOwnershipError(result)).toBe(false);
+    if (isOwnershipError(result)) throw new Error('unreachable');
+    expect(result.event).toEqual({ id: 'wish-1', status: 'approved' });
+
+    const builder = fromMock.mock.results[0].value;
+    expect(builder.eq.mock.calls).toEqual([
+      ['id', 'wish-1'],
+      ['event_id', 'evt-1'],
+    ]);
+  });
+
+  it('returns a generic 404 for a wish belonging to a different event', async () => {
+    const fromMock = createFromMock({ wishes: [{ data: null, error: null }] });
+    const result = await getWishById({ from: fromMock }, 'wish-1', 'evt-2');
+    expect(isOwnershipError(result)).toBe(true);
+    if (!isOwnershipError(result)) throw new Error('unreachable');
+    expect(result.error.status).toBe(404);
+    expect(await result.error.json()).toEqual({ success: false, error: 'Wish not found' });
   });
 });

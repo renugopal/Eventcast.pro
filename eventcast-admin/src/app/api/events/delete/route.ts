@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
-import { RestreamerClient } from '@/lib/restreamer';
 import { requireAdmin } from '@/lib/auth';
 import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
 
@@ -58,19 +57,11 @@ export async function POST(req: Request) {
     // --- PERMANENT DELETE FLOW ---
     const slug = event.slug;
 
-    // 2. Restreamer Cleanup: delete process config AND all VOD/HLS media files from disk
-    try {
-      const restreamer = new RestreamerClient({
-        url: process.env.RESTREAMER_URL || 'https://media.eventcast.pro',
-        username: process.env.RESTREAMER_USERNAME || 'admin',
-        password: process.env.RESTREAMER_PASSWORD
-      });
-      await restreamer.deleteChannel(slug);
-      const { deleted, errors } = await restreamer.deleteChannelFiles(slug);
-      console.log(`VOD cleanup for ${slug}: ${deleted} files removed, ${errors} errors`);
-    } catch (rsErr) {
-      console.error(`Restreamer cleanup failed for ${slug}:`, rsErr);
-    }
+    // 2. Restreamer cleanup removed — Milestone O (controlled Restreamer
+    //    legacy cleanup). Restreamer is retired from the target architecture
+    //    and must not be contacted or reintroduced. R2/B2 object cleanup is
+    //    deliberately NOT substituted here: that is the separately-owned
+    //    retention / R2-cleanup surface.
 
     // 3. Cloudinary Deletion
     try {

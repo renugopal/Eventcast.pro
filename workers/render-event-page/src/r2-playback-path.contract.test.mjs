@@ -12,6 +12,17 @@ import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(__dirname, 'index.ts'), 'utf8');
+// The pure render/URL-construction logic this file also guards lives in the
+// canonical renderer module — physically inside the eventcast-admin project
+// tree (Turbopack, unlike this Worker's esbuild/Wrangler bundler, cannot
+// resolve a relative import that crosses outside its detected project root,
+// so the shared implementation moved rather than being aliased across it).
+// This Worker's own index.ts imports it by relative path; those specific
+// assertions read this file instead.
+const rendererSource = readFileSync(
+  join(__dirname, '..', '..', '..', 'eventcast-admin', 'src', 'lib', 'weddingTemplateRenderer.ts'),
+  'utf8'
+);
 
 test('the legacy Restreamer/memfs playback path is gone with no fallback', () => {
   assert.doesNotMatch(source, /media\.eventcast\.pro\/memfs/, 'memfs upstream must not remain');
@@ -73,7 +84,7 @@ test('every playback failure returns the same non-cacheable 404', () => {
   assert.match(helper, /'Not Found'/);
 
   const serveAt = source.indexOf('async function serveHlsAssetFromR2(');
-  const serveBody = source.slice(serveAt, source.indexOf('function renderEvent(', serveAt));
+  const serveBody = source.slice(serveAt, source.indexOf('function notFound(): Response {', serveAt));
   const returns = serveBody.match(/return notFound\(\);/g) ?? [];
   assert.ok(returns.length >= 6, `expected every failure branch to return notFound(); found ${returns.length}`);
   assert.doesNotMatch(serveBody, /status: 40[13]|status: 500/, 'no distinguishable status may be returned');
@@ -81,7 +92,7 @@ test('every playback failure returns the same non-cacheable 404', () => {
 
 test('manifests are rewritten before leaving the Worker and fail closed', () => {
   const serveAt = source.indexOf('async function serveHlsAssetFromR2(');
-  const serveBody = source.slice(serveAt, source.indexOf('function renderEvent(', serveAt));
+  const serveBody = source.slice(serveAt, source.indexOf('function notFound(): Response {', serveAt));
   assert.match(serveBody, /rewriteManifest\(await object\.text\(\), playbackId, slug\)/);
   assert.match(serveBody, /if \(rewritten === null\) return notFound\(\);/);
   const rewriteAt = serveBody.indexOf('rewriteManifest(');
@@ -96,7 +107,7 @@ test('stored Content-Type and Cache-Control win over the fallbacks', () => {
 
 test('the live player URL points at the public live route only when playback is enabled', () => {
   assert.match(
-    source,
+    rendererSource,
     /hasLivePlayback\s*\r?\n?\s*\?\s*`https:\/\/\$\{hostname\}\/events\/\$\{encodeURIComponent\(slug\)\}\/hls\/live\/index\.m3u8`/,
     'live URL must be /events/{slug}/hls/live/index.m3u8',
   );
@@ -105,5 +116,5 @@ test('the live player URL points at the public live route only when playback is 
     /const hasLivePlayback = \(await resolveEnabledPlaybackId\(env, event\.id\)\) !== null;/,
     'live playback must be gated on an enabled assignment',
   );
-  assert.match(source, /const vodArchiveUrl = event\.vod_link \?\? '';/, 'VOD selection must stay unchanged');
+  assert.match(rendererSource, /const vodArchiveUrl = event\.vod_link \?\? '';/, 'VOD selection must stay unchanged');
 });

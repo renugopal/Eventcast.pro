@@ -17,6 +17,20 @@ fallthrough = true
 SUPABASE_URL = "https://lteogzqeuuoxlekhofow.supabase.co"
 
 # ---------------------------------------------------------------------------
+# Private R2 bucket holding Media Agent output (HLS manifests + segments).
+# The bucket stays private: playback is served only by this Worker through the
+# binding below, never via a public bucket URL or custom domain.
+#
+# Keys are addressed as events/{playback_id}/... (see src/hls-playback.mjs),
+# which requires the Media Agent to run with an EMPTY object prefix. Objects
+# written under the earlier events/events/{playback_id}/... layout are not
+# addressable through this binding and are intentionally left untouched.
+# ---------------------------------------------------------------------------
+[[r2_buckets]]
+binding     = "MEDIA_R2"
+bucket_name = "eventcast-livestream-media"
+
+# ---------------------------------------------------------------------------
 # Route — intercept /events/* on the production domain.
 # Activate in the Cloudflare dashboard or uncomment below after you have
 # added the zone to your Cloudflare account.
