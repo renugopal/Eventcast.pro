@@ -4,8 +4,6 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
 import { loadAssignmentStatus } from '@/lib/media-agent/assignmentStatusRepo';
 
-export const runtime = 'edge';
-
 interface OwnedEventRef {
   id: string;
 }

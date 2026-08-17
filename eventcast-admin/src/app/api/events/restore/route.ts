@@ -7,8 +7,6 @@ interface RestorableEventRow {
   id: string;
 }
 
-export const runtime = 'edge';
-
 export async function POST(req: Request) {
   const auth = await requireAdmin(req);
   if (auth instanceof NextResponse) return auth;

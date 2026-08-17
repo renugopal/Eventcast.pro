@@ -16,8 +16,6 @@ import { PARTNER_TYPES, isPartnerType } from '@/lib/partnerFields';
  * of scope here.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 interface RouteParams {

@@ -12,8 +12,6 @@ import { requireAdmin } from '@/lib/auth';
  * matches zero rows and gets the same generic 404 as if it never existed.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 interface RouteParams {

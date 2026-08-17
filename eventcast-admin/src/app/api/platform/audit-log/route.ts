@@ -11,7 +11,6 @@ import { requireSuperAdmin } from '@/lib/superAdmin';
  * application's side (migration `0035` grants service_role SELECT and INSERT
  * only), so this route offers no mutation verb of any kind.
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

@@ -27,8 +27,6 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { timingSafeEqual } from '@/lib/media-agent/nodeProvisioning';
 import { loadAssignmentStatus } from '@/lib/media-agent/assignmentStatusRepo';
 
-export const runtime = 'edge';
-
 function unauthorized(): NextResponse {
   return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 }

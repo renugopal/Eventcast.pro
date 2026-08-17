@@ -4,7 +4,6 @@
  * via the Web Crypto API. Node.js `crypto` module is NOT used — only Web Crypto
  * (available in Edge).
  */
-export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';

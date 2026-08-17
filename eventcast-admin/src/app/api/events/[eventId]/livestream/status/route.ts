@@ -23,8 +23,6 @@ import { loadStudioLiveStatus } from '@/lib/media-agent/studioLiveStatus';
  * credentials.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 interface LivestreamEventRow {

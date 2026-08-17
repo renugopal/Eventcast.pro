@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
 
-export const runtime = 'edge';
-
 export async function GET(req: Request) {
   const auth = await requireAdmin(req);
   if (auth instanceof NextResponse) return auth;

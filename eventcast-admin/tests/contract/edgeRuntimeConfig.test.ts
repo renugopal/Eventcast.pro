@@ -1,81 +1,103 @@
 import { describe, expect, it } from 'vitest';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
 /**
- * Regression guard for the Cloudflare Pages cutover defect.
+ * Runtime-configuration guard for the Cloudflare Workers / OpenNext deployment.
  *
- * Cloudflare Pages only runs Edge Runtime functions. A route that cannot be
- * prerendered to a static asset — every dynamic `[param]` segment here — must
- * therefore declare `runtime = 'edge'`, or `@cloudflare/next-on-pages` rejects
- * the whole build. That is not something `next build` catches: it happily
- * emits Node.js serverless functions, which is why this shipped green locally
- * and failed only in the Pages build.
+ * History, because this file's assertion was deliberately inverted:
  *
- * These assertions are deliberately source-level. They encode the exact set of
- * route segments Cloudflare named, so re-introducing a Node-runtime dynamic
- * route fails here instead of in production.
+ *  1. The Milestone O cutover shipped with dynamic routes on the default
+ *     Node.js runtime. `@cloudflare/next-on-pages` rejected them, because
+ *     Pages Functions run only Edge Runtime code.
+ *  2. The corrective commit added `export const runtime = 'edge'` to satisfy
+ *     that, and this test pinned those declarations in place.
+ *  3. That Pages build then failed on bundle size (62,396,851 bytes against a
+ *     25 MiB limit), because next-on-pages emits one function per route, each
+ *     carrying its own copy of its dependency graph.
+ *  4. The app moved to `@opennextjs/cloudflare`, which requires the **Node.js**
+ *     runtime and does not support edge-runtime routes at all.
+ *
+ * So the invariant is now the exact opposite of what it was: no source file may
+ * declare the edge runtime. Reintroducing one would break the OpenNext build,
+ * which is why this is asserted here rather than left to a deploy to discover.
+ *
+ * The Draft Preview route's filesystem-free requirement is unchanged and still
+ * asserted below — it never depended on which runtime was in use. The deployed
+ * Worker has no project filesystem either way.
  */
 
-const APP_DIR = path.join(__dirname, '..', '..', 'src', 'app');
+const ADMIN_ROOT = path.join(__dirname, '..', '..');
+const APP_DIR = path.join(ADMIN_ROOT, 'src', 'app');
+
+const DRAFT_PREVIEW_ROUTE = 'api/events/draft/[eventId]/preview/route.ts';
 
 function read(relativePath: string): string {
   return fs.readFileSync(path.join(APP_DIR, relativePath), 'utf-8');
 }
 
-function declaresEdgeRuntime(source: string): boolean {
-  return /^export const runtime = ['"]edge['"];$/m.test(source);
+/**
+ * Strips comments so the filesystem assertions below judge executable code
+ * only. Without this, a doc comment that accurately explains *why* the route
+ * must not call `process.cwd()` would itself fail the test — punishing the
+ * documentation for describing the invariant it protects.
+ */
+function codeWithoutComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1');
 }
 
 /**
- * The seven Event Workspace tabs do not each declare a runtime: they inherit
- * it from the one shared workspace layout segment. Asserting the layout (and
- * asserting that the tabs exist) keeps the real mechanism under test — if
- * someone deletes the layout's declaration, this fails even though every tab
- * file is untouched.
+ * Derived from the repository rather than a hard-coded list, so a newly added
+ * edge-runtime route is caught even though no one thought to name it here.
  */
-const EVENT_WORKSPACE_LAYOUT = '(admin-v2)/events/[eventId]/layout.tsx';
+function filesDeclaringEdgeRuntime(): string[] {
+  try {
+    return execFileSync(
+      'git',
+      ['grep', '-rlE', "export +const +runtime *= *['\"]edge['\"]", '--', 'src'],
+      { cwd: ADMIN_ROOT, encoding: 'utf-8' }
+    )
+      .split(/\r?\n/)
+      .filter(Boolean);
+  } catch (error: unknown) {
+    // `git grep` exits 1 with no output when nothing matches, which is the
+    // state this test wants. Anything else is a real failure worth surfacing.
+    const status = (error as { status?: number }).status;
+    const stdout = String((error as { stdout?: unknown }).stdout ?? '');
+    if (status === 1 && stdout.trim() === '') return [];
+    throw error;
+  }
+}
 
-const EVENT_WORKSPACE_TABS = [
-  '(admin-v2)/events/[eventId]/overview/page.tsx',
-  '(admin-v2)/events/[eventId]/event-page/page.tsx',
-  '(admin-v2)/events/[eventId]/live/page.tsx',
-  '(admin-v2)/events/[eventId]/media/page.tsx',
-  '(admin-v2)/events/[eventId]/engagement/page.tsx',
-  '(admin-v2)/events/[eventId]/analytics/page.tsx',
-  '(admin-v2)/events/[eventId]/settings/page.tsx',
-];
-
-const DIRECTLY_DECLARED_DYNAMIC_ROUTES = [
-  'platform/events/[eventId]/page.tsx',
-  'platform/studios/[studioId]/page.tsx',
-  'api/events/draft/[eventId]/preview/route.ts',
-];
-
-const DRAFT_PREVIEW_ROUTE = 'api/events/draft/[eventId]/preview/route.ts';
-
-describe('Cloudflare Pages Edge Runtime configuration', () => {
-  it('declares the Event Workspace segment once on its shared layout', () => {
-    expect(declaresEdgeRuntime(read(EVENT_WORKSPACE_LAYOUT))).toBe(true);
+describe('Cloudflare Workers / OpenNext runtime configuration', () => {
+  it('declares the edge runtime nowhere in src, as OpenNext requires', () => {
+    expect(filesDeclaringEdgeRuntime()).toEqual([]);
   });
 
-  it.each(EVENT_WORKSPACE_TABS)('keeps tab %s inside that layout segment', (tab) => {
-    expect(fs.existsSync(path.join(APP_DIR, tab))).toBe(true);
+  it('keeps the Event Workspace layout free of a runtime declaration', () => {
+    expect(read('(admin-v2)/events/[eventId]/layout.tsx')).not.toMatch(
+      /export +const +runtime/
+    );
   });
 
-  it.each(DIRECTLY_DECLARED_DYNAMIC_ROUTES)('declares the Edge Runtime in %s', (route) => {
-    expect(declaresEdgeRuntime(read(route))).toBe(true);
+  it.each([
+    'platform/events/[eventId]/page.tsx',
+    'platform/studios/[studioId]/page.tsx',
+    DRAFT_PREVIEW_ROUTE,
+  ])('keeps %s free of a runtime declaration', (route) => {
+    expect(read(route)).not.toMatch(/export +const +runtime/);
   });
 });
 
 describe('Draft Preview route edge safety', () => {
   it('never reaches for a Node filesystem at request time', () => {
-    const source = read(DRAFT_PREVIEW_ROUTE);
+    const code = codeWithoutComments(read(DRAFT_PREVIEW_ROUTE));
 
-    expect(source).not.toMatch(/from ['"]node:fs['"]/);
-    expect(source).not.toMatch(/from ['"]node:path['"]/);
-    expect(source).not.toContain('readFileSync');
-    expect(source).not.toContain('process.cwd()');
+    expect(code).not.toMatch(/from ['"]node:fs['"]/);
+    expect(code).not.toMatch(/from ['"]node:path['"]/);
+    expect(code).not.toContain('readFileSync');
+    expect(code).not.toContain('process.cwd()');
   });
 
   it('takes its template markup from the drift-guarded canonical module', () => {

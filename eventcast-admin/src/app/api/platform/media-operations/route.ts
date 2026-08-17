@@ -20,7 +20,6 @@ import { toPlatformRecordingView } from '@/lib/platformOperations';
  * any other guest content (ADM-007: private content is not routinely
  * browsed).
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

@@ -18,7 +18,6 @@ import { unavailable, NO_TECHNICAL_STREAM_METRICS_REASON } from '@/lib/platformO
  * unavailable rather than inferring it. Excludes `stream_secret_hash`,
  * `youtube_secret_reference`, and any other node/credential internals.
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

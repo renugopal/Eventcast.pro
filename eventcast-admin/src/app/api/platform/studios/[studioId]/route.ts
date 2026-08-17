@@ -12,7 +12,6 @@ import { deriveEventLifecycleStatus } from '@/lib/eventLifecycle';
  * treats message bodies, not the existence of a ticket, as private content);
  * message bodies are never returned here.
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

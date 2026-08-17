@@ -28,8 +28,6 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { markNodeHealthy, timingSafeEqual } from '@/lib/media-agent/nodeProvisioning';
 
-export const runtime = 'edge';
-
 function unauthorized(): NextResponse {
   return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 }

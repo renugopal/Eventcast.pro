@@ -1,0 +1,47 @@
+{
+  // Independent Cloudflare Workers configuration for the Admin app, used only
+  // by the OpenNext (@opennextjs/cloudflare) build/preview path.
+  //
+  // DELIBERATELY NOT NAMED `wrangler.jsonc`.
+  // The existing Cloudflare Pages build scans the project root for a default
+  // Wrangler configuration file. While the Pages project is still the live
+  // production path, introducing `wrangler.jsonc` here could change that
+  // build's behavior. Every OpenNext/Wrangler command in this package
+  // therefore passes `--config=wrangler.opennext.jsonc` explicitly, and no
+  // default-named config may be generated.
+  //
+  // This is a NEW, independent Worker. It does not reuse, extend, or modify
+  // `workers/render-event-page` or `workers/hls-signer`.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "eventcast-admin-worker",
+  "main": ".open-next/worker.js",
+
+  // Pinned. `nodejs_compat` is required by OpenNext; the Admin app runs on the
+  // Node.js runtime, not the Edge runtime. `global_fetch_strictly_public`
+  // makes fetches to our own public URLs leave the Worker as real public
+  // requests rather than being routed back internally.
+  "compatibility_date": "2025-05-05",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+
+  // Explicit, not inherited from Wrangler's default. This Worker is reachable
+  // ONLY on its own `*.workers.dev` subdomain. No `routes`, `route`,
+  // `custom_domain`, `zone_id`, or `zone_name` key may be added here: the live
+  // Admin traffic belongs to the Cloudflare Pages project, and this Worker must
+  // never be able to answer for a production hostname.
+  "workers_dev": true,
+
+  // The only binding. `ASSETS` is required by OpenNext to serve the Next.js
+  // static output; it is not an application-specific external resource.
+  // No R2/KV/D1/Images or self-reference bindings are declared: the Admin app
+  // reaches Supabase, R2, and B2 over the network using environment variables
+  // only, and the media bucket remains reachable solely through the separate
+  // render Worker's own MEDIA_R2 binding.
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}

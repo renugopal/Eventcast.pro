@@ -24,8 +24,6 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { findMediaNodeByName } from '@/lib/media-agent/nodeAssignmentsRepo';
 import { issueMediaNodeCredential, timingSafeEqual } from '@/lib/media-agent/nodeProvisioning';
 
-export const runtime = 'edge';
-
 function unauthorized(): NextResponse {
   return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 }

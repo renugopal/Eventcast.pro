@@ -25,8 +25,6 @@ import { invitationVideoUrlsToDbValue, invitationVideoDbValueToFormString } from
  * route never talks to R2 itself — it only validates and assigns/reorders.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 const MEDIA_COLUMNS = 'id, invitation_video_url, gallery_urls';

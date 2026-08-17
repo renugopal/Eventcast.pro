@@ -22,8 +22,6 @@ import { deactivateAssignment } from '@/lib/media-agent/assignmentDeactivation';
  * boundary this package is scoped to.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 interface LivestreamEventRow {

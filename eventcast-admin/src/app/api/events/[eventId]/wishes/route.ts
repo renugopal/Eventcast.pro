@@ -12,8 +12,6 @@ import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
  * approve, pin, hide, reject, delete). Pinned first, then newest first.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 interface RouteParams {

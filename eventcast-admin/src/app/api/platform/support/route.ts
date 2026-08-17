@@ -14,7 +14,6 @@ import { requireSuperAdmin } from '@/lib/superAdmin';
  * Built on migration `0034`'s existing schema. No external WhatsApp, SMS, or
  * email provider is involved — none is integrated in this repository.
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

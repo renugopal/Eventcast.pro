@@ -18,7 +18,6 @@ import { reconcileTemplateUsage } from '@/lib/platformOperations';
  * Baseline or in this repository, and none is invented here. An honest
  * read-only surface is preferable to an invented write path.
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

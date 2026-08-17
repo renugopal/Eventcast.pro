@@ -20,7 +20,6 @@ import { NO_LIVE_TELEMETRY_REASON } from '@/lib/platformOperations';
  * stays null with its reason attached rather than being inferred from
  * enabled-assignment state.
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

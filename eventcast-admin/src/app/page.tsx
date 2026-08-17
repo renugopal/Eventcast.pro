@@ -1,7 +1,5 @@
 import { redirect } from "next/navigation";
 
-export const runtime = 'edge';
-
 /**
  * Root/provider entry point — Milestone O cutover.
  *

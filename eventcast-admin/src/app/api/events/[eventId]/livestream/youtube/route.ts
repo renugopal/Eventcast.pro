@@ -26,8 +26,6 @@ import { isValidYoutubeWatchUrl } from '@/lib/youtubeUrl';
  * package would need.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 interface LivestreamEventRow {

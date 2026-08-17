@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-export const runtime = 'edge';
-
 // Fallback curated premium watercolor backgrounds (100% clean, no people/couples)
 const FALLBACK_BACKGROUNDS: Record<string, string> = {
   wedding: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1280&h=720&fit=crop", // Exquisite gold fluid marble & pastel pink watercolor

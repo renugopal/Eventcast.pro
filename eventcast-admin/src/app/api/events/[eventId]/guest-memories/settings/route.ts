@@ -14,8 +14,6 @@ import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
  * auto-approved default.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 interface RouteParams {

@@ -14,7 +14,6 @@
  *  7. Insert record in guest_photos table
  *  8. Return { success, photo_url, photo_id }
  */
-export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';

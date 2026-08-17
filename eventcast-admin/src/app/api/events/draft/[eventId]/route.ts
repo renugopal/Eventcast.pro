@@ -18,8 +18,6 @@ import {
  * Restreamer.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 const DRAFT_COLUMNS =

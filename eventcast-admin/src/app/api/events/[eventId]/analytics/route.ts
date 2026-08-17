@@ -62,8 +62,6 @@ import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
  * source exists (unchanged from the Live Control Room package).
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 const HEARTBEAT_INTERVAL_SECONDS = 20;

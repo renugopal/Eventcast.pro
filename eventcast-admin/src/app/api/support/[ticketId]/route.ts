@@ -12,8 +12,6 @@ import { getOwnedSupportTicketById, isOwnershipError } from '@/lib/ownership';
  * used across this repository).
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 interface RouteParams {

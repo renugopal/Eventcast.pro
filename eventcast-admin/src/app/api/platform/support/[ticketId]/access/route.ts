@@ -14,7 +14,6 @@ import { writeAuditLog } from '@/lib/platformAudit';
  * anyway. The audit row carries the ticket identity, the studio, the message
  * count, and the stated reason — never a message body.
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

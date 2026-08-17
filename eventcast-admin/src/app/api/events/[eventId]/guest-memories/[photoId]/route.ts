@@ -21,8 +21,6 @@ import { getOwnedEventById, getGuestPhotoById, isOwnershipError } from '@/lib/ow
  * replacement — only the guest_photos row is removed.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 interface RouteParams {

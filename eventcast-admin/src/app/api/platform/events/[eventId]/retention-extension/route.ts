@@ -14,7 +14,6 @@ import { extendEventRetention } from '@/lib/eventRecording';
  * strictly later than the current one — this route does not duplicate or
  * weaken those checks.
  */
-export const runtime = 'edge';
 
 interface RouteParams {
   params: Promise<{ eventId: string }>;

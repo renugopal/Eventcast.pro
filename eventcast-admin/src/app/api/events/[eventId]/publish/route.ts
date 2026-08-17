@@ -38,8 +38,6 @@ import { loadOwnedEventCreditsWithPartners } from '@/lib/eventCreditsLoader';
  * any other lifecycle side effect.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 const PUBLISH_COLUMNS = 'id, page_state, published_credits';

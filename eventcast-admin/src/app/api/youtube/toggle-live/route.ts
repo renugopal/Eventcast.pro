@@ -1,4 +1,3 @@
-export const runtime = 'edge';
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
 import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';

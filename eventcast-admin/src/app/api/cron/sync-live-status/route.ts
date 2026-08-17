@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
-export const runtime = 'edge';
-
 export async function GET(req: Request) {
   try {
     // 1. Security Check — fail closed: 401 if CRON_SECRET is unset or secret mismatches

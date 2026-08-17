@@ -19,13 +19,14 @@ import { renderEvent, type EventRow } from '@/lib/weddingTemplateRenderer';
  * call — the Draft stays exactly as it was before this request.
  *
  * The template markup comes from `@/lib/canonicalWeddingTemplateHtml`, an
- * embedded copy of the Worker's template asset, because this route runs on the
- * Edge Runtime where there is no filesystem to read that asset from. The two
+ * embedded copy of the Worker's template asset. The deployed Worker has no
+ * project filesystem to read that asset from at request time, so this route
+ * must never reach for `node:fs`/`node:path`/`process.cwd()` — that is true
+ * under the Node.js runtime this app now targets on Cloudflare Workers, and
+ * was equally true under the Edge runtime it previously used. The two copies
  * cannot drift: `tests/contract/canonicalWeddingTemplateHtml.test.ts` fails if
  * the embedded copy stops matching the Worker template file.
  */
-
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

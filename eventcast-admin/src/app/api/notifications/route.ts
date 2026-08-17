@@ -11,8 +11,6 @@ import { requireAdmin } from '@/lib/auth';
  * `createNotification()`, never through this route.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 export async function GET(req: Request) {

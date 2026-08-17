@@ -7,7 +7,6 @@ import { deriveEventLifecycleStatus } from '@/lib/eventLifecycle';
  * GET /api/platform/events — paginated cross-tenant event list for the
  * Platform Console. `requireSuperAdmin`-gated, service-role client.
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

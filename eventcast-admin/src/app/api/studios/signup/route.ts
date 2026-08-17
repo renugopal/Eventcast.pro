@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { normalizeIndianMobileToE164 } from '@/lib/phoneIdentity';
 
-export const runtime = 'edge';
-
 export async function POST(req: Request) {
   if (!supabaseAdmin) {
     return NextResponse.json(

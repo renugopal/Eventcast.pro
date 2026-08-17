@@ -24,8 +24,6 @@ import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
  * not implemented here.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 const CATEGORIES = ['general', 'urgent_live'] as const;

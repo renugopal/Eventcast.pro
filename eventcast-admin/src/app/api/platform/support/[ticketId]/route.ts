@@ -21,7 +21,6 @@ import { writeAuditLog } from '@/lib/platformAudit';
  * provider-surface attribution change, neither of which belongs in this
  * platform-only package.
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

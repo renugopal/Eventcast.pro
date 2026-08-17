@@ -17,8 +17,6 @@ import {
  * `page_state: 'draft'` — never a publicly visible row.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 interface DraftCreateBody {

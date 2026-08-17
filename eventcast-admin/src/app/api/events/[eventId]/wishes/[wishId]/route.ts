@@ -18,8 +18,6 @@ import { getOwnedEventById, getWishById, isOwnershipError } from '@/lib/ownershi
  * permanent action distinct from `status: 'rejected'`.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 const WISH_STATUSES = ['approved', 'hidden', 'rejected'] as const;

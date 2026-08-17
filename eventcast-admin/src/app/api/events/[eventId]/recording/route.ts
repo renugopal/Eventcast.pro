@@ -14,7 +14,6 @@ import { getProviderSafeRecordingViewForOwnedEvent } from '@/lib/eventRecording'
  * infrastructure/storage-internal field — none of those are secrets, but
  * they are never returned to a normal provider anyway.
  */
-export const runtime = 'edge';
 
 interface RouteParams {
   params: Promise<{ eventId: string }>;

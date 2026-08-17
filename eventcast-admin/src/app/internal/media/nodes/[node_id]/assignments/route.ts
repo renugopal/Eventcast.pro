@@ -45,8 +45,6 @@ import {
 } from '@/lib/media-agent/nodeAssignmentsRepo';
 import { toMediaAgentAssignmentsResponseWire } from '@/lib/media-agent/assignmentAdapter';
 
-export const runtime = 'edge';
-
 /**
  * V1 fixed timestamp tolerance for Media Agent machine auth — the single
  * explicit server-side constant every check in this route uses. Matches the

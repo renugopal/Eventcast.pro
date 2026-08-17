@@ -20,8 +20,6 @@ import { PARTNER_TYPES, PARTNER_OPTIONAL_TEXT_FIELDS, isPartnerType } from '@/li
 
 const MUTATION_FORBIDDEN = 'Forbidden: your studio role cannot modify partners';
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 interface RouteParams {

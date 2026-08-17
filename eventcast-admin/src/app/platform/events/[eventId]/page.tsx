@@ -20,10 +20,6 @@ import {
   formatTimestamp,
 } from "../../_components/PlatformUI";
 
-// Dynamic segment: not prerenderable, so Cloudflare Pages needs it as an Edge
-// Runtime function.
-export const runtime = 'edge';
-
 export default function PlatformEventDetailPage() {
   // `useParams` matches the convention the rest of this application's client
   // route components already use for dynamic segments.

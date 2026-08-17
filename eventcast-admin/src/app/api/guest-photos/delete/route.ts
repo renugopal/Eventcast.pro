@@ -7,7 +7,6 @@
  *
  * Body: { photo_id: string }
  */
-export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';

@@ -13,7 +13,6 @@ import { toPlatformMediaNodeView, type MediaNodeRow } from '@/lib/platformOperat
  * unavailable — migration `0020` persists heartbeat, capacity, disk-free and
  * R2-queue columns, and nothing in this repository collects the rest.
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

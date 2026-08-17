@@ -27,7 +27,6 @@ import {
  * technical stream metrics are reported as explicitly unavailable rather
  * than inferred from `enabled = true`.
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

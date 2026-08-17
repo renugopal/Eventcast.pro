@@ -16,8 +16,6 @@ import { PARTNER_TYPES, isPartnerType } from '@/lib/partnerFields';
  * database's own EXISTS-through-events RLS policies.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 interface RouteParams {

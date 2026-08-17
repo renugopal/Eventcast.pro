@@ -17,7 +17,6 @@ import { toStorageVisibilityView } from '@/lib/platformOperations';
  * no table stores object sizes and this application cannot enumerate either
  * bucket. No storage figure is estimated, extrapolated, or synthesized.
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

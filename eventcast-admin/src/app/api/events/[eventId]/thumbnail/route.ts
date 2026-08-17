@@ -18,8 +18,6 @@ import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
  * This route never talks to R2 itself — it only validates and assigns.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 interface RouteParams {

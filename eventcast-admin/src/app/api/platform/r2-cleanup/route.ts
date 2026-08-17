@@ -25,7 +25,6 @@ import {
  * decisions. Authoritative B2 objects are never a cleanup target under any
  * circumstances.
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

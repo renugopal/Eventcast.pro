@@ -12,8 +12,6 @@ import { getOwnedSupportTicketById, isOwnershipError } from '@/lib/ownership';
  * lock on the conversation.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 interface RouteParams {

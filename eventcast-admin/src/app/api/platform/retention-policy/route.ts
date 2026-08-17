@@ -12,7 +12,6 @@ import { requireSuperAdmin } from '@/lib/superAdmin';
  * entry, or vice versa. This route never accepts an arbitrary `before`/
  * `after` payload; the RPC derives both from the database itself.
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

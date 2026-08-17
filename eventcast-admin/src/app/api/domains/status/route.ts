@@ -8,8 +8,6 @@ import {
   buildSetupInstructions,
 } from '@/lib/cloudflare';
 
-export const runtime = 'edge';
-
 export async function GET(req: Request) {
   const auth = await requireAdmin(req);
   if (auth instanceof NextResponse) return auth;

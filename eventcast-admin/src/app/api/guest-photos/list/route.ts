@@ -5,7 +5,6 @@
  * Returns ALL photos (approved + unapproved) for the given event.
  * Used by the Admin Moderation Panel.
  */
-export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';

@@ -17,7 +17,6 @@ import { requireSuperAdmin } from '@/lib/superAdmin';
  * password, OTP value, session token, refresh token, or provisioning
  * credential is reachable from this route.
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

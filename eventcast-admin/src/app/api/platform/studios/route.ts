@@ -18,7 +18,6 @@ import { deriveEventLifecycleStatus } from '@/lib/eventLifecycle';
  * and any other contact PII are never projected here — `platform_users`
  * carries `mobile_number` and this route never reads it.
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

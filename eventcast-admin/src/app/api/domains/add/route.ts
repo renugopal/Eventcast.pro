@@ -10,8 +10,6 @@ import {
   buildSetupInstructions,
 } from '@/lib/cloudflare';
 
-export const runtime = 'edge';
-
 /** Basic hostname regex — rejects raw IPs, requires at least one dot. */
 const DOMAIN_RE = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/;
 

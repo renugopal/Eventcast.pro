@@ -19,8 +19,6 @@ import { requireAdmin } from '@/lib/auth';
  * watch-link field (Baseline YTB-003).
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 interface LivestreamRosterRow {

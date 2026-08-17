@@ -18,8 +18,6 @@ import type { EventPublicVisibility } from '@/lib/eventContract';
  * Public without changing its frozen Event Credit snapshot.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 // The only two canonical values this route may write. Legacy `private`/

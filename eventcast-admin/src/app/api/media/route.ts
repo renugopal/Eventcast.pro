@@ -21,8 +21,6 @@ import { invitationVideoDbValueToFormString } from '@/lib/eventContract';
  * any recording data, per the "no fabricated stats" rule.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 interface MediaLibraryEventRow {

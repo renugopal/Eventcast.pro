@@ -19,7 +19,6 @@ import { requireSuperAdmin } from '@/lib/superAdmin';
  * already-frozen event's `retention_expires_at` — `freeze_event_retention()`
  * only reads the override/default at freeze time and is write-once.
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

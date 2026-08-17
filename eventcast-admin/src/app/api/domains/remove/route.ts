@@ -3,8 +3,6 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
 import { cfDeleteCustomHostname } from '@/lib/cloudflare';
 
-export const runtime = 'edge';
-
 export async function DELETE(req: Request) {
   const auth = await requireAdmin(req);
   if (auth instanceof NextResponse) return auth;

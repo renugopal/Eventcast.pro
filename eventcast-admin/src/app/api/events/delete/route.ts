@@ -11,8 +11,6 @@ interface DeletableEventRow {
   gallery_urls: string[] | null;
 }
 
-export const runtime = 'edge';
-
 // Use admin client if available (bypasses RLS)
 const db = supabaseAdmin || supabase;
 

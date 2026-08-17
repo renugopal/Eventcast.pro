@@ -9,7 +9,6 @@ import { requireSuperAdmin } from '@/lib/superAdmin';
  * Console, so this route (and the Platform Console shell that calls it)
  * never depends on studio membership at all.
  */
-export const runtime = 'edge';
 
 export async function GET(req: Request) {
   const auth = await requireSuperAdmin(req);

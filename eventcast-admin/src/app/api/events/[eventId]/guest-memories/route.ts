@@ -17,8 +17,6 @@ import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
  * (DASH-003/PLAN-006: storage remains a Super Admin concern in V1).
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 interface RouteParams {

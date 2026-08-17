@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-export const runtime = 'edge';
-
 // 🤖 EVENTCAST PRO - AI SALES BOT (THE RAINMAKER)
 // This endpoint powers the interactive chat widget on the landing page.
 

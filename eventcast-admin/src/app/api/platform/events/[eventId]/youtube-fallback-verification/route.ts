@@ -23,7 +23,6 @@ import { isValidYoutubeWatchUrl } from '@/lib/youtubeUrl';
  * `verified` value of any kind — verification is implicit in successfully
  * calling this exact endpoint as an authorized Super Admin.
  */
-export const runtime = 'edge';
 
 interface RouteParams {
   params: Promise<{ eventId: string }>;

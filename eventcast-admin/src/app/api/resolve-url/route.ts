@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
 import { assertPublicHttpUrl } from '@/lib/ssrf';
 
-export const runtime = 'edge';
-
 // Exact-host allowlist for the sole caller (venue-map short-link resolution).
 // Google Maps + Google short-link domains only. Subdomain matching is done
 // safely (exact host, or a dot-anchored `.google.com` suffix) — never a loose

@@ -19,8 +19,6 @@ import { requireAdmin } from '@/lib/auth';
  * event lives on that event's own analytics route.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 const ACTIVE_TIMEOUT_SECONDS = 60;

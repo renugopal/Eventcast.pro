@@ -19,7 +19,6 @@ import { unavailable, NO_OUTBOUND_DELIVERY_REASON } from '@/lib/platformOperatio
  * "delivered", or "failed" channel state exists to report and none is
  * fabricated.
  */
-export const runtime = 'edge';
 
 const db = supabaseAdmin || supabase;
 

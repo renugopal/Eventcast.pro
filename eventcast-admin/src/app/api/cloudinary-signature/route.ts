@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
 
-export const runtime = 'edge';
-
 async function generateCloudinarySignature(params: Record<string, string>, apiSecret: string) {
   const sortedKeys = Object.keys(params).sort();
   const stringToSign = sortedKeys.map(k => `${k}=${params[k]}`).join('&') + apiSecret;

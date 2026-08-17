@@ -73,8 +73,6 @@ import { activateAssignment } from '@/lib/media-agent/assignmentActivation';
  * contract are unchanged.
  */
 
-export const runtime = 'edge';
-
 const db = supabaseAdmin || supabase;
 
 interface LivestreamEventRow {

@@ -56,8 +56,6 @@ import {
 // could drift apart.
 import { MEDIA_AGENT_TIMESTAMP_TOLERANCE_MS } from '../../assignments/route';
 
-export const runtime = 'edge';
-
 const NODE_RATE_LIMIT_MAX_REQUESTS = 60;
 const NODE_RATE_LIMIT_WINDOW_SECONDS = 60;
 const NODE_RATE_LIMIT_ENDPOINT = 'media/nodes/recordings';
