@@ -30,6 +30,15 @@
   // never be able to answer for a production hostname.
   "workers_dev": true,
 
+  // Versioned preview URLs. `versions upload` prints a `Version Preview URL`
+  // only when the upload response reports `metadata.has_preview`, and
+  // Wrangler's default for `preview_urls` is undefined rather than true — so
+  // the first upload produced no preview URL. With this set, each uploaded
+  // version gets its own `https://<version-prefix>-<worker>.<subdomain>`
+  // address, which is what allows the preview to be tested WITHOUT an active
+  // deployment. This is not a trigger and does not route production traffic.
+  "preview_urls": true,
+
   // The only binding. `ASSETS` is required by OpenNext to serve the Next.js
   // static output; it is not an application-specific external resource.
   // No R2/KV/D1/Images or self-reference bindings are declared: the Admin app
