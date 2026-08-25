@@ -23,12 +23,17 @@
   "compatibility_date": "2025-05-05",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
 
-  // Explicit, not inherited from Wrangler's default. This Worker is reachable
-  // ONLY on its own `*.workers.dev` subdomain. No `routes`, `route`,
-  // `custom_domain`, `zone_id`, or `zone_name` key may be added here: the live
-  // Admin traffic belongs to the Cloudflare Pages project, and this Worker must
-  // never be able to answer for a production hostname.
+  // Milestone O production cutover: `studio.eventcast.pro` is attached below
+  // as a Cloudflare Workers Custom Domain — the supported mechanism for a
+  // hostname with no prior DNS record on a zone this account controls.
+  // `workers_dev` stays true so the `*.workers.dev` surface remains available
+  // as a diagnostic/rollback path. `eventcast-admin.pages.dev` (Cloudflare
+  // Pages) is deliberately untouched and remains the production fallback.
   "workers_dev": true,
+
+  "routes": [
+    { "pattern": "studio.eventcast.pro", "custom_domain": true }
+  ],
 
   // Versioned preview URLs. `versions upload` prints a `Version Preview URL`
   // only when the upload response reports `metadata.has_preview`, and
