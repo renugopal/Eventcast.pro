@@ -325,7 +325,9 @@ Target:
 
 ## Milestone O — Legacy Retirement / Cutover
 
-**Status: LOCAL CUTOVER COMPLETE / PASS (2026-08-15) — production deployment pending explicit approval.** Every target below was executed and validated locally. The live/production cutover is **not** complete: deploying the retirement and the `cron-jobs.yml` change, plus post-deploy verification, is the single remaining Milestone O hard boundary.
+**Status: PRODUCTION CUTOVER COMPLETE / PASS (2026-08-26).** Local cutover was validated 2026-08-15; production deployment (the item this status line used to mark pending) is now also complete — see "Production Cutover Complete (2026-08-26)" below. Note: it did not ship via the Cloudflare Pages path this section originally assumed (both Pages deploy attempts failed); it shipped via a parallel OpenNext + Cloudflare Workers hosting path instead. The retained text below is the original local-completion record.
+
+Every target below was executed and validated locally. The live/production cutover is **not** complete: deploying the retirement and the `cron-jobs.yml` change, plus post-deploy verification, is the single remaining Milestone O hard boundary.
 
 **Delivered:** root `/` now redirects to the V2 `/dashboard`; the legacy Admin UI (16 components), GrapesJS + `/api/local-sync`, the retired Restreamer application paths, the duplicate GitHub-Raw preview path, the obsolete `/api/events/generate` path, and the fake-analytics/obsolete stubs are retired, together with their now-obsolete tests. `/portal/[slug]` and the named compatibility layers are intentionally retained. **No migration and no dependency/lockfile change** was required — migration history remains `0001`–`0037`. `.github/workflows/cron-jobs.yml` now retains only `sync-live-status` on the approved 15-minute cadence.
 
@@ -343,3 +345,9 @@ Original target list, all now delivered locally:
 - retire fake analytics and obsolete stubs
 
 No mass cleanup of historical customer directories or scratch operational tooling without a separate inventory task.
+
+### Production Cutover Complete (2026-08-26)
+
+**PRODUCTION CUTOVER COMPLETE / PASS.** Official production admin URL: `https://studio.eventcast.pro` (Cloudflare Workers Custom Domain). Active Worker version: `73acbaa3-9774-4b13-8a55-5857c0cadf5e` at 100% on `eventcast-admin-worker`. `origin/main`: `b5467fdd9b056e7ee48469f9cbf5b861bfbac773`. Cron intentionally targets `https://eventcast-admin-worker.renugopalchebrolu.workers.dev` (Cloudflare Free-plan Bot Fight Mode blocks non-browser traffic on the `eventcast.pro` zone; `workers.dev` sits outside it). Post-promotion scheduled cron run `32892978910` at `2026-08-25T20:02:00Z` returned HTTP 200 success. `eventcast-admin.pages.dev` retained as a healthy fallback, auto-deploy disabled, last successful deployment `6f4b802`. Full detail: `WORKLOG.md` and `CURRENT_STATE.md`, "Milestone O — Production Cutover Complete (2026-08-26)"; `HANDOFF.md` for the next-session summary. Do not reopen: the local-cutover validation above, Milestones M/N, preview acceptance, or the superseded `/api/events/*` Cloudflare-interception hypothesis (real cause was uBlock Origin in Microsoft Edge).
+
+**MILESTONE O — PRODUCTION CUTOVER COMPLETE / PASS**

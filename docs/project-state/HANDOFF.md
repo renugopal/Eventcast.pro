@@ -381,3 +381,25 @@ Continuity-file edits from this package were **not** committed or pushed.
 **The only remaining Milestone O hard boundary is production deployment plus post-deploy verification.** The route removals and the `cron-jobs.yml` change **must ship in the same deploy**, or the scheduled job will call a route that no longer exists. Nothing breaks before that deploy. Do not call the live cutover complete until a separately approved deployment and post-deploy verification actually occur.
 
 No commit, push, deploy, migration application, Supabase mutation, secret access, SSH, Media Agent/SRS state change, Cloudflare/Backblaze configuration change, R2/B2 object deletion, or destructive Git operation occurred. Continuity-file edits from this package were **not** committed or pushed.
+
+## Milestone O — Production Cutover Complete (2026-08-26)
+
+**Status: PRODUCTION CUTOVER COMPLETE / PASS.** A fresh session's read-only preflight found that the local cutover above had never actually reached production — both Cloudflare Pages deploy attempts for `bc4f7dd` and `2481dd9` failed, and production kept serving pre-Milestone-O commit `6f4b802`. The retirement instead shipped via a parallel OpenNext + Cloudflare Workers hosting path.
+
+**For the next session:**
+
+- **Official production admin URL:** `https://studio.eventcast.pro` (Cloudflare Workers Custom Domain on the `eventcast.pro` zone, attached to Worker `eventcast-admin-worker`).
+- **Active Worker version:** `73acbaa3-9774-4b13-8a55-5857c0cadf5e` at 100% traffic.
+- **`origin/main`:** `b5467fdd9b056e7ee48469f9cbf5b861bfbac773`.
+- **Cron (`sync-live-status`) intentionally targets `https://eventcast-admin-worker.renugopalchebrolu.workers.dev`, not `studio.eventcast.pro`** — Cloudflare Free-plan Bot Fight Mode on the `eventcast.pro` zone Managed-Challenges non-browser traffic and cannot be WAF-skipped on the Free plan; `workers.dev` sits outside the zone entirely. This is deliberate, not a workaround to revisit — confirmed via a post-promotion scheduled run returning clean `200`.
+- **`eventcast-admin.pages.dev` remains a deliberately retained fallback**, healthy, last successful deploy still `6f4b802`, with Pages automatic production deployments disabled so a future `main` push can't silently replace it. Re-enabling auto-deploy or decommissioning Pages entirely is a separate, later, explicit decision.
+- **Do not reopen the `/api/events/*` "Cloudflare interception" hypothesis** (the old `scratch/cloudflare-support-evidence-2026-08-19.md` draft, never submitted). It's superseded — the real cause of that earlier symptom was uBlock Origin in Microsoft Edge, re-confirmed by this cutover's own clean smoke-test results on that exact endpoint.
+- **Worker bindings present:** `CRON_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (secrets) plus `R2_BUCKET_NAME`, `R2_PUBLIC_URL`, `R2_S3_ENDPOINT` (plain vars) plus `ASSETS`.
+- **Deliberately not yet bound:** `MEDIA_NODE_PROVISIONING_SECRET`, `MEDIA_NODE_TOKEN_PEPPER` — only needed once/if the real Media Agent's own configured base URL is pointed at this Worker. Not a defect; don't add speculatively.
+- **Separate, pre-existing, unaddressed item:** the AI thumbnail/sales-chat routes need a server-only `GEMINI_API_KEY` (not the stale `NEXT_PUBLIC_GEMINI_API_KEY`); this was not located on the old Pages project either during this cutover's audit, so these two AI features may already be non-functional independent of Milestone O. Out of scope here.
+- Disposable ZZTEST event (`6f27027b-a197-462b-8a15-0dfff333722e`) and the deleted disposable Partner remain in the same state as prior acceptance — untouched.
+- Known non-blocking: legacy Cloudinary thumbnail 401s; cosmetic live-player "Waiting for Stream to Start..." overlay.
+
+Full evidence trail: `WORKLOG.md`, "2026-08-26 — Milestone O: Production Cutover (COMPLETE / PASS)"; `CURRENT_STATE.md`, "Milestone O — Production Cutover Complete (2026-08-26)".
+
+**MILESTONE O — PRODUCTION CUTOVER COMPLETE / PASS**

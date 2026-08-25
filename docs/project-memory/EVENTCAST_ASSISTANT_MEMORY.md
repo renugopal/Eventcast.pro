@@ -1,7 +1,7 @@
 # EventCast.pro — Assistant Memory & Working Rules
 
 **File purpose:** Durable external memory for ChatGPT-assisted EventCast.pro work.  
-**Last verified:** 2026-08-11  
+**Last verified:** 2026-08-26  
 **Repository destination:** `D:\Eventcast.pro\docs\project-memory\EVENTCAST_ASSISTANT_MEMORY.md`
 
 ## 1. Authority and Scope
@@ -360,6 +360,16 @@ Do not treat date math alone as authoritative event lifecycle state.
 As of 2026-08-10 (Phase 1 — Draft Event Foundation reaching COMPLETE / PASS): project planning language has moved back to the Admin Baseline V2.1 phase/workstream structure directly. Do not keep inventing new lettered (A/B/C/D/E-style) milestones as if they were the product roadmap — that numbering was a Phase 1 internal implementation-sequencing device, not baseline authority. Small bounded Claude task slices are still fine for safety, but they should be scoped as task slices inside whichever baseline phase is current, not framed as new top-level milestones. Identify the next phase by reading `docs/admin-baseline-v2.1/` directly, not from memory or old milestone labels.
 
 Keep normal-user storage usage/details hidden unless the product decision is explicitly changed; storage monitoring is a Super Admin concern for the current V1 direction.
+
+**Milestone O — Admin production cutover is COMPLETE / PASS (2026-08-26).** The official EventCast provider/admin production URL is `https://studio.eventcast.pro`. Do not restart or reopen this cutover from a stale assumption that it is still pending — see `CURRENT_STATE.md`/`WORKLOG.md`/`HANDOFF.md` for full evidence if needed.
+
+Production Admin hosting is the **OpenNext + Cloudflare Workers** architecture (Worker `eventcast-admin-worker`), not Cloudflare Pages. `https://eventcast-admin.pages.dev` is deliberately retained only as a rollback/health fallback, with its automatic production deployments disabled — it is not the active production path, but it is also not stale/obsolete-to-remove without a separate explicit decommission decision.
+
+The GitHub Actions `sync-live-status` cron deliberately targets the Worker's `workers.dev` hostname (`eventcast-admin-worker.renugopalchebrolu.workers.dev`), **not** `studio.eventcast.pro`. This is intentional, not an oversight: Cloudflare's Free-plan Bot Fight Mode challenges non-browser/server-to-server traffic on the `eventcast.pro` zone and cannot be bypassed with a WAF skip rule on the Free plan (only paid Super Bot Fight Mode supports that); `workers.dev` sits outside that zone entirely. Do not "fix" this by repointing the cron back to `studio.eventcast.pro` without addressing the Bot Fight Mode constraint first.
+
+The earlier theory that Cloudflare or the Worker was intercepting `/api/events/*` in production is **superseded and must not be resurrected**. The actual, confirmed root cause of that symptom was **uBlock Origin in Microsoft Edge** blocking the request client-side, not a Cloudflare or application defect.
+
+Known non-blocking follow-ups, still open but not urgent: legacy `res.cloudinary.com` thumbnail URLs return 401 for some old content; the live player briefly shows a cosmetic "Waiting for Stream to Start..." overlay during genuine live playback; Create Event / Admin UI-UX redesign work is deferred to the next workstream, not part of Milestone O.
 
 ## 14. Current Simplicity Principle
 
