@@ -25,8 +25,11 @@ interface DraftCreateBody {
   brideName?: unknown;
   scheduledStartAtLocal?: unknown;
   venueName?: unknown;
+  venueMapLink?: unknown;
   slug?: unknown;
   templateId?: unknown;
+  customTopTitle?: unknown;
+  guestPhotoWallEnabled?: unknown;
 }
 
 function normalizeDraftInput(body: DraftCreateBody): EventDraftInput {
@@ -36,8 +39,11 @@ function normalizeDraftInput(body: DraftCreateBody): EventDraftInput {
     brideName: typeof body.brideName === 'string' ? body.brideName : '',
     scheduledStartAtLocal: typeof body.scheduledStartAtLocal === 'string' ? body.scheduledStartAtLocal : '',
     venueName: typeof body.venueName === 'string' ? body.venueName : '',
+    venueMapLink: typeof body.venueMapLink === 'string' ? body.venueMapLink : null,
     slug: typeof body.slug === 'string' ? body.slug : '',
     templateId: typeof body.templateId === 'string' ? body.templateId : '',
+    customTopTitle: typeof body.customTopTitle === 'string' ? body.customTopTitle : null,
+    guestPhotoWallEnabled: typeof body.guestPhotoWallEnabled === 'boolean' ? body.guestPhotoWallEnabled : undefined,
   };
 }
 
@@ -102,6 +108,7 @@ export async function POST(req: Request) {
         groom_name: record.groomName,
         bride_name: record.brideName,
         venue_name: record.venueName,
+        venue_map_link: record.venueMapLink,
         slug: record.slug,
         template_id: record.templateId,
         template_version: record.templateVersion,
@@ -110,6 +117,7 @@ export async function POST(req: Request) {
         event_time: legacy.eventTime,
         timer_target_time: legacy.timerTargetTime,
         guest_photo_wall_enabled: record.guestPhotoWallEnabled,
+        custom_top_title: record.customTopTitle,
         page_state: 'draft',
         // Persistence-owned canonical visibility default (Visibility
         // Foundation Gate) — never client-supplied. Inert while

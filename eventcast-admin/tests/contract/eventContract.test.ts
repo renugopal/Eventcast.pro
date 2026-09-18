@@ -440,10 +440,36 @@ describe('draftInputToCanonicalRecord', () => {
       brideName: 'Priya',
       scheduledStartAt: '2026-12-01T18:30:00+05:30',
       venueName: 'Taj Krishna',
+      venueMapLink: null,
       templateId: 'wedding-template-01',
       templateVersion: '1.0.0',
       guestPhotoWallEnabled: true,
+      customTopTitle: null,
     });
+  });
+
+  it('carries an optional venueMapLink/customTopTitle through when provided, and honors an explicit guestPhotoWallEnabled: false', () => {
+    const result = draftInputToCanonicalRecord(
+      makeDraftInput({
+        venueMapLink: '  https://maps.google.com/?q=Taj+Krishna  ',
+        customTopTitle: '  Welcome to our Sangeet  ',
+        guestPhotoWallEnabled: false,
+      })
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok result');
+    expect(result.record.venueMapLink).toBe('https://maps.google.com/?q=Taj+Krishna');
+    expect(result.record.customTopTitle).toBe('Welcome to our Sangeet');
+    expect(result.record.guestPhotoWallEnabled).toBe(false);
+  });
+
+  it('trims a blank venueMapLink/customTopTitle to null and defaults guestPhotoWallEnabled to true when omitted', () => {
+    const result = draftInputToCanonicalRecord(makeDraftInput({ venueMapLink: '   ', customTopTitle: '' }));
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok result');
+    expect(result.record.venueMapLink).toBeNull();
+    expect(result.record.customTopTitle).toBeNull();
+    expect(result.record.guestPhotoWallEnabled).toBe(true);
   });
 
   it('never produces id, studioId, pageState, visibility, or thumbnailUrl — those are persistence-layer-owned, not client-derived', () => {
@@ -496,12 +522,14 @@ describe('canonicalRecordToPublicConfig — guest-safe projection', () => {
       brideName: 'Priya',
       scheduledStartAt: '2026-12-01T18:30:00+05:30',
       venueName: 'Taj Krishna',
+      venueMapLink: null,
       templateId: 'wedding-template-01',
       templateVersion: '1.0.0',
       pageState: 'published',
       visibility: 'public',
       guestPhotoWallEnabled: true,
       thumbnailUrl: 'https://r2.example/thumb.jpg',
+      customTopTitle: null,
       ...overrides,
     };
   }
@@ -669,9 +697,11 @@ describe('canonicalRecordToWeddingTemplateRenderRow — adapter into the shared 
       brideName: 'Priya',
       scheduledStartAt: '2026-12-01T18:30:00+05:30',
       venueName: 'Taj Krishna',
+      venueMapLink: null,
       templateId: 'wedding-template-01',
       guestPhotoWallEnabled: true,
       thumbnailUrl: 'https://r2.example/thumb.jpg',
+      customTopTitle: null,
     });
 
     expect(row).toEqual({
@@ -686,8 +716,10 @@ describe('canonicalRecordToWeddingTemplateRenderRow — adapter into the shared 
       event_time: '18:30',
       timer_target_time: '18:30',
       venue_name: 'Taj Krishna',
+      venue_map_link: null,
       guest_photo_wall_enabled: true,
       thumbnail_url: 'https://r2.example/thumb.jpg',
+      custom_top_title: null,
       event_credits: [],
     });
   });
@@ -715,9 +747,11 @@ describe('canonicalRecordToWeddingTemplateRenderRow — adapter into the shared 
         brideName: 'Priya',
         scheduledStartAt: '2026-12-01T18:30:00+05:30',
         venueName: 'Taj Krishna',
+        venueMapLink: null,
         templateId: 'wedding-template-01',
         guestPhotoWallEnabled: true,
         thumbnailUrl: null,
+        customTopTitle: null,
       },
       credits
     );
@@ -735,9 +769,11 @@ describe('canonicalRecordToWeddingTemplateRenderRow — adapter into the shared 
       brideName: 'Priya',
       scheduledStartAt: '2026-12-01T06:05:00+05:30',
       venueName: 'Taj Krishna',
+      venueMapLink: null,
       templateId: 'wedding-template-01',
       guestPhotoWallEnabled: true,
       thumbnailUrl: null,
+      customTopTitle: null,
     });
 
     // The renderer's own formatTime() expects 24-hour HH:mm input and does
@@ -748,7 +784,7 @@ describe('canonicalRecordToWeddingTemplateRenderRow — adapter into the shared 
     expect(row.event_time).not.toMatch(/AM|PM/);
   });
 
-  it('carries thumbnailUrl through as thumbnail_url (baseline SEO-001), but still never carries gallery, invitation video, YouTube, or venue-map fields — the Draft slice has none of those yet', () => {
+  it('carries thumbnailUrl, venueMapLink, and customTopTitle through, but still never carries gallery, invitation video, or YouTube fields — those stay on their own post-creation routes', () => {
     const row = canonicalRecordToWeddingTemplateRenderRow({
       id: 'event-uuid-1',
       studioId: 'studio-a',
@@ -758,21 +794,18 @@ describe('canonicalRecordToWeddingTemplateRenderRow — adapter into the shared 
       brideName: 'Priya',
       scheduledStartAt: '2026-12-01T18:30:00+05:30',
       venueName: 'Taj Krishna',
+      venueMapLink: 'https://maps.google.com/?q=Taj+Krishna',
       templateId: 'wedding-template-01',
       guestPhotoWallEnabled: true,
       thumbnailUrl: 'https://r2.example/thumb.jpg',
+      customTopTitle: 'Welcome to our Sangeet',
     });
 
     expect(row.thumbnail_url).toBe('https://r2.example/thumb.jpg');
+    expect(row.venue_map_link).toBe('https://maps.google.com/?q=Taj+Krishna');
+    expect(row.custom_top_title).toBe('Welcome to our Sangeet');
 
-    for (const absent of [
-      'gallery_urls',
-      'invitation_video_url',
-      'vod_link',
-      'youtube_broadcast_id',
-      'venue_map_link',
-      'photographer_id',
-    ]) {
+    for (const absent of ['gallery_urls', 'invitation_video_url', 'vod_link', 'youtube_broadcast_id', 'photographer_id']) {
       expect(row).not.toHaveProperty(absent);
     }
   });
@@ -787,9 +820,11 @@ describe('canonicalRecordToWeddingTemplateRenderRow — adapter into the shared 
       brideName: 'Priya',
       scheduledStartAt: '2026-12-01T18:30:00+05:30',
       venueName: 'Taj Krishna',
+      venueMapLink: null,
       templateId: 'wedding-template-01',
       guestPhotoWallEnabled: true,
       thumbnailUrl: null,
+      customTopTitle: null,
     });
 
     expect(row.thumbnail_url).toBeNull();

@@ -163,10 +163,21 @@ export function PartnerCreditSection({
   }
 
   return (
-    <div className="ec-card space-y-4">
-      <h3 className="ec-section-title flex items-center gap-2">
-        <UserPlus size={16} /> Partner Credits
-      </h3>
+    <div className="ec-section-card space-y-4">
+      <div className="ec-section-card-head">
+        <div className="ec-section-card-heading">
+          <span className="ec-section-icon-chip ec-section-icon-chip--optional">
+            <UserPlus size={16} />
+          </span>
+          <div>
+            <div className="ec-section-card-title">Partner Credits</div>
+            <div className="ec-section-card-sub">Photographer, studio, venue, or other credit</div>
+          </div>
+        </div>
+        <span className={`ec-status-pill ${credits.length > 0 ? "ec-status-pill--configured" : "ec-status-pill--optional"}`}>
+          {credits.length > 0 ? `${credits.length} added` : "Optional"}
+        </span>
+      </div>
       <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
         Credit a photographer, studio, event manager, client, venue, or other partner. One credit can be marked
         primary; the rest are additional.
@@ -174,78 +185,98 @@ export function PartnerCreditSection({
 
       {credits.length > 0 && (
         <div className="space-y-2">
-          {credits.map((credit) => (
-            <div key={credit.id} className="ec-card-sm space-y-2">
-              {editingId === credit.id ? (
-                <div className="space-y-2">
-                  <div style={{ fontSize: "14px", fontWeight: 600 }}>{credit.partnerLabel}</div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <select
-                      className="ec-input"
-                      value={editRoleLabel}
-                      onChange={(e) => setEditRoleLabel(e.target.value as PartnerType)}
-                    >
-                      {PARTNER_TYPES.map((t) => (
-                        <option key={t} value={t}>
-                          {labelForPartnerType(t)}
-                        </option>
-                      ))}
-                    </select>
-                    <label className="flex items-center gap-1" style={{ fontSize: "13px" }}>
-                      <input
-                        type="checkbox"
-                        checked={editIsPrimary}
-                        onChange={(e) => setEditIsPrimary(e.target.checked)}
-                      />
-                      Primary
-                    </label>
-                  </div>
-                  {editError && <div style={{ fontSize: "13px", color: "var(--error)" }}>{editError}</div>}
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="ec-btn ec-btn-primary ec-btn-sm"
-                      disabled={isSavingEdit}
-                      onClick={() => handleSaveEdit(credit.id)}
-                    >
-                      {isSavingEdit ? "Saving…" : "Save"}
-                    </button>
-                    <button type="button" className="ec-btn ec-btn-ghost ec-btn-sm" onClick={() => setEditingId(null)}>
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div>
+          {credits.map((credit) => {
+            const partner = partners.find((p) => p.id === credit.partnerId);
+            return (
+              <div key={credit.id} className="ec-card-sm space-y-2">
+                {editingId === credit.id ? (
+                  <div className="space-y-2">
                     <div style={{ fontSize: "14px", fontWeight: 600 }}>{credit.partnerLabel}</div>
-                    <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-                      {labelForPartnerType(credit.roleLabel)}
-                      {credit.isPrimary && (
-                        <span className="ec-badge ec-badge-amber" style={{ marginLeft: "8px" }}>
-                          Primary
-                        </span>
-                      )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <select
+                        className="ec-input"
+                        value={editRoleLabel}
+                        onChange={(e) => setEditRoleLabel(e.target.value as PartnerType)}
+                      >
+                        {PARTNER_TYPES.map((t) => (
+                          <option key={t} value={t}>
+                            {labelForPartnerType(t)}
+                          </option>
+                        ))}
+                      </select>
+                      <label className="flex items-center gap-1" style={{ fontSize: "13px" }}>
+                        <input
+                          type="checkbox"
+                          checked={editIsPrimary}
+                          onChange={(e) => setEditIsPrimary(e.target.checked)}
+                        />
+                        Primary
+                      </label>
+                    </div>
+                    {editError && <div style={{ fontSize: "13px", color: "var(--error)" }}>{editError}</div>}
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="ec-btn ec-btn-primary ec-btn-sm"
+                        disabled={isSavingEdit}
+                        onClick={() => handleSaveEdit(credit.id)}
+                      >
+                        {isSavingEdit ? "Saving…" : "Save"}
+                      </button>
+                      <button type="button" className="ec-btn ec-btn-ghost ec-btn-sm" onClick={() => setEditingId(null)}>
+                        Cancel
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button type="button" className="ec-icon-btn" onClick={() => startEdit(credit)} aria-label="Edit credit">
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      className="ec-icon-btn ec-icon-btn-danger"
-                      disabled={removingId === credit.id}
-                      onClick={() => handleRemove(credit.id)}
-                      aria-label="Remove credit"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                ) : (
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-3" style={{ minWidth: 0 }}>
+                      {partner?.logo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={partner.logo_url}
+                          alt=""
+                          style={{ width: "32px", height: "32px", objectFit: "contain", borderRadius: "8px", border: "1px solid var(--border)", flexShrink: 0 }}
+                        />
+                      ) : (
+                        <span
+                          className="ec-section-icon-chip ec-section-icon-chip--optional"
+                          style={{ width: "32px", height: "32px", flexShrink: 0 }}
+                        >
+                          <UserPlus size={14} />
+                        </span>
+                      )}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: "14px", fontWeight: 600 }}>{credit.partnerLabel}</div>
+                        <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+                          {labelForPartnerType(credit.roleLabel)}
+                          {credit.isPrimary && (
+                            <span className="ec-badge ec-badge-amber" style={{ marginLeft: "8px" }}>
+                              Primary
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button type="button" className="ec-icon-btn" onClick={() => startEdit(credit)} aria-label="Edit credit">
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="ec-icon-btn ec-icon-btn-danger"
+                        disabled={removingId === credit.id}
+                        onClick={() => handleRemove(credit.id)}
+                        aria-label="Remove credit"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
           {removeError && <div style={{ fontSize: "13px", color: "var(--error)" }}>{removeError}</div>}
         </div>
       )}

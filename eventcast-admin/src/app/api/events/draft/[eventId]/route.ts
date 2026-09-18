@@ -21,7 +21,7 @@ import {
 const db = supabaseAdmin || supabase;
 
 const DRAFT_COLUMNS =
-  'id, event_type, groom_name, bride_name, venue_name, slug, template_id, template_version, scheduled_start_at, page_state, guest_photo_wall_enabled, thumbnail_url, event_visibility, archived_at';
+  'id, event_type, groom_name, bride_name, venue_name, venue_map_link, slug, template_id, template_version, scheduled_start_at, page_state, guest_photo_wall_enabled, thumbnail_url, event_visibility, archived_at, custom_top_title';
 
 interface DraftEventRow {
   id: string;
@@ -29,6 +29,7 @@ interface DraftEventRow {
   groom_name: string | null;
   bride_name: string | null;
   venue_name: string | null;
+  venue_map_link: string | null;
   slug: string | null;
   template_id: string | null;
   template_version: string | null;
@@ -40,6 +41,7 @@ interface DraftEventRow {
   event_visibility: string | null;
   /** Read-only here (Event Workspace Settings tab writes it via /api/events/delete + /api/events/restore, never this route). */
   archived_at: string | null;
+  custom_top_title: string | null;
 }
 
 interface RouteParams {
@@ -62,7 +64,10 @@ interface DraftUpdateBody {
   brideName?: unknown;
   scheduledStartAtLocal?: unknown;
   venueName?: unknown;
+  venueMapLink?: unknown;
   slug?: unknown;
+  customTopTitle?: unknown;
+  guestPhotoWallEnabled?: unknown;
 }
 
 export async function PATCH(req: Request, { params }: RouteParams) {
@@ -100,8 +105,14 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     brideName: typeof body.brideName === 'string' ? body.brideName : '',
     scheduledStartAtLocal: typeof body.scheduledStartAtLocal === 'string' ? body.scheduledStartAtLocal : '',
     venueName: typeof body.venueName === 'string' ? body.venueName : '',
+    venueMapLink: typeof body.venueMapLink === 'string' ? body.venueMapLink : existing.venue_map_link,
     slug: typeof body.slug === 'string' ? body.slug : '',
     templateId: existing.template_id || '',
+    customTopTitle: typeof body.customTopTitle === 'string' ? body.customTopTitle : existing.custom_top_title,
+    guestPhotoWallEnabled:
+      typeof body.guestPhotoWallEnabled === 'boolean'
+        ? body.guestPhotoWallEnabled
+        : existing.guest_photo_wall_enabled !== false,
   };
 
   const result = draftInputToCanonicalRecord(draftInput);
@@ -141,11 +152,14 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       groom_name: record.groomName,
       bride_name: record.brideName,
       venue_name: record.venueName,
+      venue_map_link: record.venueMapLink,
       slug: record.slug,
       scheduled_start_at: record.scheduledStartAt,
       event_date: legacy.eventDate,
       event_time: legacy.eventTime,
       timer_target_time: legacy.timerTargetTime,
+      guest_photo_wall_enabled: record.guestPhotoWallEnabled,
+      custom_top_title: record.customTopTitle,
     })
     .eq('id', existing.id)
     .eq('studio_id', auth.studioId);

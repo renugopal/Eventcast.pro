@@ -416,6 +416,19 @@ export const CANONICAL_TEMPLATES: Record<string, CanonicalTemplateDescriptor> = 
     templateVersion: '1.0.0',
     eventTypes: ['Wedding'],
   },
+  /**
+   * Additive Floral Pastel template (repository-integration/hero-motion
+   * prototype phase). Registered here so `resolveCanonicalTemplate()` and
+   * the Draft write path can pin `template_version` for it exactly like
+   * `wedding-template-01` — no second registry, no new resolution
+   * mechanism. Wedding-only in v1, matching the Worker's strict
+   * `TEMPLATE_RELEASES['wedding-floral-pastel-01@1.0.0']` release.
+   */
+  'wedding-floral-pastel-01': {
+    templateId: 'wedding-floral-pastel-01',
+    templateVersion: '1.0.0',
+    eventTypes: ['Wedding'],
+  },
 };
 
 /**
@@ -573,9 +586,15 @@ export interface EventDraftInput {
   /** Asia/Kolkata wall-clock `datetime-local` value; see combineIstDateTimeToScheduledStartAt. */
   scheduledStartAtLocal: string;
   venueName: string;
+  /** Optional Google Maps link/embed for the venue (Map section). Trimmed to null when blank. */
+  venueMapLink?: string | null;
   /** Editable, tenant-scoped (unique per studio, not globally) — validated by the persistence layer. */
   slug: string;
   templateId: string;
+  /** Optional headline overriding the template's auto "Welcome to the Wedding of…" intro line. */
+  customTopTitle?: string | null;
+  /** Defaults to `true` (matching the DB column default) when omitted. */
+  guestPhotoWallEnabled?: boolean;
 }
 
 export type EventPageState = 'draft' | 'published';
@@ -597,11 +616,15 @@ export interface CanonicalEventRecord {
   /** The one authoritative timestamp (baseline CNT-003), ISO 8601 with a fixed +05:30 offset. */
   scheduledStartAt: string;
   venueName: string;
+  /** Optional Google Maps link/embed for the venue (Map section). */
+  venueMapLink: string | null;
   templateId: string;
   templateVersion: string;
   pageState: EventPageState;
   visibility: EventPublicVisibility;
   guestPhotoWallEnabled: boolean;
+  /** Optional headline overriding the template's auto intro line. */
+  customTopTitle: string | null;
   /**
    * The manually-assigned SEO/social preview thumbnail (baseline SEO-001),
    * reusing the existing legacy `thumbnail_url` column. Persistence-layer-
@@ -745,6 +768,9 @@ export function draftInputToCanonicalRecord(input: EventDraftInput): DraftToCano
     return { ok: false, error: { field: 'venueName', message: 'Venue is required.' } };
   }
 
+  const venueMapLink = input.venueMapLink?.trim() || null;
+  const customTopTitle = input.customTopTitle?.trim() || null;
+
   const slug = input.slug.trim();
   if (!slug) {
     return { ok: false, error: { field: 'slug', message: 'Slug is required.' } };
@@ -769,9 +795,11 @@ export function draftInputToCanonicalRecord(input: EventDraftInput): DraftToCano
       brideName,
       scheduledStartAt,
       venueName,
+      venueMapLink,
       templateId: template.templateId,
       templateVersion: template.templateVersion,
-      guestPhotoWallEnabled: true,
+      guestPhotoWallEnabled: input.guestPhotoWallEnabled ?? true,
+      customTopTitle,
     },
   };
 }
@@ -833,9 +861,11 @@ export type WeddingTemplatePreviewInput = Pick<
   | 'brideName'
   | 'scheduledStartAt'
   | 'venueName'
+  | 'venueMapLink'
   | 'templateId'
   | 'guestPhotoWallEnabled'
   | 'thumbnailUrl'
+  | 'customTopTitle'
 >;
 
 /**
@@ -873,8 +903,10 @@ export function canonicalRecordToWeddingTemplateRenderRow(
     event_time: legacy.timerTargetTime,
     timer_target_time: legacy.timerTargetTime,
     venue_name: record.venueName,
+    venue_map_link: record.venueMapLink,
     guest_photo_wall_enabled: record.guestPhotoWallEnabled,
     thumbnail_url: record.thumbnailUrl,
+    custom_top_title: record.customTopTitle,
     event_credits: eventCredits,
   };
 }

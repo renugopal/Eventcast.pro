@@ -182,11 +182,14 @@ describe('PATCH /api/events/draft/[eventId] — edit and save a Draft', () => {
       groom_name: 'Raj Updated',
       bride_name: 'Priya',
       venue_name: 'New Venue',
+      venue_map_link: null,
       slug: 'raj-priya-wedding',
       scheduled_start_at: '2026-12-02T09:00:00+05:30',
       event_date: '2026-12-02',
       event_time: '9:00 AM',
       timer_target_time: '09:00',
+      guest_photo_wall_enabled: true,
+      custom_top_title: null,
     });
     expect(updateCall.eq.mock.calls).toEqual([
       ['id', 'evt-1'],

@@ -1795,3 +1795,493 @@ h1, h2, h3, h4, h5, h6 {
     display: none !important;
   }
 }
+
+/* ── Create Event — mobile sticky action bar ──────────────────── */
+@media (max-width: 768px) {
+  .ec-create-event-page {
+    padding-bottom: 88px;
+  }
+
+  /* `position: sticky` doesn't engage here: on mobile the admin shell's
+     `.ec-main`/`.ec-content` never generate their own scrollbar (the
+     document/window scrolls instead), so there is no scrolling ancestor
+     for `sticky` to anchor to. `position: fixed` pins correctly to the
+     real viewport regardless of which element actually scrolls — safe
+     here since neither `.ec-main` nor `.ec-layout` set `transform`,
+     `filter`, `perspective`, or `will-change` (any of which would create
+     a containing block that traps `fixed` descendants instead of the
+     viewport). `left`/`right: 0` replace the horizontal placement a
+     fixed element loses by leaving normal flow; the `12px 16px` padding
+     matches `.ec-content`'s own mobile padding so button alignment is
+     unchanged from before. */
+  .ec-create-event-actions {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--surface);
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    z-index: 5;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   Create Event — Premium Redesign (visual only, additive)
+   Reuses existing tokens/patterns (.ec-plan-card selection style,
+   .ec-toggle, fade-slide-up keyframe) — no new dependency.
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Two-column desktop layout ─────────────────────────────── */
+.ec-create-event-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .ec-create-event-layout {
+    grid-template-columns: minmax(0, 7fr) minmax(280px, 3fr);
+  }
+}
+
+.ec-create-event-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Header ────────────────────────────────────────────────── */
+.ec-create-event-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ec-progress-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px 8px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+  flex-shrink: 0;
+}
+
+.ec-progress-chip-ring {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background:
+    conic-gradient(var(--primary) calc(var(--ec-progress, 0) * 1%), var(--border-subtle) 0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.ec-progress-chip-ring::before {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+
+.ec-progress-chip-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--foreground);
+  white-space: nowrap;
+}
+
+.ec-progress-chip-label small {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* ── Section cards ─────────────────────────────────────────── */
+.ec-section-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  padding: 24px 28px;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.ec-section-card--required {
+  border-color: var(--violet-200);
+}
+
+.ec-section-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* The status pill (last child) never shrinks/squeezes — the heading text
+   shrinks and wraps internally first, at any width. Wrap onto its own row
+   remains only as a fallback for genuinely insufficient width. */
+.ec-section-card-head > *:last-child {
+  flex-shrink: 0;
+}
+
+.ec-section-card-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  /* flex-basis: 0 (not auto) is required here, not cosmetic: with `auto`,
+     the browser computes flex-wrap eligibility from this item's
+     *unwrapped* content width (the subtitle's full one-line width can
+     easily exceed the card), so the pill got wrapped away before
+     flex-shrink ever had a chance to apply. Basis 0 makes it grow to fill
+     exactly the remaining space next to the pill, and text wraps inside
+     that resolved width instead. */
+  flex: 1 1 0%;
+}
+
+/* The title/subtitle text block (the heading's only non-icon child) must
+   also get min-width: 0 — otherwise its default flex min-width: auto keeps
+   it at its full natural text width, which is what was still pushing the
+   status pill onto its own row for longer subtitles. */
+.ec-section-card-heading > div {
+  min-width: 0;
+  flex: 1 1 0%;
+}
+
+.ec-section-icon-chip {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--violet-50);
+  color: var(--primary);
+}
+
+.ec-section-icon-chip--optional {
+  background: var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.ec-section-card-title {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.ec-section-card-sub {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 1px;
+}
+
+/* Status pill on a section header — reflects real validation state only. */
+.ec-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.ec-status-pill--required {
+  background: var(--accent-50);
+  color: #92400E;
+  border: 1px solid #FDE68A;
+}
+
+.ec-status-pill--complete {
+  background: var(--success-50);
+  color: var(--success);
+  border: 1px solid #A7F3D0;
+}
+
+.ec-status-pill--optional {
+  background: var(--border-subtle);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.ec-status-pill--configured {
+  background: var(--violet-50);
+  color: var(--primary);
+  border: 1px solid var(--violet-200);
+}
+
+/* ── Collapsible optional sections (native <details>) ────────── */
+.ec-accordion {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.ec-accordion > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 20px 28px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Same rationale as .ec-section-card-head: the trailing status-pill/chevron
+   group stays compact and anchored, never squeezed; the heading text
+   shrinks/wraps first. */
+.ec-accordion > summary > *:last-child {
+  flex-shrink: 0;
+}
+
+.ec-accordion > summary::-webkit-details-marker { display: none; }
+
+.ec-accordion-chevron {
+  color: var(--text-tertiary);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.ec-accordion[open] .ec-accordion-chevron {
+  transform: rotate(180deg);
+}
+
+.ec-accordion-body {
+  padding: 0 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ec-accordion-chevron {
+    transition: none;
+  }
+}
+
+/* ── Template selector cards ──────────────────────────────── */
+.ec-template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.ec-template-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  font-family: inherit;
+}
+
+.ec-template-card:hover {
+  border-color: var(--violet-200);
+  transform: translateY(-1px);
+}
+
+.ec-template-card.selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary), var(--shadow-violet);
+}
+
+.ec-template-card-name {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--foreground);
+}
+
+.ec-template-card-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ec-template-card-check {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #FFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ec-template-card {
+    transition: none;
+  }
+  .ec-template-card:hover {
+    transform: none;
+  }
+}
+
+/* ── Visibility option cards ─────────────────────────────────── */
+.ec-visibility-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .ec-visibility-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.ec-visibility-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ec-visibility-card:hover {
+  border-color: var(--violet-200);
+}
+
+.ec-visibility-card.selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+  background: var(--violet-50);
+}
+
+.ec-visibility-card-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--foreground);
+}
+
+.ec-visibility-card-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* ── Upload drop-zone ──────────────────────────────────────── */
+.ec-upload-zone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  border: 2px dashed var(--border);
+  background: var(--background);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.ec-upload-zone:hover {
+  border-color: var(--violet-200);
+  background: var(--violet-50);
+}
+
+.ec-upload-zone-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+/* ── Event Summary rail ───────────────────────────────────── */
+.ec-summary-rail {
+  background: linear-gradient(165deg, var(--violet-50) 0%, var(--surface) 55%);
+  border: 1px solid var(--violet-200);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (min-width: 1024px) {
+  .ec-summary-rail {
+    position: sticky;
+    top: 84px;
+  }
+}
+
+.ec-summary-rail-title {
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--primary);
+}
+
+.ec-summary-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ec-summary-row-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.ec-summary-row-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.ec-summary-row-value.placeholder {
+  font-weight: 400;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.ec-summary-divider {
+  height: 1px;
+  background: var(--violet-200);
+  opacity: 0.6;
+  margin: 2px 0;
+}

@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Lock, MapPin, Pencil, Plus, Trash2, User } from "lucide-react";
 import { PARTNER_TYPES, type PartnerType } from "@/lib/partnerFields";
+import { uploadToR2 } from "@/lib/uploadHelpers";
 import {
   EMPTY_PARTNER_FORM,
   filterPartners,
@@ -73,6 +74,30 @@ export function PartnerDirectory({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleLogoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file afterward
+    if (!file) return;
+
+    setLogoUploadError(null);
+    setIsUploadingLogo(true);
+    try {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      const [uploadedUrl] = await uploadToR2(dt.files, "photographer_logo");
+      if (!uploadedUrl) throw new Error("Logo upload failed");
+      setField("logoUrl", uploadedUrl);
+    } catch (err) {
+      setLogoUploadError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  }
+
   const visiblePartners = useMemo(() => {
     const searched = filterPartners(partners, query);
     return typeFilter ? searched.filter((p) => p.partner_type === typeFilter) : searched;
@@ -88,18 +113,21 @@ export function PartnerDirectory({
   function openCreate() {
     setForm(EMPTY_PARTNER_FORM);
     setFormError(null);
+    setLogoUploadError(null);
     setFormMode("create");
   }
 
   function openEdit(partner: PartnerRecord) {
     setForm(partnerToFormValues(partner));
     setFormError(null);
+    setLogoUploadError(null);
     setFormMode({ editingId: partner.id });
   }
 
   function closeForm() {
     setFormMode("closed");
     setFormError(null);
+    setLogoUploadError(null);
   }
 
   async function handleSave() {
@@ -231,16 +259,45 @@ export function PartnerDirectory({
             ))}
 
             <div>
-              <label className="ec-label">Logo URL</label>
+              <label className="ec-label">Logo</label>
+              <div className="flex items-center gap-3 flex-wrap">
+                {form.logoUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={form.logoUrl}
+                    alt=""
+                    style={{ width: "40px", height: "40px", objectFit: "contain", borderRadius: "6px", border: "1px solid var(--border-color, #e5e7eb)" }}
+                  />
+                )}
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoSelect}
+                  style={{ display: "none" }}
+                />
+                <button
+                  type="button"
+                  className="ec-btn ec-btn-secondary ec-btn-sm"
+                  disabled={isUploadingLogo}
+                  onClick={() => logoInputRef.current?.click()}
+                >
+                  {isUploadingLogo ? "Uploading…" : form.logoUrl ? "Replace logo" : "Upload logo"}
+                </button>
+              </div>
+              {logoUploadError && (
+                <p style={{ fontSize: "12px", color: "var(--error)", marginTop: "4px" }}>{logoUploadError}</p>
+              )}
               <input
                 className="ec-input w-full"
                 type="url"
                 value={form.logoUrl}
                 onChange={(e) => setField("logoUrl", e.target.value)}
                 placeholder="https://…/logo.png"
+                style={{ marginTop: "8px" }}
               />
               <p style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "4px" }}>
-                Link to an already-hosted logo image. Uploading is not available yet.
+                Upload an image, or paste an already-hosted logo URL directly.
               </p>
             </div>
           </div>

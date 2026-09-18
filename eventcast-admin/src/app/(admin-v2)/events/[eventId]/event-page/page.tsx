@@ -16,7 +16,7 @@ import {
   type EventCreditRecord,
   type PartnerRecord,
 } from "@/lib/partnerCreditClient";
-import { DraftEventForm, type DraftEventFormValues } from "../../../_components/draft-event/DraftEventForm";
+import { DraftEventForm, isDraftEventFormValid, type DraftEventFormValues } from "../../../_components/draft-event/DraftEventForm";
 import { PartnerCreditSection, type DisplayCredit } from "../../../_components/draft-event/PartnerCreditSection";
 
 interface DraftEventRow {
@@ -25,19 +25,35 @@ interface DraftEventRow {
   groom_name: string | null;
   bride_name: string | null;
   venue_name: string | null;
+  venue_map_link: string | null;
   slug: string | null;
   template_id: string | null;
   template_version: string | null;
   scheduled_start_at: string | null;
   page_state: string | null;
+  guest_photo_wall_enabled: boolean | null;
   thumbnail_url: string | null;
   event_visibility: string | null;
+  custom_top_title: string | null;
 }
 
 type LoadState =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; event: DraftEventRow };
+
+function draftRowToFormValues(event: DraftEventRow): DraftEventFormValues {
+  return {
+    groomName: event.groom_name || "",
+    brideName: event.bride_name || "",
+    scheduledStartAtLocal: event.scheduled_start_at ? scheduledStartAtToIstDateTimeLocal(event.scheduled_start_at) : "",
+    venueName: event.venue_name || "",
+    venueMapLink: event.venue_map_link || "",
+    slug: event.slug || "",
+    customTopTitle: event.custom_top_title || "",
+    guestPhotoWallEnabled: event.guest_photo_wall_enabled !== false,
+  };
+}
 
 function creditsToDisplay(credits: EventCreditRecord[], partners: PartnerRecord[]): DisplayCredit[] {
   const byId = new Map(partners.map((p) => [p.id, p]));
@@ -67,6 +83,7 @@ export default function AdminV2EventPageTab() {
 
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [isEditing, setIsEditing] = useState(false);
+  const [editValues, setEditValues] = useState<DraftEventFormValues | null>(null);
   // Public Page Publish (Baseline CRT-012 — page publish only; it does not
   // start a livestream). One call to the controlled Publish endpoint, which
   // performs the credit snapshot + Draft → Published transition atomically.
@@ -194,13 +211,14 @@ export default function AdminV2EventPageTab() {
     };
   }, [eventId, router, reloadToken]);
 
-  async function handleSave(values: DraftEventFormValues) {
+  async function handleSave() {
+    if (!editValues) return;
     setIsSubmitting(true);
     setSubmitError(null);
     try {
       const res = await authFetch(`/api/events/draft/${eventId}`, {
         method: "PATCH",
-        body: JSON.stringify(values),
+        body: JSON.stringify(editValues),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -343,7 +361,8 @@ export default function AdminV2EventPageTab() {
     }
   }
 
-  if (isEditing) {
+  if (isEditing && editValues) {
+    const canSave = isDraftEventFormValid(editValues, event.template_id || "");
     return (
       <div className="flex flex-col gap-2">
         <div className="ec-section-header">
@@ -351,23 +370,30 @@ export default function AdminV2EventPageTab() {
             <h1 className="ec-page-title">Edit Draft</h1>
           </div>
         </div>
-        <DraftEventForm
-          mode="edit"
-          initialValues={{
-            groomName: event.groom_name || "",
-            brideName: event.bride_name || "",
-            scheduledStartAtLocal: event.scheduled_start_at ? scheduledStartAtToIstDateTimeLocal(event.scheduled_start_at) : "",
-            venueName: event.venue_name || "",
-            slug: event.slug || "",
-          }}
-          onSubmit={handleSave}
-          onCancel={() => {
-            setSubmitError(null);
-            setIsEditing(false);
-          }}
-          isSubmitting={isSubmitting}
-          submitError={submitError}
-        />
+        <DraftEventForm mode="edit" values={editValues} onChange={setEditValues} templateId={event.template_id || ""} />
+
+        {submitError && (
+          <div className="ec-card" style={{ borderColor: "#FECDD3", color: "var(--error)" }}>
+            {submitError}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            className="ec-btn ec-btn-ghost"
+            onClick={() => {
+              setSubmitError(null);
+              setIsEditing(false);
+              setEditValues(null);
+            }}
+          >
+            Cancel
+          </button>
+          <button type="button" disabled={!canSave || isSubmitting} className="ec-btn ec-btn-primary" onClick={handleSave}>
+            {isSubmitting ? "Saving…" : "Save changes"}
+          </button>
+        </div>
       </div>
     );
   }
@@ -392,7 +418,14 @@ export default function AdminV2EventPageTab() {
           </button>
           {isDraft && (
             <>
-              <button type="button" className="ec-btn ec-btn-secondary" onClick={() => setIsEditing(true)}>
+              <button
+                type="button"
+                className="ec-btn ec-btn-secondary"
+                onClick={() => {
+                  setEditValues(draftRowToFormValues(event));
+                  setIsEditing(true);
+                }}
+              >
                 <Pencil size={14} /> Edit
               </button>
             </>

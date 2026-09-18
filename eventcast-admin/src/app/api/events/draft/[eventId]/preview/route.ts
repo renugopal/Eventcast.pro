@@ -3,6 +3,7 @@ import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
 import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
 import { CANONICAL_WEDDING_TEMPLATE_01_HTML } from '@/lib/canonicalWeddingTemplateHtml';
+import { CANONICAL_WEDDING_FLORAL_PASTEL_01_HTML } from '@/lib/canonicalWeddingFloralPastel01Html';
 import {
   canonicalRecordToWeddingTemplateRenderRow,
   primaryPublicEventCreditToPhotographerRow,
@@ -12,26 +13,51 @@ import { loadOwnedEventCreditsWithPartners } from '@/lib/eventCreditsLoader';
 import { renderEvent, type EventRow } from '@/lib/weddingTemplateRenderer';
 
 /**
- * Renders an owned Draft through the exact canonical `wedding-template-01`
- * (= TLF-001) renderer the public Worker uses (baseline TPL-003/CRT-011
- * preview parity foundation). Deliberately read-only and side-effect-free:
- * no write to `events`, no SRS/Media Agent lookup, no YouTube/media/billing
- * call — the Draft stays exactly as it was before this request.
+ * Renders an owned Draft through the exact canonical renderer the public
+ * Worker uses (baseline TPL-003/CRT-011 preview parity foundation), for
+ * every `template_id` this route supports (`SUPPORTED_PREVIEW_TEMPLATES`
+ * below). Deliberately read-only and side-effect-free: no write to
+ * `events`, no SRS/Media Agent lookup, no YouTube/media/billing call — the
+ * Draft stays exactly as it was before this request.
  *
- * The template markup comes from `@/lib/canonicalWeddingTemplateHtml`, an
- * embedded copy of the Worker's template asset. The deployed Worker has no
+ * Each template's markup comes from its own embedded copy of the Worker's
+ * template asset (`@/lib/canonicalWeddingTemplateHtml`,
+ * `@/lib/canonicalWeddingFloralPastel01Html`). The deployed Worker has no
  * project filesystem to read that asset from at request time, so this route
  * must never reach for `node:fs`/`node:path`/`process.cwd()` — that is true
  * under the Node.js runtime this app now targets on Cloudflare Workers, and
- * was equally true under the Edge runtime it previously used. The two copies
- * cannot drift: `tests/contract/canonicalWeddingTemplateHtml.test.ts` fails if
- * the embedded copy stops matching the Worker template file.
+ * was equally true under the Edge runtime it previously used. No copy can
+ * drift silently: `tests/contract/canonicalWeddingTemplateHtml.test.ts` and
+ * `tests/contract/canonicalWeddingFloralPastel01Html.test.ts` each fail if
+ * their embedded copy stops matching its Worker template file.
+ *
+ * Known gap, not fixed here: `PREVIEW_COLUMNS`/`canonicalRecordToWeddingTemplateRenderRow`
+ * only carry the field set the canonical Draft/`CanonicalEventRecord`
+ * contract captures (identity, schedule, venue, venue map link, guest-photo-
+ * wall toggle, custom headline, thumbnail — widened by the Create Event
+ * redesign to add venue map link and custom headline; see `eventContract.ts`).
+ * `gallery_urls`, `invitation_video_url`, `notes`, `custom_initials`, and
+ * `loader_photo_url` still exist on `public.events` and are read directly by
+ * the public Worker (`select=*`), but are deliberately kept on their own
+ * post-creation routes (`/api/events/[eventId]/media`, etc.) rather than the
+ * canonical Draft contract, so this preview route still cannot select or
+ * thread those for *any* template without widening that shared adapter — a
+ * larger, separate contract change, not a narrow per-template addition. Both
+ * `wedding-template-01` and `wedding-floral-pastel-01` therefore preview
+ * identically in this respect today: gallery/invitation/loader render in
+ * their empty state even when a published event would show them.
  */
 
 const db = supabaseAdmin || supabase;
 
 const PREVIEW_COLUMNS =
-  'id, event_type, groom_name, bride_name, venue_name, slug, template_id, scheduled_start_at, guest_photo_wall_enabled, studio_id, thumbnail_url';
+  'id, event_type, groom_name, bride_name, venue_name, venue_map_link, slug, template_id, scheduled_start_at, guest_photo_wall_enabled, studio_id, thumbnail_url, custom_top_title';
+
+/** Every `template_id` this route can preview, and the canonical markup for each. */
+const SUPPORTED_PREVIEW_TEMPLATES: Record<string, string> = {
+  'wedding-template-01': CANONICAL_WEDDING_TEMPLATE_01_HTML,
+  'wedding-floral-pastel-01': CANONICAL_WEDDING_FLORAL_PASTEL_01_HTML,
+};
 
 interface DraftPreviewRow {
   id: string;
@@ -39,21 +65,19 @@ interface DraftPreviewRow {
   groom_name: string | null;
   bride_name: string | null;
   venue_name: string | null;
+  venue_map_link: string | null;
   slug: string | null;
   template_id: string | null;
   scheduled_start_at: string | null;
   guest_photo_wall_enabled: boolean | null;
   studio_id: string;
   thumbnail_url: string | null;
+  custom_top_title: string | null;
 }
 
 interface RouteParams {
   params: Promise<{ eventId: string }>;
 }
-
-// The Draft slice supports exactly one template — no silent fallback to a
-// different template's markup (baseline CRT-003) if this ever drifts.
-const SUPPORTED_TEMPLATE_ID = 'wedding-template-01';
 
 export async function GET(req: Request, { params }: RouteParams) {
   const auth = await requireAdmin(req);
@@ -64,7 +88,10 @@ export async function GET(req: Request, { params }: RouteParams) {
   if (isOwnershipError(ownership)) return ownership.error;
   const event = ownership.event;
 
-  if (event.template_id !== SUPPORTED_TEMPLATE_ID) {
+  // No silent fallback to a different template's markup (baseline CRT-003)
+  // if this Draft's `template_id` isn't one this route knows how to preview.
+  const templateHtml = event.template_id ? SUPPORTED_PREVIEW_TEMPLATES[event.template_id] : undefined;
+  if (!templateHtml) {
     return NextResponse.json(
       { success: false, error: `Preview is not available for template "${event.template_id}".` },
       { status: 400 }
@@ -79,8 +106,6 @@ export async function GET(req: Request, { params }: RouteParams) {
   if (!event.slug) {
     return NextResponse.json({ success: false, error: 'This Draft is missing a link (slug).' }, { status: 400 });
   }
-
-  const templateHtml = CANONICAL_WEDDING_TEMPLATE_01_HTML;
 
   const ownedCredits = await loadOwnedEventCreditsWithPartners(db, event.id);
   if (ownedCredits === null) {
@@ -101,9 +126,11 @@ export async function GET(req: Request, { params }: RouteParams) {
       brideName: event.bride_name || '',
       scheduledStartAt: event.scheduled_start_at,
       venueName: event.venue_name || '',
+      venueMapLink: event.venue_map_link,
       templateId: event.template_id,
       guestPhotoWallEnabled: event.guest_photo_wall_enabled !== false,
       thumbnailUrl: event.thumbnail_url,
+      customTopTitle: event.custom_top_title,
     },
     eventCredits
   );
