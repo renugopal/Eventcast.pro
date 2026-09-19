@@ -1,6 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextResponse } from 'next/server';
-import { createFromMock, authSuccess, type MockQueryBuilder } from './support/mocks';
+import { createFromMock, authSuccess, type MockQueryBuilder, type AuthSuccess } from './support/mocks';
+import type { StudioMemberRole } from '@/lib/auth';
+
+// Owner/admin-only mutation gate (Provider Event Workspace Premium Redesign
+// package) — mirrors the established `pdAuth`/`mediaAuth` local-extension
+// pattern already used elsewhere, defaulting every pre-existing test in this
+// file to 'owner' so the new gate doesn't silently break them. This file
+// exercises both the thumbnail PATCH route and (via loadDraftRoute) the
+// Draft PATCH route, which gained the same gate.
+type ThumbnailAuth = AuthSuccess & { studioMemberRole: StudioMemberRole };
+function thumbnailAuth(overrides: Partial<ThumbnailAuth> = {}): ThumbnailAuth {
+  return { ...authSuccess(), studioMemberRole: 'owner', ...overrides };
+}
 
 const { mockDb, mockRequireAdmin } = vi.hoisted(() => {
   return {
@@ -9,11 +21,14 @@ const { mockDb, mockRequireAdmin } = vi.hoisted(() => {
         throw new Error(`mockDb.from not configured for table '${table}' in this test`);
       }),
     },
-    mockRequireAdmin: vi.fn(async () => authSuccess()),
+    mockRequireAdmin: vi.fn(async () => ({} as AuthSuccess)),
   };
 });
 
-vi.mock('@/lib/auth', () => ({ requireAdmin: mockRequireAdmin }));
+vi.mock('@/lib/auth', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/auth')>('@/lib/auth');
+  return { ...actual, requireAdmin: mockRequireAdmin };
+});
 vi.mock('@/lib/supabase', () => ({ supabase: mockDb, supabaseAdmin: mockDb }));
 
 async function loadThumbnailRoute() {
@@ -43,7 +58,7 @@ const VALID_URL = 'https://cdn.example.com/studios/studio-a/thumbnail/uuid-1-p.p
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
-  mockRequireAdmin.mockResolvedValue(authSuccess());
+  mockRequireAdmin.mockResolvedValue(thumbnailAuth());
   process.env.R2_PUBLIC_URL = 'https://cdn.example.com';
 });
 
@@ -55,6 +70,16 @@ describe('PATCH /api/events/[eventId]/thumbnail — auth and ownership', () => {
     const res = await PATCH(makePatchRequest({ thumbnailUrl: VALID_URL }), routeParams);
 
     expect(res.status).toBe(401);
+    expect(mockDb.from).not.toHaveBeenCalled();
+  });
+
+  it('rejects a member-role studio user before any database access', async () => {
+    mockRequireAdmin.mockResolvedValue(thumbnailAuth({ studioMemberRole: 'member' }));
+
+    const PATCH = await loadThumbnailRoute();
+    const res = await PATCH(makePatchRequest({ thumbnailUrl: VALID_URL }), routeParams);
+
+    expect(res.status).toBe(403);
     expect(mockDb.from).not.toHaveBeenCalled();
   });
 
@@ -142,6 +167,24 @@ describe('PATCH /api/events/[eventId]/thumbnail — successful assignment', () =
       ['id', 'evt-1'],
       ['studio_id', 'studio-a'],
     ]);
+  });
+});
+
+describe('PATCH /api/events/draft/[eventId] — owner/admin mutation gate', () => {
+  it('rejects a member-role studio user before any database access', async () => {
+    mockRequireAdmin.mockResolvedValue(thumbnailAuth({ studioMemberRole: 'member' }));
+
+    const PATCH = await loadDraftRoute();
+    const res = await PATCH(
+      makePatchRequest(
+        { groomName: 'Raj', brideName: 'Priya', scheduledStartAtLocal: '2026-12-01T18:30', venueName: 'Taj Krishna', slug: 'raj-priya-wedding' },
+        '/api/events/draft/evt-1'
+      ),
+      routeParams
+    );
+
+    expect(res.status).toBe(403);
+    expect(mockDb.from).not.toHaveBeenCalled();
   });
 });
 

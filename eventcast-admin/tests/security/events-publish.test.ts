@@ -1,6 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextResponse } from 'next/server';
-import { createFromMock, authSuccess, type MockQueryBuilder, type AuthResult } from './support/mocks';
+import { createFromMock, authSuccess, type MockQueryBuilder, type AuthResult, type AuthSuccess } from './support/mocks';
+import type { StudioMemberRole } from '@/lib/auth';
+
+// Owner/admin-only mutation gate (Provider Event Workspace Premium Redesign
+// package) — mirrors the established `pdAuth`/`mediaAuth` local-extension
+// pattern already used elsewhere (e.g. events-permanent-delete.test.ts,
+// events-media.test.ts), defaulting every pre-existing test in this file to
+// 'owner' so the new gate doesn't silently break them.
+type PublishAuth = AuthSuccess & { studioMemberRole: StudioMemberRole };
+function publishAuth(overrides: Partial<PublishAuth> = {}): PublishAuth {
+  return { ...authSuccess(), studioMemberRole: 'owner', ...overrides };
+}
 
 const { mockDb, mockRequireAdmin } = vi.hoisted(() => {
   return {
@@ -9,11 +20,14 @@ const { mockDb, mockRequireAdmin } = vi.hoisted(() => {
         throw new Error(`mockDb.from not configured for table '${table}' in this test`);
       }),
     },
-    mockRequireAdmin: vi.fn(async (): Promise<AuthResult> => authSuccess()),
+    mockRequireAdmin: vi.fn(async (): Promise<AuthResult> => ({} as AuthResult)),
   };
 });
 
-vi.mock('@/lib/auth', () => ({ requireAdmin: mockRequireAdmin }));
+vi.mock('@/lib/auth', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/auth')>('@/lib/auth');
+  return { ...actual, requireAdmin: mockRequireAdmin };
+});
 vi.mock('@/lib/supabase', () => ({ supabase: mockDb, supabaseAdmin: mockDb }));
 
 async function loadPublishRoute() {
@@ -118,7 +132,7 @@ function publishWriteBuilder(): MockQueryBuilder {
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
-  mockRequireAdmin.mockResolvedValue(authSuccess());
+  mockRequireAdmin.mockResolvedValue(publishAuth());
 });
 
 describe('POST /api/events/[eventId]/publish — access control', () => {
@@ -129,6 +143,16 @@ describe('POST /api/events/[eventId]/publish — access control', () => {
     const res = await POST(makePublishRequest(), routeParams);
 
     expect(res.status).toBe(401);
+    expect(mockDb.from).not.toHaveBeenCalled();
+  });
+
+  it('rejects a member-role studio user before any database access', async () => {
+    mockRequireAdmin.mockResolvedValue(publishAuth({ studioMemberRole: 'member' }));
+
+    const { POST } = await loadPublishRoute();
+    const res = await POST(makePublishRequest({ visibility: 'public' }), routeParams);
+
+    expect(res.status).toBe(403);
     expect(mockDb.from).not.toHaveBeenCalled();
   });
 

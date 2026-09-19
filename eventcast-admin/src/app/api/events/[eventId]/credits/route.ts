@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin, canMutateStudioResources } from '@/lib/auth';
 import { getOwnedEventById, getOwnedPartnerById, isOwnershipError } from '@/lib/ownership';
 import { PARTNER_TYPES, isPartnerType } from '@/lib/partnerFields';
 
@@ -69,6 +69,13 @@ export async function GET(req: Request, { params }: RouteParams) {
 export async function POST(req: Request, { params }: RouteParams) {
   const auth = await requireAdmin(req);
   if (auth instanceof NextResponse) return auth;
+
+  // Provider Event Workspace Premium Redesign package — same owner/admin
+  // gate every other event-mutation route already enforces. GET above
+  // remains open to every studio member, unchanged.
+  if (!canMutateStudioResources(auth.studioMemberRole)) {
+    return NextResponse.json({ success: false, error: 'Forbidden: read-only studio role' }, { status: 403 });
+  }
 
   const { eventId } = await params;
   const eventOwnership = await getOwnedEventById<EventRow>(db, eventId, auth.studioId, 'id');

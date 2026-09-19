@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { Calendar, Eye, Globe, Image as ImageIcon, MapPin, Pencil, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, Calendar, Copy, ExternalLink, Eye, Globe, Image as ImageIcon, MapPin, Pencil, Users } from "lucide-react";
 import { authFetch, AuthError } from "@/lib/client-auth";
 import { scheduledStartAtToIstDateTimeLocal, type EventPublicVisibility } from "@/lib/eventContract";
 import { uploadToR2 } from "@/lib/uploadHelpers";
+import { publicEventUrl } from "@/lib/publicEventUrl";
 import {
   attachEventCredit,
   createPartner,
@@ -18,31 +19,9 @@ import {
 } from "@/lib/partnerCreditClient";
 import { DraftEventForm, isDraftEventFormValid, type DraftEventFormValues } from "../../../_components/draft-event/DraftEventForm";
 import { PartnerCreditSection, type DisplayCredit } from "../../../_components/draft-event/PartnerCreditSection";
+import { useEventWorkspace, type EventWorkspaceEvent } from "../../../_components/event-workspace/EventWorkspaceShell";
 
-interface DraftEventRow {
-  id: string;
-  event_type: string | null;
-  groom_name: string | null;
-  bride_name: string | null;
-  venue_name: string | null;
-  venue_map_link: string | null;
-  slug: string | null;
-  template_id: string | null;
-  template_version: string | null;
-  scheduled_start_at: string | null;
-  page_state: string | null;
-  guest_photo_wall_enabled: boolean | null;
-  thumbnail_url: string | null;
-  event_visibility: string | null;
-  custom_top_title: string | null;
-}
-
-type LoadState =
-  | { status: "loading" }
-  | { status: "error"; message: string }
-  | { status: "ready"; event: DraftEventRow };
-
-function draftRowToFormValues(event: DraftEventRow): DraftEventFormValues {
+function draftRowToFormValues(event: EventWorkspaceEvent): DraftEventFormValues {
   return {
     groomName: event.groom_name || "",
     brideName: event.bride_name || "",
@@ -67,21 +46,25 @@ function creditsToDisplay(credits: EventCreditRecord[], partners: PartnerRecord[
 }
 
 /**
- * The Event Workspace's Event Page tab (V2.1 Milestone G — moved here
- * unchanged from the original Milestone D `/events/[eventId]/overview`
- * route, which is now the lean Overview tab instead). Reopens a Draft by
- * its stable UUID, shows identity/schedule/template/page state, lets the
- * owning studio edit and save it via `PATCH /api/events/draft/[eventId]`,
- * and hosts the already-completed Preview/Publish/Visibility/SEO
- * thumbnail/Partner Credit controls — none of their contracts, APIs, or
- * security model were changed by this move.
+ * The Event Workspace's Event Page tab. Sources the event row from the
+ * shared workspace shell (`useEventWorkspace()`) instead of its own separate
+ * fetch — every mutation below (Save, Publish, Visibility switch, Thumbnail
+ * assign) calls the shell's shared `reload()` afterward instead of updating
+ * only local state, so the shell's header badge and every other tab (e.g.
+ * the Live tab's Test-vs-Live label, which reads `page_state` from the same
+ * shared context) reflect a Publish/Edit immediately, with no hard browser
+ * refresh required (Provider Event Workspace Premium Redesign package — this
+ * was a real stale-state bug in the previous per-tab-fetch design).
+ *
+ * Hosts the already-completed Preview/Publish/Visibility/SEO thumbnail/
+ * Partner Credit controls — none of their contracts, APIs, or security model
+ * were changed by this package.
  */
 export default function AdminV2EventPageTab() {
   const router = useRouter();
-  const params = useParams<{ eventId: string }>();
-  const eventId = params.eventId;
+  const { state, reload } = useEventWorkspace();
+  const eventId = state.status === "ready" ? state.event.id : null;
 
-  const [state, setState] = useState<LoadState>({ status: "loading" });
   const [isEditing, setIsEditing] = useState(false);
   const [editValues, setEditValues] = useState<DraftEventFormValues | null>(null);
   // Public Page Publish (Baseline CRT-012 — page publish only; it does not
@@ -102,9 +85,6 @@ export default function AdminV2EventPageTab() {
   >({ status: "idle" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  // Bumped after a successful save to trigger a refetch without duplicating
-  // the fetch logic outside the effect that owns it.
-  const [reloadToken, setReloadToken] = useState(0);
 
   // Preview: fetched on demand (not on load) through the authenticated
   // GET /api/events/draft/[eventId]/preview route, then injected into an
@@ -121,6 +101,7 @@ export default function AdminV2EventPageTab() {
     { status: "idle" } | { status: "uploading" } | { status: "error"; message: string }
   >({ status: "idle" });
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // Partner Credits (Baseline V2.1 Partner/Event Credit integration UI):
   // kept as separate UI state from the canonical Draft event payload above,
@@ -134,6 +115,7 @@ export default function AdminV2EventPageTab() {
   const [creditsError, setCreditsError] = useState<string | null>(null);
 
   async function reloadCredits() {
+    if (!eventId) return;
     const list = await fetchEventCredits(authFetch, eventId);
     setCredits(list);
   }
@@ -153,11 +135,12 @@ export default function AdminV2EventPageTab() {
   }
 
   useEffect(() => {
+    if (!eventId) return;
     let cancelled = false;
 
     async function loadPartnersAndCredits() {
       try {
-        const [partnerList, creditList] = await Promise.all([fetchPartners(authFetch), fetchEventCredits(authFetch, eventId)]);
+        const [partnerList, creditList] = await Promise.all([fetchPartners(authFetch), fetchEventCredits(authFetch, eventId!)]);
         if (cancelled) return;
         setPartners(partnerList);
         setCredits(creditList);
@@ -181,42 +164,17 @@ export default function AdminV2EventPageTab() {
     return () => {
       cancelled = true;
     };
-  }, [eventId, router, reloadToken]);
+  }, [eventId, router]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const res = await authFetch(`/api/events/draft/${eventId}`);
-        const data = await res.json();
-        if (cancelled) return;
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || "Could not load this event");
-        }
-        setState({ status: "ready", event: data.event as DraftEventRow });
-      } catch (err) {
-        if (cancelled) return;
-        if (err instanceof AuthError) {
-          router.push("/login");
-          return;
-        }
-        setState({ status: "error", message: err instanceof Error ? err.message : String(err) });
-      }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [eventId, router, reloadToken]);
+  if (state.status !== "ready") return null;
+  const event = state.event;
 
   async function handleSave() {
     if (!editValues) return;
     setIsSubmitting(true);
     setSubmitError(null);
     try {
-      const res = await authFetch(`/api/events/draft/${eventId}`, {
+      const res = await authFetch(`/api/events/draft/${event.id}`, {
         method: "PATCH",
         body: JSON.stringify(editValues),
       });
@@ -225,7 +183,7 @@ export default function AdminV2EventPageTab() {
         throw new Error(data.error || "Draft update failed");
       }
       setIsEditing(false);
-      setReloadToken((n) => n + 1);
+      reload();
     } catch (err) {
       if (err instanceof AuthError) {
         router.push("/login");
@@ -241,7 +199,7 @@ export default function AdminV2EventPageTab() {
     if (!publishVisibility) return;
     setPublishState({ status: "publishing" });
     try {
-      const res = await authFetch(`/api/events/${eventId}/publish`, {
+      const res = await authFetch(`/api/events/${event.id}/publish`, {
         method: "POST",
         body: JSON.stringify({ visibility: publishVisibility }),
       });
@@ -250,9 +208,10 @@ export default function AdminV2EventPageTab() {
         throw new Error(data.error || "Publish failed");
       }
       setPublishState({ status: "idle" });
-      // Re-read the row rather than assuming: the published page state comes
-      // back from the same update that froze the credit snapshot.
-      setReloadToken((n) => n + 1);
+      // Refresh the shared workspace state rather than assuming: the shell
+      // header badge, the Live tab's Test-vs-Live label, and this tab's own
+      // published-state rendering all key off the same shared event row.
+      reload();
     } catch (err) {
       if (err instanceof AuthError) {
         router.push("/login");
@@ -265,7 +224,7 @@ export default function AdminV2EventPageTab() {
   async function handleVisibilityChange(next: EventPublicVisibility) {
     setVisibilityState({ status: "saving" });
     try {
-      const res = await authFetch(`/api/events/${eventId}/visibility`, {
+      const res = await authFetch(`/api/events/${event.id}/visibility`, {
         method: "PATCH",
         body: JSON.stringify({ visibility: next }),
       });
@@ -273,10 +232,8 @@ export default function AdminV2EventPageTab() {
       if (!res.ok || !data.success) {
         throw new Error(data.error || "Could not update visibility");
       }
-      setState((prev) =>
-        prev.status === "ready" ? { status: "ready", event: { ...prev.event, event_visibility: data.visibility } } : prev
-      );
       setVisibilityState({ status: "idle" });
+      reload();
     } catch (err) {
       if (err instanceof AuthError) {
         router.push("/login");
@@ -286,24 +243,8 @@ export default function AdminV2EventPageTab() {
     }
   }
 
-  if (state.status === "loading") {
-    return (
-      <div className="ec-card" style={{ textAlign: "center", color: "var(--text-secondary)" }}>
-        Loading event…
-      </div>
-    );
-  }
-
-  if (state.status === "error") {
-    return (
-      <div className="ec-card" style={{ borderColor: "#FECDD3", color: "var(--error)" }}>
-        {state.message}
-      </div>
-    );
-  }
-
-  const event = state.event;
   const isDraft = event.page_state === "draft";
+  const pageUrl = !isDraft ? publicEventUrl(event.slug) : null;
 
   async function togglePreview() {
     if (previewState.status === "ready" || previewState.status === "loading") {
@@ -312,7 +253,7 @@ export default function AdminV2EventPageTab() {
     }
     setPreviewState({ status: "loading" });
     try {
-      const res = await authFetch(`/api/events/draft/${eventId}/preview`);
+      const res = await authFetch(`/api/events/draft/${event.id}/preview`);
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || "Could not render this Draft's preview");
@@ -324,6 +265,17 @@ export default function AdminV2EventPageTab() {
         return;
       }
       setPreviewState({ status: "error", message: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  async function handleCopyLink() {
+    if (!pageUrl) return;
+    try {
+      await navigator.clipboard.writeText(pageUrl);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1500);
+    } catch {
+      // Non-fatal — the link is still visible and openable.
     }
   }
 
@@ -339,7 +291,7 @@ export default function AdminV2EventPageTab() {
       const [uploadedUrl] = await uploadToR2(dt.files, "thumbnail");
       if (!uploadedUrl) throw new Error("Thumbnail upload failed");
 
-      const res = await authFetch(`/api/events/${eventId}/thumbnail`, {
+      const res = await authFetch(`/api/events/${event.id}/thumbnail`, {
         method: "PATCH",
         body: JSON.stringify({ thumbnailUrl: uploadedUrl }),
       });
@@ -348,10 +300,8 @@ export default function AdminV2EventPageTab() {
         throw new Error(data.error || "Could not assign thumbnail");
       }
 
-      setState((prev) =>
-        prev.status === "ready" ? { status: "ready", event: { ...prev.event, thumbnail_url: data.thumbnailUrl } } : prev
-      );
       setThumbnailState({ status: "idle" });
+      reload();
     } catch (err) {
       if (err instanceof AuthError) {
         router.push("/login");
@@ -400,37 +350,24 @@ export default function AdminV2EventPageTab() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="ec-section-header">
-        <div>
-          <h1 className="ec-page-title">
-            {event.groom_name} &amp; {event.bride_name}
-          </h1>
-          <p style={{ color: "var(--text-secondary)", fontSize: "14px", marginTop: "4px" }}>
-            {event.event_type || "Wedding"}
-          </p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <span className={`ec-badge ${isDraft ? "ec-badge-amber" : "ec-badge-scheduled"}`}>
-            {isDraft ? "Draft" : event.page_state === "published" ? "Published" : event.page_state}
-          </span>
-          <button type="button" className="ec-btn ec-btn-secondary" onClick={togglePreview}>
-            <Eye size={14} /> {previewState.status === "ready" || previewState.status === "loading" ? "Hide preview" : "Preview"}
+      {/* No duplicate page title here — the shared workspace shell header
+          above the tab strip already shows it. This row is actions only. */}
+      <div className="flex items-center justify-end gap-3 flex-wrap">
+        <button type="button" className="ec-btn ec-btn-secondary" onClick={togglePreview}>
+          <Eye size={14} /> {previewState.status === "ready" || previewState.status === "loading" ? "Hide preview" : "Preview"}
+        </button>
+        {isDraft && (
+          <button
+            type="button"
+            className="ec-btn ec-btn-secondary"
+            onClick={() => {
+              setEditValues(draftRowToFormValues(event));
+              setIsEditing(true);
+            }}
+          >
+            <Pencil size={14} /> Edit
           </button>
-          {isDraft && (
-            <>
-              <button
-                type="button"
-                className="ec-btn ec-btn-secondary"
-                onClick={() => {
-                  setEditValues(draftRowToFormValues(event));
-                  setIsEditing(true);
-                }}
-              >
-                <Pencil size={14} /> Edit
-              </button>
-            </>
-          )}
-        </div>
+        )}
       </div>
 
       {isDraft && (
@@ -488,6 +425,19 @@ export default function AdminV2EventPageTab() {
             This event page is published. Its public Event Credits are frozen as they were at Publish time, so later
             Partner edits do not change this page. Publishing the page does not start a livestream.
           </div>
+          {pageUrl && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <code style={{ fontSize: "12px", background: "var(--surface-hover)", padding: "4px 8px", borderRadius: "4px" }}>
+                {pageUrl}
+              </code>
+              <button type="button" className="ec-btn ec-btn-secondary ec-btn-sm" onClick={handleCopyLink}>
+                <Copy size={12} /> {linkCopied ? "Copied" : "Copy"}
+              </button>
+              <a href={pageUrl} target="_blank" rel="noopener noreferrer" className="ec-btn ec-btn-secondary ec-btn-sm">
+                <ExternalLink size={12} /> Open
+              </a>
+            </div>
+          )}
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <span>Visibility:</span>
             <span className={`ec-badge ${event.event_visibility === "unlisted" ? "ec-badge-amber" : "ec-badge-scheduled"}`}>
@@ -611,6 +561,17 @@ export default function AdminV2EventPageTab() {
         )}
       </div>
 
+      {!isDraft && (
+        <div className="ec-card" style={{ borderColor: "#FDE68A", display: "flex", alignItems: "flex-start", gap: "10px" }}>
+          <AlertTriangle size={16} style={{ color: "#B45309", flexShrink: 0, marginTop: "2px" }} />
+          <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+            This page is already published, so its public Event Credits were frozen at Publish time. You can still add,
+            edit, or remove credits below, but those changes will <strong>not</strong> automatically update the
+            already-published page — it keeps showing the frozen snapshot from when you published.
+          </p>
+        </div>
+      )}
+
       {creditsError ? (
         <div className="ec-card" style={{ borderColor: "#FECDD3", color: "var(--error)" }}>
           {creditsError}
@@ -630,7 +591,7 @@ export default function AdminV2EventPageTab() {
           }
           onAddCredit={(values) =>
             withAuthRedirect(async () => {
-              await attachEventCredit(authFetch, eventId, {
+              await attachEventCredit(authFetch, event.id, {
                 partnerId: values.partnerId,
                 roleLabel: values.roleLabel,
                 isPrimary: values.isPrimary,
@@ -640,13 +601,13 @@ export default function AdminV2EventPageTab() {
           }
           onUpdateCredit={(id, values) =>
             withAuthRedirect(async () => {
-              await updateEventCredit(authFetch, eventId, id, values);
+              await updateEventCredit(authFetch, event.id, id, values);
               await reloadCredits();
             })
           }
           onRemoveCredit={(id) =>
             withAuthRedirect(async () => {
-              await deleteEventCredit(authFetch, eventId, id);
+              await deleteEventCredit(authFetch, event.id, id);
               await reloadCredits();
             })
           }

@@ -1,6 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextResponse } from 'next/server';
-import { createFromMock, authSuccess, type MockQueryBuilder, type AuthResult } from './support/mocks';
+import { createFromMock, authSuccess, type MockQueryBuilder, type AuthResult, type AuthSuccess } from './support/mocks';
+import type { StudioMemberRole } from '@/lib/auth';
+
+// Owner/admin-only mutation gate (Provider Event Workspace Premium Redesign
+// package) — mirrors the established `pdAuth`/`mediaAuth` local-extension
+// pattern already used elsewhere, defaulting every pre-existing test in this
+// file to 'owner' so the new gate doesn't silently break them.
+type VisibilityAuth = AuthSuccess & { studioMemberRole: StudioMemberRole };
+function visibilityAuth(overrides: Partial<VisibilityAuth> = {}): VisibilityAuth {
+  return { ...authSuccess(), studioMemberRole: 'owner', ...overrides };
+}
 
 const { mockDb, mockRequireAdmin } = vi.hoisted(() => {
   return {
@@ -9,11 +19,14 @@ const { mockDb, mockRequireAdmin } = vi.hoisted(() => {
         throw new Error(`mockDb.from not configured for table '${table}' in this test`);
       }),
     },
-    mockRequireAdmin: vi.fn(async (): Promise<AuthResult> => authSuccess()),
+    mockRequireAdmin: vi.fn(async (): Promise<AuthResult> => ({} as AuthResult)),
   };
 });
 
-vi.mock('@/lib/auth', () => ({ requireAdmin: mockRequireAdmin }));
+vi.mock('@/lib/auth', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/auth')>('@/lib/auth');
+  return { ...actual, requireAdmin: mockRequireAdmin };
+});
 vi.mock('@/lib/supabase', () => ({ supabase: mockDb, supabaseAdmin: mockDb }));
 
 async function loadVisibilityRoute() {
@@ -38,7 +51,7 @@ const OWNED_DRAFT_ROW = { id: 'event-1', page_state: 'draft' };
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
-  mockRequireAdmin.mockResolvedValue(authSuccess());
+  mockRequireAdmin.mockResolvedValue(visibilityAuth());
 });
 
 describe('PATCH /api/events/[eventId]/visibility — auth and ownership', () => {
@@ -49,6 +62,16 @@ describe('PATCH /api/events/[eventId]/visibility — auth and ownership', () => 
     const res = await PATCH(makeVisibilityRequest({ visibility: 'unlisted' }), routeParams);
 
     expect(res.status).toBe(401);
+    expect(mockDb.from).not.toHaveBeenCalled();
+  });
+
+  it('rejects a member-role studio user before any database access', async () => {
+    mockRequireAdmin.mockResolvedValue(visibilityAuth({ studioMemberRole: 'member' }));
+
+    const { PATCH } = await loadVisibilityRoute();
+    const res = await PATCH(makeVisibilityRequest({ visibility: 'unlisted' }), routeParams);
+
+    expect(res.status).toBe(403);
     expect(mockDb.from).not.toHaveBeenCalled();
   });
 

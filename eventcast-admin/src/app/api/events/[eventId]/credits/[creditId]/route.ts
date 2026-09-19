@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin, canMutateStudioResources } from '@/lib/auth';
 import { getOwnedEventById, getEventCreditById, isOwnershipError } from '@/lib/ownership';
 import { PARTNER_TYPES, isPartnerType } from '@/lib/partnerFields';
 
@@ -46,6 +46,12 @@ function isDuplicateCreditConflict(message: string): boolean {
 export async function PATCH(req: Request, { params }: RouteParams) {
   const auth = await requireAdmin(req);
   if (auth instanceof NextResponse) return auth;
+
+  // Provider Event Workspace Premium Redesign package — same owner/admin
+  // gate every other event-mutation route already enforces.
+  if (!canMutateStudioResources(auth.studioMemberRole)) {
+    return NextResponse.json({ success: false, error: 'Forbidden: read-only studio role' }, { status: 403 });
+  }
 
   const { eventId, creditId } = await params;
   const eventOwnership = await getOwnedEventById<EventRow>(db, eventId, auth.studioId, 'id');
@@ -122,6 +128,12 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 export async function DELETE(req: Request, { params }: RouteParams) {
   const auth = await requireAdmin(req);
   if (auth instanceof NextResponse) return auth;
+
+  // Provider Event Workspace Premium Redesign package — same owner/admin
+  // gate every other event-mutation route already enforces.
+  if (!canMutateStudioResources(auth.studioMemberRole)) {
+    return NextResponse.json({ success: false, error: 'Forbidden: read-only studio role' }, { status: 403 });
+  }
 
   const { eventId, creditId } = await params;
   const eventOwnership = await getOwnedEventById<EventRow>(db, eventId, auth.studioId, 'id');

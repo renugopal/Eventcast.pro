@@ -1,5 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createFromMock, authSuccess, type MockQueryBuilder } from './support/mocks';
+import { createFromMock, authSuccess, type MockQueryBuilder, type AuthSuccess } from './support/mocks';
+import type { StudioMemberRole } from '@/lib/auth';
+
+// Owner/admin-only mutation gate (Provider Event Workspace Premium Redesign
+// package) — mirrors the established `pdAuth`/`mediaAuth` local-extension
+// pattern already used elsewhere, defaulting every pre-existing test in this
+// file to 'owner' so the new gate on PATCH doesn't silently break them (GET
+// remains open to every studio member, unchanged).
+type DraftAuth = AuthSuccess & { studioMemberRole: StudioMemberRole };
+function draftAuth(overrides: Partial<DraftAuth> = {}): DraftAuth {
+  return { ...authSuccess(), studioMemberRole: 'owner', ...overrides };
+}
 
 const { mockDb, mockRequireAdmin } = vi.hoisted(() => {
   return {
@@ -8,11 +19,14 @@ const { mockDb, mockRequireAdmin } = vi.hoisted(() => {
         throw new Error(`mockDb.from not configured for table '${table}' in this test`);
       }),
     },
-    mockRequireAdmin: vi.fn(async () => authSuccess()),
+    mockRequireAdmin: vi.fn(async () => ({} as AuthSuccess)),
   };
 });
 
-vi.mock('@/lib/auth', () => ({ requireAdmin: mockRequireAdmin }));
+vi.mock('@/lib/auth', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/auth')>('@/lib/auth');
+  return { ...actual, requireAdmin: mockRequireAdmin };
+});
 vi.mock('@/lib/supabase', () => ({ supabase: mockDb, supabaseAdmin: mockDb }));
 
 async function loadRoute() {
@@ -51,7 +65,7 @@ const DRAFT_ROW = {
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
-  mockRequireAdmin.mockResolvedValue(authSuccess());
+  mockRequireAdmin.mockResolvedValue(draftAuth());
 });
 
 describe('GET /api/events/draft/[eventId] — reopen a Draft by stable UUID', () => {
@@ -79,6 +93,21 @@ describe('GET /api/events/draft/[eventId] — reopen a Draft by stable UUID', ()
       ['id', 'evt-1'],
       ['studio_id', 'studio-a'],
     ]);
+  });
+});
+
+describe('PATCH /api/events/draft/[eventId] — owner/admin mutation gate', () => {
+  it('rejects a member-role studio user before any database access', async () => {
+    mockRequireAdmin.mockResolvedValue(draftAuth({ studioMemberRole: 'member' }));
+
+    const { PATCH } = await loadRoute();
+    const res = await PATCH(
+      makePatchRequest({ groomName: 'Raj', brideName: 'Priya', scheduledStartAtLocal: '2026-12-01T18:30', venueName: 'Taj Krishna', slug: 'raj-priya-wedding' }),
+      routeParams
+    );
+
+    expect(res.status).toBe(403);
+    expect(mockDb.from).not.toHaveBeenCalled();
   });
 });
 

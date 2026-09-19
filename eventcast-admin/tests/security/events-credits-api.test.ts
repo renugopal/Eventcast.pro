@@ -1,6 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextResponse } from 'next/server';
-import { createFromMock, authSuccess, type MockQueryBuilder, type AuthResult } from './support/mocks';
+import { createFromMock, authSuccess, type MockQueryBuilder, type AuthResult, type AuthSuccess } from './support/mocks';
+import type { StudioMemberRole } from '@/lib/auth';
+
+// Owner/admin-only mutation gate (Provider Event Workspace Premium Redesign
+// package) — mirrors the established `pdAuth`/`mediaAuth` local-extension
+// pattern already used elsewhere, defaulting every pre-existing test in this
+// file to 'owner' so the new gate on POST/PATCH/DELETE doesn't silently
+// break them (GET remains open to every studio member, unchanged).
+type CreditsAuth = AuthSuccess & { studioMemberRole: StudioMemberRole };
+function creditsAuth(overrides: Partial<CreditsAuth> = {}): CreditsAuth {
+  return { ...authSuccess(), studioMemberRole: 'owner', ...overrides };
+}
 
 const { mockDb, mockRequireAdmin } = vi.hoisted(() => {
   return {
@@ -9,11 +20,14 @@ const { mockDb, mockRequireAdmin } = vi.hoisted(() => {
         throw new Error(`mockDb.from not configured for table '${table}' in this test`);
       }),
     },
-    mockRequireAdmin: vi.fn(async (): Promise<AuthResult> => authSuccess()),
+    mockRequireAdmin: vi.fn(async (): Promise<AuthResult> => ({} as AuthResult)),
   };
 });
 
-vi.mock('@/lib/auth', () => ({ requireAdmin: mockRequireAdmin }));
+vi.mock('@/lib/auth', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/auth')>('@/lib/auth');
+  return { ...actual, requireAdmin: mockRequireAdmin };
+});
 vi.mock('@/lib/supabase', () => ({ supabase: mockDb, supabaseAdmin: mockDb }));
 
 async function loadCollectionRoute() {
@@ -69,7 +83,7 @@ const FULL_CREDIT_ROW = {
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
-  mockRequireAdmin.mockResolvedValue(authSuccess());
+  mockRequireAdmin.mockResolvedValue(creditsAuth());
 });
 
 describe('GET /api/events/[eventId]/credits — same-tenant list', () => {
@@ -119,6 +133,16 @@ describe('POST /api/events/[eventId]/credits — attach an existing Partner', ()
     const res = await POST(makePostRequest({ partnerId: 'partner-1', roleLabel: 'photographer' }), routeParamsEvent);
 
     expect(res.status).toBe(401);
+    expect(mockDb.from).not.toHaveBeenCalled();
+  });
+
+  it('rejects a member-role studio user before any database access', async () => {
+    mockRequireAdmin.mockResolvedValue(creditsAuth({ studioMemberRole: 'member' }));
+
+    const { POST } = await loadCollectionRoute();
+    const res = await POST(makePostRequest({ partnerId: 'partner-1', roleLabel: 'photographer' }), routeParamsEvent);
+
+    expect(res.status).toBe(403);
     expect(mockDb.from).not.toHaveBeenCalled();
   });
 
@@ -271,6 +295,16 @@ describe('PATCH /api/events/[eventId]/credits/[creditId] — same-tenant update'
     expect(mockDb.from).not.toHaveBeenCalled();
   });
 
+  it('rejects a member-role studio user before any database access', async () => {
+    mockRequireAdmin.mockResolvedValue(creditsAuth({ studioMemberRole: 'member' }));
+
+    const { PATCH } = await loadItemRoute();
+    const res = await PATCH(makePatchRequest({ roleLabel: 'venue' }), routeParamsCredit);
+
+    expect(res.status).toBe(403);
+    expect(mockDb.from).not.toHaveBeenCalled();
+  });
+
   it('rejects a cross-tenant or nonexistent event with the generic 404, before any credit lookup', async () => {
     mockDb.from = createFromMock({ events: [{ data: null, error: null }] });
 
@@ -381,6 +415,16 @@ describe('DELETE /api/events/[eventId]/credits/[creditId] — same-tenant detach
     const res = await DELETE(makeDeleteRequest(), routeParamsCredit);
 
     expect(res.status).toBe(401);
+    expect(mockDb.from).not.toHaveBeenCalled();
+  });
+
+  it('rejects a member-role studio user before any database access', async () => {
+    mockRequireAdmin.mockResolvedValue(creditsAuth({ studioMemberRole: 'member' }));
+
+    const { DELETE } = await loadItemRoute();
+    const res = await DELETE(makeDeleteRequest(), routeParamsCredit);
+
+    expect(res.status).toBe(403);
     expect(mockDb.from).not.toHaveBeenCalled();
   });
 

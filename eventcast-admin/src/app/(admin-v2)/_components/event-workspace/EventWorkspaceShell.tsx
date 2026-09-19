@@ -27,6 +27,8 @@ export interface EventWorkspaceEvent {
   groom_name: string | null;
   bride_name: string | null;
   venue_name: string | null;
+  /** Already returned by GET /api/events/draft/[eventId] — just not previously typed here. */
+  venue_map_link: string | null;
   slug: string | null;
   template_id: string | null;
   template_version: string | null;
@@ -35,6 +37,8 @@ export interface EventWorkspaceEvent {
   thumbnail_url: string | null;
   event_visibility: string | null;
   archived_at: string | null;
+  custom_top_title: string | null;
+  guest_photo_wall_enabled: boolean | null;
 }
 
 export type EventWorkspaceState =
