@@ -3,7 +3,6 @@ import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
 import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
 import { CANONICAL_WEDDING_TEMPLATE_01_HTML } from '@/lib/canonicalWeddingTemplateHtml';
-import { CANONICAL_WEDDING_FLORAL_PASTEL_01_HTML } from '@/lib/canonicalWeddingFloralPastel01Html';
 import {
   canonicalRecordToWeddingTemplateRenderRow,
   primaryPublicEventCreditToPhotographerRow,
@@ -21,15 +20,21 @@ import { renderEvent, type EventRow } from '@/lib/weddingTemplateRenderer';
  * Draft stays exactly as it was before this request.
  *
  * Each template's markup comes from its own embedded copy of the Worker's
- * template asset (`@/lib/canonicalWeddingTemplateHtml`,
- * `@/lib/canonicalWeddingFloralPastel01Html`). The deployed Worker has no
- * project filesystem to read that asset from at request time, so this route
- * must never reach for `node:fs`/`node:path`/`process.cwd()` — that is true
- * under the Node.js runtime this app now targets on Cloudflare Workers, and
- * was equally true under the Edge runtime it previously used. No copy can
- * drift silently: `tests/contract/canonicalWeddingTemplateHtml.test.ts` and
- * `tests/contract/canonicalWeddingFloralPastel01Html.test.ts` each fail if
- * their embedded copy stops matching its Worker template file.
+ * template asset (`@/lib/canonicalWeddingTemplateHtml`). The deployed Worker
+ * has no project filesystem to read that asset from at request time, so this
+ * route must never reach for `node:fs`/`node:path`/`process.cwd()` — that is
+ * true under the Node.js runtime this app now targets on Cloudflare Workers,
+ * and was equally true under the Edge runtime it previously used. No copy can
+ * drift silently: `tests/contract/canonicalWeddingTemplateHtml.test.ts` fails
+ * if the embedded copy stops matching its Worker template file.
+ *
+ * `wedding-floral-pastel-01` is intentionally not in `SUPPORTED_PREVIEW_TEMPLATES`
+ * yet (build-blocker correction, 2026-09-19): its canonical HTML module and
+ * the Worker template/release it would need to stay in sync with are still
+ * uncommitted prototype work (see `docs/project-state/CURRENT_STATE.md`).
+ * Adding it back requires committing that matched set together, not just an
+ * import here — a Draft with this `template_id` gets the route's existing
+ * clean "Preview is not available for template..." 400 in the meantime.
  *
  * Known gap, not fixed here: `PREVIEW_COLUMNS`/`canonicalRecordToWeddingTemplateRenderRow`
  * only carry the field set the canonical Draft/`CanonicalEventRecord`
@@ -42,10 +47,7 @@ import { renderEvent, type EventRow } from '@/lib/weddingTemplateRenderer';
  * post-creation routes (`/api/events/[eventId]/media`, etc.) rather than the
  * canonical Draft contract, so this preview route still cannot select or
  * thread those for *any* template without widening that shared adapter — a
- * larger, separate contract change, not a narrow per-template addition. Both
- * `wedding-template-01` and `wedding-floral-pastel-01` therefore preview
- * identically in this respect today: gallery/invitation/loader render in
- * their empty state even when a published event would show them.
+ * larger, separate contract change, not a narrow per-template addition.
  */
 
 const db = supabaseAdmin || supabase;
@@ -56,7 +58,6 @@ const PREVIEW_COLUMNS =
 /** Every `template_id` this route can preview, and the canonical markup for each. */
 const SUPPORTED_PREVIEW_TEMPLATES: Record<string, string> = {
   'wedding-template-01': CANONICAL_WEDDING_TEMPLATE_01_HTML,
-  'wedding-floral-pastel-01': CANONICAL_WEDDING_FLORAL_PASTEL_01_HTML,
 };
 
 interface DraftPreviewRow {
