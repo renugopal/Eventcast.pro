@@ -1,201 +1,70 @@
 import { NextResponse } from 'next/server';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin, canMutateStudioResources } from '@/lib/auth';
 import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
 
-interface DeletableEventRow {
+interface ArchivableEventRow {
   id: string;
-  slug: string;
-  thumbnail_url: string | null;
-  invitation_video_url: string | null;
-  gallery_urls: string[] | null;
 }
 
 // Use admin client if available (bypasses RLS)
 const db = supabaseAdmin || supabase;
 
-// Helper for Cloudinary Signature using Web Crypto API
-async function generateCloudinarySignature(params: Record<string, string>, apiSecret: string) {
-  const sortedKeys = Object.keys(params).sort();
-  const stringToSign = sortedKeys.map(k => `${k}=${params[k]}`).join('&') + apiSecret;
-  
-  const encoder = new TextEncoder();
-  const data = encoder.encode(stringToSign);
-  const hashBuffer = await crypto.subtle.digest('SHA-1', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
+/**
+ * POST /api/events/delete — soft-archive only. Permanent deletion now lives
+ * exclusively at POST /api/events/[eventId]/permanent-delete, which applies
+ * its own guard chain (archived-first, live/recording/retention safety,
+ * typed confirmation) and can never be reached from this route. The
+ * previous `permanent: true` branch — which hard-deleted the row here with
+ * none of those guards — has been removed, not merely deprecated.
+ */
 export async function POST(req: Request) {
   const auth = await requireAdmin(req);
   if (auth instanceof NextResponse) return auth;
 
+  if (!canMutateStudioResources(auth.studioMemberRole)) {
+    return NextResponse.json(
+      { success: false, error: 'Forbidden: only an owner or admin may archive an event' },
+      { status: 403 }
+    );
+  }
+
   try {
     const { id, permanent } = await req.json();
 
-    // 1. Verify ownership before touching the database or any external
-    //    service. Cross-tenant and nonexistent events return the same
-    //    generic response, so resource existence is never leaked.
-    const ownership = await getOwnedEventById<DeletableEventRow>(db, id, auth.studioId);
+    // The old hard-delete path took the same body shape as archive, one
+    // boolean away from irreversible — reject it explicitly rather than
+    // silently reinterpreting a `permanent: true` request as an archive,
+    // so an old/stale caller gets a clear error instead of a surprising
+    // behavior change.
+    if (permanent === true) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Permanent delete has moved: use POST /api/events/[eventId]/permanent-delete instead.',
+        },
+        { status: 400 }
+      );
+    }
+
+    // Verify ownership before any mutation. Cross-tenant and nonexistent
+    // events return the same generic response, so resource existence is
+    // never leaked.
+    const ownership = await getOwnedEventById<ArchivableEventRow>(db, id, auth.studioId, 'id');
     if (isOwnershipError(ownership)) return ownership.error;
     const event = ownership.event;
 
-    // If NOT permanent, just soft delete (archive)
-    if (!permanent) {
-      const { error: archiveError } = await db
-        .from('events')
-        .update({ archived_at: new Date().toISOString() })
-        .eq('id', event.id)
-        .eq('studio_id', auth.studioId);
-      
-      if (archiveError) throw new Error(`Soft Delete Error: ${archiveError.message}`);
-      return NextResponse.json({ success: true, message: "Event archived successfully" });
-    }
+    const { error: archiveError } = await db
+      .from('events')
+      .update({ archived_at: new Date().toISOString() })
+      .eq('id', event.id)
+      .eq('studio_id', auth.studioId);
 
-    // --- PERMANENT DELETE FLOW ---
-    const slug = event.slug;
-
-    // 2. Restreamer cleanup removed — Milestone O (controlled Restreamer
-    //    legacy cleanup). Restreamer is retired from the target architecture
-    //    and must not be contacted or reintroduced. R2/B2 object cleanup is
-    //    deliberately NOT substituted here: that is the separately-owned
-    //    retention / R2-cleanup surface.
-
-    // 3. Cloudinary Deletion
-    try {
-      const imagePublicIds: string[] = [];
-      const videoPublicIds: string[] = [];
-
-      if (event.thumbnail_url) imagePublicIds.push(getPublicId(event.thumbnail_url));
-      if (event.invitation_video_url) videoPublicIds.push(getPublicId(event.invitation_video_url));
-      if (event.gallery_urls) {
-        event.gallery_urls.forEach((url: string) => imagePublicIds.push(getPublicId(url)));
-      }
-
-      const validImages = imagePublicIds.filter(id => id);
-      const validVideos = videoPublicIds.filter(id => id);
-
-      if (validImages.length > 0 || validVideos.length > 0) {
-        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-        const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY!;
-        const apiSecret = process.env.CLOUDINARY_API_SECRET!;
-        const timestamp = Math.round(new Date().getTime() / 1000).toString();
-
-        const cloudinaryDelete = async (publicIds: string[], resourceType: 'image' | 'video') => {
-          const params = { public_ids: publicIds.join(','), timestamp };
-          const signature = await generateCloudinarySignature(params, apiSecret);
-          const body = new URLSearchParams();
-          body.append('public_ids', publicIds.join(','));
-          body.append('timestamp', timestamp);
-          body.append('api_key', apiKey);
-          body.append('signature', signature);
-          await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/destroy`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body,
-          });
-        };
-
-        if (validImages.length > 0) await cloudinaryDelete(validImages, 'image');
-        if (validVideos.length > 0) await cloudinaryDelete(validVideos, 'video');
-      }
-    } catch (cldErr) {
-      console.error("Cloudinary cleanup failed:", cldErr);
-    }
-
-    // 4. GitHub Folder Deletion
-    try {
-      const githubToken = process.env.GITHUB_TOKEN;
-      const owner = 'renugopal';
-      const repo = 'Eventcast.pro';
-      const branch = 'main';
-      const targetPath = `events/${slug}`;
-
-      if (githubToken) {
-        const headers = {
-          'Authorization': `Bearer ${githubToken}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json',
-          'User-Agent': 'Eventcast-Admin',
-        };
-
-        const refRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`, { headers });
-        const refData = await refRes.json();
-        if (refRes.ok) {
-          const latestCommitSha: string = refData.object.sha;
-
-          const commitRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/commits/${latestCommitSha}`, { headers });
-          const commitData = await commitRes.json();
-          if (commitRes.ok) {
-            const rootTreeSha: string = commitData.tree.sha;
-
-            const contentsRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${targetPath}?ref=${branch}`, { headers });
-            if (contentsRes.ok) {
-              const contentsData = await contentsRes.json();
-              const deletionEntries = (contentsData as any[])
-                .filter((item: any) => item.type === 'file')
-                .map((item: any) => ({
-                  path: `${targetPath}/${item.name}`,
-                  mode: '100644' as const,
-                  type: 'blob' as const,
-                  sha: null,
-                }));
-
-              if (deletionEntries.length > 0) {
-                const createTreeRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees`, {
-                  method: 'POST',
-                  headers,
-                  body: JSON.stringify({ base_tree: rootTreeSha, tree: deletionEntries }),
-                });
-                const createTreeData = await createTreeRes.json();
-                if (createTreeRes.ok) {
-                  const createCommitRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/commits`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                      message: `Automated Cleanup: Deleted ${slug}`,
-                      tree: createTreeData.sha,
-                      parents: [latestCommitSha],
-                    }),
-                  });
-                  const createCommitData = await createCommitRes.json();
-                  if (createCommitRes.ok) {
-                    await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`, {
-                      method: 'PATCH',
-                      headers,
-                      body: JSON.stringify({ sha: createCommitData.sha, force: false }),
-                    });
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    } catch (gitErr) {
-      console.error("GitHub cleanup failed:", gitErr);
-    }
-
-    // 5. FINALLY: Delete from Supabase (using Admin)
-    const { error: deleteError } = await db.from('events').delete().eq('id', event.id).eq('studio_id', auth.studioId);
-    if (deleteError) throw new Error(`Supabase Deletion Error: ${deleteError.message}`);
-
-    return NextResponse.json({ success: true, message: "Deleted permanently" });
+    if (archiveError) throw new Error(`Soft Delete Error: ${archiveError.message}`);
+    return NextResponse.json({ success: true, message: 'Event archived successfully' });
 
   } catch (error: any) {
     console.error("Delete Endpoint Error:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-  }
-}
-
-function getPublicId(url: string) {
-  try {
-    const parts = url.split('/');
-    const lastPart = parts.pop();
-    const folder = parts.slice(parts.indexOf('upload') + 2).join('/');
-    const publicId = lastPart?.split('.')[0];
-    return folder ? `${folder}/${publicId}` : publicId || "";
-  } catch {
-    return "";
   }
 }

@@ -9,6 +9,8 @@ export interface MockQueryBuilder extends PromiseLike<QueryResult> {
   eq: Mock<(column: string, value: unknown) => MockQueryBuilder>;
   is: Mock<(column: string, value: unknown) => MockQueryBuilder>;
   neq: Mock<(column: string, value: unknown) => MockQueryBuilder>;
+  not: Mock<(column: string, operator: string, value: unknown) => MockQueryBuilder>;
+  lt: Mock<(column: string, value: unknown) => MockQueryBuilder>;
   ilike: Mock<(column: string, value: unknown) => MockQueryBuilder>;
   limit: Mock<(count: number) => MockQueryBuilder>;
   order: Mock<(column: string, opts?: unknown) => MockQueryBuilder>;
@@ -26,6 +28,8 @@ export function makeQueryBuilder(result: QueryResult): MockQueryBuilder {
     eq: vi.fn(() => builder),
     is: vi.fn(() => builder),
     neq: vi.fn(() => builder),
+    not: vi.fn(() => builder),
+    lt: vi.fn(() => builder),
     ilike: vi.fn(() => builder),
     limit: vi.fn(() => builder),
     order: vi.fn(() => builder),

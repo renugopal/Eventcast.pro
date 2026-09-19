@@ -1,15 +1,28 @@
 # Eventcast Pro — Scheduled Cron Jobs
 #
-# Cloudflare Pages does not support native cron triggers for Next.js routes.
-# This GitHub Actions workflow acts as the external scheduler, calling our
-# cron API endpoint on the live admin panel on a fixed schedule.
+# The eventcast-admin app runs on Cloudflare Workers (OpenNext build,
+# Worker "eventcast-admin-worker"), which has no native cron trigger wired
+# to these Next.js routes. This GitHub Actions workflow acts as the
+# external scheduler instead, calling the Worker's cron API endpoints on a
+# fixed schedule.
+#
+# ADMIN_BASE_URL intentionally targets the Worker's own
+# *.workers.dev hostname, NOT the human-facing production URL
+# (https://studio.eventcast.pro) — that zone's Bot Fight Mode challenges
+# non-browser traffic like a GitHub Actions runner, while workers.dev sits
+# outside the zone entirely. Both hostnames serve the exact same Worker and
+# code; only the routing differs.
 #
 # Required GitHub Secrets (Settings → Secrets → Actions):
-#   CRON_SECRET        — same value as CRON_SECRET env var in Cloudflare Pages dashboard
-#   ADMIN_BASE_URL     — e.g. https://admin.eventcast.pro
+#   CRON_SECRET        — same value as the CRON_SECRET binding configured on eventcast-admin-worker
+#   ADMIN_BASE_URL     — https://eventcast-admin-worker.<account>.workers.dev (NOT studio.eventcast.pro)
 #
 # Schedule (all times UTC — IST = UTC+05:30):
 #   sync-live-status    → every 15 min (keeps YouTube titles & DB status in sync)
+#   event-lifecycle-sweep → daily at 03:00 UTC / 08:30 IST (Draft 7-day
+#                           auto-archive + Archived-Draft 30-day
+#                           auto-permanent-delete). Reuses the same
+#                           CRON_SECRET — no new secret required.
 
 name: Eventcast Cron Jobs
 
@@ -17,6 +30,8 @@ on:
   schedule:
     # ── sync-live-status: every 15 minutes, always ─────────────────────────
     - cron: '*/15 * * * *'
+    # ── event-lifecycle-sweep: once daily ───────────────────────────────────
+    - cron: '0 3 * * *'
 
   # Allow manual triggering from the Actions tab for debugging
   workflow_dispatch:
@@ -29,16 +44,21 @@ on:
         options:
           - both
           - sync-live-status
+          - event-lifecycle-sweep
 
 jobs:
   # ── Job 1: YouTube status sync ────────────────────────────────────────────
   sync-live-status:
     name: Sync Live Status (YouTube ↔ DB)
     runs-on: ubuntu-latest
-    # Run on the 15-min schedule trigger, or manual trigger with matching input
+    # Run only on ITS OWN 15-min schedule tick — now that a second `cron:`
+    # entry shares this same `on.schedule` block, the schedule-triggered
+    # branch must check `github.event.schedule` or this job would also fire
+    # (redundantly, alongside its normal 15-minute cadence) on the new daily
+    # tick below. Manual-trigger behavior is unchanged.
     if: |
-      github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'sync-live-status' || github.event.inputs.job == 'both') ||
-      github.event_name == 'schedule'
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'sync-live-status' || github.event.inputs.job == 'both')) ||
+      (github.event_name == 'schedule' && github.event.schedule == '*/15 * * * *')
 
     steps:
       - name: Call sync-live-status endpoint
@@ -56,3 +76,28 @@ jobs:
             exit 1
           fi
           echo "✅ sync-live-status completed successfully"
+
+  # ── Job 2: Event Lifecycle sweep ──────────────────────────────────────────
+  event-lifecycle-sweep:
+    name: Event Lifecycle Sweep (Draft auto-archive + Archived-Draft auto-delete)
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'event-lifecycle-sweep' || github.event.inputs.job == 'both')) ||
+      (github.event_name == 'schedule' && github.event.schedule == '0 3 * * *')
+
+    steps:
+      - name: Call event-lifecycle-sweep endpoint
+        env:
+          ADMIN_BASE_URL: ${{ secrets.ADMIN_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          echo "⏰ Calling event-lifecycle-sweep at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          HTTP_STATUS=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            "${ADMIN_BASE_URL}/api/cron/event-lifecycle-sweep?secret=${CRON_SECRET}")
+          echo "HTTP Status: $HTTP_STATUS"
+          cat /tmp/response.json
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "❌ event-lifecycle-sweep returned HTTP $HTTP_STATUS"
+            exit 1
+          fi
+          echo "✅ event-lifecycle-sweep completed successfully"

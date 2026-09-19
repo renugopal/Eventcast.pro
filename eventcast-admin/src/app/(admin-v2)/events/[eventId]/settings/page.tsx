@@ -2,29 +2,56 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, ArchiveRestore } from "lucide-react";
+import { Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { authFetch, AuthError } from "@/lib/client-auth";
+import { useAdminAuth } from "../../../_lib/useAdminAuth";
 import { useEventWorkspace } from "../../../_components/event-workspace/EventWorkspaceShell";
 
 /**
- * Event Workspace Settings tab (V2.1 Milestone G). Integrates the existing,
- * already-completed archive/restore capability (`POST /api/events/delete`
- * with `permanent: false`, `POST /api/events/restore`) rather than
- * reimplementing it — this is the one lifecycle action already backed by
- * real evidence (`archived_at`, EVT-004: archive-before-delete). Permanent
- * deletion is deliberately not exposed here: that path still carries legacy
- * Restreamer/Cloudinary/GitHub cleanup calls, which is out of this
- * package's scope.
+ * Event Workspace Settings tab. Archive/Restore (`POST /api/events/delete`
+ * with `permanent: false`, `POST /api/events/restore`) is the existing,
+ * already-completed capability, unchanged here. Permanent Delete is a
+ * separate, deliberately harder-to-reach action: only rendered for an
+ * already-archived event, gated behind a typed slug-confirmation match,
+ * and calls the dedicated guarded endpoint
+ * (`POST /api/events/[eventId]/permanent-delete`) — never this tab's
+ * Archive action, and never the removed `permanent: true` branch that used
+ * to live on `/api/events/delete`.
+ *
+ * `canManage` (owner/admin) hides both the Archive/Restore control and the
+ * Permanent Delete controls for a `member`, who is shown a read-only
+ * explanatory note instead — the same pattern already used in
+ * `PartnerDirectory.tsx`. The server's own role gate on all three routes
+ * remains the real enforcement; this is UI honesty, not a security
+ * boundary.
  */
+
+const ARCHIVED_DRAFT_AUTO_DELETE_DAYS = 30;
+
 export default function EventWorkspaceSettingsPage() {
   const router = useRouter();
+  const { studioMemberRole } = useAdminAuth();
   const { state, reload } = useEventWorkspace();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [confirmSlug, setConfirmSlug] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   if (state.status !== "ready") return null;
   const { event } = state;
   const isArchived = Boolean(event.archived_at);
+  const isDraft = event.page_state === "draft";
+  const canManage = studioMemberRole === "owner" || studioMemberRole === "admin";
+
+  // Plain computation, not useMemo — trivial arithmetic, and this line sits
+  // safely after the early-return guard above.
+  let autoDeleteDays: number | null = null;
+  if (isArchived && isDraft && event.archived_at) {
+    const deadline = new Date(event.archived_at).getTime() + ARCHIVED_DRAFT_AUTO_DELETE_DAYS * 24 * 60 * 60 * 1000;
+    autoDeleteDays = Math.max(0, Math.ceil((deadline - Date.now()) / (24 * 60 * 60 * 1000)));
+  }
 
   async function handleArchiveToggle() {
     setBusy(true);
@@ -50,20 +77,108 @@ export default function EventWorkspaceSettingsPage() {
     }
   }
 
+  async function handlePermanentDelete() {
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      const res = await authFetch(`/api/events/${event.id}/permanent-delete`, {
+        method: "POST",
+        body: JSON.stringify({ confirmSlug }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "This event could not be permanently deleted.");
+      }
+      router.push("/events");
+    } catch (err) {
+      if (err instanceof AuthError) {
+        router.push("/login");
+        return;
+      }
+      setDeleteError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
+
+  const slugMatches = event.slug !== null && confirmSlug.trim() === event.slug;
+
   return (
-    <div className="ec-card space-y-3">
-      <h3 className="ec-section-title flex items-center gap-2">
-        {isArchived ? <ArchiveRestore size={16} /> : <Archive size={16} />} Archive
-      </h3>
-      <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-        {isArchived
-          ? "This event is archived. It is hidden from the normal Events list but not deleted, and can be restored at any time."
-          : "Archiving hides this event from the normal Events list without deleting it. It can be restored at any time."}
-      </p>
-      {error && <div style={{ fontSize: "13px", color: "var(--error)" }}>{error}</div>}
-      <button type="button" className="ec-btn ec-btn-secondary" disabled={busy} onClick={handleArchiveToggle}>
-        {busy ? "Working…" : isArchived ? "Restore event" : "Archive event"}
-      </button>
+    <div className="space-y-4">
+      <div className="ec-card space-y-3">
+        <h3 className="ec-section-title flex items-center gap-2">
+          {isArchived ? <ArchiveRestore size={16} /> : <Archive size={16} />} Archive
+        </h3>
+        <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+          {isArchived
+            ? isDraft
+              ? "This Draft is archived and hidden from the normal Events list. You can restore it before its permanent-deletion deadline."
+              : "This event is archived. It is hidden from the normal Events list but not deleted, and can be restored at any time."
+            : "Archiving hides this event from the normal Events list without deleting it. It can be restored at any time."}
+        </p>
+        {error && <div style={{ fontSize: "13px", color: "var(--error)" }}>{error}</div>}
+        {canManage ? (
+          <button type="button" className="ec-btn ec-btn-secondary" disabled={busy} onClick={handleArchiveToggle}>
+            {busy ? "Working…" : isArchived ? "Restore event" : "Archive event"}
+          </button>
+        ) : (
+          <p style={{ fontSize: "13px", color: "var(--text-tertiary)" }}>
+            Only an owner or admin can archive or restore this event.
+          </p>
+        )}
+      </div>
+
+      {isArchived && (
+        <div className="ec-card space-y-3">
+          <h3 className="ec-section-title flex items-center gap-2" style={{ color: "var(--error)" }}>
+            <Trash2 size={16} /> Delete Permanently
+          </h3>
+
+          {autoDeleteDays !== null && (
+            <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+              Auto-deletes in {autoDeleteDays} day{autoDeleteDays === 1 ? "" : "s"}.
+            </p>
+          )}
+
+          <p style={{ fontSize: "13px", color: "var(--error)", fontWeight: 600 }}>
+            This permanently deletes this event and its removable media (guest photos, thumbnail,
+            gallery, invitation video). This cannot be undone. A retained archival recording, if
+            one exists, is not deleted here and remains subject to its own retention policy.
+          </p>
+
+          {canManage ? (
+            <>
+              <label style={{ fontSize: "13px", color: "var(--text-secondary)", display: "block" }}>
+                Type <code>{event.slug}</code> to confirm.
+              </label>
+              <input
+                type="text"
+                className="ec-input"
+                style={{ width: "100%", maxWidth: "100%" }}
+                value={confirmSlug}
+                onChange={(e) => setConfirmSlug(e.target.value)}
+                placeholder={event.slug ?? ""}
+                disabled={deleteBusy}
+              />
+
+              {deleteError && <div style={{ fontSize: "13px", color: "var(--error)" }}>{deleteError}</div>}
+
+              <button
+                type="button"
+                className="ec-btn ec-btn-danger"
+                disabled={deleteBusy || !slugMatches}
+                onClick={handlePermanentDelete}
+              >
+                {deleteBusy ? "Deleting…" : "Delete Permanently Now"}
+              </button>
+            </>
+          ) : (
+            <p style={{ fontSize: "13px", color: "var(--text-tertiary)" }}>
+              Only an owner or admin can permanently delete this event.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

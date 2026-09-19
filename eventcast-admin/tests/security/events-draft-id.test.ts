@@ -190,6 +190,7 @@ describe('PATCH /api/events/draft/[eventId] — edit and save a Draft', () => {
       timer_target_time: '09:00',
       guest_photo_wall_enabled: true,
       custom_top_title: null,
+      draft_last_activity_at: expect.any(String),
     });
     expect(updateCall.eq.mock.calls).toEqual([
       ['id', 'evt-1'],

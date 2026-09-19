@@ -119,6 +119,12 @@ export async function POST(req: Request) {
         guest_photo_wall_enabled: record.guestPhotoWallEnabled,
         custom_top_title: record.customTopTitle,
         page_state: 'draft',
+        // Explicit start of the 7-day Draft inactivity timer (Event
+        // Lifecycle automation, migration 0038). Written explicitly here
+        // alongside the column's own DEFAULT now() as a deliberate
+        // belt-and-suspenders pair, so a newly-created Draft is never
+        // exempt from the timer even if it is never edited afterward.
+        draft_last_activity_at: new Date().toISOString(),
         // Persistence-owned canonical visibility default (Visibility
         // Foundation Gate) — never client-supplied. Inert while
         // page_state='draft' (both the Worker and events_public_select_policy

@@ -160,6 +160,12 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       timer_target_time: legacy.timerTargetTime,
       guest_photo_wall_enabled: record.guestPhotoWallEnabled,
       custom_top_title: record.customTopTitle,
+      // Resets the 7-day Draft inactivity timer (Event Lifecycle
+      // automation, migration 0038). Only reached once this request has
+      // already passed validation and the page_state !== 'draft'
+      // rejection above, so this only ever stamps a real, accepted edit
+      // to an actual Draft.
+      draft_last_activity_at: new Date().toISOString(),
     })
     .eq('id', existing.id)
     .eq('studio_id', auth.studioId);

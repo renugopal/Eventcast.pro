@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin, canMutateStudioResources } from '@/lib/auth';
 import { getOwnedEventById, isOwnershipError } from '@/lib/ownership';
 
 interface RestorableEventRow {
@@ -10,6 +10,13 @@ interface RestorableEventRow {
 export async function POST(req: Request) {
   const auth = await requireAdmin(req);
   if (auth instanceof NextResponse) return auth;
+
+  if (!canMutateStudioResources(auth.studioMemberRole)) {
+    return NextResponse.json(
+      { success: false, error: 'Forbidden: only an owner or admin may restore an event' },
+      { status: 403 }
+    );
+  }
 
   try {
     const { id } = await req.json();

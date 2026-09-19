@@ -1,18 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createFromMock, authSuccess, type MockQueryBuilder } from './support/mocks';
+import { createFromMock, authSuccess, type MockQueryBuilder, type AuthSuccess } from './support/mocks';
+import type { StudioMemberRole } from '@/lib/auth';
 
-const { mockDb, mockRequireAdmin } = vi.hoisted(() => {
+type RestoreAuthSuccess = AuthSuccess & { studioMemberRole: StudioMemberRole };
+function restoreAuth(studioMemberRole: StudioMemberRole = 'owner'): RestoreAuthSuccess {
+  return { ...authSuccess(), studioMemberRole };
+}
+
+const { mockDb, mockRequireAdmin, defaultFrom } = vi.hoisted(() => {
+  const defaultFrom = vi.fn((table: string): MockQueryBuilder => {
+    throw new Error(`mockDb.from not configured for table '${table}' in this test`);
+  });
   return {
-    mockDb: {
-      from: vi.fn((table: string): MockQueryBuilder => {
-        throw new Error(`mockDb.from not configured for table '${table}' in this test`);
-      }),
-    },
-    mockRequireAdmin: vi.fn(async () => authSuccess()),
+    mockDb: { from: defaultFrom },
+    mockRequireAdmin: vi.fn(async () => ({} as RestoreAuthSuccess)),
+    defaultFrom,
   };
 });
 
-vi.mock('@/lib/auth', () => ({ requireAdmin: mockRequireAdmin }));
+vi.mock('@/lib/auth', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/auth')>('@/lib/auth');
+  return { ...actual, requireAdmin: mockRequireAdmin };
+});
 vi.mock('@/lib/supabase', () => ({ supabase: mockDb, supabaseAdmin: mockDb }));
 
 async function loadRoute() {
@@ -31,7 +40,55 @@ function makeRequest(body: unknown): Request {
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
-  mockRequireAdmin.mockResolvedValue(authSuccess());
+  // Every test starts with the same known, fail-loud `mockDb.from` — tests
+  // that need real data explicitly reassign it, so no test can accidentally
+  // inherit a mock configuration left over from a previous test.
+  mockDb.from = defaultFrom;
+  defaultFrom.mockClear();
+  mockRequireAdmin.mockResolvedValue(restoreAuth());
+});
+
+describe('POST /api/events/restore — authorization', () => {
+  it('rejects a member-role studio user before any mutation', async () => {
+    mockRequireAdmin.mockResolvedValue(restoreAuth('member'));
+
+    const POST = await loadRoute();
+    const res = await POST(makeRequest({ id: 'evt-1' }));
+
+    expect(res.status).toBe(403);
+    expect(mockDb.from).not.toHaveBeenCalled();
+  });
+
+  it('allows an owner to restore', async () => {
+    mockDb.from = createFromMock({
+      events: [
+        { data: { id: 'evt-1' }, error: null },
+        { data: null, error: null }, // restore update
+      ],
+    });
+
+    const POST = await loadRoute();
+    const res = await POST(makeRequest({ id: 'evt-1' }));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ success: true, message: 'Event restored successfully' });
+  });
+
+  it('allows an admin to restore', async () => {
+    mockRequireAdmin.mockResolvedValue(restoreAuth('admin'));
+    mockDb.from = createFromMock({
+      events: [
+        { data: { id: 'evt-1' }, error: null },
+        { data: null, error: null },
+      ],
+    });
+
+    const POST = await loadRoute();
+    const res = await POST(makeRequest({ id: 'evt-1' }));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ success: true, message: 'Event restored successfully' });
+  });
 });
 
 describe('POST /api/events/restore — ownership', () => {
