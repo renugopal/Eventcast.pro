@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Calendar, Copy, ExternalLink, Eye, Globe, Image as ImageIcon, MapPin, Pencil, Users } from "lucide-react";
+import { AlertTriangle, Calendar, Copy, ExternalLink, Eye, Globe, Image as ImageIcon, Lock, MapPin, Pencil, Users } from "lucide-react";
 import { authFetch, AuthError } from "@/lib/client-auth";
 import { scheduledStartAtToIstDateTimeLocal, type EventPublicVisibility } from "@/lib/eventContract";
 import { uploadToR2 } from "@/lib/uploadHelpers";
 import { publicEventUrl } from "@/lib/publicEventUrl";
+import { fetchLivestreamStatus } from "@/lib/livestreamClient";
 import {
   attachEventCredit,
   createPartner,
@@ -20,6 +21,7 @@ import {
 import { DraftEventForm, isDraftEventFormValid, type DraftEventFormValues } from "../../../_components/draft-event/DraftEventForm";
 import { PartnerCreditSection, type DisplayCredit } from "../../../_components/draft-event/PartnerCreditSection";
 import { useEventWorkspace, type EventWorkspaceEvent } from "../../../_components/event-workspace/EventWorkspaceShell";
+import { useAdminAuth } from "../../../_lib/useAdminAuth";
 
 function draftRowToFormValues(event: EventWorkspaceEvent): DraftEventFormValues {
   return {
@@ -32,6 +34,24 @@ function draftRowToFormValues(event: EventWorkspaceEvent): DraftEventFormValues 
     customTopTitle: event.custom_top_title || "",
     guestPhotoWallEnabled: event.guest_photo_wall_enabled !== false,
   };
+}
+
+/**
+ * Formats an Asia/Kolkata wall-clock `datetime-local` value (the same shape
+ * `DraftEventForm` edits) for display, without going through a browser-local
+ * `Date` parse — reuses the same fixed-`+05:30` construction
+ * `combineIstDateTimeToScheduledStartAt` uses, purely for a human-readable
+ * label in the schedule-change confirm card below.
+ */
+function formatIstLocal(dateTimeLocal: string): string {
+  if (!dateTimeLocal) return "Not set";
+  const date = new Date(`${dateTimeLocal}:00+05:30`);
+  if (Number.isNaN(date.getTime())) return dateTimeLocal;
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    dateStyle: "full",
+    timeStyle: "short",
+  }).format(date);
 }
 
 function creditsToDisplay(credits: EventCreditRecord[], partners: PartnerRecord[]): DisplayCredit[] {
@@ -62,11 +82,26 @@ function creditsToDisplay(credits: EventCreditRecord[], partners: PartnerRecord[
  */
 export default function AdminV2EventPageTab() {
   const router = useRouter();
+  const { studioMemberRole } = useAdminAuth();
+  const canManage = studioMemberRole === "owner" || studioMemberRole === "admin";
   const { state, reload } = useEventWorkspace();
   const eventId = state.status === "ready" ? state.event.id : null;
 
   const [isEditing, setIsEditing] = useState(false);
   const [editValues, setEditValues] = useState<DraftEventFormValues | null>(null);
+  // Post-Publish Core Details Editing package: which endpoint/contract this
+  // edit session targets. "draft" is the pre-existing Draft-only PATCH path,
+  // unchanged. "published" is the new PATCH /api/events/[eventId]/details
+  // path, with its own slug-locked form mode and schedule-change confirm
+  // step below.
+  const [editTarget, setEditTarget] = useState<"draft" | "published" | null>(null);
+  const [originalScheduledLocal, setOriginalScheduledLocal] = useState("");
+  const [showScheduleConfirm, setShowScheduleConfirm] = useState(false);
+  // Fetched once when entering published-edit mode, best-effort — used only
+  // to add an informational line to the schedule-change confirm card. `null`
+  // means "unknown" (e.g. the fetch failed) and that line is simply omitted
+  // rather than guessing.
+  const [livestreamEnabled, setLivestreamEnabled] = useState<boolean | null>(null);
   // Public Page Publish (Baseline CRT-012 — page publish only; it does not
   // start a livestream). One call to the controlled Publish endpoint, which
   // performs the credit snapshot + Draft → Published transition atomically.
@@ -169,20 +204,77 @@ export default function AdminV2EventPageTab() {
   if (state.status !== "ready") return null;
   const event = state.event;
 
-  async function handleSave() {
-    if (!editValues) return;
+  function startDraftEdit() {
+    const values = draftRowToFormValues(event);
+    setEditValues(values);
+    setEditTarget("draft");
+    setOriginalScheduledLocal(values.scheduledStartAtLocal);
+    setShowScheduleConfirm(false);
+    setSubmitError(null);
+    setIsEditing(true);
+  }
+
+  // Fetches livestream status best-effort, purely to inform the schedule-
+  // change confirm card below — never blocks entering edit mode, and a
+  // failure just means that one informational line is omitted.
+  async function startPublishedEdit() {
+    const values = draftRowToFormValues(event);
+    setEditValues(values);
+    setEditTarget("published");
+    setOriginalScheduledLocal(values.scheduledStartAtLocal);
+    setShowScheduleConfirm(false);
+    setSubmitError(null);
+    setLivestreamEnabled(null);
+    setIsEditing(true);
+    try {
+      const { status } = await fetchLivestreamStatus(authFetch, event.id);
+      setLivestreamEnabled(status.enabled);
+    } catch {
+      // Unknown — the confirm card simply omits the livestream-status line.
+    }
+  }
+
+  function cancelEdit() {
+    setSubmitError(null);
+    setIsEditing(false);
+    setEditValues(null);
+    setEditTarget(null);
+    setShowScheduleConfirm(false);
+    setLivestreamEnabled(null);
+  }
+
+  async function performSave() {
+    if (!editValues || !editTarget) return;
     setIsSubmitting(true);
     setSubmitError(null);
     try {
-      const res = await authFetch(`/api/events/draft/${event.id}`, {
+      const endpoint =
+        editTarget === "published" ? `/api/events/${event.id}/details` : `/api/events/draft/${event.id}`;
+      // The published-details endpoint rejects any request body that even
+      // mentions `slug` (locked after Publish) — build its body explicitly
+      // rather than forwarding the full form-values object, which still
+      // carries the (unchanged, read-only) slug field for display purposes.
+      const body =
+        editTarget === "published"
+          ? {
+              groomName: editValues.groomName,
+              brideName: editValues.brideName,
+              scheduledStartAtLocal: editValues.scheduledStartAtLocal,
+              venueName: editValues.venueName,
+              venueMapLink: editValues.venueMapLink,
+              customTopTitle: editValues.customTopTitle,
+              guestPhotoWallEnabled: editValues.guestPhotoWallEnabled,
+            }
+          : editValues;
+      const res = await authFetch(endpoint, {
         method: "PATCH",
-        body: JSON.stringify(editValues),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Draft update failed");
+        throw new Error(data.error || "Update failed");
       }
-      setIsEditing(false);
+      cancelEdit();
       reload();
     } catch (err) {
       if (err instanceof AuthError) {
@@ -193,6 +285,17 @@ export default function AdminV2EventPageTab() {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  const scheduleWasChanged =
+    editTarget === "published" && !!editValues && editValues.scheduledStartAtLocal !== originalScheduledLocal;
+
+  function handleSaveClick() {
+    if (scheduleWasChanged && !showScheduleConfirm) {
+      setShowScheduleConfirm(true);
+      return;
+    }
+    performSave();
   }
 
   async function handlePublish() {
@@ -311,16 +414,39 @@ export default function AdminV2EventPageTab() {
     }
   }
 
-  if (isEditing && editValues) {
+  if (isEditing && editValues && editTarget) {
     const canSave = isDraftEventFormValid(editValues, event.template_id || "");
+    const isPastSchedule =
+      Boolean(editValues.scheduledStartAtLocal) &&
+      new Date(`${editValues.scheduledStartAtLocal}:00+05:30`).getTime() < Date.now();
+
     return (
       <div className="flex flex-col gap-2">
         <div className="ec-section-header">
           <div>
-            <h1 className="ec-page-title">Edit Draft</h1>
+            <h1 className="ec-page-title">{editTarget === "published" ? "Edit event details" : "Edit Draft"}</h1>
           </div>
         </div>
-        <DraftEventForm mode="edit" values={editValues} onChange={setEditValues} templateId={event.template_id || ""} />
+
+        {editTarget === "published" && (
+          <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+            Changes appear on the published page within a few minutes. The event link (slug) is locked and cannot be
+            changed here.
+          </p>
+        )}
+
+        <DraftEventForm
+          mode={editTarget === "published" ? "published" : "edit"}
+          values={editValues}
+          onChange={(next) => {
+            setEditValues(next);
+            // Any further edit forces a fresh review of the confirm card
+            // below, rather than letting a stale "From / To" pair be
+            // confirmed against a value the provider has since changed again.
+            setShowScheduleConfirm(false);
+          }}
+          templateId={event.template_id || ""}
+        />
 
         {submitError && (
           <div className="ec-card" style={{ borderColor: "#FECDD3", color: "var(--error)" }}>
@@ -328,22 +454,57 @@ export default function AdminV2EventPageTab() {
           </div>
         )}
 
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            className="ec-btn ec-btn-ghost"
-            onClick={() => {
-              setSubmitError(null);
-              setIsEditing(false);
-              setEditValues(null);
-            }}
-          >
-            Cancel
-          </button>
-          <button type="button" disabled={!canSave || isSubmitting} className="ec-btn ec-btn-primary" onClick={handleSave}>
-            {isSubmitting ? "Saving…" : "Save changes"}
-          </button>
-        </div>
+        {editTarget === "published" && showScheduleConfirm && (
+          <div className="ec-card space-y-3" style={{ borderColor: "#FDE68A" }}>
+            <h3 className="ec-section-title flex items-center gap-2">
+              <AlertTriangle size={16} style={{ color: "#B45309" }} /> Confirm schedule change
+            </h3>
+            <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+              <div>
+                <strong>From:</strong> {formatIstLocal(originalScheduledLocal)}
+              </div>
+              <div>
+                <strong>To:</strong> {formatIstLocal(editValues.scheduledStartAtLocal)}
+              </div>
+            </div>
+            <ul style={{ fontSize: "13px", color: "var(--text-secondary)", paddingLeft: "18px", margin: 0 }}>
+              <li>The countdown and schedule shown on the published page will update to the new time within a few minutes.</li>
+              <li>This does not start, stop, or reschedule any livestream.</li>
+              {livestreamEnabled === true && (
+                <li>A livestream is currently enabled for this event — it is controlled separately from the Live tab and is not affected by this change.</li>
+              )}
+              {isPastSchedule && <li>The new date and time is already in the past.</li>}
+            </ul>
+            <div className="flex items-center justify-between">
+              <button type="button" className="ec-btn ec-btn-ghost" onClick={() => setShowScheduleConfirm(false)}>
+                Back
+              </button>
+              <button
+                type="button"
+                className="ec-btn ec-btn-primary"
+                disabled={!canSave || isSubmitting}
+                onClick={performSave}
+              >
+                {isSubmitting ? "Saving…" : "Confirm and save"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!(editTarget === "published" && showScheduleConfirm) && (
+          <div className="flex items-center justify-between">
+            <button type="button" className="ec-btn ec-btn-ghost" onClick={cancelEdit}>
+              Cancel
+            </button>
+            <button type="button" disabled={!canSave || isSubmitting} className="ec-btn ec-btn-primary" onClick={handleSaveClick}>
+              {isSubmitting
+                ? "Saving…"
+                : scheduleWasChanged
+                  ? "Review schedule change"
+                  : "Save changes"}
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -356,16 +517,14 @@ export default function AdminV2EventPageTab() {
         <button type="button" className="ec-btn ec-btn-secondary" onClick={togglePreview}>
           <Eye size={14} /> {previewState.status === "ready" || previewState.status === "loading" ? "Hide preview" : "Preview"}
         </button>
-        {isDraft && (
-          <button
-            type="button"
-            className="ec-btn ec-btn-secondary"
-            onClick={() => {
-              setEditValues(draftRowToFormValues(event));
-              setIsEditing(true);
-            }}
-          >
+        {isDraft && canManage && (
+          <button type="button" className="ec-btn ec-btn-secondary" onClick={startDraftEdit}>
             <Pencil size={14} /> Edit
+          </button>
+        )}
+        {!isDraft && !event.archived_at && canManage && (
+          <button type="button" className="ec-btn ec-btn-secondary" onClick={startPublishedEdit}>
+            <Pencil size={14} /> Edit details
           </button>
         )}
       </div>
@@ -494,7 +653,14 @@ export default function AdminV2EventPageTab() {
           <Users size={16} /> Identity
         </h3>
         <div style={{ fontSize: "14px", color: "var(--text-secondary)" }}>Event ID: {event.id}</div>
-        <div style={{ fontSize: "14px", color: "var(--text-secondary)" }}>Link: {event.slug}</div>
+        <div style={{ fontSize: "14px", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "6px" }}>
+          Link: {event.slug}
+          {!isDraft && (
+            <span title="Locked after publishing so shared links keep working" style={{ display: "inline-flex" }}>
+              <Lock size={12} />
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="ec-card space-y-4">

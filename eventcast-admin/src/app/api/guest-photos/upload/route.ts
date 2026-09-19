@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
     // a query-level `.in()`) to keep this query's shape unchanged.
     const { data: eventRow, error: eventErr } = await supabase
       .from('events')
-      .select('id, guest_photo_limit, event_visibility, guest_photo_moderation')
+      .select('id, guest_photo_limit, event_visibility, guest_photo_moderation, guest_photo_wall_enabled')
       .eq('id', eventId)
       .eq('page_state', 'published')
       .is('archived_at', null)
@@ -185,6 +185,25 @@ export async function POST(req: NextRequest) {
     const CANONICAL_PUBLISHED_VISIBILITIES = ['public', 'unlisted'];
     if (eventErr || !eventRow || !CANONICAL_PUBLISHED_VISIBILITIES.includes(eventRow.event_visibility)) {
       return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
+    }
+
+    // Post-Publish Core Details Editing package: the Guest Photo Wall toggle
+    // (events.guest_photo_wall_enabled) previously only controlled whether
+    // the wall rendered on the public page — this endpoint itself had no
+    // check, so a disabled wall could still silently accept uploads via a
+    // direct request. `!== false` mirrors the same default-on convention
+    // used everywhere else this column is read (eventContract.ts,
+    // weddingTemplateRenderer.ts) — only an explicit `false` blocks uploads.
+    // Unlike the checks above (which give the same generic 404 used for
+    // "does not exist/not eligible" so cross-tenant probing can't
+    // distinguish cases), this is a real, existing, eligible event whose
+    // owner has deliberately turned this feature off — a distinct 403 with a
+    // clear message is the honest response, not a fabricated 404.
+    if (eventRow.guest_photo_wall_enabled === false) {
+      return NextResponse.json(
+        { success: false, error: 'The Guest Photo Wall is turned off for this event.' },
+        { status: 403 }
+      );
     }
 
     // ── Rate limiting (per IP + event) — BEFORE any R2 write ──────────────────

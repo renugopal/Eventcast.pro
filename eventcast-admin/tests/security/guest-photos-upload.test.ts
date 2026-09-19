@@ -221,6 +221,36 @@ describe('POST /api/guest-photos/upload — rate limiting', () => {
     expect(insertCall.insert).toHaveBeenCalledWith(expect.objectContaining({ approved: true }));
   });
 
+  it('rejects an upload with 403 and a clear message when Guest Photo Wall is explicitly disabled, before rate-limit or R2 work', async () => {
+    mockDb.from = createFromMock({
+      events: [{ data: { id: 'evt-1', guest_photo_limit: 50, event_visibility: 'public', guest_photo_wall_enabled: false }, error: null }],
+    });
+    const POST = await loadRoute();
+    const res = await POST(uploadReq());
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ success: false, error: 'The Guest Photo Wall is turned off for this event.' });
+    expect(mockDb.rpc).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('allows an upload when guest_photo_wall_enabled is null/undefined (default-on)', async () => {
+    mockDb.rpc.mockResolvedValue({ data: true, error: null });
+    mockDb.from = createFromMock({
+      events: [{ data: { id: 'evt-1', guest_photo_limit: 50, event_visibility: 'public', guest_photo_wall_enabled: null }, error: null }],
+      guest_photos: [
+        { data: null, error: null, count: 0 } as QueryResult,
+        { data: { id: 'photo-1' }, error: null },
+      ],
+    });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 200 })));
+
+    const POST = await loadRoute();
+    const res = await POST(uploadReq());
+
+    expect(res.status).toBe(200);
+  });
+
   it('allows the same normal upload for a Published + Unlisted event (Visibility Foundation Gate compatibility)', async () => {
     mockDb.rpc.mockResolvedValue({ data: true, error: null });
     mockDb.from = createFromMock({

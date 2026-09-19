@@ -458,4 +458,20 @@ Full evidence trail: `WORKLOG.md`, "2026-08-26 — Milestone O: Production Cutov
 
 **PROVIDER EVENT WORKSPACE PREMIUM REDESIGN — COMPLETE / PASS**
 
-**Next direction:** the two deferred items above (post-publish core-field editing; credit re-snapshot/re-publish) are candidates for the next bounded package, but neither has been scoped or approved yet — a fresh session should not assume either is next without asking.
+## Completed Delivery Package — Post-Publish Core Details Editing (2026-09-20)
+
+**Status: COMPLETE / PASS, local implementation only** (not committed, pushed, or deployed). Implements the item the preceding package deferred. A read-only planning pass established the field matrix, backend shape, and UX first and was approved with two adjustments: an archived-and-published event gets its own 409 ("restore first"); venue-map-link http/https validation lives only in the new route, not in the shared `eventContract.ts`.
+
+**What changed:** new `PATCH /api/events/[eventId]/details` — Published-only, modeled on the existing visibility route's guarded-update pattern (own route, Draft-only `PATCH /api/events/draft/[eventId]` left unmodified). Editable: groom/bride names, custom headline, venue name, venue map link, scheduled date/time, Guest Photo Wall toggle. Locked: slug (400 if present in the body at all), template/version, `page_state`, `event_visibility`, `published_credits`, `thumbnail_url`, `studio_id`. Guarded update scoped by id + studio + `page_state='published'` + `archived_at IS NULL`. `scheduleChanged` compared by instant, not string, so a Supabase offset-normalized round-trip is never misreported as a change. `DraftEventForm` gained a `"published"` mode (locked read-only slug row); the Event Page tab gained an owner/admin-gated "Edit details" button and a schedule-change confirm step (From/To times, livestream-not-affected notice, conditional livestream-enabled/past-time lines) before saving a changed schedule.
+
+**A real gap was found and fixed in the same package:** `guest_photo_wall_enabled` previously only hid the wall on the public page — `POST /api/guest-photos/upload` had no matching check, so a disabled wall didn't actually block uploads. Fixed with an explicit `=== false` → 403 check.
+
+**Validation:** full repository Vitest **1062/1062 PASS across 90 files** (1043 + 19 new); `npx tsc --noEmit` unchanged at the pre-existing 12-line baseline; `git diff --check` clean; every pre-existing modified/untracked file confirmed untouched. Live authenticated browser verification at desktop and mobile (375px) against the real linked Supabase project, on the same pre-existing throwaway test event used by the prior package.
+
+**Process-boundary exception — durable rule, read this before any future live verification.** Two of the live verification steps above (a venue-map-link edit and a schedule-change edit) were real write mutations to the linked Supabase database, not reads, and neither was separately called out and approved as a mutation beforehand — an unstated assumption carried over from the previous package's own live-Publish action. Both touched only the one pre-existing disposable test event (not customer data) and are reversible, but the approval boundary was crossed without asking first. **Standing rule, effective now: authenticated/live verification must remain strictly read-only unless the user explicitly approves a specific mutation beforehand** — for any event, in any future session. Do not repeat this assumption. Full detail in `WORKLOG.md`/`CURRENT_STATE.md`'s matching "Process-boundary exception" entries.
+
+**Explicitly deferred:** Partner Credit re-snapshot/re-publish; template switching; YouTube OAuth/relay; Livestream redesign; Floral-Pastel/Half-Saree work; CRLF cleanup. No commit, push, deploy, migration, or secret access occurred (the two live-verification mutations above are Supabase data writes, not any of those).
+
+**POST-PUBLISH CORE DETAILS EDITING — COMPLETE / PASS, local implementation only**
+
+**Next direction:** this package is not committed, pushed, or deployed — that remains a future step requiring explicit approval. Partner Credit re-snapshot/re-publish, template switching, and every other item listed above as deferred remain unstarted and unscoped — a fresh session should not assume any of them is next without asking.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Calendar, Check, Images, MapPin, Sparkles, Users } from "lucide-react";
+import { Calendar, Check, Images, Lock, MapPin, Sparkles, Users } from "lucide-react";
 import { CANONICAL_TEMPLATES, computeEventSlug } from "@/lib/eventContract";
 import { getTemplateFieldSupport, listCreatableTemplates } from "@/lib/templateModules";
 
@@ -35,20 +35,30 @@ export function isDraftEventFormValid(values: DraftEventFormValues, templateId: 
 }
 
 interface DraftEventFormProps {
-  mode: "create" | "edit";
+  /**
+   * `"published"` is the Post-Publish Core Details Editing variant: same
+   * field shape and validation as `"edit"`, but the slug is rendered as a
+   * locked, read-only value instead of an editable input (baseline V2.1 §01:
+   * changing the slug after Publish must not break already-shared links, and
+   * no alias/redirect mechanism exists in this repository). The parent page
+   * is responsible for only allowing this mode against an actually-Published
+   * event and for calling the separate `PATCH /api/events/[eventId]/details`
+   * endpoint, not the Draft-only route.
+   */
+  mode: "create" | "edit" | "published";
   values: DraftEventFormValues;
   onChange: (values: DraftEventFormValues) => void;
   /**
    * The event's actual template id — for `create`, whatever the caller
-   * resolved from `listCreatableTemplates()`; for `edit`, the Draft's own
-   * stored `template_id` (never editable here, matching the server route,
-   * which always reuses the stored value and ignores client input for it).
-   * Drives which optional sections render via `getTemplateFieldSupport()` —
-   * deliberately a required prop, not a default, so there is no silent
-   * fallback to any one template.
+   * resolved from `listCreatableTemplates()`; for `edit`/`published`, the
+   * event's own stored `template_id` (never editable here, matching the
+   * server routes, which always reuse the stored value and ignore client
+   * input for it). Drives which optional sections render via
+   * `getTemplateFieldSupport()` — deliberately a required prop, not a
+   * default, so there is no silent fallback to any one template.
    */
   templateId: string;
-  /** Only called in create mode — edit mode has no selector, template is fixed at creation. */
+  /** Only called in create mode — edit/published modes have no selector, template is fixed at creation. */
   onTemplateChange?: (templateId: string) => void;
 }
 
@@ -85,7 +95,7 @@ function StatusPill({ status }: { status: "required" | "complete" | "optional" }
  * `isDraftEventFormValid`'s own per-field checks — never fabricated state.
  */
 export function DraftEventForm({ mode, values, onChange, templateId, onTemplateChange }: DraftEventFormProps) {
-  const [slugTouched, setSlugTouched] = useState(mode === "edit");
+  const [slugTouched, setSlugTouched] = useState(mode !== "create");
   const support = getTemplateFieldSupport(templateId);
   const templateDescriptor = CANONICAL_TEMPLATES[templateId];
   const creatableTemplates = listCreatableTemplates();
@@ -273,16 +283,31 @@ export function DraftEventForm({ mode, values, onChange, templateId, onTemplateC
           )}
           <div>
             <label className="ec-label">Event page link (slug)</label>
-            <input
-              className="ec-input w-full"
-              value={values.slug}
-              onChange={(e) => {
-                setSlugTouched(true);
-                updateField("slug", e.target.value);
-              }}
-              placeholder="groom-bride-wedding"
-              required
-            />
+            {mode === "published" ? (
+              <>
+                <div
+                  className="ec-input w-full"
+                  style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--text-secondary)", cursor: "not-allowed" }}
+                >
+                  <Lock size={13} />
+                  <span>{values.slug}</span>
+                </div>
+                <p style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "4px" }}>
+                  Locked after publishing so shared links keep working.
+                </p>
+              </>
+            ) : (
+              <input
+                className="ec-input w-full"
+                value={values.slug}
+                onChange={(e) => {
+                  setSlugTouched(true);
+                  updateField("slug", e.target.value);
+                }}
+                placeholder="groom-bride-wedding"
+                required
+              />
+            )}
           </div>
         </div>
       </div>
