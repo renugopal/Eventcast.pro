@@ -250,6 +250,43 @@ export async function deleteEventCredit(fetcher: Fetcher, eventId: string, credi
   await parseJsonResponse(res, 'Could not remove this credit');
 }
 
+/**
+ * Post-Publish "Update published credits" (frozen `events.published_credits`
+ * snapshot vs. the current editable credits). Both values are derived
+ * server-side by `GET/POST /api/events/[eventId]/published-credits`; the
+ * client only displays them and triggers the explicit refresh — it never
+ * computes or submits a snapshot of its own.
+ */
+export interface PublishedCreditsStatusRecord {
+  pageState: string | null;
+  archived: boolean;
+  needsUpdate: boolean;
+  frozenCount: number | null;
+  currentCount: number;
+}
+
+export async function fetchPublishedCreditsStatus(
+  fetcher: Fetcher,
+  eventId: string
+): Promise<PublishedCreditsStatusRecord> {
+  const res = await fetcher(`/api/events/${eventId}/published-credits`);
+  const data = await parseJsonResponse<PublishedCreditsStatusRecord>(res, 'Failed to load published credit status');
+  return {
+    pageState: data.pageState,
+    archived: data.archived,
+    needsUpdate: data.needsUpdate,
+    frozenCount: data.frozenCount,
+    currentCount: data.currentCount,
+  };
+}
+
+/** Sends no body: the server derives the new snapshot itself. */
+export async function refreshPublishedCredits(fetcher: Fetcher, eventId: string): Promise<{ creditCount: number }> {
+  const res = await fetcher(`/api/events/${eventId}/published-credits`, { method: 'POST' });
+  const data = await parseJsonResponse<{ creditCount: number }>(res, 'Could not update the published credits');
+  return { creditCount: data.creditCount };
+}
+
 export interface AttachQueuedCreditsResult {
   attached: Array<{ credit: EventCreditRecord; queued: QueuedCredit }>;
   failures: Array<{ credit: QueuedCredit; error: string }>;

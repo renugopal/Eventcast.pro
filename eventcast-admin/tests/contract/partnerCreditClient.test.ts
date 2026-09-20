@@ -9,9 +9,11 @@ import {
   EMPTY_PARTNER_FORM,
   fetchEventCredits,
   fetchPartners,
+  fetchPublishedCreditsStatus,
   filterPartners,
   partnerFormToPayload,
   partnerToFormValues,
+  refreshPublishedCredits,
   updateEventCredit,
   updatePartner,
   type EventCreditRecord,
@@ -171,6 +173,50 @@ describe('event credit attach/update/delete', () => {
   it('deleteEventCredit surfaces a server failure', async () => {
     const fetcher = vi.fn<Fetcher>().mockResolvedValue(jsonResponse({ success: false, error: 'Event credit not found' }, 404));
     await expect(deleteEventCredit(fetcher, 'event-1', 'missing')).rejects.toThrow('Event credit not found');
+  });
+});
+
+describe('published credits — status and explicit refresh', () => {
+  it('fetchPublishedCreditsStatus GETs the scoped endpoint and returns only the status fields', async () => {
+    const fetcher = vi.fn<Fetcher>().mockResolvedValue(
+      jsonResponse({
+        success: true,
+        id: 'event-1',
+        pageState: 'published',
+        archived: false,
+        needsUpdate: true,
+        frozenCount: 1,
+        currentCount: 2,
+        frozenCredits: [{ businessName: 'Old' }],
+        currentCredits: [{ businessName: 'Old' }, { businessName: 'New' }],
+      })
+    );
+    const status = await fetchPublishedCreditsStatus(fetcher, 'event-1');
+
+    expect(fetcher).toHaveBeenCalledWith('/api/events/event-1/published-credits');
+    expect(status).toEqual({ pageState: 'published', archived: false, needsUpdate: true, frozenCount: 1, currentCount: 2 });
+  });
+
+  it('fetchPublishedCreditsStatus surfaces a server failure instead of defaulting to "up to date"', async () => {
+    const fetcher = vi.fn<Fetcher>().mockResolvedValue(jsonResponse({ success: false, error: 'Event not found' }, 404));
+    await expect(fetchPublishedCreditsStatus(fetcher, 'missing')).rejects.toThrow('Event not found');
+  });
+
+  it('refreshPublishedCredits POSTs with no body — the server derives the snapshot', async () => {
+    const fetcher = vi.fn<Fetcher>().mockResolvedValue(jsonResponse({ success: true, creditCount: 2, publishedCredits: [] }));
+    const result = await refreshPublishedCredits(fetcher, 'event-1');
+
+    expect(fetcher).toHaveBeenCalledWith('/api/events/event-1/published-credits', { method: 'POST' });
+    const [, init] = fetcher.mock.calls[0];
+    expect(init).not.toHaveProperty('body');
+    expect(result).toEqual({ creditCount: 2 });
+  });
+
+  it('refreshPublishedCredits surfaces the server conflict message verbatim', async () => {
+    const fetcher = vi.fn<Fetcher>().mockResolvedValue(
+      jsonResponse({ success: false, error: 'This event is archived. Restore it before updating its published credits.' }, 409)
+    );
+    await expect(refreshPublishedCredits(fetcher, 'event-1')).rejects.toThrow(/archived/);
   });
 });
 

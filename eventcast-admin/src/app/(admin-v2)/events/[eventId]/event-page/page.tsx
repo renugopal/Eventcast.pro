@@ -14,9 +14,12 @@ import {
   deleteEventCredit,
   fetchEventCredits,
   fetchPartners,
+  fetchPublishedCreditsStatus,
+  refreshPublishedCredits,
   updateEventCredit,
   type EventCreditRecord,
   type PartnerRecord,
+  type PublishedCreditsStatusRecord,
 } from "@/lib/partnerCreditClient";
 import { DraftEventForm, isDraftEventFormValid, type DraftEventFormValues } from "../../../_components/draft-event/DraftEventForm";
 import { PartnerCreditSection, type DisplayCredit } from "../../../_components/draft-event/PartnerCreditSection";
@@ -149,10 +152,56 @@ export default function AdminV2EventPageTab() {
   const [creditsLoading, setCreditsLoading] = useState(true);
   const [creditsError, setCreditsError] = useState<string | null>(null);
 
+  // Post-Publish "Update published credits": whether the frozen
+  // `published_credits` snapshot still matches the current editable credits.
+  // Both sides are computed by the server (GET .../published-credits); this
+  // tab never compares or builds a snapshot itself. Re-fetched after every
+  // credit change below and after a successful refresh.
+  const [publishedCreditsStatus, setPublishedCreditsStatus] = useState<PublishedCreditsStatusRecord | null>(null);
+  const [refreshState, setRefreshState] = useState<
+    { status: "idle" } | { status: "refreshing" } | { status: "error"; message: string } | { status: "done" }
+  >({ status: "idle" });
+
+  const isPublishedPage = state.status === "ready" && state.event.page_state !== "draft";
+
+  async function reloadPublishedCreditsStatus() {
+    if (!eventId) return;
+    try {
+      setPublishedCreditsStatus(await fetchPublishedCreditsStatus(authFetch, eventId));
+    } catch (err) {
+      if (err instanceof AuthError) {
+        router.push("/login");
+        return;
+      }
+      // Best-effort status: a failed status read leaves the card in its
+      // "unknown" state rather than claiming the page is up to date.
+      setPublishedCreditsStatus(null);
+    }
+  }
+
   async function reloadCredits() {
     if (!eventId) return;
     const list = await fetchEventCredits(authFetch, eventId);
     setCredits(list);
+    if (isPublishedPage) {
+      await reloadPublishedCreditsStatus();
+    }
+  }
+
+  async function handleRefreshPublishedCredits() {
+    if (!eventId) return;
+    setRefreshState({ status: "refreshing" });
+    try {
+      await refreshPublishedCredits(authFetch, eventId);
+      await reloadPublishedCreditsStatus();
+      setRefreshState({ status: "done" });
+    } catch (err) {
+      if (err instanceof AuthError) {
+        router.push("/login");
+        return;
+      }
+      setRefreshState({ status: "error", message: err instanceof Error ? err.message : String(err) });
+    }
   }
 
   // Mirrors the AuthError -> /login redirect used by every other handler on
@@ -200,6 +249,30 @@ export default function AdminV2EventPageTab() {
       cancelled = true;
     };
   }, [eventId, router]);
+
+  // The published-credit status only means something once the page is
+  // published; it is (re)loaded whenever that becomes true — including right
+  // after a Publish on this same tab, since the shell's reload() flips
+  // page_state without remounting this component.
+  useEffect(() => {
+    if (!eventId || !isPublishedPage) return;
+    let cancelled = false;
+    fetchPublishedCreditsStatus(authFetch, eventId)
+      .then((status) => {
+        if (!cancelled) setPublishedCreditsStatus(status);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (err instanceof AuthError) {
+          router.push("/login");
+          return;
+        }
+        setPublishedCreditsStatus(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId, isPublishedPage, router]);
 
   if (state.status !== "ready") return null;
   const event = state.event;
@@ -581,8 +654,9 @@ export default function AdminV2EventPageTab() {
       {!isDraft && (
         <div className="ec-card space-y-3" style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
           <div>
-            This event page is published. Its public Event Credits are frozen as they were at Publish time, so later
-            Partner edits do not change this page. Publishing the page does not start a livestream.
+            This event page is published. Its public Event Credits are frozen as they were at Publish time; later
+            Partner edits only reach this page when you use &ldquo;Update published credits&rdquo; below. Publishing
+            the page does not start a livestream.
           </div>
           {pageUrl && (
             <div className="flex items-center gap-2 flex-wrap">
@@ -728,13 +802,62 @@ export default function AdminV2EventPageTab() {
       </div>
 
       {!isDraft && (
-        <div className="ec-card" style={{ borderColor: "#FDE68A", display: "flex", alignItems: "flex-start", gap: "10px" }}>
-          <AlertTriangle size={16} style={{ color: "#B45309", flexShrink: 0, marginTop: "2px" }} />
+        <div
+          className="ec-card space-y-3"
+          style={{ borderColor: publishedCreditsStatus?.needsUpdate ? "#FDE68A" : undefined }}
+        >
+          <h3 className="ec-section-title flex items-center gap-2">
+            {publishedCreditsStatus?.needsUpdate ? (
+              <AlertTriangle size={16} style={{ color: "#B45309" }} />
+            ) : (
+              <Users size={16} />
+            )}{" "}
+            Published credits
+          </h3>
           <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-            This page is already published, so its public Event Credits were frozen at Publish time. You can still add,
-            edit, or remove credits below, but those changes will <strong>not</strong> automatically update the
-            already-published page — it keeps showing the frozen snapshot from when you published.
+            {publishedCreditsStatus === null ? (
+              <>
+                The published page shows the credits as they were when you published. Adding, editing, or removing
+                credits below does <strong>not</strong> change the published page on its own — use{" "}
+                <strong>Update published credits</strong> when you want the page to show your current list.
+              </>
+            ) : publishedCreditsStatus.needsUpdate ? (
+              <>
+                Your credits have changed since this page was published. The published page still shows the old list
+                ({publishedCreditsStatus.frozenCount ?? 0} credit{publishedCreditsStatus.frozenCount === 1 ? "" : "s"});
+                your current list has {publishedCreditsStatus.currentCount} credit
+                {publishedCreditsStatus.currentCount === 1 ? "" : "s"}. Nothing changes on the page until you update it.
+              </>
+            ) : (
+              <>
+                The published page shows your current credits ({publishedCreditsStatus.currentCount} credit
+                {publishedCreditsStatus.currentCount === 1 ? "" : "s"}). If you add, edit, or remove credits below, come
+                back here to update the page.
+              </>
+            )}
           </p>
+          {event.archived_at ? (
+            <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+              This event is archived. Restore it from the Settings tab before updating its published credits.
+            </p>
+          ) : canManage ? (
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                type="button"
+                className={publishedCreditsStatus?.needsUpdate ? "ec-btn ec-btn-primary" : "ec-btn ec-btn-secondary"}
+                disabled={refreshState.status === "refreshing" || publishedCreditsStatus?.needsUpdate === false}
+                onClick={handleRefreshPublishedCredits}
+              >
+                <Users size={14} /> {refreshState.status === "refreshing" ? "Updating…" : "Update published credits"}
+              </button>
+              {refreshState.status === "done" && !publishedCreditsStatus?.needsUpdate && (
+                <span style={{ fontSize: "13px", color: "var(--success)" }}>Published page updated.</span>
+              )}
+            </div>
+          ) : null}
+          {refreshState.status === "error" && (
+            <div style={{ fontSize: "13px", color: "var(--error)" }}>{refreshState.message}</div>
+          )}
         </div>
       )}
 
