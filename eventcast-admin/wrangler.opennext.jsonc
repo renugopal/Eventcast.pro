@@ -44,12 +44,44 @@
   // deployment. This is not a trigger and does not route production traffic.
   "preview_urls": true,
 
+  // Non-secret R2 identifiers the Admin app's own upload/delete/URL-validation
+  // routes read via `process.env.*` (src/app/api/r2-upload, .../thumbnail,
+  // .../media, .../guest-photos/{upload,delete}, src/lib/r2Delete.ts) — the
+  // images/guest-photo bucket `eventcast-media`, distinct from the separate
+  // media bucket the render Worker's own MEDIA_R2 binding reaches. None of
+  // these three are secret: the bucket name and public replay URL are already
+  // embedded in every stored `thumbnail_url`/R2 object URL, and the S3
+  // endpoint is just `https://<account-id>.r2.cloudflarestorage.com` (the
+  // same account id already unredacted in scripts/vod-archiver/.env.example).
+  // `R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY` remain real secrets and are
+  // deliberately NOT here — they stay Worker secrets (`wrangler secret put`
+  // / dashboard), never checked into this file.
+  //
+  // Declaring these as `vars` (rather than only setting them once via the
+  // dashboard) is the durable fix for a real, recurring drift: `wrangler
+  // versions upload` deletes any dashboard-only plain var whenever
+  // `--keep-vars` isn't passed (confirmed via `wrangler versions upload
+  // --help`; secrets are exempt from this deletion, plain vars are not).
+  // These three were dashboard-only, got silently wiped this way once before
+  // (fixed 2026-08-26, see WORKLOG.md) and were found wiped again on every
+  // version uploaded since — because every one of those uploads read its var
+  // set from this file, which had none. Putting them in the config makes
+  // every future `versions upload` set them from source control automatically,
+  // with no reliance on remembering `--keep-vars` for these three.
+  "vars": {
+    "R2_BUCKET_NAME": "eventcast-media",
+    "R2_S3_ENDPOINT": "https://fa92fb66bb8615279773847f8aecae0c.r2.cloudflarestorage.com",
+    "R2_PUBLIC_URL": "https://pub-fa013cc979d8410e9d307bd2c9e6ecf2.r2.dev"
+  },
+
   // The only binding. `ASSETS` is required by OpenNext to serve the Next.js
   // static output; it is not an application-specific external resource.
   // No R2/KV/D1/Images or self-reference bindings are declared: the Admin app
   // reaches Supabase, R2, and B2 over the network using environment variables
-  // only, and the media bucket remains reachable solely through the separate
-  // render Worker's own MEDIA_R2 binding.
+  // only (the three non-secret R2 identifiers above, plus the R2 access
+  // secrets and Supabase service-role key as Worker secrets), and the media
+  // bucket remains reachable solely through the separate render Worker's own
+  // MEDIA_R2 binding.
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
