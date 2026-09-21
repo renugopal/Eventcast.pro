@@ -222,6 +222,53 @@ h1, h2, h3, h4, h5, h6 {
   transition: color 0.2s;
 }
 
+/* ── Provider Sidebar — Package 2A visual refinements ─────────
+   Scoped under `.ec-provider-sidebar` (set only on the Provider
+   Sidebar's <aside>) so these do not bleed into PlatformShell,
+   which reuses the same base `.ec-sidebar`/`.ec-nav-item` classes. */
+.ec-provider-sidebar .ec-nav-item {
+  padding: 10px 14px;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  position: relative;
+}
+
+.ec-provider-sidebar .ec-nav-item:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.ec-provider-sidebar .ec-nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+}
+
+.ec-provider-sidebar .ec-nav-icon {
+  transition: color 0.15s ease;
+}
+
+/* ── Sidebar section separator (e.g. Platform Operations) ─────── */
+.ec-nav-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ec-nav-section-label {
+  padding: 0 14px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
 .ec-sidebar-footer {
   padding: 16px 12px;
   border-top: 1px solid var(--border-subtle);
@@ -282,6 +329,92 @@ h1, h2, h3, h4, h5, h6 {
 
 .ec-topbar-menu-btn {
   flex-shrink: 0;
+}
+
+/* ── Notification bell ─────────────────────────────────────── */
+.ec-notif-bell {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ec-notif-bell-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--error);
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+  border: 2px solid var(--surface);
+}
+
+/* ── Profile chip ──────────────────────────────────────────── */
+.ec-profile-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 6px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--violet-50);
+  border: 1px solid var(--violet-200);
+  flex-shrink: 0;
+}
+
+.ec-profile-chip-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.ec-profile-chip-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.ec-profile-chip-studio {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.ec-profile-chip-role {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 768px) {
+  .ec-profile-chip-text {
+    display: none;
+  }
+
+  .ec-profile-chip {
+    padding: 4px;
+    border: none;
+    background: transparent;
+  }
 }
 
 /* ── Cards ─────────────────────────────────────────────────── */
@@ -486,6 +619,11 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--surface-hover);
   color: var(--primary);
   border-color: var(--violet-200);
+}
+
+.ec-icon-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .ec-icon-btn-danger:hover {

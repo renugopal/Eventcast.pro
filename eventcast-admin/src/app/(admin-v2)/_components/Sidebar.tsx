@@ -27,7 +27,7 @@ export function Sidebar({ items, isMobileOpen, setIsMobileOpen, isSuperAdmin, on
         />
       )}
 
-      <aside className={`ec-sidebar ${isMobileOpen ? "mobile-open" : ""}`}>
+      <aside className={`ec-sidebar ec-provider-sidebar ${isMobileOpen ? "mobile-open" : ""}`}>
         <div className="ec-sidebar-logo">
           <div className="ec-sidebar-logo-icon">
             <Clapperboard size={20} color="#FFF" />
@@ -91,7 +91,7 @@ export function Sidebar({ items, isMobileOpen, setIsMobileOpen, isSuperAdmin, on
           {items.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
-            return (
+            const link = (
               <Link
                 key={item.href}
                 href={item.href}
@@ -102,6 +102,17 @@ export function Sidebar({ items, isMobileOpen, setIsMobileOpen, isSuperAdmin, on
                 <span style={{ fontSize: "13px", fontWeight: isActive ? 700 : 600 }}>{item.label}</span>
               </Link>
             );
+
+            if (item.superAdminOnly) {
+              return (
+                <div key={`${item.href}-section`} className="ec-nav-section">
+                  <div className="ec-nav-section-label">Platform</div>
+                  {link}
+                </div>
+              );
+            }
+
+            return link;
           })}
         </nav>
 
