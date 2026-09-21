@@ -539,6 +539,204 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid #FDE68A;
 }
 
+/* ── Empty / Loading / Error states ───────────────────────────
+   Formalizes the ad hoc "reuse .ec-card as a centered text box"
+   pattern that pages used inconsistently, and adds a skeleton
+   primitive for perceived-loading states. */
+.ec-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text-secondary);
+}
+
+.ec-empty-state-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background: var(--violet-50);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ec-empty-state-title {
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.ec-empty-state-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  max-width: 320px;
+}
+
+.ec-skeleton {
+  border-radius: var(--radius-md);
+  background: linear-gradient(90deg, var(--border-subtle) 25%, var(--surface-hover) 37%, var(--border-subtle) 63%);
+  background-size: 400% 100%;
+  animation: ec-skeleton-wave 1.4s ease infinite;
+}
+
+@keyframes ec-skeleton-wave {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+.ec-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid transparent;
+}
+
+.ec-banner-error {
+  background: var(--error-50);
+  border-color: #FECDD3;
+  color: var(--error);
+}
+
+.ec-banner-warning {
+  background: var(--accent-50);
+  border-color: #FDE68A;
+  color: #92400E;
+}
+
+.ec-banner-info {
+  background: var(--violet-50);
+  border-color: var(--violet-200);
+  color: var(--primary);
+}
+
+/* ── Attention / to-do rows ────────────────────────────────── */
+.ec-attention-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ec-attention-row:last-child {
+  border-bottom: none;
+}
+
+.ec-attention-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ec-attention-dot-warning { background: var(--warning); }
+.ec-attention-dot-error { background: var(--error); }
+.ec-attention-dot-info { background: var(--info); }
+
+/* ── Date chip (calendar-style date badge) ────────────────────
+   Shared between the Dashboard's next/upcoming event rows and
+   the Events list rows for consistent scanability. */
+.ec-date-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  background: var(--violet-50);
+  border: 1px solid var(--violet-200);
+  flex-shrink: 0;
+}
+
+.ec-date-chip-month {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primary);
+}
+
+.ec-date-chip-day {
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--foreground);
+  line-height: 1;
+}
+
+/* ── Dashboard hero header ─────────────────────────────────────
+   Subtle violet-tinted panel for the Dashboard's greeting row —
+   premium hierarchy without a photo or decorative motion. */
+.ec-dashboard-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 28px 32px;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, var(--violet-50) 0%, var(--surface) 65%);
+  border: 1px solid var(--violet-200);
+}
+
+.ec-dashboard-hero-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--primary);
+  margin-bottom: 6px;
+}
+
+.ec-dashboard-hero-title {
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+}
+
+.ec-dashboard-hero-sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+}
+
+.ec-dashboard-hero-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .ec-dashboard-hero {
+    padding: 20px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ec-dashboard-hero-actions {
+    width: 100%;
+  }
+
+  .ec-dashboard-hero-actions .ec-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
 /* ── Plan Cards ────────────────────────────────────────────── */
 .ec-plan-card {
   background: var(--surface);
@@ -1644,6 +1842,13 @@ h1, h2, h3, h4, h5, h6 {
 
   .ec-section-header > *:last-child {
     width: 100%;
+  }
+
+  /* A trailing count badge (e.g. Dashboard's "Needs Attention" pill) is not
+     an action control like the buttons below — it should stay pill-sized,
+     not stretch to the header's full width. */
+  .ec-section-header > .ec-badge:last-child {
+    width: auto;
   }
 
   .ec-section-header .ec-btn,

@@ -2,10 +2,34 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, MapPin, PlusCircle } from "lucide-react";
+import { CalendarX2, ExternalLink, MapPin, PlusCircle } from "lucide-react";
 import { useAdminAuth } from "../_lib/useAdminAuth";
 import { categorizeEventLifecycle, eventDisplayTitle, useAdminEvents, type AdminEventRow, type EventLifecycle } from "../_lib/events";
 import { EVENT_LIFECYCLE_BADGE_CLASSES, EVENT_LIFECYCLE_LABELS } from "@/lib/eventLifecycle";
+
+function resolveEventDate(row: Pick<AdminEventRow, "scheduled_start_at" | "event_date">): Date | null {
+  const source = row.scheduled_start_at ?? (row.event_date ? `${row.event_date}T00:00` : null);
+  if (!source) return null;
+  const date = new Date(source);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function DateChip({ date }: { date: Date | null }) {
+  if (!date) {
+    return (
+      <div className="ec-date-chip">
+        <span className="ec-date-chip-month">—</span>
+        <span className="ec-date-chip-day">—</span>
+      </div>
+    );
+  }
+  return (
+    <div className="ec-date-chip">
+      <span className="ec-date-chip-month">{date.toLocaleDateString("en-US", { month: "short" })}</span>
+      <span className="ec-date-chip-day">{date.getDate()}</span>
+    </div>
+  );
+}
 
 /**
  * The authoritative Provider Events surface (V2.1 Milestone G), replacing
@@ -79,19 +103,25 @@ export default function AdminV2EventsPage() {
         ))}
       </div>
 
-      {error && (
-        <div className="ec-card" style={{ borderColor: "#FECDD3", color: "var(--error)" }}>
-          Could not load events: {error}
-        </div>
-      )}
+      {error && <div className="ec-banner ec-banner-error">Could not load events: {error}</div>}
 
       {isLoading ? (
-        <div className="ec-card" style={{ textAlign: "center", color: "var(--text-secondary)" }}>
-          Loading events…
+        <div className="flex flex-col gap-3">
+          <div className="ec-skeleton" style={{ height: "76px" }} />
+          <div className="ec-skeleton" style={{ height: "76px" }} />
+          <div className="ec-skeleton" style={{ height: "76px" }} />
         </div>
       ) : visibleEvents.length === 0 ? (
-        <div className="ec-card" style={{ textAlign: "center", color: "var(--text-secondary)" }}>
-          No {LIFECYCLE_TABS.find((t) => t.id === activeTab)!.label.toLowerCase()} events yet.
+        <div className="ec-card">
+          <div className="ec-empty-state">
+            <span className="ec-empty-state-icon">
+              <CalendarX2 size={22} />
+            </span>
+            <span className="ec-empty-state-title">
+              No {LIFECYCLE_TABS.find((t) => t.id === activeTab)!.label.toLowerCase()} events yet
+            </span>
+            <span className="ec-empty-state-sub">Events in this state will show up here.</span>
+          </div>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
@@ -99,26 +129,29 @@ export default function AdminV2EventsPage() {
             <div
               key={event.id}
               className="ec-card ec-card-sm"
-              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}
+              style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}
             >
-              <div style={{ minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                  <span style={{ fontWeight: 700, color: "var(--foreground)" }}>{eventDisplayTitle(event)}</span>
-                  <span className={`ec-badge ${EVENT_LIFECYCLE_BADGE_CLASSES[categorizeEventLifecycle(event)]}`}>
-                    {EVENT_LIFECYCLE_LABELS[categorizeEventLifecycle(event)]}
-                  </span>
-                </div>
-                <div style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: "4px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                  <span>{event.event_type || "Event"}</span>
-                  <span>{formatDisplayDate(event)}</span>
-                  {event.venue_name && (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                      <MapPin size={12} /> {event.venue_name}
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "16px", minWidth: 0, flex: 1 }}>
+                <DateChip date={resolveEventDate(event)} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 700, color: "var(--foreground)" }}>{eventDisplayTitle(event)}</span>
+                    <span className={`ec-badge ${EVENT_LIFECYCLE_BADGE_CLASSES[categorizeEventLifecycle(event)]}`}>
+                      {EVENT_LIFECYCLE_LABELS[categorizeEventLifecycle(event)]}
                     </span>
-                  )}
+                  </div>
+                  <div style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: "4px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                    <span>{event.event_type || "Event"}</span>
+                    <span>{formatDisplayDate(event)}</span>
+                    {event.venue_name && (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <MapPin size={12} /> {event.venue_name}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0, marginLeft: "68px" }}>
                 <Link href={`/events/${event.id}/overview`} className="ec-btn ec-btn-secondary ec-btn-sm">
                   Open
                 </Link>
