@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Calendar, Copy, ExternalLink, Eye, Globe, Image as ImageIcon, Lock, MapPin, Pencil, Users } from "lucide-react";
+import { AlertTriangle, Calendar, Copy, ExternalLink, Eye, Globe, Image as ImageIcon, LayoutTemplate, Lock, MapPin, Pencil, Users } from "lucide-react";
 import { authFetch, AuthError } from "@/lib/client-auth";
 import { scheduledStartAtToIstDateTimeLocal, type EventPublicVisibility } from "@/lib/eventContract";
 import { uploadToR2 } from "@/lib/uploadHelpers";
@@ -521,11 +521,7 @@ export default function AdminV2EventPageTab() {
           templateId={event.template_id || ""}
         />
 
-        {submitError && (
-          <div className="ec-card" style={{ borderColor: "#FECDD3", color: "var(--error)" }}>
-            {submitError}
-          </div>
-        )}
+        {submitError && <div className="ec-banner ec-banner-error">{submitError}</div>}
 
         {editTarget === "published" && showScheduleConfirm && (
           <div className="ec-card space-y-3" style={{ borderColor: "#FDE68A" }}>
@@ -610,29 +606,31 @@ export default function AdminV2EventPageTab() {
           <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
             Choose how this page can be found once published. This does not start a livestream.
           </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
-            <label style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
-              <input
-                type="radio"
-                name="publish-visibility"
-                checked={publishVisibility === "public"}
-                onChange={() => setPublishVisibility("public")}
-              />
+          <div className="ec-visibility-grid" aria-label="Page visibility">
+            <button
+              type="button"
+              aria-pressed={publishVisibility === "public"}
+              className={`ec-visibility-card${publishVisibility === "public" ? " selected" : ""}`}
+              onClick={() => setPublishVisibility("public")}
+            >
+              <Globe size={18} style={{ color: "var(--primary)", flexShrink: 0, marginTop: "2px" }} />
               <span>
-                <strong>Public</strong> — accessible by link and may be indexed/discovered.
+                <span className="ec-visibility-card-title">Public</span>
+                <span className="ec-visibility-card-desc">Accessible by link and may be indexed/discovered.</span>
               </span>
-            </label>
-            <label style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
-              <input
-                type="radio"
-                name="publish-visibility"
-                checked={publishVisibility === "unlisted"}
-                onChange={() => setPublishVisibility("unlisted")}
-              />
+            </button>
+            <button
+              type="button"
+              aria-pressed={publishVisibility === "unlisted"}
+              className={`ec-visibility-card${publishVisibility === "unlisted" ? " selected" : ""}`}
+              onClick={() => setPublishVisibility("unlisted")}
+            >
+              <Lock size={18} style={{ color: "var(--primary)", flexShrink: 0, marginTop: "2px" }} />
               <span>
-                <strong>Unlisted</strong> — accessible by direct link but should not be indexed.
+                <span className="ec-visibility-card-title">Unlisted</span>
+                <span className="ec-visibility-card-desc">Accessible by direct link but should not be indexed.</span>
               </span>
-            </label>
+            </button>
           </div>
           <button
             type="button"
@@ -646,18 +644,19 @@ export default function AdminV2EventPageTab() {
       )}
 
       {publishState.status === "error" && (
-        <div className="ec-card" style={{ borderColor: "#FECDD3", color: "var(--error)" }}>
-          {publishState.message}
-        </div>
+        <div className="ec-banner ec-banner-error">{publishState.message}</div>
       )}
 
       {!isDraft && (
-        <div className="ec-card space-y-3" style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-          <div>
+        <div className="ec-card space-y-3">
+          <h3 className="ec-section-title flex items-center gap-2">
+            <Globe size={16} /> Publish &amp; Visibility
+          </h3>
+          <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
             This event page is published. Its public Event Credits are frozen as they were at Publish time; later
             Partner edits only reach this page when you use &ldquo;Update published credits&rdquo; below. Publishing
             the page does not start a livestream.
-          </div>
+          </p>
           {pageUrl && (
             <div className="flex items-center gap-2 flex-wrap">
               <code style={{ fontSize: "12px", background: "var(--surface-hover)", padding: "4px 8px", borderRadius: "4px" }}>
@@ -671,14 +670,14 @@ export default function AdminV2EventPageTab() {
               </a>
             </div>
           )}
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span>Visibility:</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>Visibility:</span>
             <span className={`ec-badge ${event.event_visibility === "unlisted" ? "ec-badge-amber" : "ec-badge-scheduled"}`}>
               {event.event_visibility === "unlisted" ? "Unlisted" : "Public"}
             </span>
             <button
               type="button"
-              className="ec-btn ec-btn-secondary"
+              className="ec-btn ec-btn-secondary ec-btn-sm"
               disabled={visibilityState.status === "saving"}
               onClick={() => handleVisibilityChange(event.event_visibility === "unlisted" ? "public" : "unlisted")}
             >
@@ -690,9 +689,11 @@ export default function AdminV2EventPageTab() {
             </button>
           </div>
           {visibilityState.status === "error" && (
-            <div style={{ color: "var(--error)" }}>{visibilityState.message}</div>
+            <div className="ec-banner ec-banner-error" style={{ fontSize: "12px" }}>{visibilityState.message}</div>
           )}
-          <p>Public — accessible by link and may be indexed/discovered. Unlisted — accessible by direct link but should not be indexed.</p>
+          <p style={{ fontSize: "12px", color: "var(--text-tertiary)" }}>
+            Public — accessible by link and may be indexed/discovered. Unlisted — accessible by direct link but should not be indexed.
+          </p>
         </div>
       )}
 
@@ -706,59 +707,81 @@ export default function AdminV2EventPageTab() {
             Draft is not published — nothing here is publicly visible.
           </p>
           {previewState.status === "loading" && (
-            <div style={{ textAlign: "center", color: "var(--text-secondary)" }}>Rendering preview…</div>
+            <div className="ec-skeleton" style={{ height: "240px" }} />
           )}
           {previewState.status === "error" && (
-            <div style={{ borderColor: "#FECDD3", color: "var(--error)" }}>{previewState.message}</div>
+            <div className="ec-banner ec-banner-error">{previewState.message}</div>
           )}
           {previewState.status === "ready" && (
             <iframe
               title="Draft preview"
               srcDoc={previewState.html}
               sandbox="allow-scripts allow-same-origin"
-              style={{ width: "100%", height: "80vh", border: "1px solid var(--border-color, #e5e7eb)", borderRadius: "8px" }}
+              style={{ width: "100%", height: "80vh", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}
             />
           )}
         </div>
       )}
 
-      <div className="ec-card space-y-4">
-        <h3 className="ec-section-title flex items-center gap-2">
-          <Users size={16} /> Identity
-        </h3>
-        <div style={{ fontSize: "14px", color: "var(--text-secondary)" }}>Event ID: {event.id}</div>
-        <div style={{ fontSize: "14px", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "6px" }}>
-          Link: {event.slug}
-          {!isDraft && (
-            <span title="Locked after publishing so shared links keep working" style={{ display: "inline-flex" }}>
-              <Lock size={12} />
-            </span>
-          )}
-        </div>
-      </div>
+      <div className="ec-card">
+        <h3 className="ec-section-title" style={{ marginBottom: "4px" }}>Event Details</h3>
 
-      <div className="ec-card space-y-4">
-        <h3 className="ec-section-title flex items-center gap-2">
-          <Calendar size={16} /> Schedule
-        </h3>
-        <div style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
-          {event.scheduled_start_at
-            ? new Intl.DateTimeFormat("en-IN", {
-                timeZone: "Asia/Kolkata",
-                dateStyle: "full",
-                timeStyle: "short",
-              }).format(new Date(event.scheduled_start_at))
-            : "Not set"}
+        <div className="ec-detail-row">
+          <span className="ec-detail-row-icon">
+            <Users size={16} />
+          </span>
+          <div>
+            <div className="ec-detail-row-label">Identity</div>
+            <div className="ec-detail-row-value">Event ID: {event.id}</div>
+            <div style={{ fontSize: "13px", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
+              Link: {event.slug}
+              {!isDraft && (
+                <span title="Locked after publishing so shared links keep working" style={{ display: "inline-flex" }}>
+                  <Lock size={12} />
+                </span>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div className="ec-card space-y-4">
-        <h3 className="ec-section-title flex items-center gap-2">
-          <MapPin size={16} /> Venue &amp; Template
-        </h3>
-        <div style={{ fontSize: "14px", color: "var(--text-secondary)" }}>{event.venue_name || "Not set"}</div>
-        <div style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
-          Template: {event.template_id} {event.template_version ? `(v${event.template_version})` : ""}
+        <div className="ec-detail-row">
+          <span className="ec-detail-row-icon">
+            <Calendar size={16} />
+          </span>
+          <div>
+            <div className="ec-detail-row-label">Schedule</div>
+            <div className="ec-detail-row-value">
+              {event.scheduled_start_at
+                ? new Intl.DateTimeFormat("en-IN", {
+                    timeZone: "Asia/Kolkata",
+                    dateStyle: "full",
+                    timeStyle: "short",
+                  }).format(new Date(event.scheduled_start_at))
+                : "Not set"}
+            </div>
+          </div>
+        </div>
+
+        <div className="ec-detail-row">
+          <span className="ec-detail-row-icon">
+            <MapPin size={16} />
+          </span>
+          <div>
+            <div className="ec-detail-row-label">Venue</div>
+            <div className="ec-detail-row-value">{event.venue_name || "Not set"}</div>
+          </div>
+        </div>
+
+        <div className="ec-detail-row">
+          <span className="ec-detail-row-icon">
+            <LayoutTemplate size={16} />
+          </span>
+          <div>
+            <div className="ec-detail-row-label">Template</div>
+            <div className="ec-detail-row-value">
+              {event.template_id} {event.template_version ? `(v${event.template_version})` : ""}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -769,35 +792,49 @@ export default function AdminV2EventPageTab() {
         <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
           Used as this event&rsquo;s social/share preview image (og:image / twitter:image).
         </p>
-        {event.thumbnail_url ? (
+        {event.thumbnail_url && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={event.thumbnail_url}
             alt="Current SEO thumbnail"
-            style={{ maxWidth: "240px", maxHeight: "160px", borderRadius: "8px", border: "1px solid var(--border-color, #e5e7eb)" }}
+            style={{ maxWidth: "240px", maxHeight: "160px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}
           />
-        ) : (
-          <div style={{ fontSize: "14px", color: "var(--text-secondary)" }}>No thumbnail set yet.</div>
         )}
-        <div>
-          <input
-            ref={thumbnailInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleThumbnailSelect}
-            style={{ display: "none" }}
-          />
-          <button
-            type="button"
-            className="ec-btn ec-btn-secondary"
-            disabled={thumbnailState.status === "uploading"}
-            onClick={() => thumbnailInputRef.current?.click()}
-          >
-            {thumbnailState.status === "uploading" ? "Uploading…" : event.thumbnail_url ? "Replace thumbnail" : "Upload thumbnail"}
-          </button>
+        <input
+          ref={thumbnailInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleThumbnailSelect}
+          style={{ display: "none" }}
+        />
+        <div
+          className="ec-upload-zone"
+          role="button"
+          tabIndex={0}
+          onClick={() => thumbnailInputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") thumbnailInputRef.current?.click();
+          }}
+          style={{ cursor: thumbnailState.status === "uploading" ? "default" : "pointer" }}
+        >
+          <span className="ec-upload-zone-icon">
+            <ImageIcon size={18} />
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--foreground)" }}>
+              {thumbnailState.status === "uploading"
+                ? "Uploading…"
+                : event.thumbnail_url
+                  ? "Replace thumbnail"
+                  : "Upload thumbnail"}
+            </div>
+            <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+              {event.thumbnail_url ? "Click to choose a new image." : "No thumbnail set yet — click to add one."}
+            </div>
+          </div>
         </div>
         {thumbnailState.status === "error" && (
-          <div style={{ fontSize: "13px", color: "var(--error)" }}>{thumbnailState.message}</div>
+          <div className="ec-banner ec-banner-error" style={{ fontSize: "12px" }}>{thumbnailState.message}</div>
         )}
       </div>
 
@@ -856,15 +893,13 @@ export default function AdminV2EventPageTab() {
             </div>
           ) : null}
           {refreshState.status === "error" && (
-            <div style={{ fontSize: "13px", color: "var(--error)" }}>{refreshState.message}</div>
+            <div className="ec-banner ec-banner-error" style={{ fontSize: "12px" }}>{refreshState.message}</div>
           )}
         </div>
       )}
 
       {creditsError ? (
-        <div className="ec-card" style={{ borderColor: "#FECDD3", color: "var(--error)" }}>
-          {creditsError}
-        </div>
+        <div className="ec-banner ec-banner-error">{creditsError}</div>
       ) : (
         <PartnerCreditSection
           partners={partners}

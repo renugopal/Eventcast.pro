@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Copy, ExternalLink, MapPin } from "lucide-react";
+import { Calendar, CheckCircle2, Copy, ExternalLink, LayoutTemplate, MapPin } from "lucide-react";
 import { authFetch, AuthError } from "@/lib/client-auth";
 import { fetchEventMedia } from "@/lib/mediaEngagementClient";
 import { fetchEventCredits } from "@/lib/partnerCreditClient";
@@ -25,6 +25,28 @@ import { NextActionCard } from "../../../_components/event-workspace/NextActionC
  * stays lightweight. Each of the three calls reuses an already-completed
  * client helper; no new backend route was added for this tab.
  */
+
+function ScheduleDateChip({ scheduledStartAt }: { scheduledStartAt: string | null }) {
+  if (!scheduledStartAt) {
+    return (
+      <div className="ec-date-chip">
+        <span className="ec-date-chip-month">—</span>
+        <span className="ec-date-chip-day">—</span>
+      </div>
+    );
+  }
+  const date = new Date(scheduledStartAt);
+  return (
+    <div className="ec-date-chip">
+      <span className="ec-date-chip-month">
+        {new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", month: "short" }).format(date)}
+      </span>
+      <span className="ec-date-chip-day">
+        {new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric" }).format(date)}
+      </span>
+    </div>
+  );
+}
 
 interface SupportingData {
   invitationVideoUrl: string | null;
@@ -128,28 +150,51 @@ export default function EventWorkspaceOverviewPage() {
     <div className="flex flex-col gap-4">
       <NextActionCard eventId={event.id} action={nextAction} />
 
-      <div className="ec-card space-y-3">
-        <h3 className="ec-section-title flex items-center gap-2">
+      <div className="ec-card">
+        <h3 className="ec-section-title flex items-center gap-2" style={{ marginBottom: "4px" }}>
           <Calendar size={16} /> Event details
         </h3>
-        <div style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
-          {event.scheduled_start_at
-            ? new Intl.DateTimeFormat("en-IN", {
-                timeZone: "Asia/Kolkata",
-                dateStyle: "full",
-                timeStyle: "short",
-              }).format(new Date(event.scheduled_start_at))
-            : "Schedule not set"}
+
+        <div className="ec-detail-row">
+          <ScheduleDateChip scheduledStartAt={event.scheduled_start_at} />
+          <div>
+            <div className="ec-detail-row-label">Schedule</div>
+            <div className="ec-detail-row-value">
+              {event.scheduled_start_at
+                ? new Intl.DateTimeFormat("en-IN", {
+                    timeZone: "Asia/Kolkata",
+                    dateStyle: "full",
+                    timeStyle: "short",
+                  }).format(new Date(event.scheduled_start_at))
+                : "Not set"}
+            </div>
+          </div>
         </div>
-        <div style={{ fontSize: "14px", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "6px" }}>
-          <MapPin size={14} /> {event.venue_name || "Venue not set"}
+
+        <div className="ec-detail-row">
+          <span className="ec-detail-row-icon">
+            <MapPin size={16} />
+          </span>
+          <div>
+            <div className="ec-detail-row-label">Venue</div>
+            <div className="ec-detail-row-value">{event.venue_name || "Not set"}</div>
+          </div>
         </div>
-        <div style={{ fontSize: "13px", color: "var(--text-tertiary)" }}>
-          Template: {event.template_id} {event.template_version ? `(v${event.template_version})` : ""}
+
+        <div className="ec-detail-row">
+          <span className="ec-detail-row-icon">
+            <LayoutTemplate size={16} />
+          </span>
+          <div>
+            <div className="ec-detail-row-label">Template</div>
+            <div className="ec-detail-row-value">
+              {event.template_id} {event.template_version ? `(v${event.template_version})` : ""}
+            </div>
+          </div>
         </div>
 
         {pageUrl ? (
-          <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: "4px" }}>
+          <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: "12px" }}>
             <code style={{ fontSize: "12px", background: "var(--surface-hover)", padding: "4px 8px", borderRadius: "4px" }}>
               {pageUrl}
             </code>
@@ -161,27 +206,31 @@ export default function EventWorkspaceOverviewPage() {
             </a>
           </div>
         ) : (
-          <p style={{ fontSize: "13px", color: "var(--text-tertiary)" }}>
+          <p style={{ fontSize: "13px", color: "var(--text-tertiary)", marginTop: "12px" }}>
             {event.page_state === "draft" ? "No public link yet — publish the page first." : "Not published."}
           </p>
         )}
       </div>
 
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3">
+        <div className="ec-section-header" style={{ marginBottom: 0 }}>
           <h3 className="ec-section-title" style={{ marginBottom: 0 }}>
             Readiness
           </h3>
-          {attentionCount > 0 && (
+          {attentionCount > 0 ? (
             <span className="ec-status-pill ec-status-pill--required">
               {attentionCount} item{attentionCount === 1 ? "" : "s"} need attention
+            </span>
+          ) : (
+            <span className="ec-status-pill ec-status-pill--complete">
+              <CheckCircle2 size={12} /> All caught up
             </span>
           )}
         </div>
         {supportingError && (
-          <p style={{ fontSize: "12px", color: "var(--text-tertiary)" }}>
+          <div className="ec-banner ec-banner-warning" style={{ fontSize: "12px" }}>
             Some readiness details couldn&rsquo;t load ({supportingError}) — the page details above are still accurate.
-          </p>
+          </div>
         )}
         <ReadinessChecklist eventId={event.id} items={readinessItems} />
       </div>

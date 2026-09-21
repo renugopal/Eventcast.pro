@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Check, Circle, Info } from "lucide-react";
+import { Check, Info } from "lucide-react";
 import {
   READINESS_TIER_LABELS,
   type ReadinessItem,
@@ -33,6 +33,12 @@ function StatusPill({ state }: { state: ReadinessItem["state"] }) {
   return <span className="ec-status-pill ec-status-pill--optional">Not added</span>;
 }
 
+function attentionDotClass(state: ReadinessItem["state"]): string {
+  if (state === "complete") return "ec-attention-dot-success";
+  if (state === "attention") return "ec-attention-dot-warning";
+  return "ec-attention-dot-neutral";
+}
+
 interface ReadinessChecklistProps {
   eventId: string;
   items: ReadinessItem[];
@@ -45,25 +51,17 @@ export function ReadinessChecklist({ eventId, items }: ReadinessChecklistProps) 
         const tierItems = items.filter((item) => item.tier === tier);
         if (tierItems.length === 0) return null;
         return (
-          <div key={tier} className="flex flex-col gap-2">
-            <div className="flex items-center gap-2" style={{ fontSize: "12px", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+          <div key={tier} className="ec-card ec-card-sm">
+            <div className="ec-tier-label" style={{ marginBottom: "8px" }}>
               {tier === "optional" && <Info size={12} />}
               {READINESS_TIER_LABELS[tier]}
               {tier === "optional" && <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: "normal" }}>— never blocks anything</span>}
             </div>
-            <div className="flex flex-col gap-2">
+            <div>
               {tierItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="ec-card ec-card-sm"
-                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}
-                >
+                <div key={item.id} className="ec-attention-row" style={{ flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", minWidth: 0 }}>
-                    {item.state === "complete" ? (
-                      <Check size={16} style={{ color: "var(--success, #16a34a)", flexShrink: 0, marginTop: "2px" }} />
-                    ) : (
-                      <Circle size={16} style={{ color: "var(--text-tertiary)", flexShrink: 0, marginTop: "2px" }} />
-                    )}
+                    <span className={`ec-attention-dot ${attentionDotClass(item.state)}`} style={{ marginTop: "6px" }} />
                     <div>
                       <div style={{ fontSize: "14px", fontWeight: 600 }}>{item.label}</div>
                       <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>{item.detail}</div>

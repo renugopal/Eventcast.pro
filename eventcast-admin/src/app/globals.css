@@ -2628,3 +2628,140 @@ h1, h2, h3, h4, h5, h6 {
   opacity: 0.6;
   margin: 2px 0;
 }
+
+/* ════════════════════════════════════════════════════════════
+   Event Workspace — Package 2B visual refinements (additive)
+   ════════════════════════════════════════════════════════════ */
+
+.ec-workspace-header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+}
+
+.ec-workspace-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ec-workspace-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ec-workspace-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.ec-workspace-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.ec-workspace-tab {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ec-workspace-tab:hover {
+  background: var(--surface-hover);
+  color: var(--foreground);
+}
+
+.ec-workspace-tab.active {
+  background: var(--primary-50);
+  color: var(--primary);
+  border-color: var(--violet-200);
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .ec-workspace-header {
+    padding: 18px 16px;
+  }
+}
+
+/* ── Detail rows (icon + label/value) — shared by Overview + Event Page ── */
+.ec-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ec-detail-row:last-child {
+  border-bottom: none;
+}
+
+.ec-detail-row-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--violet-50);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ec-detail-row-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.ec-detail-row-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-top: 1px;
+}
+
+/* ── Readiness tier label ─────────────────────────────────────── */
+.ec-tier-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Additional attention-dot tones (Package 1 defined warning/error/info only) */
+.ec-attention-dot-success { background: var(--success); }
+.ec-attention-dot-neutral { background: var(--text-tertiary); }

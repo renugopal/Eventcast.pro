@@ -20,15 +20,30 @@ export function NextActionCard({ eventId, action }: { eventId: string; action: N
   }
 
   return (
-    <div className="ec-card space-y-2" style={{ borderColor: action.tone === "primary" ? "var(--primary)" : undefined }}>
-      <div className="flex items-center gap-2" style={{ fontSize: "12px", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-        <Sparkles size={13} /> Next step
+    <div
+      className="ec-card"
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: "16px",
+        flexWrap: "wrap",
+        borderColor: action.tone === "primary" ? "var(--violet-200)" : undefined,
+      }}
+    >
+      <span className="ec-section-icon-chip" style={{ flexShrink: 0 }}>
+        <Sparkles size={18} />
+      </span>
+      <div style={{ minWidth: "200px", flex: "1 1 200px", display: "flex", flexDirection: "column", gap: "4px" }}>
+        <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          Next step
+        </div>
+        <div style={{ fontSize: "16px", fontWeight: 700 }}>{action.label}</div>
+        <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>{action.description}</p>
       </div>
-      <div style={{ fontSize: "15px", fontWeight: 700 }}>{action.label}</div>
-      <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>{action.description}</p>
       <Link
         href={`/events/${eventId}/${action.actionTab}`}
         className={action.tone === "primary" ? "ec-btn ec-btn-primary ec-btn-sm" : "ec-btn ec-btn-secondary ec-btn-sm"}
+        style={{ flexShrink: 0 }}
       >
         {action.label} <ArrowRight size={14} />
       </Link>

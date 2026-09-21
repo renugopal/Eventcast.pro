@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { ExternalLink } from "lucide-react";
 import { authFetch, AuthError } from "@/lib/client-auth";
 import {
   deriveEventLifecycleStatus,
@@ -10,6 +11,7 @@ import {
   EVENT_LIFECYCLE_LABELS,
   type EventLifecycleStatus,
 } from "@/lib/eventLifecycle";
+import { publicEventUrl } from "@/lib/publicEventUrl";
 
 /**
  * Shared Event Workspace shell (V2.1 Milestone G): loads one event by its
@@ -124,9 +126,7 @@ export function EventWorkspaceShell({ eventId, children }: EventWorkspaceShellPr
 
   if (state.status === "error") {
     return (
-      <div className="ec-card" style={{ borderColor: "#FECDD3", color: "var(--error)" }}>
-        {state.message}
-      </div>
+      <div className="ec-banner ec-banner-error">{state.message}</div>
     );
   }
 
@@ -136,46 +136,61 @@ export function EventWorkspaceShell({ eventId, children }: EventWorkspaceShellPr
       ? [event.groom_name, event.bride_name].filter(Boolean).join(" & ")
       : "Untitled event";
 
+  // Visibility is only a meaningful, set fact once the page has left Draft —
+  // mirrors the exact same `page_state !== "draft"` gate the Event Page tab
+  // already uses before showing its own Visibility section. Read-only here:
+  // this badge never mutates anything, it only reflects `event.event_visibility`.
+  const showVisibility = event.page_state !== "draft" && !!event.event_visibility;
+  const pageUrl = event.page_state !== "draft" ? publicEventUrl(event.slug) : null;
+
   return (
     <EventWorkspaceContext.Provider value={{ state, lifecycle, reload: () => setReloadToken((n) => n + 1) }}>
       <div className="flex flex-col gap-4">
-        <div className="ec-section-header">
-          <div>
-            <h1 className="ec-page-title">{title}</h1>
-            <p style={{ color: "var(--text-secondary)", fontSize: "13px", marginTop: "4px" }}>
-              {event.event_type || "Event"}
-            </p>
+        <div className="ec-workspace-header">
+          <div className="ec-workspace-header-top">
+            <div>
+              <h1 className="ec-page-title">{title}</h1>
+              <p style={{ color: "var(--text-secondary)", fontSize: "13px", marginTop: "4px" }}>
+                {event.event_type || "Event"}
+              </p>
+              <div className="ec-workspace-badges" style={{ marginTop: "10px" }}>
+                {lifecycle && (
+                  <span className={`ec-badge ${EVENT_LIFECYCLE_BADGE_CLASSES[lifecycle]}`}>
+                    {EVENT_LIFECYCLE_LABELS[lifecycle]}
+                  </span>
+                )}
+                {showVisibility && (
+                  <span className={`ec-badge ${event.event_visibility === "unlisted" ? "ec-badge-amber" : "ec-badge-scheduled"}`}>
+                    {event.event_visibility === "unlisted" ? "Unlisted" : "Public"}
+                  </span>
+                )}
+              </div>
+            </div>
+            {pageUrl && (
+              <div className="ec-workspace-actions">
+                <a href={pageUrl} target="_blank" rel="noopener noreferrer" className="ec-btn ec-btn-secondary ec-btn-sm">
+                  <ExternalLink size={14} /> View public page
+                </a>
+              </div>
+            )}
           </div>
-          {lifecycle && (
-            <span className={`ec-badge ${EVENT_LIFECYCLE_BADGE_CLASSES[lifecycle]}`}>
-              {EVENT_LIFECYCLE_LABELS[lifecycle]}
-            </span>
-          )}
-        </div>
 
-        <nav
-          style={{
-            display: "flex",
-            gap: "6px",
-            flexWrap: "wrap",
-            borderBottom: "1px solid var(--border-color, #e5e7eb)",
-            paddingBottom: "10px",
-          }}
-        >
-          {WORKSPACE_TABS.map((tab) => {
-            const href = `/events/${eventId}/${tab.segment}`;
-            const isActive = pathname === href;
-            return (
-              <Link
-                key={tab.segment}
-                href={href}
-                className={isActive ? "ec-btn ec-btn-primary ec-btn-sm" : "ec-btn ec-btn-secondary ec-btn-sm"}
-              >
-                {tab.label}
-              </Link>
-            );
-          })}
-        </nav>
+          <nav className="ec-workspace-tabs">
+            {WORKSPACE_TABS.map((tab) => {
+              const href = `/events/${eventId}/${tab.segment}`;
+              const isActive = pathname === href;
+              return (
+                <Link
+                  key={tab.segment}
+                  href={href}
+                  className={`ec-workspace-tab${isActive ? " active" : ""}`}
+                >
+                  {tab.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
 
         {children}
       </div>
