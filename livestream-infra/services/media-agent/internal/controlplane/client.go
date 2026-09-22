@@ -291,9 +291,9 @@ func (c *HTTPClient) ReportRecordingState(ctx context.Context, nodeID, eventID s
 // as RecordingStateReport: it is proven by the node authentication
 // headers below and resolved server-side.
 type TelemetryReport struct {
-	Node          telemetry.NodeHeartbeat            `json:"node"`
-	Streams       []telemetry.StreamTelemetry        `json:"streams,omitempty"`
-	EndedSessions []telemetry.SessionEndedTelemetry  `json:"ended_sessions,omitempty"`
+	Node          telemetry.NodeHeartbeat           `json:"node"`
+	Streams       []telemetry.StreamTelemetry       `json:"streams,omitempty"`
+	EndedSessions []telemetry.SessionEndedTelemetry `json:"ended_sessions,omitempty"`
 }
 
 // TelemetryReportResponse is the control plane's acknowledgement.
