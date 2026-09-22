@@ -6,9 +6,10 @@ import { getEventRecordingState } from '@/lib/eventRecording';
 import {
   buildR2CleanupPlan,
   toPlatformRecordingView,
+  toPlatformStreamTechnicalView,
   unavailable,
   NO_LIVE_TELEMETRY_REASON,
-  NO_TECHNICAL_STREAM_METRICS_REASON,
+  type MediaStreamTelemetryRow,
 } from '@/lib/platformOperations';
 
 /**
@@ -55,30 +56,49 @@ export async function GET(req: Request, { params }: RouteParams) {
     return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
   }
 
-  const [assignmentResult, activationsResult, ticketsResult, notificationsResult, recording] = await Promise.all([
-    db
-      .from('media_event_assignments')
-      .select(
-        'assigned_media_node_id, ingest_id, playback_id, enabled, publish_window_start_at, publish_window_end_at, youtube_enabled, config_version, updated_at'
-      )
-      .eq('event_id', eventId)
-      .maybeSingle(),
-    db
-      .from('media_event_assignment_activations')
-      .select('media_node_id, ingest_id, playback_id, activated_at')
-      .eq('event_id', eventId)
-      .order('activated_at', { ascending: true }),
-    db.from('support_tickets').select('id, subject, category, status, created_at').eq('event_id', eventId),
-    db
-      .from('notifications')
-      .select('id, severity, notification_type, title, read_at, created_at')
-      .eq('event_id', eventId)
-      .order('created_at', { ascending: false })
-      .limit(50),
-    getEventRecordingState(eventId),
-  ]);
+  const [assignmentResult, activationsResult, ticketsResult, notificationsResult, recording, streamTelemetryResult] =
+    await Promise.all([
+      db
+        .from('media_event_assignments')
+        .select(
+          'assigned_media_node_id, ingest_id, playback_id, enabled, publish_window_start_at, publish_window_end_at, youtube_enabled, config_version, updated_at'
+        )
+        .eq('event_id', eventId)
+        .maybeSingle(),
+      db
+        .from('media_event_assignment_activations')
+        .select('media_node_id, ingest_id, playback_id, activated_at')
+        .eq('event_id', eventId)
+        .order('activated_at', { ascending: true }),
+      db.from('support_tickets').select('id, subject, category, status, created_at').eq('event_id', eventId),
+      db
+        .from('notifications')
+        .select('id, severity, notification_type, title, read_at, created_at')
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: false })
+        .limit(50),
+      getEventRecordingState(eventId),
+      db
+        .from('media_stream_telemetry')
+        .select(
+          'event_id, reporting_media_node_id, sampled_at, connected, srs_publish_active, video_width, video_height, video_codec, audio_codec, audio_present, ingest_kbps_recv_30s, recv_bytes, captured_segment_bitrate_kbps, publish_duration_seconds, session_count, reconnect_count, segment_freshness_seconds, updated_at'
+        )
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ]);
 
   const assignmentRow = assignmentResult.data as Record<string, unknown> | null;
+
+  // Only accept telemetry reported by THIS event's CURRENT assigned node —
+  // a still-fresh row from a node the event was later reassigned away
+  // from must never be shown beside the current assignment. Same guard
+  // already applied in /api/platform/streams/route.ts.
+  const streamTelemetryRow = (streamTelemetryResult.data as MediaStreamTelemetryRow | null) ?? null;
+  const telemetryForCurrentAssignment =
+    streamTelemetryRow && assignmentRow && streamTelemetryRow.reporting_media_node_id === assignmentRow.assigned_media_node_id
+      ? streamTelemetryRow
+      : null;
+  const technicalView = toPlatformStreamTechnicalView(telemetryForCurrentAssignment);
   const activations = ((activationsResult.data ?? []) as Record<string, unknown>[]).map((row) => ({
     media_node_id: row.media_node_id as string,
     playback_id: row.playback_id as string,
@@ -121,8 +141,12 @@ export async function GET(req: Request, { params }: RouteParams) {
           youtubeEnabled: assignmentRow.youtube_enabled,
           configVersion: assignmentRow.config_version,
           updatedAt: assignmentRow.updated_at,
-          liveStatus: unavailable(NO_LIVE_TELEMETRY_REASON),
-          technicalStreamMetrics: unavailable(NO_TECHNICAL_STREAM_METRICS_REASON),
+          liveStatus: technicalView.available
+            ? technicalView.sourceHealth === 'good'
+              ? ('connected' as const)
+              : ('not_connected' as const)
+            : unavailable(NO_LIVE_TELEMETRY_REASON),
+          technicalStreamMetrics: technicalView,
         }
       : null,
     activationHistory: activations.map((row) => ({

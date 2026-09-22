@@ -8,8 +8,11 @@ import {
   enableLivestream,
   endLivestream,
   fetchLivestreamStatus,
+  fetchLivestreamTelemetry,
+  isAvailable,
   updateYoutubeWatchUrl,
   type LivestreamStatus,
+  type LivestreamTechnical,
 } from "@/lib/livestreamClient";
 import { fetchRecordingView, type ProviderRecordingView } from "@/lib/recordingClient";
 
@@ -93,6 +96,34 @@ function MaskedField({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** One label/value pair in the technical stream metrics grid. `text === null` renders the shared "Not measured" state. */
+function TechnicalField({ label, text }: { label: string; text: string | null }) {
+  return (
+    <div>
+      <div
+        style={{
+          color: "var(--text-tertiary)",
+          fontSize: "11px",
+          textTransform: "uppercase",
+          letterSpacing: "0.02em",
+        }}
+      >
+        {label}
+      </div>
+      <div style={{ color: text === null ? "var(--text-tertiary)" : "var(--text-primary)" }}>
+        {text ?? "Not measured"}
+      </div>
+    </div>
+  );
+}
+
+function formatDuration(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(total / 60);
+  const remainder = total % 60;
+  return `${minutes}:${remainder.toString().padStart(2, "0")}`;
+}
+
 export function LiveControlRoom({ eventId, pageState }: LiveControlRoomProps) {
   const [status, setStatus] = useState<LivestreamStatus | null>(null);
   const [youtubeWatchUrl, setYoutubeWatchUrl] = useState<string | null>(null);
@@ -101,6 +132,8 @@ export function LiveControlRoom({ eventId, pageState }: LiveControlRoomProps) {
   const [busy, setBusy] = useState(false);
   const [oneTimeCredentials, setOneTimeCredentials] = useState<OneTimeCredentials | null>(null);
   const [recording, setRecording] = useState<ProviderRecordingView | null>(null);
+  const [technical, setTechnical] = useState<LivestreamTechnical | null>(null);
+  const [technicalLoadState, setTechnicalLoadState] = useState<"loading" | "loaded" | "failed">("loading");
 
   async function reload() {
     try {
@@ -118,6 +151,21 @@ export function LiveControlRoom({ eventId, pageState }: LiveControlRoomProps) {
       // a failed lookup here must not block or blank out the rest of the
       // page, so it is left at its previous value (initially null, rendered
       // as "not measured yet" below) rather than surfacing a second error banner.
+    }
+    try {
+      const data = await fetchLivestreamTelemetry(authFetch, eventId);
+      // "loaded" covers BOTH a healthy stream and a successful response
+      // reporting no-signal/stale/missing telemetry — toProviderStreamTechnicalView
+      // already renders that honestly via sourceHealth/UnavailableFact.
+      // "failed" is reserved for an actual inability to reach this API.
+      setTechnical(data.technical);
+      setTechnicalLoadState("loaded");
+    } catch {
+      // Current technical telemetry must never keep showing an old
+      // successful snapshot after a later fetch fails — that would
+      // present stale data as current.
+      setTechnical(null);
+      setTechnicalLoadState("failed");
     }
   }
 
@@ -258,20 +306,99 @@ export function LiveControlRoom({ eventId, pageState }: LiveControlRoomProps) {
         )}
       </div>
 
-      <div className="ec-card">
-        <h3 className="ec-section-title flex items-center gap-2">
-          <Gauge size={16} /> Technical stream metrics
-        </h3>
-        <div className="ec-empty-state">
-          <span className="ec-empty-state-icon">
-            <Gauge size={22} />
-          </span>
-          <span className="ec-empty-state-title">Technical telemetry isn&rsquo;t available yet</span>
-          <span className="ec-empty-state-sub">
-            Resolution, FPS, video/audio bitrate, codecs, duration, reconnect count, and current/peak viewers have no
-            authoritative source yet in the current SRS/Media Agent integration.
-          </span>
+      <div className="ec-card space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h3 className="ec-section-title flex items-center gap-2">
+            <Gauge size={16} /> Technical stream metrics
+          </h3>
+          {technicalLoadState === "loaded" && technical && (
+            <span
+              className={`ec-status-pill ${
+                technical.sourceHealth === "good" ? "ec-status-pill--complete" : "ec-status-pill--optional"
+              }`}
+            >
+              {technical.sourceHealth === "good" ? "Good" : "No signal"}
+            </span>
+          )}
         </div>
+
+        {technicalLoadState === "loading" ? (
+          <div className="ec-empty-state">
+            <span className="ec-empty-state-icon">
+              <Gauge size={22} />
+            </span>
+            <span className="ec-empty-state-title">Loading technical telemetry&hellip;</span>
+          </div>
+        ) : technicalLoadState === "failed" || technical === null ? (
+          <div className="ec-empty-state">
+            <span className="ec-empty-state-icon">
+              <Gauge size={22} />
+            </span>
+            <span className="ec-empty-state-title">Technical telemetry is currently unavailable</span>
+            <span className="ec-empty-state-sub">
+              Technical telemetry could not be loaded right now. The rest of the Live Control Room is unaffected.
+            </span>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3" style={{ fontSize: "13px" }}>
+              <TechnicalField
+                label="Resolution"
+                text={
+                  isAvailable(technical.videoWidth) && isAvailable(technical.videoHeight)
+                    ? `${technical.videoWidth}×${technical.videoHeight}`
+                    : null
+                }
+              />
+              <TechnicalField label="FPS" text={null} />
+              <TechnicalField
+                label="Video codec"
+                text={isAvailable(technical.videoCodec) ? technical.videoCodec : null}
+              />
+              <TechnicalField
+                label="Audio codec"
+                text={isAvailable(technical.audioCodec) ? technical.audioCodec : null}
+              />
+              <TechnicalField
+                label="Audio present"
+                text={isAvailable(technical.audioPresent) ? (technical.audioPresent ? "Yes" : "No") : null}
+              />
+              <TechnicalField
+                label="Ingest bitrate"
+                text={isAvailable(technical.ingestKbpsRecv30s) ? `${Math.round(technical.ingestKbpsRecv30s)} kbps` : null}
+              />
+              <TechnicalField
+                label="Captured bitrate (local only)"
+                text={
+                  isAvailable(technical.capturedSegmentBitrateKbps)
+                    ? `${Math.round(technical.capturedSegmentBitrateKbps)} kbps`
+                    : null
+                }
+              />
+              <TechnicalField
+                label="Publish duration"
+                text={
+                  isAvailable(technical.publishDurationSeconds)
+                    ? formatDuration(technical.publishDurationSeconds)
+                    : null
+                }
+              />
+              <TechnicalField
+                label="Reconnects"
+                text={isAvailable(technical.reconnectCount) ? String(technical.reconnectCount) : null}
+              />
+              <TechnicalField
+                label="YouTube relay"
+                text={technical.relayStateWord === "youtube_enabled" ? "Enabled" : "Disabled"}
+              />
+            </div>
+            <p style={{ fontSize: "11px", color: "var(--text-tertiary)" }}>
+              Frame rate (FPS) has no source in this deployment and is never estimated. &ldquo;Captured
+              bitrate&rdquo; is this node&rsquo;s own local capture rate only — it does not confirm delivery to R2,
+              a CDN, or any viewer.
+            </p>
+          </>
+        )}
       </div>
 
       <div className="ec-card space-y-2">

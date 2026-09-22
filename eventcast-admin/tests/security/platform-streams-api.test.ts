@@ -48,6 +48,10 @@ describe('GET /api/platform/streams', () => {
         ],
         error: null,
       }),
+      // The route's batched media_stream_telemetry lookup — no row seeded
+      // here, so the assignment correctly stays "unavailable" (this test's
+      // whole point), never a fabricated status.
+      in: vi.fn().mockResolvedValue({ data: [], error: null }),
     });
 
     const { GET } = await import('@/app/api/platform/streams/route');

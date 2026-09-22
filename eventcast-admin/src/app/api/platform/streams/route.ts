@@ -1,22 +1,30 @@
 import { NextResponse } from 'next/server';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { requireSuperAdmin } from '@/lib/superAdmin';
-import { unavailable, NO_TECHNICAL_STREAM_METRICS_REASON } from '@/lib/platformOperations';
+import {
+  toPlatformStreamTechnicalView,
+  type MediaStreamTelemetryRow,
+} from '@/lib/platformOperations';
 
 /**
  * GET /api/platform/streams — cross-tenant "Enabled Stream Assignments"
  * roster. `requireSuperAdmin`-gated, service-role client.
  *
- * Deliberately NOT labeled or counted as "Active Streams": this endpoint
- * extends the existing secret-excluding projection pattern from
- * `studioLiveStatus.ts`/`assignmentStatusRepo.ts` to a no-event-filter
- * roster, but `media_event_assignments.enabled = true` only proves the
- * assignment is enabled, not that it is currently ingesting. No
- * authoritative live-session/telemetry source exists anywhere in this
- * repository to prove real live/active status, so this route reports
- * honestly on enabled assignments and leaves true active status
- * unavailable rather than inferring it. Excludes `stream_secret_hash`,
- * `youtube_secret_reference`, and any other node/credential internals.
+ * Deliberately NOT labeled or counted as "Active Streams": `enabled =
+ * true` alone only proves the assignment is enabled, not that it is
+ * currently ingesting. `liveStatus`/`technicalStreamMetrics` now come
+ * from `media_stream_telemetry` (migration `0040`, Livestream Technical
+ * Telemetry + Media Node Health Reporting) — but ONLY when that row was
+ * reported by this assignment's CURRENT node
+ * (`telemetry.reporting_media_node_id === assigned_media_node_id`). A
+ * still-fresh row from a node the event was later reassigned away from
+ * is treated as unavailable here, never shown beside the new current
+ * assignment — the same reassignment-safety principle migration `0040`'s
+ * write-side authorization already enforces. `toPlatformStreamTechnicalView`
+ * remains the single place that decides freshness and renders a missing/
+ * stale/foreign-node row as honestly unavailable. Excludes
+ * `stream_secret_hash`, `youtube_secret_reference`, and any other
+ * node/credential internals.
  */
 
 const db = supabaseAdmin || supabase;
@@ -37,11 +45,45 @@ export async function GET(req: Request) {
     return NextResponse.json({ success: false, error: 'Failed to load enabled stream assignments' }, { status: 500 });
   }
 
-  const assignments = (data ?? []).map((row: Record<string, unknown>) => {
+  const rows = data ?? [];
+  const eventIds = rows.map((row) => row.event_id as string).filter(Boolean);
+
+  const telemetryByEventId = new Map<string, MediaStreamTelemetryRow>();
+  if (eventIds.length > 0) {
+    const { data: telemetryRows, error: telemetryError } = await db
+      .from('media_stream_telemetry')
+      .select(
+        'event_id, reporting_media_node_id, sampled_at, connected, srs_publish_active, video_width, video_height, video_codec, audio_codec, audio_present, ingest_kbps_recv_30s, recv_bytes, captured_segment_bitrate_kbps, publish_duration_seconds, session_count, reconnect_count, segment_freshness_seconds, updated_at'
+      )
+      .in('event_id', eventIds);
+
+    if (telemetryError) {
+      return NextResponse.json({ success: false, error: 'Failed to load stream telemetry' }, { status: 500 });
+    }
+    for (const row of (telemetryRows ?? []) as MediaStreamTelemetryRow[]) {
+      telemetryByEventId.set(row.event_id, row);
+    }
+  }
+
+  const assignments = rows.map((row: Record<string, unknown>) => {
     const events = row.events as { slug?: string; studio_id?: string } | { slug?: string; studio_id?: string }[] | null;
     const event = Array.isArray(events) ? events[0] : events;
     const nodes = row.media_nodes as { name?: string; status?: string } | { name?: string; status?: string }[] | null;
     const node = Array.isArray(nodes) ? nodes[0] : nodes;
+
+    // Only accept telemetry reported by THIS assignment's current node —
+    // see the module doc comment above for why.
+    const telemetryRow = telemetryByEventId.get(row.event_id as string) ?? null;
+    const telemetryForCurrentAssignment =
+      telemetryRow && telemetryRow.reporting_media_node_id === row.assigned_media_node_id ? telemetryRow : null;
+
+    const technicalView = toPlatformStreamTechnicalView(telemetryForCurrentAssignment);
+    const liveStatus = technicalView.available
+      ? technicalView.sourceHealth === 'good'
+        ? ('connected' as const)
+        : ('not_connected' as const)
+      : ('unavailable' as const);
+
     return {
       eventId: row.event_id,
       eventSlug: event?.slug ?? null,
@@ -56,9 +98,8 @@ export async function GET(req: Request) {
       publishWindowEndAt: row.publish_window_end_at,
       youtubeEnabled: row.youtube_enabled,
       updatedAt: row.updated_at,
-      // Honestly unavailable — see module doc comment above.
-      liveStatus: 'unavailable' as const,
-      technicalStreamMetrics: unavailable(NO_TECHNICAL_STREAM_METRICS_REASON),
+      liveStatus,
+      technicalStreamMetrics: technicalView,
     };
   });
 

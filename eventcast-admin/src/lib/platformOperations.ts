@@ -80,6 +80,42 @@ export const NO_OUTBOUND_DELIVERY_REASON =
   'The Notification Center records in-app notifications only. No WhatsApp, SMS, or application-email ' +
   'provider is integrated, so no outbound delivery state exists to report.';
 
+/**
+ * Livestream Technical Telemetry + Media Node Health Reporting (migration
+ * `0040`) gives resolution/codecs/audio-presence/ingest-bitrate-evidence/
+ * captured-segment-bitrate/reconnect-session-info an authoritative source
+ * for the FIRST TIME — `NO_TECHNICAL_STREAM_METRICS_REASON` above remains
+ * accurate only for a stream this migration's writer has never reported
+ * for, or reported for long enough ago that the sample can no longer be
+ * trusted as current. A stale or missing row renders identically as
+ * unavailable here, never as a frozen last-known-good value.
+ */
+export const NO_RECENT_STREAM_TELEMETRY_REASON =
+  'No technical telemetry has been reported recently for this stream. The Media Agent reports this only ' +
+  'while it believes a session is actively publishing.';
+
+/**
+ * Frame rate (FPS) specifically is never available, regardless of how
+ * fresh the rest of a stream's telemetry is — isolated Step 0 evidence
+ * (see the project's read-only telemetry audit) proved the pinned SRS
+ * build's technical telemetry source does not expose a frame-rate field,
+ * and it is never derived, estimated, or fabricated by any component in
+ * this repository.
+ */
+export const NO_FPS_TELEMETRY_REASON =
+  "Frame rate (FPS) is not exposed by this deployment's SRS technical telemetry source and is not " +
+  'derived, estimated, or fabricated by any component in this repository.';
+
+/**
+ * Audio sample rate is technically present in the underlying SRS sample
+ * but is container metadata that isolated Step 0 evidence observed
+ * diverging from the real encoder setting - so it is never surfaced as
+ * an authoritative fact anywhere, provider or Super Admin.
+ */
+export const AUDIO_SAMPLE_RATE_NOT_AUTHORITATIVE_REASON =
+  'Audio sample rate is SRS-reported container metadata observed to diverge from the actual encoder ' +
+  'setting during verification and is not treated as an authoritative fact by this application.';
+
 // ── Media node operational projection ────────────────────────────────────
 
 export interface MediaNodeRow {
@@ -424,4 +460,257 @@ export function reconcileTemplateUsage(
   }
 
   return views.sort((a, b) => a.templateId.localeCompare(b.templateId));
+}
+
+// ── Livestream technical stream telemetry (migration 0040) ───────────────
+
+/**
+ * How old a `media_stream_telemetry` row may be before it is treated as
+ * stale rather than current. Matches this package's own report cadence
+ * (`EnvTelemetryReportInterval`, default 30s) with generous margin for a
+ * missed tick or two — a genuinely dead/disconnected stream should read
+ * as "no signal" well before a viewer could mistake network jitter for
+ * an outage, but not so aggressively that one slow report flips the
+ * whole panel to unavailable.
+ */
+export const STREAM_TELEMETRY_STALE_AFTER_SECONDS = 90;
+
+/**
+ * The expected HLS segment duration this deployment's SRS is currently
+ * configured with (`hls_fragment 4` — see
+ * `livestream-infra/infra/media-node/srs/srs.conf` and
+ * `02_V1_ARCHITECTURE_SPEC.md`'s matching baseline config block). This
+ * mirrors that tracked configuration value and must be updated here if
+ * that authoritative configuration ever changes — it is not derived or
+ * read from it automatically.
+ */
+const SRS_EXPECTED_SEGMENT_DURATION_SECONDS = 4;
+
+/**
+ * `02_V1_ARCHITECTURE_SPEC.md` ("Observability requirements"): "a live
+ * stream has no new local segment for three expected segment durations"
+ * is the documented warning condition — reused verbatim as the
+ * Provider-facing source-health threshold rather than inventing a new
+ * number.
+ */
+const SOURCE_HEALTH_STALE_SEGMENT_MULTIPLIER = 3;
+const SOURCE_HEALTH_STALE_SEGMENT_SECONDS =
+  SRS_EXPECTED_SEGMENT_DURATION_SECONDS * SOURCE_HEALTH_STALE_SEGMENT_MULTIPLIER; // 12s
+
+export interface MediaStreamTelemetryRow {
+  event_id: string;
+  reporting_media_node_id: string;
+  sampled_at: string;
+  connected: boolean;
+  srs_publish_active: boolean | null;
+  video_width: number | null;
+  video_height: number | null;
+  video_codec: string | null;
+  audio_codec: string | null;
+  audio_present: boolean | null;
+  ingest_kbps_recv_30s: number | null;
+  recv_bytes: number | null;
+  captured_segment_bitrate_kbps: number | null;
+  publish_duration_seconds: number | null;
+  session_count: number | null;
+  reconnect_count: number | null;
+  segment_freshness_seconds: number | null;
+  updated_at: string;
+}
+
+/**
+ * The PROVIDER-facing projection (Live Control Room). Deliberately
+ * excludes every infrastructure-sensitive fact: no node id, hostname,
+ * region, disk/queue state, software/config version, or raw error text
+ * — a normal provider has no legitimate use for any of it and must never
+ * receive it (see the project's telemetry design decisions).
+ *
+ * `available: false` (via `sourceHealth`) covers BOTH a missing row and a
+ * stale one identically — a provider must never see a frozen old sample
+ * presented as current. `fps` is always explicitly unavailable with its
+ * own fixed reason, regardless of freshness, because it never has a
+ * source at all.
+ */
+export interface ProviderStreamTechnicalView {
+  sourceHealth: 'good' | 'no_signal';
+  connected: boolean | UnavailableFact;
+  videoWidth: number | UnavailableFact;
+  videoHeight: number | UnavailableFact;
+  videoCodec: string | UnavailableFact;
+  audioCodec: string | UnavailableFact;
+  audioPresent: boolean | UnavailableFact;
+  fps: UnavailableFact;
+  ingestKbpsRecv30s: number | UnavailableFact;
+  capturedSegmentBitrateKbps: number | UnavailableFact;
+  publishDurationSeconds: number | UnavailableFact;
+  reconnectCount: number | UnavailableFact;
+  relayStateWord: 'youtube_enabled' | 'youtube_disabled';
+  sampledAt: string | null;
+}
+
+function isStreamTelemetryFresh(row: MediaStreamTelemetryRow | null, now: Date): boolean {
+  if (!row) return false;
+  const ageSeconds = (now.getTime() - new Date(row.sampled_at).getTime()) / 1000;
+  return ageSeconds >= 0 && ageSeconds <= STREAM_TELEMETRY_STALE_AFTER_SECONDS;
+}
+
+/**
+ * Derives the source-health verdict from every authoritative signal this
+ * package actually has — never from `connected` alone. Shared by both the
+ * Provider and Super Admin projections below so the same health rule is
+ * never duplicated with a weaker interpretation in either place. Each
+ * optional signal (`srs_publish_active`, `segment_freshness_seconds`) is
+ * skipped, not fabricated, when unavailable: an unmeasured signal proves
+ * nothing either way, so it must never push the result toward "good" or
+ * "no_signal" by itself.
+ */
+export function deriveStreamSourceHealth(row: MediaStreamTelemetryRow | null, fresh: boolean): 'good' | 'no_signal' {
+  if (!fresh || !row) return 'no_signal';
+  if (row.connected === false) return 'no_signal';
+  if (row.srs_publish_active === false) return 'no_signal';
+  if (row.segment_freshness_seconds !== null && row.segment_freshness_seconds >= SOURCE_HEALTH_STALE_SEGMENT_SECONDS) {
+    return 'no_signal';
+  }
+  return 'good';
+}
+
+export function toProviderStreamTechnicalView(
+  row: MediaStreamTelemetryRow | null,
+  youtubeEnabled: boolean,
+  now: Date = new Date()
+): ProviderStreamTechnicalView {
+  const fresh = isStreamTelemetryFresh(row, now);
+  const fps = unavailable(NO_FPS_TELEMETRY_REASON);
+  const relayStateWord = youtubeEnabled ? 'youtube_enabled' : 'youtube_disabled';
+  const sourceHealth = deriveStreamSourceHealth(row, fresh);
+
+  if (!fresh || !row) {
+    const na = unavailable(NO_RECENT_STREAM_TELEMETRY_REASON);
+    return {
+      sourceHealth,
+      connected: na,
+      videoWidth: na,
+      videoHeight: na,
+      videoCodec: na,
+      audioCodec: na,
+      audioPresent: na,
+      fps,
+      ingestKbpsRecv30s: na,
+      capturedSegmentBitrateKbps: na,
+      publishDurationSeconds: na,
+      reconnectCount: na,
+      relayStateWord,
+      sampledAt: null,
+    };
+  }
+
+  const na = unavailable(NO_RECENT_STREAM_TELEMETRY_REASON);
+  return {
+    sourceHealth,
+    connected: row.connected,
+    videoWidth: row.video_width ?? na,
+    videoHeight: row.video_height ?? na,
+    videoCodec: row.video_codec ?? na,
+    audioCodec: row.audio_codec ?? na,
+    audioPresent: row.audio_present ?? na,
+    fps,
+    ingestKbpsRecv30s: row.ingest_kbps_recv_30s ?? na,
+    capturedSegmentBitrateKbps: row.captured_segment_bitrate_kbps ?? na,
+    publishDurationSeconds: row.publish_duration_seconds ?? na,
+    reconnectCount: row.reconnect_count ?? na,
+    relayStateWord,
+    sampledAt: row.sampled_at,
+  };
+}
+
+/**
+ * The SUPER ADMIN-facing projection. Richer than the provider view —
+ * includes node identity and the same infrastructure-adjacent facts the
+ * rest of the Platform Operations console already exposes to this role
+ * — but still an explicit allowlist, never a raw row spread, and never a
+ * secret/credential of any kind. `audioSampleRate` is intentionally NOT
+ * included here or anywhere: see `AUDIO_SAMPLE_RATE_NOT_AUTHORITATIVE_REASON`.
+ */
+export interface PlatformStreamTechnicalView {
+  available: boolean;
+  reason: string | null;
+  sourceHealth: 'good' | 'no_signal';
+  reportingMediaNodeId: string | null;
+  sampledAt: string | null;
+  ageSeconds: number | null;
+  connected: boolean | null;
+  srsPublishActive: boolean | null;
+  videoWidth: number | null;
+  videoHeight: number | null;
+  videoCodec: string | null;
+  audioCodec: string | null;
+  audioPresent: boolean | null;
+  fps: UnavailableFact;
+  ingestKbpsRecv30s: number | null;
+  recvBytes: number | null;
+  capturedSegmentBitrateKbps: number | null;
+  publishDurationSeconds: number | null;
+  sessionCount: number | null;
+  reconnectCount: number | null;
+  segmentFreshnessSeconds: number | null;
+}
+
+export function toPlatformStreamTechnicalView(
+  row: MediaStreamTelemetryRow | null,
+  now: Date = new Date()
+): PlatformStreamTechnicalView {
+  const fps = unavailable(NO_FPS_TELEMETRY_REASON);
+
+  if (!row) {
+    return {
+      available: false,
+      reason: NO_RECENT_STREAM_TELEMETRY_REASON,
+      sourceHealth: deriveStreamSourceHealth(null, false),
+      reportingMediaNodeId: null,
+      sampledAt: null,
+      ageSeconds: null,
+      connected: null,
+      srsPublishActive: null,
+      videoWidth: null,
+      videoHeight: null,
+      videoCodec: null,
+      audioCodec: null,
+      audioPresent: null,
+      fps,
+      ingestKbpsRecv30s: null,
+      recvBytes: null,
+      capturedSegmentBitrateKbps: null,
+      publishDurationSeconds: null,
+      sessionCount: null,
+      reconnectCount: null,
+      segmentFreshnessSeconds: null,
+    };
+  }
+
+  const ageSeconds = (now.getTime() - new Date(row.sampled_at).getTime()) / 1000;
+  const fresh = ageSeconds >= 0 && ageSeconds <= STREAM_TELEMETRY_STALE_AFTER_SECONDS;
+
+  return {
+    available: fresh,
+    reason: fresh ? null : NO_RECENT_STREAM_TELEMETRY_REASON,
+    sourceHealth: deriveStreamSourceHealth(row, fresh),
+    reportingMediaNodeId: row.reporting_media_node_id,
+    sampledAt: row.sampled_at,
+    ageSeconds,
+    connected: fresh ? row.connected : null,
+    srsPublishActive: fresh ? row.srs_publish_active : null,
+    videoWidth: fresh ? row.video_width : null,
+    videoHeight: fresh ? row.video_height : null,
+    videoCodec: fresh ? row.video_codec : null,
+    audioCodec: fresh ? row.audio_codec : null,
+    audioPresent: fresh ? row.audio_present : null,
+    fps,
+    ingestKbpsRecv30s: fresh ? row.ingest_kbps_recv_30s : null,
+    recvBytes: fresh ? row.recv_bytes : null,
+    capturedSegmentBitrateKbps: fresh ? row.captured_segment_bitrate_kbps : null,
+    publishDurationSeconds: fresh ? row.publish_duration_seconds : null,
+    sessionCount: fresh ? row.session_count : null,
+    reconnectCount: fresh ? row.reconnect_count : null,
+    segmentFreshnessSeconds: fresh ? row.segment_freshness_seconds : null,
+  };
 }

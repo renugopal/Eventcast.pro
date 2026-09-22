@@ -58,6 +58,17 @@ const MEDIA_AGENT_ASSIGNMENTS_PATH = /^\/internal\/media\/nodes\/[A-Za-z0-9._-]{
 const MEDIA_AGENT_RECORDING_REPORT_PATH =
   /^\/internal\/media\/nodes\/[A-Za-z0-9._-]{1,128}\/recordings\/[A-Za-z0-9._-]{1,128}\/?$/;
 
+// Same node machine-auth scheme, for the node-originated technical
+// telemetry + node health report route
+// (`src/app/internal/media/nodes/[node_id]/telemetry/route.ts`,
+// Livestream Technical Telemetry + Media Node Health Reporting). Matched
+// as its own exact path shape (one segment, no event id — a single
+// report can carry entries for many events) so every other path under
+// `/internal/media/nodes/` still falls through to normal studio-JWT
+// authentication instead of being silently unprotected.
+const MEDIA_AGENT_TELEMETRY_REPORT_PATH =
+  /^\/internal\/media\/nodes\/[A-Za-z0-9._-]{1,128}\/telemetry\/?$/;
+
 // ─── Media Agent operator-only provisioning bypass ───────────────────────────
 // Matches ONLY the exact node-registration and credential-issuance route
 // shapes (`src/app/internal/media/nodes/provision/route.ts` and
@@ -146,6 +157,7 @@ export async function middleware(req: NextRequest) {
   if (
     MEDIA_AGENT_ASSIGNMENTS_PATH.test(pathname) ||
     MEDIA_AGENT_RECORDING_REPORT_PATH.test(pathname) ||
+    MEDIA_AGENT_TELEMETRY_REPORT_PATH.test(pathname) ||
     MEDIA_AGENT_NODE_PROVISIONING_PATH.test(pathname) ||
     MEDIA_AGENT_NODE_CREDENTIALS_PATH.test(pathname) ||
     MEDIA_AGENT_NODE_MARK_HEALTHY_PATH.test(pathname) ||
