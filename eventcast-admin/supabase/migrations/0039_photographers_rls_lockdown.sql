@@ -1,0 +1,55 @@
+-- ============================================================
+-- Migration 0039: Remove unsafe out-of-band RLS policies on
+-- public.photographers
+--
+-- A read-only remote audit (Supabase CLI `db query --linked` against
+-- pg_policies, no mutation) found two policies on this table that were
+-- never part of any migration in this repository (0001-0038). They are
+-- hand-applied, out-of-band additions, confirmed to be genuine
+-- tenant-isolation and public-exposure bypasses:
+--
+--   - "Admin full access on photographers" (ALL commands) only checked
+--     auth.role() = 'authenticated', granting any logged-in user from any
+--     studio unrestricted SELECT/INSERT/UPDATE/DELETE on every other
+--     studio's photographers rows, regardless of studio_id.
+--   - "Public can view photographers" (SELECT) had USING (true) with
+--     roles={public}, making every studio's photographer name, city,
+--     phone, and logo_url fully readable by anyone holding the public
+--     anon key, including unauthenticated callers.
+--
+-- This is the same class of finding as migration 0022 (public.wishes /
+-- public.page_views) and migration 0028 (public.events), both of which
+-- explicitly deferred public.photographers to "a separate, later audit" —
+-- this migration is that audit's remediation.
+--
+-- Application-code review confirmed no code path depends on either policy
+-- dropped below:
+--   - The public render Worker (workers/render-event-page/src/index.ts)
+--     reads photographers only via the Supabase service-role key, which
+--     bypasses RLS entirely regardless of which policies exist, and only
+--     as a fallback for events published before the Partner/Event Credit
+--     snapshot system (migration 0030) — unaffected by this change.
+--   - The one application route that reads this table,
+--     GET /api/photographers, also uses the service-role client
+--     (supabaseAdmin) and scopes by studio_id at the application layer,
+--     independent of RLS.
+--   - No route writes events.photographer_id or public.photographers;
+--     the legacy route that once could (/api/events/generate) and its UI
+--     (CreateEventWizard) were both fully retired in the Milestone O
+--     legacy cutover.
+--   - No browser-side/anon-key code anywhere queries public.photographers.
+--
+-- Canonical 0003 policies remain the sole source of truth after this
+-- migration and are intentionally left untouched:
+--   - photographers_select_policy - studio-scoped SELECT for any member
+--   - photographers_insert_policy - studio-scoped INSERT, owner/admin only
+--   - photographers_update_policy - studio-scoped UPDATE, owner/admin only
+--   - photographers_delete_policy - studio-scoped DELETE, owner/admin only
+--
+-- Scope: DROP POLICY only. No GRANT/REVOKE, no RLS enable/disable change,
+-- no ALTER TABLE, no DROP TABLE, no change to any other table's policy,
+-- and no application/Worker code change.
+-- ============================================================
+
+DROP POLICY IF EXISTS "Admin full access on photographers" ON public.photographers;
+DROP POLICY IF EXISTS "Public can view photographers" ON public.photographers;
