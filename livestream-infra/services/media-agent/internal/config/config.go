@@ -215,6 +215,25 @@ const (
 	EnvControlPlaneStaleWarnAfter     = "EVENTCAST_CONTROLPLANE_STALE_WARN_AFTER"
 	EnvControlPlaneStaleCriticalAfter = "EVENTCAST_CONTROLPLANE_STALE_CRITICAL_AFTER"
 
+	// EnvSRSAPIBaseURL is the SRS HTTP API origin this node's Media Agent
+	// samples for per-stream technical telemetry (resolution, codecs,
+	// audio presence, rolling ingest bitrate) via GET /api/v1/streams/ -
+	// verified against the exact pinned SRS build (see
+	// livestream-infra/infra/media-node/srs/srs.conf, "http_api"). Never
+	// published beyond the private media-node Docker network - see
+	// srs/README.md "Required ports" - so the default mirrors the same
+	// Compose service DNS alias convention EnvYouTubeSourceRTMPBaseURL
+	// already uses ("srs", not a public address or loopback).
+	EnvSRSAPIBaseURL = "EVENTCAST_SRS_API_BASE_URL"
+	// EnvTelemetryReportInterval is how often the agent samples the SRS
+	// API for every currently active session and pushes the resulting
+	// technical telemetry plus a node heartbeat to the control plane -
+	// one combined pass, not two separately-paced loops. Reporting (and
+	// therefore sampling) is skipped entirely when EnvControlPlaneBaseURL
+	// is unset - there is nowhere authenticated to push to - exactly like
+	// RecordingReporter's own control-plane gating.
+	EnvTelemetryReportInterval = "EVENTCAST_TELEMETRY_REPORT_INTERVAL"
+
 	// EnvOperatorAPIToken authenticates the internal, state-changing
 	// operator endpoints (VOD finalize trigger, VOD-gap resolution - see
 	// internal/operatorauth). Left empty, these endpoints stay reachable
@@ -303,6 +322,19 @@ const (
 	DefaultControlPlaneBackoffMax         = 5 * time.Minute
 	DefaultControlPlaneStaleWarnAfter     = 5 * time.Minute
 	DefaultControlPlaneStaleCriticalAfter = 20 * time.Minute
+
+	// DefaultSRSAPIBaseURL matches the Compose service DNS alias "srs"
+	// already used by EnvYouTubeSourceRTMPBaseURL's own default
+	// ("rtmp://srs:1935") - never a public address or loopback, which
+	// would only resolve inside this container's own network namespace.
+	DefaultSRSAPIBaseURL = "http://srs:1985"
+	// DefaultTelemetryReportInterval matches the existing steady-state
+	// control-plane cadence convention (EnvControlPlaneSyncInterval /
+	// EnvB2ReportInterval both default to 30s). This is a design choice,
+	// not something Step 0 measured - Step 0 verified only the SRS API's
+	// response shape and field availability, not any particular polling
+	// cadence.
+	DefaultTelemetryReportInterval = 30 * time.Second
 
 	DefaultRateLimitRPS   = 20
 	DefaultRateLimitBurst = 40
@@ -406,6 +438,16 @@ type Config struct {
 	ControlPlaneBackoffMax         time.Duration
 	ControlPlaneStaleWarnAfter     time.Duration
 	ControlPlaneStaleCriticalAfter time.Duration
+
+	// SRSAPIBaseURL and TelemetryReportInterval configure the Livestream
+	// Technical Telemetry + Media Node Health Reporting subsystem
+	// (internal/controlplane.TelemetryReporter, internal/telemetry).
+	// Reporting - and the SRS sampling that happens inline with it, one
+	// combined pass per tick - only ever runs when ControlPlaneEnabled is
+	// also true - there is otherwise nowhere authenticated to push
+	// telemetry to - mirroring RecordingReporter's own gating exactly.
+	SRSAPIBaseURL           string
+	TelemetryReportInterval time.Duration
 
 	// OperatorAPIToken is empty by default; see EnvOperatorAPIToken.
 	OperatorAPIToken logging.Secret
@@ -620,6 +662,15 @@ func Load(getenv func(string) string) (Config, error) {
 	cfg.ControlPlaneStaleCriticalAfter, err = parseDurationOrDefault(getenv(EnvControlPlaneStaleCriticalAfter), DefaultControlPlaneStaleCriticalAfter)
 	if err != nil {
 		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvControlPlaneStaleCriticalAfter, err)
+	}
+
+	cfg.SRSAPIBaseURL = strings.TrimSpace(getenv(EnvSRSAPIBaseURL))
+	if cfg.SRSAPIBaseURL == "" {
+		cfg.SRSAPIBaseURL = DefaultSRSAPIBaseURL
+	}
+	cfg.TelemetryReportInterval, err = parseDurationOrDefault(getenv(EnvTelemetryReportInterval), DefaultTelemetryReportInterval)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvTelemetryReportInterval, err)
 	}
 
 	cfg.OperatorAPIToken = logging.Secret(getenv(EnvOperatorAPIToken))

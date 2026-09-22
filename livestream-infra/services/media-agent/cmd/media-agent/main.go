@@ -31,6 +31,7 @@ import (
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/relay"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/srs"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/store"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/telemetry"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/upload"
 )
 
@@ -227,11 +228,35 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		var cpWG sync.WaitGroup
 		cpWG.Add(1)
 		go func() { defer cpWG.Done(); cpSyncer.Run(cpCtx) }()
+
+		// Livestream Technical Telemetry + Media Node Health Reporting.
+		// Gated on ControlPlaneEnabled exactly like RecordingReporter:
+		// there is nowhere authenticated to push telemetry to without a
+		// configured control plane. A separate loop from assignment sync
+		// on purpose - an unreachable SRS API or a rejected/failed
+		// telemetry report must never affect assignment sync, ingest,
+		// upload, manifest generation, B2 archival, or YouTube relay.
+		// Sampling and reporting share one cadence (TelemetryReportInterval):
+		// each RunOnce both samples SRS and reports in the same pass, since
+		// nothing in this package's current-state design needs a faster
+		// internal sampling loop.
+		srsClient := telemetry.NewSRSClient(cfg.SRSAPIBaseURL, &http.Client{Timeout: cfg.ControlPlaneRequestTimeout})
+		telemetryReporter := controlplane.NewTelemetryReporter(st, srsClient, cpClient, controlplane.TelemetryReporterConfig{
+			NodeID:    cfg.NodeID,
+			SpoolRoot: cfg.SpoolRoot,
+		}, logger)
+		cpWG.Add(1)
+		go func() { defer cpWG.Done(); telemetryReporter.Run(cpCtx, cfg.TelemetryReportInterval) }()
+
 		defer func() { cancelCP(); cpWG.Wait() }()
 
 		logger.Info("control-plane assignment sync enabled")
+		logger.Info("livestream technical telemetry + media node health reporting enabled",
+			slog.String("srs_api_base_url", cfg.SRSAPIBaseURL),
+			slog.Duration("report_interval", cfg.TelemetryReportInterval))
 	} else {
 		logger.Warn("control-plane assignment sync disabled: EVENTCAST_CONTROLPLANE_BASE_URL is not set; relying solely on the static assignment seed")
+		logger.Warn("livestream technical telemetry + media node health reporting disabled: no control plane configured to report to")
 	}
 
 	if cfg.OperatorAPIToken.Reveal() == "" {

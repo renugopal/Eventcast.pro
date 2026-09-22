@@ -50,6 +50,7 @@ import (
 
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/logging"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/store"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/telemetry"
 )
 
 // maxResponseBytes bounds how much of a control-plane response this
@@ -257,6 +258,127 @@ func (c *HTTPClient) ReportRecordingState(ctx context.Context, nodeID, eventID s
 	var parsed RecordingReportResponse
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		return RecordingReportResponse{}, fmt.Errorf("controlplane: parse recording report response: %w", err)
+	}
+	return parsed, nil
+}
+
+// TelemetryReport is the node's push payload for
+// POST {base_url}/internal/media/nodes/{node_id}/telemetry
+// (Livestream Technical Telemetry + Media Node Health Reporting).
+//
+// Node and Streams are EPHEMERAL/current-state: a failed or partially
+// rejected report is never retried for these two fields, because the
+// next scheduled report tick supersedes them anyway - there is no stale
+// value worth redelivering.
+//
+// EndedSessions is DIFFERENT: each entry is a durable, one-time session
+// summary (see internal/telemetry.SessionEndedTelemetry). A session must
+// remain locally pending - and be resent on a later tick - until its
+// session id appears in the response's AcceptedSessionIDs. The caller
+// (internal/telemetry.Reporter) tracks this via the existing durable
+// ingest_sessions row itself (a new telemetry_reported_at column, local
+// SQLite migration 0006), never a separate queue: nothing here is lost
+// to a network failure or a partial acceptance, and nothing here is
+// ever marked delivered on the strength of "the HTTP call returned 200"
+// alone - only on explicit per-session acknowledgement. Session-level
+// deduplication on the control-plane side must be based on the durable
+// session id itself (a future UNIQUE(session_id) + ON CONFLICT DO
+// NOTHING there), never on this request's rotating idempotency key,
+// since a retried session legitimately travels under a new request id
+// each tick.
+//
+// The reporting node's identity is NOT a field here, for the same reason
+// as RecordingStateReport: it is proven by the node authentication
+// headers below and resolved server-side.
+type TelemetryReport struct {
+	Node          telemetry.NodeHeartbeat            `json:"node"`
+	Streams       []telemetry.StreamTelemetry        `json:"streams,omitempty"`
+	EndedSessions []telemetry.SessionEndedTelemetry  `json:"ended_sessions,omitempty"`
+}
+
+// TelemetryReportResponse is the control plane's acknowledgement.
+//
+// AcceptedSessionIDs is the authoritative acknowledgement for
+// EndedSessions: the caller marks ONLY these session ids as durably
+// reported (ingest_sessions.telemetry_reported_at). Any session id sent
+// in the request but absent here - including every session id when the
+// whole request fails - is left pending and resent on the next tick.
+// A session id that was actually a duplicate retry of an already-durable
+// row (control-plane ON CONFLICT DO NOTHING) MUST still appear here, so
+// the caller stops resending it - "accepted" means "this session id is
+// now durably present control-plane-side", not "this call just inserted
+// it for the first time".
+//
+// AcceptedStreamEventIDs is informational only (Streams carries no retry
+// state to update).
+type TelemetryReportResponse struct {
+	AcceptedStreamEventIDs []string `json:"accepted_stream_event_ids"`
+	AcceptedSessionIDs     []string `json:"accepted_session_ids"`
+}
+
+// TelemetryReporterClient is the node-authenticated write side of the
+// control plane for technical telemetry and node health reporting. A
+// separate interface from Client and RecordingReporterClient, following
+// the same pattern, so a component that only needs one capability cannot
+// accidentally gain another.
+type TelemetryReporterClient interface {
+	ReportTelemetry(ctx context.Context, nodeID string, report TelemetryReport) (TelemetryReportResponse, error)
+}
+
+// ReportTelemetry implements TelemetryReporterClient. It reuses the exact
+// authentication envelope FetchAssignments/ReportRecordingState build -
+// same rotatable node bearer credential, node id, per-request id,
+// timestamp, and idempotency key.
+//
+// A non-200 (or a network failure) returns an error and a zero-value
+// TelemetryReportResponse (empty AcceptedSessionIDs) - the caller's own
+// durable ingest_sessions state is what makes that safe: every
+// EndedSessions entry from this call simply stays unreported and is
+// retried on a later tick, exactly as if this call had never happened.
+func (c *HTTPClient) ReportTelemetry(ctx context.Context, nodeID string, report TelemetryReport) (TelemetryReportResponse, error) {
+	url := strings.TrimSuffix(c.BaseURL, "/") + "/internal/media/nodes/" + nodeID + "/telemetry"
+
+	payload, err := json.Marshal(report)
+	if err != nil {
+		return TelemetryReportResponse{}, fmt.Errorf("controlplane: encode telemetry report: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
+	if err != nil {
+		return TelemetryReportResponse{}, fmt.Errorf("controlplane: build telemetry report request: %w", err)
+	}
+	requestID, err := newRequestID()
+	if err != nil {
+		return TelemetryReportResponse{}, fmt.Errorf("controlplane: generate request id: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.NodeToken.Reveal())
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-EventCast-Node-Id", nodeID)
+	req.Header.Set("X-EventCast-Request-Id", requestID)
+	req.Header.Set("X-EventCast-Idempotency-Key", requestID)
+	req.Header.Set("X-EventCast-Timestamp", time.Now().UTC().Format(time.RFC3339))
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return TelemetryReportResponse{}, fmt.Errorf("controlplane: telemetry report request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
+	if err != nil {
+		return TelemetryReportResponse{}, fmt.Errorf("controlplane: read telemetry report response: %w", err)
+	}
+	if len(body) > maxResponseBytes {
+		return TelemetryReportResponse{}, fmt.Errorf("controlplane: telemetry report response exceeded %d bytes", maxResponseBytes)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return TelemetryReportResponse{}, fmt.Errorf("controlplane: telemetry report unexpected status %d", resp.StatusCode)
+	}
+
+	var parsed TelemetryReportResponse
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return TelemetryReportResponse{}, fmt.Errorf("controlplane: parse telemetry report response: %w", err)
 	}
 	return parsed, nil
 }
