@@ -383,3 +383,64 @@ Full repository Vitest: **975/975 passed across 85 files**; `npx tsc --noEmit` u
 **COMPLETE / PASS, local implementation only.** A read-only reconciliation-and-plan pass against the current Event Workspace was approved, then implemented as one coherent package. Keeps the existing 7-tab architecture; reuses every already-completed backend capability. Overview tab rebuilt as the command center (new `src/lib/eventReadiness.ts` deriving explicit Required/Recommended/Optional readiness tiers and a single "next step" — never a one-click Publish, always routed through the Event Page tab's existing controlled Publish section). A real stale-workspace-state bug (the Event Page tab's own disconnected fetch left the shell badge and Live tab's Test-vs-Live label stale after Publish/Edit until a hard refresh) was found and fixed by sourcing the Event Page tab from the shared shell context and calling its `reload()` after every mutation — live-verified end to end. Post-publish Partner Credits editing was preserved with a new warning banner rather than removed. Six mutation routes found missing the standard owner/admin gate (`publish`, `visibility`, `thumbnail`, `credits` POST/PATCH/DELETE, Draft `PATCH`) were corrected with focused regression tests, scoped strictly to those six routes. Full repository Vitest: **1043/1043 passed across 89 files** (1020 + 23 new); no new TypeScript errors; full live authenticated desktop+mobile browser verification, including a real Publish performed on a pre-existing throwaway test Draft (not customer data). See `CURRENT_STATE.md` and `WORKLOG.md` for full evidence. **Do not re-audit or re-implement this package.** Deferred to a future package: editing core event fields after Publish; provider-driven published-credit re-snapshot/re-publish.
 
 **MILESTONE O — PRODUCTION CUTOVER COMPLETE / PASS**
+
+### Completed delivery package: Post-Publish Core Details Editing (2026-09-20) — PRODUCTION COMPLETE / PASS
+
+Editing core event fields (names, headline, venue, venue map link, schedule, Guest Photo Wall toggle) after Publish, via a dedicated `PATCH /api/events/[eventId]/details` route — slug locked, template/lifecycle/visibility/credits/thumbnail never touched by this route. Committed `0362c5f2842d9b086ddf37561178370162bd4e46`, deployed to production Worker version `e5faf69e-9b7d-49da-8c1d-adb28ec00bf1`. Superseded as the current production baseline by the Provider Admin UI Modernization track below, but this package's own functional work remains COMPLETE / PASS and unaffected by that later track. See `CURRENT_STATE.md`/`WORKLOG.md` for full evidence.
+
+### Completed: Published Partner Credits refresh — COMPLETE / PRODUCTION SHIPPED
+
+Commit `688637ab931e5272449e906b9d913883ddc13998`. Closes the gap where a post-publish Partner Credit edit did not update the frozen `published_credits` snapshot the public page renders. **This is no longer open/future work** — it is shipped and complete. Do not re-list this as a candidate next package.
+
+### Completed: R2 configuration drift fix — COMPLETE
+
+Commit `af980b6cf54ca638286a64efd08067c57d6db67d`. Restored/corrected the Worker's R2 environment variables (`R2_BUCKET_NAME`, `R2_S3_ENDPOINT`, `R2_PUBLIC_URL`) after a drift was found between an earlier and later production version. The current production Worker's 3 R2 vars trace directly to this fix — confirmed present and correct on every promotion since, including the current production version. Do not re-list this as open work.
+
+### Completed delivery package: Provider Admin UI Modernization Track (2026-09-21 / 2026-09-22) — PRODUCTION COMPLETE / PASS, current authoritative baseline
+
+**This is the current production baseline for the entire Admin Panel. Six sequential, independently-shipped visual/presentational modernization packages covering the Provider Dashboard/Events, Shared Provider Shell, and the full Event Workspace.** Track-wide: no API route, client helper, HTTP method, payload, validation, auth behavior, lifecycle semantics, moderation semantics, or analytics calculation changed — every existing business rule, confirmation gate, role check, and data contract was preserved exactly. Desktop and 375px mobile verification passed for every package. Each package followed the same flow: one audit → one bounded implementation → one diff review → one commit → one push → one clean isolated build → one inactive Worker version upload → one pre/post-promotion smoke verification → one production promotion. Do not reopen any of the six without a new concrete requirement.
+
+**Explicitly marked COMPLETE by this track — do not leave any of these as pending UI modernization work:**
+
+- **Provider Dashboard** — COMPLETE (commit `b4b380e6a8d5e46e52e4d510e40fbb6ea351df24`)
+- **Events List** — COMPLETE (commit `b4b380e6a8d5e46e52e4d510e40fbb6ea351df24`)
+- **Shared Provider Shell** — COMPLETE (commit `af6f61afe29406b7bc4b6066754265298805f5fe`)
+- **Event Workspace Shell** — COMPLETE (commit `926fd3708713aaa75ffa0708a27d51e4803ad076`)
+- **Overview** — COMPLETE (commit `926fd3708713aaa75ffa0708a27d51e4803ad076`)
+- **Event Page** — COMPLETE (commit `926fd3708713aaa75ffa0708a27d51e4803ad076`)
+- **Live** — COMPLETE (commit `58cdfd8919ee2207d0e9ccd174db46381bdf8431`; files: `LiveControlRoom.tsx` + `globals.css`; known accepted verification limitation — no naturally-enabled livestream event was available, so Enabled-state visuals were verified by code/diff review, not a real enabled state; do not reopen as incomplete without a concrete new requirement)
+- **Media** — COMPLETE (commit `04ef9914815a4068b53af6459354f82166bf61f6`)
+- **Engagement** — COMPLETE (commit `6f6e7470506d972b9e66f45840b10574584bae70`)
+- **Analytics** — COMPLETE (commit `6f6e7470506d972b9e66f45840b10574584bae70`; remains strictly read-only)
+- **Settings** — COMPLETE (commit `6f6e7470506d972b9e66f45840b10574584bae70`; `slugMatches`/`disabled={deleteBusy || !slugMatches}`/`canManage` branching preserved exactly, no confirmation modal added)
+
+**Shared design-system CSS.** `eventcast-admin/src/app/globals.css` was extended and refined during the earlier packages in this track (Provider Dashboard/Events, Shared Provider Shell, Event Workspace Shell + Overview + Event Page, and the Live Tab). The later packages — Media, and the combined Engagement/Analytics/Settings package — reused that already-established `ec-*` system without further `globals.css` changes.
+
+**Event Workspace final architecture, now fully production-modernized:** Overview, Event Page, Live, Media, Engagement, Analytics, Settings — all seven tabs, plus the shared Event Workspace shell. Do not casually redesign or reopen this architecture without a new concrete requirement.
+
+**Current authoritative production baseline:**
+
+- Worker: `eventcast-admin-worker`
+- Domain: `https://studio.eventcast.pro`
+- Production Worker version: `3b258282-7420-426c-a924-c9463ddd02b3` at **100% traffic**
+- Source commit: `6f6e7470506d972b9e66f45840b10574584bae70` on `opennext-workers-preview`
+- Bindings/config, verified before and after every promotion in this track: `ASSETS`; 3 plain vars (`R2_BUCKET_NAME`, `R2_S3_ENDPOINT`, `R2_PUBLIC_URL`); 7 secrets by name only (`CRON_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `SUPABASE_SERVICE_ROLE_KEY`); Compatibility Date `2025-05-05`; Compatibility Flags `nodejs_compat`, `global_fetch_strictly_public`.
+
+**PROVIDER ADMIN UI MODERNIZATION TRACK — PRODUCTION COMPLETE / PASS.** Full per-package detail and verification evidence: `CURRENT_STATE.md`, "Completed Delivery Package — Provider Admin UI Modernization Track (2026-09-22)"; chronological record: `WORKLOG.md`'s matching 2026-09-21/2026-09-22 entry; current-session starting point: `HANDOFF.md`'s final section.
+
+### Next delivery package — not yet chosen
+
+**The Admin UI modernization track is complete. None of the items below is pre-approved as the next package** — a fresh session should first re-read the current project-state files, then group genuinely related, unresolved work into one or more coherent delivery packages, per the "Execution Granularity / Delivery Packages" rule at the top of this file. Do not automatically split every item below into its own separate package; combine safely-related work, and split only at a true risk boundary (unresolved product decision, destructive action, production mutation, secret access, infrastructure mutation, migration, materially different workstream, or materially expanded scope/high regression risk).
+
+Known open candidates, genuinely unresolved (none approved, none scoped):
+
+- technical livestream telemetry / observability (long-deferred since Milestone H/J — no authoritative source exists yet)
+- communications integrations — real outbound WhatsApp/SMS/email provider integration (long-deferred since Milestone L)
+- billing / subscriptions
+- session / account controls
+- **R2 destructive cleanup / media lifecycle cleanup** — the Admin Worker's own R2 integration (bucket `eventcast-media`, used for guest photos/thumbnails/gallery/invitation video) is production-complete and credentialed (`R2_BUCKET_NAME`, `R2_S3_ENDPOINT`, `R2_PUBLIC_URL`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` — confirmed present via the R2 configuration drift fix, commit `af980b6cf54ca638286a64efd08067c57d6db67d`). R2 connectivity/config is not the open gap. What remains genuinely unresolved, per Milestone M's own recorded findings: destructive object cleanup semantics for the separate livestream/VOD media bucket (`eventcast-livestream-media`, reachable only via the public render Worker's own `MEDIA_R2` binding, not directly credentialed in this admin application) — no post-B2 grace duration has been decided, the deletion scope (whole event prefix vs. media-only, retaining `live/index.m3u8`/`vod/index.m3u8`) is undecided, orphan-media cleanup policy is undefined, and the node-side `EVENTCAST_R2_OBJECT_PREFIX` is unreadable from this application. A non-destructive eligibility report/dry-run already exists (Milestone M, Super Admin Console); destructive execution itself still needs a dedicated design/audit before implementation.
+- template operations / template version deployment workflow gaps
+- legacy `photographers` RLS / authorization cleanup (flagged unresolved since Milestone F — two undocumented live RLS policies granting broad/public access)
+- VM continuity / infrastructure hardening
+
+Preferred package flow when work begins: one audit → one bounded implementation → one final diff review → one commit → one push → one isolated build → one inactive Worker preview → one production promotion, per coherent package.

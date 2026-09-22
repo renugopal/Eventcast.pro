@@ -4,6 +4,8 @@
 **Workflow-corrected:** 2026-08-11 — read the rule immediately below before doing anything else.  
 **Use:** Start a new ChatGPT session from this file plus the repository baseline authority.
 
+**Current status (2026-09-22, current and authoritative — see the "Provider Admin UI Modernization Track" section at the very bottom of this file before reading anything else in this document):** Production Worker `eventcast-admin-worker` is 100% on version `3b258282-7420-426c-a924-c9463ddd02b3`, source commit `6f6e7470506d972b9e66f45840b10574584bae70`, at `https://studio.eventcast.pro`. The Provider Admin UI Modernization track (Dashboard/Events, Shared Shell, Workspace Shell/Overview/Event Page, Live, Media, Engagement/Analytics/Settings) is COMPLETE / PRODUCTION SHIPPED. Everything below this point, up to that final section, is preserved unedited as historical implementation record of the underlying Admin Baseline V2.1 functional work (all still COMPLETE / PASS and unaffected by the UI modernization track) — read it for functional/architecture history, but treat the final section as the current starting point for a new session.
+
 ## Execution Rule — Read This First (durable, 2026-08-11)
 
 **"One bounded task" means one coherent feature package — not one file, helper, API route, migration file, test, or verification step.** Full definition: `docs/project-memory/EVENTCAST_ASSISTANT_MEMORY.md` §3; delivery-package grouping: `IMPLEMENTATION_ROADMAP.md`'s "Execution Granularity / Delivery Packages" section.
@@ -478,4 +480,50 @@ Full evidence trail: `WORKLOG.md`, "2026-08-26 — Milestone O: Production Cutov
 
 **POST-PUBLISH CORE DETAILS EDITING — PRODUCTION COMPLETE / PASS**
 
-**Next direction:** The recommended next bounded workstream is Published Partner Credit re-snapshot / re-publish, because post-publish Partner Credit edits currently do not update the frozen `published_credits` snapshot used by the public page. This workstream is not started, not scoped, and not approved for implementation yet; begin with a fresh targeted planning pass in a new session. Template switching, YouTube OAuth/relay, Livestream redesign, Floral-Pastel/Half-Saree work, and CRLF cleanup remain deferred.
+**Superseded (2026-09-22):** the "Next direction" paragraph immediately below is stale in two ways. First, it recommends Published Partner Credit re-snapshot/re-publish as *future* work — that is incorrect; **Published Partner Credits refresh is COMPLETE / PRODUCTION SHIPPED** (commit `688637ab931e5272449e906b9d913883ddc13998`). Second, no other item in that old paragraph was chosen either. Instead, a six-package **Provider Admin UI Modernization track** was undertaken and has since reached production completion. Separately, the durable **R2 configuration drift fix** (commit `af980b6cf54ca638286a64efd08067c57d6db67d`) is also COMPLETE — the current production Worker's 3 R2 vars trace directly to that fix. See the final section of this file, "Provider Admin UI Modernization Track (2026-09-22) — Current Starting Point," which supersedes this entire paragraph and every production-baseline statement above it.
+
+**Next direction (superseded, retained as history):** The recommended next bounded workstream is Published Partner Credit re-snapshot / re-publish, because post-publish Partner Credit edits currently do not update the frozen `published_credits` snapshot used by the public page. This workstream is not started, not scoped, and not approved for implementation yet; begin with a fresh targeted planning pass in a new session. Template switching, YouTube OAuth/relay, Livestream redesign, Floral-Pastel/Half-Saree work, and CRLF cleanup remain deferred.
+
+---
+
+## Provider Admin UI Modernization Track (2026-09-22) — Current Starting Point
+
+**Read this section first in any new session. Everything above it is historical Admin Baseline V2.1 functional-implementation record (still COMPLETE / PASS, unaffected) — this section is the current production/status starting point.**
+
+**Status: PRODUCTION COMPLETE / PASS.** Six sequential visual/presentational modernization packages shipped to production in order, each independently committed, pushed, clean-isolated-build-verified, uploaded as an inactive Worker version, smoke-verified before and after promotion, and promoted to 100% production traffic. **Visual/presentational only, track-wide** — no API route, client helper, HTTP method, payload, validation, auth behavior, lifecycle semantics, moderation semantics, analytics calculation, or mutation logic changed in any of the six packages. Do not reopen any of them without a new concrete requirement.
+
+1. **Provider Dashboard + Events List** — commit `b4b380e6a8d5e46e52e4d510e40fbb6ea351df24`.
+2. **Shared Provider Shell** — commit `af6f61afe29406b7bc4b6066754265298805f5fe`.
+3. **Event Workspace Shell + Overview + Event Page** — commit `926fd3708713aaa75ffa0708a27d51e4803ad076`.
+4. **Event Workspace Live Tab** — commit `58cdfd8919ee2207d0e9ccd174db46381bdf8431`. Known accepted verification limitation: no naturally-enabled livestream event existed during verification, so Enabled-state visuals were verified by code/diff review, not a real enabled state. Do not reopen as incomplete without a concrete new requirement.
+5. **Event Workspace Media Tab** — commit `04ef9914815a4068b53af6459354f82166bf61f6`.
+6. **Event Workspace Remaining Tabs (Engagement, Analytics, Settings)** — commit `6f6e7470506d972b9e66f45840b10574584bae70`.
+
+Full per-package detail, exact files changed, and verification evidence: `CURRENT_STATE.md`, "Completed Delivery Package — Provider Admin UI Modernization Track (2026-09-22)"; per-package narrative: `WORKLOG.md`'s matching 2026-09-21/2026-09-22 entries.
+
+**Current authoritative production baseline:**
+
+- Worker: `eventcast-admin-worker`, domain `https://studio.eventcast.pro`
+- Production Worker version: `3b258282-7420-426c-a924-c9463ddd02b3` at **100% traffic**
+- Source commit: `6f6e7470506d972b9e66f45840b10574584bae70` on `opennext-workers-preview`
+- Bindings/config, unchanged across all six promotions: `ASSETS`; 3 plain vars (`R2_BUCKET_NAME`, `R2_S3_ENDPOINT`, `R2_PUBLIC_URL`); 7 secrets by name only (`CRON_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `SUPABASE_SERVICE_ROLE_KEY`); Compatibility Date `2025-05-05`; Compatibility Flags `nodejs_compat`, `global_fetch_strictly_public`.
+
+**Event Workspace final architecture (complete, do not casually reopen):** Overview, Event Page, Live, Media, Engagement, Analytics, Settings — all seven tabs plus the shared shell are production-modernized.
+
+**Clean-build TypeScript baseline, unchanged by this track:** 3 pre-existing errors only — `src/app/api/events/draft/[eventId]/preview/route.ts:131`, `tests/security/events-thumbnail.test.ts:67`, `tests/security/media-assignment-status-route.test.ts:56`. Untracked scratch scripts may add noise in the main dirty tree; that is not part of the clean-checkout baseline.
+
+**Known pre-existing unrelated dirty files, untouched throughout:** `eventcast-admin/src/lib/canonicalWeddingTemplateHtml.ts`, `eventcast-admin/src/lib/weddingTemplateRenderer.ts`, `wedding-template-01/script.js`, `workers/render-event-page/src/index.ts`, `workers/render-event-page/templates/wedding-template-01/index.html` (separate Floral-Pastel/Half-Saree workstream) — do not stage, reset, or touch these as part of any future task unless that task is explicitly about them.
+
+### New Chat Starter (supersedes every earlier "New Chat Starter" message in this file)
+
+Use this message to start a new session:
+
+"Continue EventCast.pro from the current project-state continuity files (`CURRENT_STATE.md`, `IMPLEMENTATION_ROADMAP.md`, `HANDOFF.md`'s final section, `WORKLOG.md`), treat Admin Baseline V2.1 (`docs/admin-baseline-v2.1/`) as the product/architecture authority for any new functional work, and treat `docs/project-memory/EVENTCAST_ASSISTANT_MEMORY.md` as the durable workflow-rules authority (execution mode: Claude Sonnet 5, Medium effort, Manual mode; Plan Mode only for planning/read-only inspection; never Full Auto/Bypass; never 'Always allow'; combine safely-related work into one coherent package rather than splitting every screen/task into its own deployment cycle; split only at true risk boundaries — unresolved product decision, materially different workstream, destructive action, production mutation, secret access, infrastructure mutation, migration, or materially expanded scope).
+
+**Production baseline:** Worker `eventcast-admin-worker` at `https://studio.eventcast.pro`, 100% on version `3b258282-7420-426c-a924-c9463ddd02b3`, source commit `6f6e7470506d972b9e66f45840b10574584bae70`.
+
+**Complete, do not reopen without a new concrete requirement:** the entire Admin Baseline V2.1 functional program (Phase 1 through Milestone O legacy cutover, all documented in this file above), Published Partner Credits refresh (commit `688637ab931e5272449e906b9d913883ddc13998`), the R2 configuration drift fix (commit `af980b6cf54ca638286a64efd08067c57d6db67d` — current production config already includes the durable R2 vars from this fix), and the six-package Provider Admin UI Modernization track (Dashboard/Events, Shared Shell, Workspace Shell/Overview/Event Page, Live, Media, Engagement/Analytics/Settings) — all seven Event Workspace tabs plus the shared shell are production-modernized.
+
+**The next delivery package has not been chosen.** Known open candidates — technical livestream telemetry/observability; communications integrations (WhatsApp/SMS/email); billing/subscriptions; session/account controls; R2 destructive cleanup/media lifecycle cleanup; template operations/template version deployment workflow gaps; the legacy `photographers` RLS/authorization cleanup; VM continuity/infrastructure hardening — are listed in `CURRENT_STATE.md`'s final entry, but none is pre-approved. Start with a fresh read of the current project-state files, then group the remaining work into one or more coherent, safely-combinable delivery packages rather than one tiny task at a time, following the same execution discipline used throughout this UI modernization track: one audit → one bounded implementation → one diff review → one commit → one push → one isolated build → one inactive Worker preview → one production promotion, per coherent package.
+
+Do not touch the separately flagged legacy `photographers` RLS exposure without treating it as its own dedicated task."
