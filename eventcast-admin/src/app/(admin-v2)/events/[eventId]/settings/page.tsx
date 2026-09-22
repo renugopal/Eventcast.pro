@@ -105,78 +105,90 @@ export default function EventWorkspaceSettingsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="ec-card space-y-3">
-        <h3 className="ec-section-title flex items-center gap-2">
-          {isArchived ? <ArchiveRestore size={16} /> : <Archive size={16} />} Archive
-        </h3>
-        <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-          {isArchived
-            ? isDraft
-              ? "This Draft is archived and hidden from the normal Events list. You can restore it before its permanent-deletion deadline."
-              : "This event is archived. It is hidden from the normal Events list but not deleted, and can be restored at any time."
-            : "Archiving hides this event from the normal Events list without deleting it. It can be restored at any time."}
-        </p>
-        {error && <div style={{ fontSize: "13px", color: "var(--error)" }}>{error}</div>}
-        {canManage ? (
-          <button type="button" className="ec-btn ec-btn-secondary" disabled={busy} onClick={handleArchiveToggle}>
-            {busy ? "Working…" : isArchived ? "Restore event" : "Archive event"}
-          </button>
-        ) : (
-          <p style={{ fontSize: "13px", color: "var(--text-tertiary)" }}>
-            Only an owner or admin can archive or restore this event.
+      <div className="ec-card ec-settings-card">
+        <div className="ec-settings-section-header">
+          <h3 className="ec-section-title flex items-center gap-2">
+            {isArchived ? <ArchiveRestore size={16} /> : <Archive size={16} />} Archive
+          </h3>
+        </div>
+        <div className="ec-settings-body">
+          <p className="ec-section-sub">
+            {isArchived
+              ? isDraft
+                ? "This Draft is archived and hidden from the normal Events list. You can restore it before its permanent-deletion deadline."
+                : "This event is archived. It is hidden from the normal Events list but not deleted, and can be restored at any time."
+              : "Archiving hides this event from the normal Events list without deleting it. It can be restored at any time."}
           </p>
-        )}
+          {error && <div className="ec-banner ec-banner-error">{error}</div>}
+          <div className="ec-settings-actions">
+            {canManage ? (
+              <button type="button" className="ec-btn ec-btn-secondary" disabled={busy} onClick={handleArchiveToggle}>
+                {busy ? "Working…" : isArchived ? "Restore event" : "Archive event"}
+              </button>
+            ) : (
+              <p style={{ fontSize: "13px", color: "var(--text-tertiary)" }}>
+                Only an owner or admin can archive or restore this event.
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
       {isArchived && (
-        <div className="ec-card space-y-3">
-          <h3 className="ec-section-title flex items-center gap-2" style={{ color: "var(--error)" }}>
-            <Trash2 size={16} /> Delete Permanently
-          </h3>
+        <div className="ec-card ec-settings-card">
+          <div className="ec-settings-section-header">
+            <h3 className="ec-section-title flex items-center gap-2" style={{ color: "var(--error)" }}>
+              <Trash2 size={16} /> Delete Permanently
+            </h3>
+          </div>
+          <div className="ec-settings-body">
+            {autoDeleteDays !== null && (
+              <div className="ec-banner ec-banner-warning">
+                Auto-deletes in {autoDeleteDays} day{autoDeleteDays === 1 ? "" : "s"}.
+              </div>
+            )}
 
-          {autoDeleteDays !== null && (
-            <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-              Auto-deletes in {autoDeleteDays} day{autoDeleteDays === 1 ? "" : "s"}.
+            <p style={{ fontSize: "13px", color: "var(--error)", fontWeight: 600 }}>
+              This permanently deletes this event and its removable media (guest photos, thumbnail,
+              gallery, invitation video). This cannot be undone. A retained archival recording, if
+              one exists, is not deleted here and remains subject to its own retention policy.
             </p>
-          )}
 
-          <p style={{ fontSize: "13px", color: "var(--error)", fontWeight: 600 }}>
-            This permanently deletes this event and its removable media (guest photos, thumbnail,
-            gallery, invitation video). This cannot be undone. A retained archival recording, if
-            one exists, is not deleted here and remains subject to its own retention policy.
-          </p>
+            {canManage ? (
+              <>
+                <div className="ec-settings-field">
+                  <label className="ec-label">
+                    Type <code>{event.slug}</code> to confirm.
+                  </label>
+                  <input
+                    type="text"
+                    className="ec-input"
+                    value={confirmSlug}
+                    onChange={(e) => setConfirmSlug(e.target.value)}
+                    placeholder={event.slug ?? ""}
+                    disabled={deleteBusy}
+                  />
+                </div>
 
-          {canManage ? (
-            <>
-              <label style={{ fontSize: "13px", color: "var(--text-secondary)", display: "block" }}>
-                Type <code>{event.slug}</code> to confirm.
-              </label>
-              <input
-                type="text"
-                className="ec-input"
-                style={{ width: "100%", maxWidth: "100%" }}
-                value={confirmSlug}
-                onChange={(e) => setConfirmSlug(e.target.value)}
-                placeholder={event.slug ?? ""}
-                disabled={deleteBusy}
-              />
+                {deleteError && <div className="ec-banner ec-banner-error">{deleteError}</div>}
 
-              {deleteError && <div style={{ fontSize: "13px", color: "var(--error)" }}>{deleteError}</div>}
-
-              <button
-                type="button"
-                className="ec-btn ec-btn-danger"
-                disabled={deleteBusy || !slugMatches}
-                onClick={handlePermanentDelete}
-              >
-                {deleteBusy ? "Deleting…" : "Delete Permanently Now"}
-              </button>
-            </>
-          ) : (
-            <p style={{ fontSize: "13px", color: "var(--text-tertiary)" }}>
-              Only an owner or admin can permanently delete this event.
-            </p>
-          )}
+                <div className="ec-settings-actions">
+                  <button
+                    type="button"
+                    className="ec-btn ec-btn-danger"
+                    disabled={deleteBusy || !slugMatches}
+                    onClick={handlePermanentDelete}
+                  >
+                    {deleteBusy ? "Deleting…" : "Delete Permanently Now"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p style={{ fontSize: "13px", color: "var(--text-tertiary)" }}>
+                Only an owner or admin can permanently delete this event.
+              </p>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -134,37 +134,36 @@ export default function EventWorkspaceEngagementPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {error && (
-        <div className="ec-card" style={{ borderColor: "#FECDD3", color: "var(--error)", fontSize: "13px" }}>
-          {error}
-        </div>
-      )}
+      {error && <div className="ec-banner ec-banner-error">{error}</div>}
 
       <div className="ec-card space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <h3 className="ec-section-title flex items-center gap-2">
             <MessageCircleHeart size={16} /> Guest Memories
           </h3>
           {manualApproval !== null && (
-            <label style={{ fontSize: "13px", display: "flex", alignItems: "center", gap: "6px" }}>
-              <input type="checkbox" checked={manualApproval} onChange={handleToggleManualApproval} />
-              Manual Approval
+            <label style={{ display: "inline-flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
+              <span className="ec-toggle">
+                <input type="checkbox" checked={manualApproval} onChange={handleToggleManualApproval} />
+                <span className="ec-toggle-slider" />
+              </span>
+              <span style={{ fontSize: "13px", fontWeight: 600 }}>Manual Approval</span>
             </label>
           )}
         </div>
-        <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+        <p className="ec-section-sub">
           Guest-uploaded photos, selfies, captions, and memories. Auto-approved by default; enable Manual Approval to
           hold new submissions for review first.
         </p>
 
         {memories === null ? (
-          <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>Loading…</div>
+          <div className="ec-skeleton" style={{ height: "90px", width: "100%" }} />
         ) : (
           <>
             {pending.length > 0 && (
               <div className="space-y-2">
                 <h4 style={{ fontSize: "13px", fontWeight: 600 }}>Pending review ({pending.length})</h4>
-                <div className="flex flex-wrap gap-3">
+                <div className="grid gap-3 ec-photo-grid">
                   {pending.map((m) => (
                     <MemoryCard key={m.id} memory={m} onApprove={handleMemoryApprove} onDelete={handleMemoryDelete} />
                   ))}
@@ -174,9 +173,15 @@ export default function EventWorkspaceEngagementPage() {
             <div className="space-y-2">
               <h4 style={{ fontSize: "13px", fontWeight: 600 }}>Approved ({approved.length})</h4>
               {approved.length === 0 ? (
-                <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>None yet.</div>
+                <div className="ec-empty-state">
+                  <span className="ec-empty-state-icon">
+                    <MessageCircleHeart size={22} />
+                  </span>
+                  <span className="ec-empty-state-title">No approved memories yet</span>
+                  <span className="ec-empty-state-sub">Approved guest photos will appear here.</span>
+                </div>
               ) : (
-                <div className="flex flex-wrap gap-3">
+                <div className="grid gap-3 ec-photo-grid">
                   {approved.map((m) => (
                     <MemoryCard key={m.id} memory={m} onApprove={handleMemoryApprove} onDelete={handleMemoryDelete} />
                   ))}
@@ -191,34 +196,41 @@ export default function EventWorkspaceEngagementPage() {
         <h3 className="ec-section-title flex items-center gap-2">
           <Pin size={16} /> Wishes
         </h3>
-        <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+        <p className="ec-section-sub">
           Persistent text greetings from guests, separate from Guest Memories and Live Chat.
         </p>
         {wishes === null ? (
-          <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>Loading…</div>
+          <div className="ec-skeleton" style={{ height: "60px", width: "100%" }} />
         ) : wishes.length === 0 ? (
-          <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>No wishes yet.</div>
+          <div className="ec-empty-state">
+            <span className="ec-empty-state-icon">
+              <Pin size={22} />
+            </span>
+            <span className="ec-empty-state-title">No wishes yet</span>
+            <span className="ec-empty-state-sub">Guest wishes will appear here as they&rsquo;re submitted.</span>
+          </div>
         ) : (
           <div className="flex flex-col gap-2">
             {wishes.map((w) => (
               <div key={w.id} className="ec-card" style={{ padding: "10px 12px" }}>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <strong style={{ fontSize: "13px" }}>
                     {w.name} {w.is_pinned && <span title="Pinned">📌</span>}
                   </strong>
                   <span
-                    className="ec-badge"
-                    style={{
-                      fontSize: "11px",
-                      color:
-                        w.status === "approved" ? "var(--success, #16a34a)" : w.status === "hidden" ? "var(--text-secondary)" : "var(--error)",
-                    }}
+                    className={`ec-status-pill ${
+                      w.status === "approved"
+                        ? "ec-status-pill--complete"
+                        : w.status === "hidden"
+                          ? "ec-status-pill--optional"
+                          : "ec-status-pill--required"
+                    }`}
                   >
                     {w.status}
                   </span>
                 </div>
                 <p style={{ fontSize: "13px", margin: "4px 0" }}>{w.message}</p>
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex gap-2 flex-wrap items-center">
                   <button type="button" className="ec-btn ec-btn-secondary ec-btn-sm" onClick={() => handleWishPin(w.id, !w.is_pinned)}>
                     {w.is_pinned ? "Unpin" : "Pin"}
                   </button>
@@ -237,8 +249,13 @@ export default function EventWorkspaceEngagementPage() {
                       Reject
                     </button>
                   )}
-                  <button type="button" className="ec-btn ec-btn-secondary ec-btn-sm" onClick={() => handleWishDelete(w.id)}>
-                    <Trash2 size={12} />
+                  <button
+                    type="button"
+                    className="ec-icon-btn ec-icon-btn-danger"
+                    onClick={() => handleWishDelete(w.id)}
+                    aria-label="Delete wish"
+                  >
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </div>
@@ -260,14 +277,14 @@ function MemoryCard({
   onDelete: (id: string) => void;
 }) {
   return (
-    <div className="flex flex-col gap-1" style={{ width: "120px" }}>
+    <div className="flex flex-col gap-1">
       <img
         src={memory.photo_url}
         alt={`Photo from ${memory.uploader_name}`}
-        style={{ width: "120px", height: "90px", objectFit: "cover", borderRadius: "6px" }}
+        style={{ width: "100%", height: "90px", objectFit: "cover", borderRadius: "6px" }}
       />
       <div style={{ fontSize: "11px", color: "var(--text-secondary)" }}>{memory.uploader_name}</div>
-      <div className="flex gap-1 justify-center">
+      <div className="flex gap-1 justify-center items-center flex-wrap">
         {memory.approved ? (
           <button type="button" className="ec-btn ec-btn-secondary ec-btn-sm" onClick={() => onApprove(memory.id, false)}>
             Hide
@@ -277,8 +294,13 @@ function MemoryCard({
             Approve
           </button>
         )}
-        <button type="button" className="ec-btn ec-btn-secondary ec-btn-sm" onClick={() => onDelete(memory.id)} aria-label="Delete">
-          <Trash2 size={12} />
+        <button
+          type="button"
+          className="ec-icon-btn ec-icon-btn-danger"
+          onClick={() => onDelete(memory.id)}
+          aria-label="Delete"
+        >
+          <Trash2 size={14} />
         </button>
       </div>
     </div>

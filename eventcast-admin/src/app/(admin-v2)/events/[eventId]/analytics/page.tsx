@@ -25,7 +25,7 @@ function BreakdownList({ title, data }: { title: string; data: Record<string, nu
     <div className="space-y-2">
       <h4 style={{ fontSize: "13px", fontWeight: 600 }}>{title}</h4>
       {entries.length === 0 ? (
-        <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>No data yet.</div>
+        <div className="ec-section-sub">No data yet.</div>
       ) : (
         <div className="flex flex-col gap-1">
           {entries.map(([key, count]) => (
@@ -40,13 +40,27 @@ function BreakdownList({ title, data }: { title: string; data: Record<string, nu
   );
 }
 
-function StatTile({ icon: Icon, label, value }: { icon: typeof Eye; label: string; value: string | number }) {
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+  accent,
+}: {
+  icon: typeof Eye;
+  label: string;
+  value: string | number;
+  accent: string;
+}) {
   return (
-    <div className="ec-card" style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-      <div className="flex items-center gap-2" style={{ color: "var(--text-secondary)", fontSize: "12px" }}>
-        <Icon size={14} /> {label}
+    <div className="ec-stat-card">
+      <span className="ec-stat-accent" style={{ background: accent }} />
+      <span className="ec-stat-icon" style={{ background: `${accent}1A`, color: accent }}>
+        <Icon size={18} />
+      </span>
+      <div>
+        <div className="ec-stat-value">{value}</div>
+        <div className="ec-stat-label">{label}</div>
       </div>
-      <div style={{ fontSize: "22px", fontWeight: 700 }}>{value}</div>
     </div>
   );
 }
@@ -76,15 +90,16 @@ export default function EventWorkspaceAnalyticsPage() {
   if (state.status !== "ready") return null;
 
   if (error) {
-    return (
-      <div className="ec-card" style={{ borderColor: "#FECDD3", color: "var(--error)", fontSize: "13px" }}>
-        {error}
-      </div>
-    );
+    return <div className="ec-banner ec-banner-error">{error}</div>;
   }
 
   if (!analytics) {
-    return <div style={{ fontSize: "13px", color: "var(--text-secondary)" }}>Loading…</div>;
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="ec-skeleton" style={{ height: "150px", width: "100%" }} />
+        <div className="ec-skeleton" style={{ height: "150px", width: "100%" }} />
+      </div>
+    );
   }
 
   const { pageAnalytics, audienceAnalytics } = analytics;
@@ -96,10 +111,10 @@ export default function EventWorkspaceAnalyticsPage() {
           <BarChart3 size={16} /> Event-page analytics
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatTile icon={Eye} label="Total page views" value={pageAnalytics.totalPageViews} />
-          <StatTile icon={Users} label="Unique visitors" value={pageAnalytics.uniqueVisitors} />
-          <StatTile icon={BarChart3} label="Wishes" value={pageAnalytics.wishesCount} />
-          <StatTile icon={BarChart3} label="Guest Memories" value={pageAnalytics.guestMemoriesCount} />
+          <StatTile icon={Eye} label="Total page views" value={pageAnalytics.totalPageViews} accent="var(--primary)" />
+          <StatTile icon={Users} label="Unique visitors" value={pageAnalytics.uniqueVisitors} accent="var(--info)" />
+          <StatTile icon={BarChart3} label="Wishes" value={pageAnalytics.wishesCount} accent="var(--accent)" />
+          <StatTile icon={BarChart3} label="Guest Memories" value={pageAnalytics.guestMemoriesCount} accent="var(--success)" />
         </div>
         {pageAnalytics.uniqueVisitorsCoverageNote && (
           <p style={{ fontSize: "12px", color: "var(--text-tertiary)" }}>{pageAnalytics.uniqueVisitorsCoverageNote}</p>
@@ -115,17 +130,17 @@ export default function EventWorkspaceAnalyticsPage() {
         <h3 className="ec-section-title flex items-center gap-2">
           <Radio size={16} /> EventCast livestream audience
         </h3>
-        <p style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+        <p className="ec-section-sub">
           Measured from real player heartbeats sent only while the EventCast private-stream player is genuinely
           playing — never from page-open counts or SRS connection counts, and source-separated from YouTube.
         </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatTile icon={Users} label="Current viewers" value={audienceAnalytics.currentViewers} />
-          <StatTile icon={Users} label="Peak concurrent viewers" value={audienceAnalytics.peakConcurrentViewers} />
-          <StatTile icon={Users} label="Total unique viewers" value={audienceAnalytics.totalUniqueViewers} />
-          <StatTile icon={Clock} label="Total watch time" value={formatSeconds(audienceAnalytics.totalWatchTimeSeconds)} />
+          <StatTile icon={Users} label="Current viewers" value={audienceAnalytics.currentViewers} accent="var(--success)" />
+          <StatTile icon={Users} label="Peak concurrent viewers" value={audienceAnalytics.peakConcurrentViewers} accent="var(--primary)" />
+          <StatTile icon={Users} label="Total unique viewers" value={audienceAnalytics.totalUniqueViewers} accent="var(--info)" />
+          <StatTile icon={Clock} label="Total watch time" value={formatSeconds(audienceAnalytics.totalWatchTimeSeconds)} accent="var(--accent)" />
         </div>
-        <p style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+        <p className="ec-section-sub">
           Average watch time per viewer: {formatSeconds(audienceAnalytics.averageWatchTimeSeconds)}
         </p>
         {audienceAnalytics.coverageNote && (
@@ -135,7 +150,7 @@ export default function EventWorkspaceAnalyticsPage() {
 
       <div className="ec-card space-y-1">
         <h3 className="ec-section-title">Technical stream metrics</h3>
-        <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
+        <p className="ec-section-sub">
           Resolution, FPS, bitrate, codecs, reconnects, and source/relay health remain unmeasured — see the Live tab.
           No authoritative source exists yet.
         </p>
