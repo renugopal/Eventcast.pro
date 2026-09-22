@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Copy, Eye, EyeOff, LifeBuoy, Radio, Video } from "lucide-react";
+import { Clock, Copy, Eye, EyeOff, Film, Gauge, LifeBuoy, Radio, Video } from "lucide-react";
 import { authFetch } from "@/lib/client-auth";
 import {
   enableLivestream,
@@ -78,20 +78,10 @@ function MaskedField({ label, value }: { label: string; value: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-secondary)" }}>{label}</span>
-      <div className="flex items-center gap-2 flex-wrap">
-        <code
-          style={{
-            fontSize: "12px",
-            background: "var(--surface-hover)",
-            padding: "4px 8px",
-            borderRadius: "4px",
-            wordBreak: "break-all",
-          }}
-        >
-          {revealed ? value : maskValue(value)}
-        </code>
+    <div className="ec-credential-field">
+      <span className="ec-credential-field-label">{label}</span>
+      <div className="ec-credential-field-row">
+        <code className="ec-credential-field-value">{revealed ? value : maskValue(value)}</code>
         <button type="button" className="ec-btn ec-btn-secondary ec-btn-sm" onClick={() => setRevealed((r) => !r)}>
           {revealed ? <EyeOff size={12} /> : <Eye size={12} />} {revealed ? "Hide" : "Reveal"}
         </button>
@@ -182,25 +172,20 @@ export function LiveControlRoom({ eventId, pageState }: LiveControlRoomProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      {error && (
-        <div className="ec-card" style={{ borderColor: "#FECDD3", color: "var(--error)", fontSize: "13px" }}>
-          {error}
-        </div>
-      )}
+      {error && <div className="ec-banner ec-banner-error">{error}</div>}
 
       <div className="ec-card space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h3 className="ec-section-title flex items-center gap-2">
             <Radio size={16} /> Private Livestream
           </h3>
-          <span
-            className="ec-badge"
-            style={{
-              color: status?.enabled ? "var(--success, #16a34a)" : "var(--text-secondary)",
-            }}
-          >
-            {status === null ? "Loading…" : status.enabled ? "Enabled" : "Disabled"}
-          </span>
+          {status === null ? (
+            <div className="ec-skeleton" style={{ width: "80px", height: "24px" }} />
+          ) : (
+            <span className={`ec-status-pill ${status.enabled ? "ec-status-pill--complete" : "ec-status-pill--optional"}`}>
+              {status.enabled ? "Enabled" : "Disabled"}
+            </span>
+          )}
         </div>
 
         {isDraft && (
@@ -245,33 +230,47 @@ export function LiveControlRoom({ eventId, pageState }: LiveControlRoomProps) {
               )}
             </div>
 
-            <div className="flex gap-4 flex-wrap" style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
-              <span>Publish window ends: {status.publishWindowEndAt ?? "—"}</span>
-              <span>Last updated: {status.updatedAt ?? "—"}</span>
+            <div>
+              <div className="ec-detail-row">
+                <span className="ec-detail-row-icon">
+                  <Clock size={16} />
+                </span>
+                <div>
+                  <div className="ec-detail-row-label">Publish window ends</div>
+                  <div className="ec-detail-row-value">{status.publishWindowEndAt ?? "—"}</div>
+                </div>
+              </div>
+              <div className="ec-detail-row">
+                <span className="ec-detail-row-icon">
+                  <Clock size={16} />
+                </span>
+                <div>
+                  <div className="ec-detail-row-label">Last updated</div>
+                  <div className="ec-detail-row-value">{status.updatedAt ?? "—"}</div>
+                </div>
+              </div>
             </div>
 
-            <button type="button" className="ec-btn ec-btn-secondary" disabled={busy} onClick={handleEnd}>
+            <button type="button" className="ec-btn ec-btn-danger" disabled={busy} onClick={handleEnd}>
               End Stream
             </button>
           </>
         )}
       </div>
 
-      <div className="ec-card space-y-2">
-        <h3 className="ec-section-title">Technical stream metrics</h3>
-        <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-          Resolution, FPS, video/audio bitrate, codecs, duration, reconnect count, and current/peak viewers have no
-          authoritative source yet in the current SRS/Media Agent integration — shown here as unmeasured rather than
-          guessed, per the "no fake stream health" rule.
-        </p>
-        <div className="flex flex-wrap gap-3" style={{ fontSize: "12px", color: "var(--text-tertiary)" }}>
-          {["Resolution", "FPS", "Video bitrate", "Audio bitrate", "Codecs", "Duration", "Reconnects", "Viewers"].map(
-            (metric) => (
-              <span key={metric} className="ec-badge" style={{ color: "var(--text-tertiary)" }}>
-                {metric}: Not yet measured
-              </span>
-            )
-          )}
+      <div className="ec-card">
+        <h3 className="ec-section-title flex items-center gap-2">
+          <Gauge size={16} /> Technical stream metrics
+        </h3>
+        <div className="ec-empty-state">
+          <span className="ec-empty-state-icon">
+            <Gauge size={22} />
+          </span>
+          <span className="ec-empty-state-title">Technical telemetry isn&rsquo;t available yet</span>
+          <span className="ec-empty-state-sub">
+            Resolution, FPS, video/audio bitrate, codecs, duration, reconnect count, and current/peak viewers have no
+            authoritative source yet in the current SRS/Media Agent integration.
+          </span>
         </div>
       </div>
 
@@ -305,9 +304,11 @@ export function LiveControlRoom({ eventId, pageState }: LiveControlRoomProps) {
       </div>
 
       <div className="ec-card space-y-2">
-        <h3 className="ec-section-title">Recording &amp; replay</h3>
+        <h3 className="ec-section-title flex items-center gap-2">
+          <Film size={16} /> Recording &amp; replay
+        </h3>
         {recording === null ? (
-          <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>Loading…</p>
+          <div className="ec-skeleton" style={{ height: "20px" }} />
         ) : (
           <>
             <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>

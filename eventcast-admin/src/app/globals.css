@@ -2762,6 +2762,39 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: 0.04em;
 }
 
+/* ── Live tab — one-time credential field (Stream URL / Stream Key) ──
+   Scoped to the Live Control Room's masked-secret rows only. */
+.ec-credential-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ec-credential-field-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ec-credential-field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ec-credential-field-value {
+  font-size: 12px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border-subtle);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  word-break: break-all;
+  color: var(--foreground);
+}
+
 /* Additional attention-dot tones (Package 1 defined warning/error/info only) */
 .ec-attention-dot-success { background: var(--success); }
 .ec-attention-dot-neutral { background: var(--text-tertiary); }
