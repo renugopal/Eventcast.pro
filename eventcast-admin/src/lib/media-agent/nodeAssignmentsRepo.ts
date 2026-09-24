@@ -49,7 +49,9 @@ interface MediaAgentRpcDb {
 export const DECOY_MEDIA_NODE_ID = '00000000-0000-0000-0000-000000000000';
 
 export const MEDIA_NODE_SELECT_COLUMNS = 'id, config_version';
-export const MEDIA_NODE_CREDENTIALS_SELECT_COLUMNS = 'slot, digest';
+// `last_verified_at` (migration 0041) is server-only slot-verification
+// evidence; it is never placed in any response.
+export const MEDIA_NODE_CREDENTIALS_SELECT_COLUMNS = 'slot, digest, last_verified_at';
 export const MEDIA_EVENT_ASSIGNMENTS_SELECT_COLUMNS =
   'event_id, ingest_id, playback_id, stream_secret_hash, enabled, publish_window_start_at, publish_window_end_at, config_version, updated_at, youtube_enabled';
 
@@ -83,6 +85,9 @@ export async function findMediaNodeByName(
 export interface MediaNodeCredentialDigests {
   slot1: string | null;
   slot2: string | null;
+  /** Server-only evidence timestamps (migration 0041); never returned to clients. */
+  slot1LastVerifiedAt: string | null;
+  slot2LastVerifiedAt: string | null;
 }
 
 /**
@@ -94,9 +99,11 @@ export interface MediaNodeCredentialDigests {
  * request — with `DECOY_MEDIA_NODE_ID` when the node is unknown — so this
  * query's shape and cost never reveals node existence. Returns `null` only
  * on a genuine query error; a node with zero active credentials still
- * returns `{ slot1: null, slot2: null }`, which
- * `verifyMediaNodeCredential`'s fixed decoy-digest padding already handles
- * as a normal (always-failing) case.
+ * returns all-null slots, which `verifyMediaNodeCredential`'s fixed
+ * decoy-digest padding already handles as a normal (always-failing) case.
+ * The per-slot `last_verified_at` values are server-only evidence used
+ * solely to decide (via `isCredentialEvidenceStale`) whether a route calls
+ * `recordCredentialSlotVerified`.
  */
 export async function loadActiveCredentialDigests(
   db: unknown,
@@ -110,15 +117,89 @@ export async function loadActiveCredentialDigests(
     .is('revoked_at', null);
 
   if (error) return null;
-  const rows = (data ?? []) as { slot: number; digest: string }[];
+  const rows = (data ?? []) as { slot: number; digest: string; last_verified_at?: string | null }[];
 
   let slot1: string | null = null;
   let slot2: string | null = null;
+  let slot1LastVerifiedAt: string | null = null;
+  let slot2LastVerifiedAt: string | null = null;
   for (const row of rows) {
-    if (row.slot === 1) slot1 = row.digest;
-    else if (row.slot === 2) slot2 = row.digest;
+    if (row.slot === 1) {
+      slot1 = row.digest;
+      slot1LastVerifiedAt = row.last_verified_at ?? null;
+    } else if (row.slot === 2) {
+      slot2 = row.digest;
+      slot2LastVerifiedAt = row.last_verified_at ?? null;
+    }
   }
-  return { slot1, slot2 };
+  return { slot1, slot2, slot1LastVerifiedAt, slot2LastVerifiedAt };
+}
+
+/**
+ * Minimum age before a slot's `last_verified_at` evidence is refreshed.
+ * Throttles both the in-process decision to issue the UPDATE and the
+ * UPDATE's own DB-side predicate (race protection across instances).
+ */
+export const CREDENTIAL_EVIDENCE_THROTTLE_MS = 5 * 60 * 1000;
+
+/**
+ * True when a slot's loaded evidence timestamp is absent, unparseable, or
+ * at least `CREDENTIAL_EVIDENCE_THROTTLE_MS` old — i.e. a refresh is due.
+ */
+export function isCredentialEvidenceStale(lastVerifiedAt: string | null, now: Date): boolean {
+  if (lastVerifiedAt === null) return true;
+  const parsed = new Date(lastVerifiedAt).getTime();
+  if (Number.isNaN(parsed)) return true;
+  return now.getTime() - parsed >= CREDENTIAL_EVIDENCE_THROTTLE_MS;
+}
+
+interface CredentialEvidenceUpdateBuilder extends PromiseLike<{ error: unknown }> {
+  eq: (column: string, value: unknown) => CredentialEvidenceUpdateBuilder;
+  is: (column: string, value: null) => CredentialEvidenceUpdateBuilder;
+  or: (filters: string) => CredentialEvidenceUpdateBuilder;
+}
+
+interface CredentialEvidenceDb {
+  from: (table: string) => {
+    update: (values: Record<string, unknown>) => CredentialEvidenceUpdateBuilder;
+  };
+}
+
+function warnCredentialEvidenceWriteFailed(mediaNodeId: string): void {
+  // Fixed message + node UUID only: never a slot, token, digest, or header.
+  console.warn('media-agent credential evidence write failed', { mediaNodeId });
+}
+
+/**
+ * Records server-only slot-verification evidence: sets
+ * `media_node_credentials.last_verified_at` for one active slot. Routes call
+ * this only for a unique slot match (a dual match records nothing), only
+ * after the node rate limit passed and the replay nonce was claimed, and
+ * only when `isCredentialEvidenceStale` says the loaded timestamp is due —
+ * a fresh timestamp issues no DB request at all. The `revoked_at IS NULL`
+ * filter and the stale-or-null predicate stay on the UPDATE itself as race
+ * protection. Best-effort: never throws, never returns a status — a failure
+ * must never change a Media Agent response.
+ */
+export async function recordCredentialSlotVerified(
+  db: unknown,
+  mediaNodeId: string,
+  slot: 1 | 2,
+  now: Date
+): Promise<void> {
+  try {
+    const cutoff = new Date(now.getTime() - CREDENTIAL_EVIDENCE_THROTTLE_MS).toISOString();
+    const { error } = await (db as CredentialEvidenceDb)
+      .from('media_node_credentials')
+      .update({ last_verified_at: now.toISOString() })
+      .eq('media_node_id', mediaNodeId)
+      .eq('slot', slot)
+      .is('revoked_at', null)
+      .or(`last_verified_at.is.null,last_verified_at.lte."${cutoff}"`);
+    if (error) warnCredentialEvidenceWriteFailed(mediaNodeId);
+  } catch {
+    warnCredentialEvidenceWriteFailed(mediaNodeId);
+  }
 }
 
 export type NodeActivationCheckResult = 'authorized' | 'not_authorized' | 'error';

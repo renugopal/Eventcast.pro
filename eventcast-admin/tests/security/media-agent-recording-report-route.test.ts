@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { nodeHasEventActivation } from '@/lib/media-agent/nodeAssignmentsRepo';
+import {
+  CREDENTIAL_EVIDENCE_THROTTLE_MS,
+  MEDIA_NODE_CREDENTIALS_SELECT_COLUMNS,
+  isCredentialEvidenceStale,
+  loadActiveCredentialDigests,
+  nodeHasEventActivation,
+  recordCredentialSlotVerified,
+} from '@/lib/media-agent/nodeAssignmentsRepo';
 
 // ── Deterministic, fake test-only fixtures. No production-like secrets. ────
 const PEPPER = 'unit-test-pepper-fixture';
@@ -38,16 +45,37 @@ interface FakeResult {
 }
 
 /**
+ * An `update` queue entry: a normal result, or `'throw'` to make awaiting
+ * the update builder reject. Unqueued updates resolve `{ error: null }` —
+ * the credential-evidence UPDATE is an explicitly supported operation.
+ */
+type FakeUpdateResult = FakeResult | 'throw';
+
+interface RecordedUpdate {
+  table: string;
+  values: unknown;
+  eqArgs: unknown[][];
+  isArgs: unknown[][];
+  orArgs: unknown[][];
+}
+
+/**
  * Per-table queued results. `activations` drives the event↔node
  * authorization lookup, and its data is a ROW SET (the lookup is an
  * existence check over an append-only table, not a single-row read); an
  * empty array means "this node has no activation history for this event".
  */
-function makeFakeDb(tables: Record<string, { select?: FakeResult[]; insert?: FakeResult[] }>) {
+function makeFakeDb(
+  tables: Record<string, { select?: FakeResult[]; insert?: FakeResult[]; update?: FakeUpdateResult[] }>
+) {
   const queues = new Map(
-    Object.entries(tables).map(([k, v]) => [k, { select: [...(v.select ?? [])], insert: [...(v.insert ?? [])] }])
+    Object.entries(tables).map(([k, v]) => [
+      k,
+      { select: [...(v.select ?? [])], insert: [...(v.insert ?? [])], update: [...(v.update ?? [])] },
+    ])
   );
   const touched: string[] = [];
+  const updates: RecordedUpdate[] = [];
   // Exposed so a test can assert HOW a table was queried, not just what came
   // back — the fake cannot emulate PostgREST's own multi-row error, so the
   // query shape is what pins the append-only existence-check contract.
@@ -83,15 +111,42 @@ function makeFakeDb(tables: Record<string, { select?: FakeResult[]; insert?: Fak
         if (!result) throw new Error(`FakeDb: no more insert() results for '${table}'`);
         return Promise.resolve(result);
       }),
+      update: vi.fn((values: unknown) => {
+        const recorded: RecordedUpdate = { table, values, eqArgs: [], isArgs: [], orArgs: [] };
+        updates.push(recorded);
+        const updateBuilder = {
+          eq: vi.fn((...args: unknown[]) => {
+            recorded.eqArgs.push(args);
+            return updateBuilder;
+          }),
+          is: vi.fn((...args: unknown[]) => {
+            recorded.isArgs.push(args);
+            return updateBuilder;
+          }),
+          or: vi.fn((...args: unknown[]) => {
+            recorded.orArgs.push(args);
+            return updateBuilder;
+          }),
+          then: (onfulfilled: (v: FakeResult) => unknown, onrejected?: (r: unknown) => unknown) => {
+            const result = queue.update.shift() ?? { error: null };
+            if (result === 'throw') {
+              return Promise.reject(new Error('FakeDb: simulated update exception')).then(onfulfilled, onrejected);
+            }
+            return Promise.resolve(result).then(onfulfilled, onrejected);
+          },
+        };
+        return updateBuilder;
+      }),
     };
   });
 
-  return { from, touched, builders };
+  return { from, touched, builders, updates };
 }
 
 interface FakeTableApi {
   select: (...args: unknown[]) => unknown;
   insert: (...args: unknown[]) => unknown;
+  update?: (...args: unknown[]) => unknown;
 }
 
 const { mockDb } = vi.hoisted(() => ({
@@ -471,5 +526,406 @@ describe('nodeHasEventActivation', () => {
   it('fails closed on an unexpected non-row-set response shape', async () => {
     const { db } = withActivations({ data: { id: 'not-an-array' }, error: null });
     expect(await nodeHasEventActivation(db, EVENT_ID, NODE_UUID)).toBe('not_authorized');
+  });
+});
+
+// ── Server-only slot-verification evidence (migration 0041) ────────────────
+describe('POST /internal/media/nodes/{node_id}/recordings/{event_id} — credential slot evidence', () => {
+  const minutesAgo = (m: number) => new Date(Date.now() - m * 60 * 1000).toISOString();
+
+  async function wireEvidenceDb(
+    credRows: { slot: number; digest: string; last_verified_at?: string | null }[],
+    options: { update?: FakeUpdateResult[]; nonceError?: FakeResult['error']; activation?: FakeResult } = {}
+  ) {
+    const fake = makeFakeDb({
+      media_nodes: { select: [{ data: { id: NODE_UUID, config_version: '7' }, error: null }] },
+      media_node_credentials: { select: [{ data: credRows, error: null }], update: options.update },
+      media_node_request_nonces: { insert: [{ error: options.nonceError ?? null }] },
+      media_event_assignment_activations: {
+        select: [options.activation ?? { data: [{ id: 'activation-1' }], error: null }],
+      },
+    });
+    mockDb.from = fake.from as unknown as typeof mockDb.from;
+    return fake;
+  }
+
+  it('null evidence timestamp → one conditional evidence UPDATE scoped to the node, slot, and active rows', async () => {
+    const digest = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const fake = await wireEvidenceDb([{ slot: 1, digest, last_verified_at: null }]);
+    const POST = await loadRoute();
+    const { req, params } = makeRequest();
+
+    expect((await POST(req, { params })).status).toBe(200);
+    expect(fake.updates).toHaveLength(1);
+    const update = fake.updates[0];
+    expect(update.table).toBe('media_node_credentials');
+    expect(Object.keys(update.values as Record<string, unknown>)).toEqual(['last_verified_at']);
+    expect(update.eqArgs).toEqual([
+      ['media_node_id', NODE_UUID],
+      ['slot', 1],
+    ]);
+    expect(update.isArgs).toEqual([['revoked_at', null]]);
+    expect(update.orArgs[0][0]).toMatch(/^last_verified_at\.is\.null,last_verified_at\.lte\."[^"]+"$/);
+  });
+
+  it('stale (>5 min) evidence timestamp → evidence UPDATE', async () => {
+    const digest = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const fake = await wireEvidenceDb([{ slot: 1, digest, last_verified_at: minutesAgo(6) }]);
+    const POST = await loadRoute();
+    const { req, params } = makeRequest();
+
+    expect((await POST(req, { params })).status).toBe(200);
+    expect(fake.updates).toHaveLength(1);
+  });
+
+  it('recent (<5 min) evidence timestamp → no evidence UPDATE request at all', async () => {
+    const digest = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const fake = await wireEvidenceDb([{ slot: 1, digest, last_verified_at: minutesAgo(1) }]);
+    const POST = await loadRoute();
+    const { req, params } = makeRequest();
+
+    expect((await POST(req, { params })).status).toBe(200);
+    expect(fake.updates).toHaveLength(0);
+  });
+
+  it('dual match (both slots hold the same digest) → authenticates normally, records no slot evidence', async () => {
+    const digest = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const fake = await wireEvidenceDb([
+      { slot: 1, digest, last_verified_at: null },
+      { slot: 2, digest, last_verified_at: null },
+    ]);
+    const POST = await loadRoute();
+    const { req, params } = makeRequest();
+
+    expect((await POST(req, { params })).status).toBe(200);
+    expect(transitionCalls()).toHaveLength(1);
+    expect(fake.updates).toHaveLength(0);
+  });
+
+  it.each([
+    ['missing authorization', { authorization: null }],
+    ['wrong token', { authorization: `Bearer ${TOKEN_WRONG}` }],
+    ['malformed request id', { requestId: 'too-short' }],
+    ['path/header node-id mismatch', { pathNodeId: 'some-other-node' }],
+  ])('%s → 401, no evidence write', async (_label, overrides) => {
+    const digest = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const fake = await wireEvidenceDb([{ slot: 1, digest, last_verified_at: null }]);
+    const POST = await loadRoute();
+    const { req, params } = makeRequest(overrides as Overrides);
+
+    expect((await POST(req, { params })).status).toBe(401);
+    expect(fake.updates).toHaveLength(0);
+  });
+
+  it('unknown node → 401, no evidence write', async () => {
+    const fake = makeFakeDb({
+      media_nodes: { select: [{ data: null, error: null }] },
+      media_node_credentials: { select: [{ data: [], error: null }] },
+    });
+    mockDb.from = fake.from as unknown as typeof mockDb.from;
+    const POST = await loadRoute();
+    const { req, params } = makeRequest();
+
+    expect((await POST(req, { params })).status).toBe(401);
+    expect(fake.updates).toHaveLength(0);
+  });
+
+  it('rate-limited node → 429, no evidence write', async () => {
+    const digest = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const fake = await wireEvidenceDb([{ slot: 1, digest, last_verified_at: null }]);
+    mockDb.rpc = vi.fn(async (fn: string) => {
+      if (fn === 'check_rate_limit') return { data: false, error: null };
+      return { data: null, error: null };
+    }) as unknown as typeof mockDb.rpc;
+    const POST = await loadRoute();
+    const { req, params } = makeRequest();
+
+    expect((await POST(req, { params })).status).toBe(429);
+    expect(fake.updates).toHaveLength(0);
+  });
+
+  it('replayed request id (nonce conflict) → 401, no evidence write', async () => {
+    const digest = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const fake = await wireEvidenceDb([{ slot: 1, digest, last_verified_at: null }], {
+      nonceError: { message: 'duplicate', code: '23505' },
+    });
+    const POST = await loadRoute();
+    const { req, params } = makeRequest();
+
+    expect((await POST(req, { params })).status).toBe(401);
+    expect(fake.updates).toHaveLength(0);
+  });
+
+  it.each([
+    ['returns an error', { error: { message: 'evidence write failed' } } as FakeUpdateResult],
+    ['throws', 'throw' as FakeUpdateResult],
+  ])('evidence UPDATE that %s → response identical to a successful write', async (_label, updateResult) => {
+    const digest = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await wireEvidenceDb([{ slot: 1, digest, last_verified_at: null }]);
+      const POST = await loadRoute();
+      const ok = makeRequest();
+      const okRes = await POST(ok.req, { params: ok.params });
+      const okBody = await okRes.json();
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      vi.resetModules();
+      const fake = await wireEvidenceDb([{ slot: 1, digest, last_verified_at: null }], { update: [updateResult] });
+      const POST2 = await loadRoute();
+      const failing = makeRequest();
+      const res = await POST2(failing.req, { params: failing.params });
+
+      expect(fake.updates).toHaveLength(1);
+      expect(res.status).toBe(200);
+      expect(res.status).toBe(okRes.status);
+      expect(await res.json()).toEqual(okBody);
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith('media-agent credential evidence write failed', { mediaNodeId: NODE_UUID });
+      const logged = JSON.stringify(warnSpy.mock.calls);
+      expect(logged).not.toContain(digest);
+      expect(logged).not.toContain(TOKEN_SLOT_1);
+      expect(logged).not.toMatch(/slot/i);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('downstream validation failure after auth + nonce claim → evidence still recorded, 400 unchanged', async () => {
+    const digest = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const fake = await wireEvidenceDb([{ slot: 1, digest, last_verified_at: null }]);
+    const POST = await loadRoute();
+    const { req, params } = makeRequest({ body: { state: 'totally_made_up' } });
+
+    const res = await POST(req, { params });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'invalid_report' });
+    expect(transitionCalls()).toHaveLength(0);
+    expect(fake.updates).toHaveLength(1);
+  });
+
+  it('downstream event-authorization failure (no activation history) after auth + nonce claim → evidence still recorded, 401 unchanged', async () => {
+    const digest = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const fake = await wireEvidenceDb([{ slot: 1, digest, last_verified_at: null }], {
+      activation: { data: [], error: null },
+    });
+    const POST = await loadRoute();
+    const { req, params } = makeRequest();
+
+    const res = await POST(req, { params });
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: 'unauthorized' });
+    expect(transitionCalls()).toHaveLength(0);
+    expect(fake.updates).toHaveLength(1);
+  });
+
+  it('downstream business failure (rejected transition, 409) after auth + nonce claim → evidence still recorded', async () => {
+    const digest = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const fake = await wireEvidenceDb([{ slot: 1, digest, last_verified_at: null }]);
+    mockDb.rpc = vi.fn(async (fn: string) => {
+      if (fn === 'apply_event_recording_transition') {
+        return { data: null, error: { message: 'gap_count must be supplied explicitly' } };
+      }
+      return { data: true, error: null };
+    }) as unknown as typeof mockDb.rpc;
+    const POST = await loadRoute();
+    const { req, params } = makeRequest();
+
+    expect((await POST(req, { params })).status).toBe(409);
+    expect(fake.updates).toHaveLength(1);
+  });
+
+  it('never exposes slot metadata or credential timestamps in the response', async () => {
+    const digest = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const staleTs = minutesAgo(6);
+    await wireEvidenceDb([{ slot: 1, digest, last_verified_at: staleTs }]);
+    const POST = await loadRoute();
+    const { req, params } = makeRequest();
+
+    const res = await POST(req, { params });
+    expect(res.status).toBe(200);
+    const serialized = JSON.stringify(await res.json());
+    const headerDump = JSON.stringify([...res.headers.entries()]);
+    for (const text of [serialized, headerDump]) {
+      expect(text).not.toMatch(/slot/i);
+      expect(text).not.toContain('last_verified_at');
+      expect(text).not.toContain('uniquelyMatchedSlot');
+      expect(text).not.toContain(staleTs);
+    }
+  });
+});
+
+/**
+ * The credential-evidence primitives the three internal routes depend on,
+ * exercised directly (same precedent as `nodeHasEventActivation` above).
+ */
+describe('credential slot-evidence helpers (migration 0041)', () => {
+  const NOW = new Date('2026-09-24T10:00:00.000Z');
+  const CUTOFF = new Date(NOW.getTime() - CREDENTIAL_EVIDENCE_THROTTLE_MS).toISOString();
+
+  describe('loadActiveCredentialDigests', () => {
+    it('selects last_verified_at and maps it per slot, server-side only', async () => {
+      const fake = makeFakeDb({
+        media_node_credentials: {
+          select: [
+            {
+              data: [
+                { slot: 1, digest: 'a'.repeat(64), last_verified_at: '2026-09-24T09:00:00.000Z' },
+                { slot: 2, digest: 'b'.repeat(64), last_verified_at: null },
+              ],
+              error: null,
+            },
+          ],
+        },
+      });
+
+      const result = await loadActiveCredentialDigests({ from: fake.from }, NODE_UUID);
+
+      expect(result).toEqual({
+        slot1: 'a'.repeat(64),
+        slot2: 'b'.repeat(64),
+        slot1LastVerifiedAt: '2026-09-24T09:00:00.000Z',
+        slot2LastVerifiedAt: null,
+      });
+      expect(MEDIA_NODE_CREDENTIALS_SELECT_COLUMNS).toBe('slot, digest, last_verified_at');
+      const table = fake.from.mock.results[0].value as { select: ReturnType<typeof vi.fn> };
+      expect(table.select).toHaveBeenCalledWith(MEDIA_NODE_CREDENTIALS_SELECT_COLUMNS);
+    });
+
+    it('keeps the revoked_at IS NULL filter on the credential SELECT', async () => {
+      const fake = makeFakeDb({ media_node_credentials: { select: [{ data: [], error: null }] } });
+
+      await loadActiveCredentialDigests({ from: fake.from }, NODE_UUID);
+
+      const builder = fake.builders[0];
+      expect(builder.eq).toHaveBeenCalledWith('media_node_id', NODE_UUID);
+      expect(builder.is).toHaveBeenCalledWith('revoked_at', null);
+    });
+
+    it('maps a row without last_verified_at, and missing slots, to null', async () => {
+      const fake = makeFakeDb({
+        media_node_credentials: { select: [{ data: [{ slot: 2, digest: 'b'.repeat(64) }], error: null }] },
+      });
+
+      expect(await loadActiveCredentialDigests({ from: fake.from }, NODE_UUID)).toEqual({
+        slot1: null,
+        slot2: 'b'.repeat(64),
+        slot1LastVerifiedAt: null,
+        slot2LastVerifiedAt: null,
+      });
+    });
+  });
+
+  describe('isCredentialEvidenceStale', () => {
+    const ago = (ms: number) => new Date(NOW.getTime() - ms).toISOString();
+
+    it('is stale (due) for a null timestamp', () => {
+      expect(isCredentialEvidenceStale(null, NOW)).toBe(true);
+    });
+
+    it('is stale (due) for a malformed timestamp', () => {
+      expect(isCredentialEvidenceStale('not-a-timestamp', NOW)).toBe(true);
+    });
+
+    it('is stale (due) at exactly 5 minutes old', () => {
+      expect(isCredentialEvidenceStale(ago(CREDENTIAL_EVIDENCE_THROTTLE_MS), NOW)).toBe(true);
+    });
+
+    it('is stale (due) when older than 5 minutes', () => {
+      expect(isCredentialEvidenceStale(ago(CREDENTIAL_EVIDENCE_THROTTLE_MS + 1), NOW)).toBe(true);
+    });
+
+    it('is fresh (not due) when younger than 5 minutes', () => {
+      expect(isCredentialEvidenceStale(ago(CREDENTIAL_EVIDENCE_THROTTLE_MS - 1), NOW)).toBe(false);
+      expect(isCredentialEvidenceStale(ago(0), NOW)).toBe(false);
+    });
+  });
+
+  describe('recordCredentialSlotVerified', () => {
+    function evidenceDb(update?: FakeUpdateResult[]) {
+      const fake = makeFakeDb({ media_node_credentials: { update } });
+      return { db: { from: fake.from }, fake };
+    }
+
+    it('issues exactly one conditional UPDATE: node + slot + active-row guard + stale/null race predicate', async () => {
+      const { db, fake } = evidenceDb();
+
+      await expect(recordCredentialSlotVerified(db, NODE_UUID, 2, NOW)).resolves.toBeUndefined();
+
+      expect(fake.updates).toHaveLength(1);
+      const update = fake.updates[0];
+      expect(update.table).toBe('media_node_credentials');
+      expect(update.values).toEqual({ last_verified_at: NOW.toISOString() });
+      expect(update.eqArgs).toEqual([
+        ['media_node_id', NODE_UUID],
+        ['slot', 2],
+      ]);
+      // Revoked-row guard: a revoked credential's evidence is never touched.
+      expect(update.isArgs).toEqual([['revoked_at', null]]);
+      // DB-side race protection mirrors the in-process 5-minute throttle.
+      expect(update.orArgs).toEqual([[`last_verified_at.is.null,last_verified_at.lte."${CUTOFF}"`]]);
+    });
+
+    it('never writes any column other than last_verified_at', async () => {
+      const { db, fake } = evidenceDb();
+
+      await recordCredentialSlotVerified(db, NODE_UUID, 1, NOW);
+
+      expect(Object.keys(fake.updates[0].values as Record<string, unknown>)).toEqual(['last_verified_at']);
+    });
+
+    it.each([
+      ['a returned DB error', { error: { message: 'evidence write failed' } } as FakeUpdateResult],
+      ['a thrown exception', 'throw' as FakeUpdateResult],
+    ])('swallows %s and emits only a fixed, secret-free warning', async (_label, updateResult) => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const { db } = evidenceDb([updateResult]);
+
+        await expect(recordCredentialSlotVerified(db, NODE_UUID, 1, NOW)).resolves.toBeUndefined();
+
+        expect(warnSpy).toHaveBeenCalledTimes(1);
+        expect(warnSpy).toHaveBeenCalledWith('media-agent credential evidence write failed', {
+          mediaNodeId: NODE_UUID,
+        });
+        const logged = JSON.stringify(warnSpy.mock.calls);
+        expect(logged).not.toMatch(/slot/i);
+        expect(logged).not.toContain(TOKEN_SLOT_1);
+        expect(logged).not.toContain(PEPPER);
+        expect(logged).not.toContain(NOW.toISOString());
+        expect(logged).not.toContain(CUTOFF);
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it('swallows a synchronous client failure (e.g. from() itself throwing)', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const db = {
+          from: () => {
+            throw new Error('client unavailable');
+          },
+        };
+
+        await expect(recordCredentialSlotVerified(db, NODE_UUID, 1, NOW)).resolves.toBeUndefined();
+        expect(warnSpy).toHaveBeenCalledWith('media-agent credential evidence write failed', {
+          mediaNodeId: NODE_UUID,
+        });
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it('does not warn on a successful write', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const { db } = evidenceDb();
+        await recordCredentialSlotVerified(db, NODE_UUID, 1, NOW);
+        expect(warnSpy).not.toHaveBeenCalled();
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
   });
 });

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   authenticateMediaAgentRequest,
   parseBearerToken,
+  resolveMediaNodeCredentialMatch,
   validateMediaAgentAuthStructure,
   verifyMediaNodeCredential,
   type MediaAgentAuthHeaders,
@@ -302,6 +303,113 @@ describe('verifyMediaNodeCredential — fixed two-slot verification', () => {
       expect(verifySpy).toHaveBeenCalledTimes(2);
     } finally {
       verifySpy.mockRestore();
+    }
+  });
+});
+
+describe('resolveMediaNodeCredentialMatch — server-only unique-slot attribution', () => {
+  it('attributes a unique slot-1 match to slot 1', async () => {
+    const digest1 = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const digest2 = await computeDigest(PEPPER, TOKEN_SLOT_2);
+    expect(await resolveMediaNodeCredentialMatch(PEPPER, TOKEN_SLOT_1, digest1, digest2)).toEqual({
+      authenticated: true,
+      uniquelyMatchedSlot: 1,
+    });
+  });
+
+  it('attributes a unique slot-2 match to slot 2', async () => {
+    const digest1 = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const digest2 = await computeDigest(PEPPER, TOKEN_SLOT_2);
+    expect(await resolveMediaNodeCredentialMatch(PEPPER, TOKEN_SLOT_2, digest1, digest2)).toEqual({
+      authenticated: true,
+      uniquelyMatchedSlot: 2,
+    });
+  });
+
+  it('attributes a unique match when the other slot is empty', async () => {
+    const digest2 = await computeDigest(PEPPER, TOKEN_SLOT_2);
+    expect(await resolveMediaNodeCredentialMatch(PEPPER, TOKEN_SLOT_2, null, digest2)).toEqual({
+      authenticated: true,
+      uniquelyMatchedSlot: 2,
+    });
+  });
+
+  // UNIQUE(digest) prevents this in the database; the resolver must still
+  // never arbitrarily attribute a slot if both digests verify the token.
+  it('dual match → authenticates (existing semantics) but attributes no slot', async () => {
+    const digest1 = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    expect(await resolveMediaNodeCredentialMatch(PEPPER, TOKEN_SLOT_1, digest1, digest1)).toEqual({
+      authenticated: true,
+      uniquelyMatchedSlot: null,
+    });
+    expect(await verifyMediaNodeCredential(PEPPER, TOKEN_SLOT_1, digest1, digest1)).toBe(true);
+  });
+
+  it('no match → not authenticated, no slot', async () => {
+    const digest1 = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const digest2 = await computeDigest(PEPPER, TOKEN_SLOT_2);
+    expect(await resolveMediaNodeCredentialMatch(PEPPER, TOKEN_WRONG, digest1, digest2)).toEqual({
+      authenticated: false,
+      uniquelyMatchedSlot: null,
+    });
+  });
+
+  it('both slots null → not authenticated, no slot', async () => {
+    expect(await resolveMediaNodeCredentialMatch(PEPPER, TOKEN_SLOT_1, null, null)).toEqual({
+      authenticated: false,
+      uniquelyMatchedSlot: null,
+    });
+  });
+
+  it('malformed digests fail closed without throwing and attribute no slot', async () => {
+    await expect(
+      resolveMediaNodeCredentialMatch(PEPPER, TOKEN_SLOT_1, 'not-a-valid-hex-digest', 'zz'.repeat(32))
+    ).resolves.toEqual({ authenticated: false, uniquelyMatchedSlot: null });
+  });
+
+  it('the decoy padding digest itself never matches or attributes a slot', async () => {
+    const decoy = '0'.repeat(64);
+    expect(await resolveMediaNodeCredentialMatch(PEPPER, TOKEN_SLOT_1, decoy, decoy)).toEqual({
+      authenticated: false,
+      uniquelyMatchedSlot: null,
+    });
+  });
+
+  it.each([
+    ['unique slot-1 match', TOKEN_SLOT_1, 'slot1', 'slot2'],
+    ['unique slot-2 match', TOKEN_SLOT_2, 'slot1', 'slot2'],
+    ['dual match', TOKEN_SLOT_1, 'slot1', 'slot1'],
+    ['no match', TOKEN_WRONG, 'slot1', 'slot2'],
+  ])('%s → both subtle.verify calls always execute', async (_label, token, first, second) => {
+    const digests: Record<string, string> = {
+      slot1: await computeDigest(PEPPER, TOKEN_SLOT_1),
+      slot2: await computeDigest(PEPPER, TOKEN_SLOT_2),
+    };
+    const verifySpy = vi.spyOn(crypto.subtle, 'verify');
+    try {
+      await resolveMediaNodeCredentialMatch(PEPPER, token, digests[first], digests[second]);
+      expect(verifySpy).toHaveBeenCalledTimes(2);
+    } finally {
+      verifySpy.mockRestore();
+    }
+  });
+
+  it('verifyMediaNodeCredential stays exactly the resolver’s authenticated boolean', async () => {
+    const digest1 = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const digest2 = await computeDigest(PEPPER, TOKEN_SLOT_2);
+    const cases: [string, string | null, string | null][] = [
+      [TOKEN_SLOT_1, digest1, digest2],
+      [TOKEN_SLOT_2, digest1, digest2],
+      [TOKEN_SLOT_1, digest1, digest1],
+      [TOKEN_WRONG, digest1, digest2],
+      [TOKEN_SLOT_1, null, null],
+      [TOKEN_SLOT_1, 'deadbeef', null],
+    ];
+    for (const [token, d1, d2] of cases) {
+      const match = await resolveMediaNodeCredentialMatch(PEPPER, token, d1, d2);
+      const verified = await verifyMediaNodeCredential(PEPPER, token, d1, d2);
+      expect(typeof verified).toBe('boolean');
+      expect(verified).toBe(match.authenticated);
     }
   });
 });

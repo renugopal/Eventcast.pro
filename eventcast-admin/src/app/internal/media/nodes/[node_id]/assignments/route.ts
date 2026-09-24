@@ -30,8 +30,8 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import {
   parseBearerToken,
+  resolveMediaNodeCredentialMatch,
   validateMediaAgentAuthStructure,
-  verifyMediaNodeCredential,
   type MediaAgentAuthHeaders,
 } from '@/lib/media-agent/nodeAuth';
 import {
@@ -39,9 +39,11 @@ import {
   checkNodeRateLimit,
   claimRequestNonce,
   findMediaNodeByName,
+  isCredentialEvidenceStale,
   isValidAssignmentSource,
   loadActiveCredentialDigests,
   loadEnabledAssignmentSources,
+  recordCredentialSlotVerified,
 } from '@/lib/media-agent/nodeAssignmentsRepo';
 import { toMediaAgentAssignmentsResponseWire } from '@/lib/media-agent/assignmentAdapter';
 
@@ -124,8 +126,8 @@ export async function GET(
     if (!digests) return unauthorized(); // credential lookup / database failure
 
     const token = parseBearerToken(headers.authorization) as string; // non-null: structure already validated
-    const credentialOk = await verifyMediaNodeCredential(pepper, token, digests.slot1, digests.slot2);
-    if (!credentialOk || !nodeRow) return unauthorized();
+    const credentialMatch = await resolveMediaNodeCredentialMatch(pepper, token, digests.slot1, digests.slot2);
+    if (!credentialMatch.authenticated || !nodeRow) return unauthorized();
 
     // Strict, fail-closed node rate limit — immediately after credential
     // verification succeeds, and before the replay nonce is ever inserted.
@@ -153,6 +155,19 @@ export async function GET(
       expiresAt
     );
     if (nonceResult !== 'claimed') return unauthorized(); // replay or database failure
+
+    // Server-only slot-verification evidence (migration 0041). Unique match
+    // only; no DB request while the loaded timestamp is fresh. Best-effort,
+    // never throws, never affects this response.
+    const matchedSlot = credentialMatch.uniquelyMatchedSlot;
+    if (matchedSlot !== null) {
+      const lastVerifiedAt =
+        matchedSlot === 1 ? digests.slot1LastVerifiedAt : digests.slot2LastVerifiedAt;
+
+      if (isCredentialEvidenceStale(lastVerifiedAt, now)) {
+        await recordCredentialSlotVerified(db, nodeRow.id, matchedSlot, now);
+      }
+    }
 
     const assignments = await loadEnabledAssignmentSources(
       db,

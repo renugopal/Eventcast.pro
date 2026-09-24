@@ -54,14 +54,26 @@ interface RecordedCall {
   selectArgs: unknown[][];
   eqArgs: unknown[][];
   isArgs: unknown[][];
+  orArgs: unknown[][];
   insertArgs: unknown[][];
+  updateArgs: unknown[][];
 }
 
-function makeFakeDb(tables: Record<string, { select?: FakeResult[]; insert?: FakeResult[] }>) {
+/**
+ * An `update` queue entry: a normal result, or `'throw'` to make awaiting
+ * the update builder reject (models an unexpected client exception).
+ * Unqueued updates resolve `{ error: null }` — the evidence UPDATE is an
+ * explicitly supported, recorded operation, not a missing-config error.
+ */
+type FakeUpdateResult = FakeResult | 'throw';
+
+function makeFakeDb(
+  tables: Record<string, { select?: FakeResult[]; insert?: FakeResult[]; update?: FakeUpdateResult[] }>
+) {
   const queues = new Map(
     Object.entries(tables).map(([k, v]) => [
       k,
-      { select: [...(v.select ?? [])], insert: [...(v.insert ?? [])] },
+      { select: [...(v.select ?? [])], insert: [...(v.insert ?? [])], update: [...(v.update ?? [])] },
     ])
   );
   const recordedCalls: RecordedCall[] = [];
@@ -72,7 +84,15 @@ function makeFakeDb(tables: Record<string, { select?: FakeResult[]; insert?: Fak
       throw new Error(`FakeDb: no config for table '${table}' in this test`);
     }
 
-    const record: RecordedCall = { table, selectArgs: [], eqArgs: [], isArgs: [], insertArgs: [] };
+    const record: RecordedCall = {
+      table,
+      selectArgs: [],
+      eqArgs: [],
+      isArgs: [],
+      orArgs: [],
+      insertArgs: [],
+      updateArgs: [],
+    };
     recordedCalls.push(record);
 
     const select = vi.fn((...args: unknown[]) => {
@@ -107,7 +127,33 @@ function makeFakeDb(tables: Record<string, { select?: FakeResult[]; insert?: Fak
       return Promise.resolve(result);
     });
 
-    return { select, insert };
+    const update = vi.fn((...args: unknown[]) => {
+      record.updateArgs.push(args);
+      const builder = {
+        eq: vi.fn((...eqArgsInner: unknown[]) => {
+          record.eqArgs.push(eqArgsInner);
+          return builder;
+        }),
+        is: vi.fn((...isArgsInner: unknown[]) => {
+          record.isArgs.push(isArgsInner);
+          return builder;
+        }),
+        or: vi.fn((...orArgsInner: unknown[]) => {
+          record.orArgs.push(orArgsInner);
+          return builder;
+        }),
+        then: (onfulfilled: (v: FakeResult) => unknown, onrejected?: (r: unknown) => unknown) => {
+          const result = queue.update.shift() ?? { error: null };
+          if (result === 'throw') {
+            return Promise.reject(new Error('FakeDb: simulated update exception')).then(onfulfilled, onrejected);
+          }
+          return Promise.resolve(result).then(onfulfilled, onrejected);
+        },
+      };
+      return builder;
+    });
+
+    return { select, insert, update };
   });
 
   return { from, recordedCalls };
@@ -125,6 +171,25 @@ function callsFor(recordedCalls: RecordedCall[], table: string): RecordedCall[] 
   return recordedCalls.filter((c) => c.table === table);
 }
 
+/** SELECT operations only — the authentication credential lookup. */
+function selectCallsFor(recordedCalls: RecordedCall[], table: string): RecordedCall[] {
+  return callsFor(recordedCalls, table).filter((c) => c.selectArgs.length > 0);
+}
+
+/** Exactly one SELECT operation on `table`, excluding evidence UPDATEs. */
+function selectCallFor(recordedCalls: RecordedCall[], table: string): RecordedCall {
+  const matches = selectCallsFor(recordedCalls, table);
+  if (matches.length !== 1) {
+    throw new Error(`Expected exactly one select on '${table}', got ${matches.length}`);
+  }
+  return matches[0];
+}
+
+/** UPDATE operations only — slot-verification evidence writes. */
+function updateCallsFor(recordedCalls: RecordedCall[], table: string): RecordedCall[] {
+  return callsFor(recordedCalls, table).filter((c) => c.updateArgs.length > 0);
+}
+
 // Loose return-type contract for `.from(table)` — deliberately wider than
 // any single test's concrete fake builder shape, so `mockDb.from` can be
 // reassigned per-test to whatever `makeFakeDb(...).from` produces without a
@@ -133,6 +198,7 @@ function callsFor(recordedCalls: RecordedCall[], table: string): RecordedCall[] 
 interface FakeTableApi {
   select: (...args: unknown[]) => unknown;
   insert: (...args: unknown[]) => unknown;
+  update?: (...args: unknown[]) => unknown;
 }
 
 const { mockDb } = vi.hoisted(() => ({
@@ -189,7 +255,9 @@ function nodeSelectResult(configVersion: string | null = '7'): FakeResult {
   return { data: { id: NODE_UUID, config_version: configVersion }, error: null };
 }
 
-function credentialSelectResult(rows: { slot: number; digest: string }[]): FakeResult {
+function credentialSelectResult(
+  rows: { slot: number; digest: string; last_verified_at?: string | null }[]
+): FakeResult {
   return { data: rows, error: null };
 }
 
@@ -266,7 +334,9 @@ describe('GET /internal/media/nodes/{node_id}/assignments', () => {
     expect(nodeCall.selectArgs[0]).toEqual([MEDIA_NODE_SELECT_COLUMNS]);
     expect(nodeCall.eqArgs[0]).toEqual(['name', NODE_NAME]);
 
-    const credCall = callFor(recordedCalls, 'media_node_credentials');
+    // Authentication performs exactly one credential SELECT. Evidence UPDATE
+    // behavior is asserted separately in the dedicated evidence-write tests.
+    const credCall = selectCallFor(recordedCalls, 'media_node_credentials');
     expect(credCall.selectArgs[0]).toEqual([MEDIA_NODE_CREDENTIALS_SELECT_COLUMNS]);
     expect(credCall.eqArgs[0]).toEqual(['media_node_id', NODE_UUID]);
     expect(credCall.isArgs[0]).toEqual(['revoked_at', null]);
@@ -456,7 +526,9 @@ describe('GET /internal/media/nodes/{node_id}/assignments', () => {
     const GET1 = await loadRoute();
     const r1 = makeRequest();
     await GET1(r1.req, { params: r1.params });
-    expect(callsFor(known.recordedCalls, 'media_node_credentials')).toHaveLength(1);
+    // Invariant: exactly one credential SELECT per request. Evidence UPDATE
+    // behavior is asserted separately in the dedicated evidence-write tests.
+    expect(selectCallsFor(known.recordedCalls, 'media_node_credentials')).toHaveLength(1);
 
     vi.resetModules();
     const unknown = makeFakeDb({
@@ -467,7 +539,7 @@ describe('GET /internal/media/nodes/{node_id}/assignments', () => {
     const GET2 = await loadRoute();
     const r2 = makeRequest();
     await GET2(r2.req, { params: r2.params });
-    expect(callsFor(unknown.recordedCalls, 'media_node_credentials')).toHaveLength(1);
+    expect(selectCallsFor(unknown.recordedCalls, 'media_node_credentials')).toHaveLength(1);
   });
 
   it('rejects a revoked credential (excluded by the revoked_at IS NULL filter)', async () => {
@@ -972,5 +1044,286 @@ describe('Middleware — Media Agent assignments studio-JWT bypass', () => {
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body.error).toBe('Unauthorized — no session token provided');
+  });
+});
+
+// ── Server-only slot-verification evidence (migration 0041) ────────────────
+describe('GET /internal/media/nodes/{node_id}/assignments — credential slot evidence', () => {
+  const EVIDENCE_TABLE = 'media_node_credentials';
+  const CUTOFF = new Date(new Date(TIMESTAMP).getTime() - TOLERANCE_MS).toISOString();
+  const STALE_TS = new Date(new Date(TIMESTAMP).getTime() - 6 * 60 * 1000).toISOString();
+  const RECENT_TS = new Date(new Date(TIMESTAMP).getTime() - 60 * 1000).toISOString();
+
+  function wireSuccess(
+    credRows: { slot: number; digest: string; last_verified_at?: string | null }[],
+    options: { update?: FakeUpdateResult[]; assignments?: unknown[] } = {}
+  ) {
+    const fake = makeFakeDb({
+      media_nodes: { select: [nodeSelectResult('7')] },
+      media_node_credentials: { select: [credentialSelectResult(credRows)], update: options.update },
+      media_node_request_nonces: { insert: [{ error: null }] },
+      media_event_assignments: { select: [{ data: options.assignments ?? [assignmentRow()], error: null }] },
+    });
+    mockDb.from = fake.from;
+    return fake;
+  }
+
+  it('null evidence timestamp → one conditional evidence UPDATE with the exact query shape', async () => {
+    const digest1 = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const { recordedCalls } = wireSuccess([{ slot: 1, digest: digest1, last_verified_at: null }]);
+
+    const GET = await loadRoute();
+    const { req, params } = makeRequest();
+    const res = await GET(req, { params });
+
+    expect(res.status).toBe(200);
+    const updates = updateCallsFor(recordedCalls, EVIDENCE_TABLE);
+    expect(updates).toHaveLength(1);
+    expect(updates[0].updateArgs).toEqual([[{ last_verified_at: TIMESTAMP }]]);
+    expect(updates[0].eqArgs).toEqual([
+      ['media_node_id', NODE_UUID],
+      ['slot', 1],
+    ]);
+    expect(updates[0].isArgs).toEqual([['revoked_at', null]]);
+    expect(updates[0].orArgs).toEqual([[`last_verified_at.is.null,last_verified_at.lte."${CUTOFF}"`]]);
+  });
+
+  it('stale (>5 min) evidence timestamp → evidence UPDATE for the matched slot', async () => {
+    const digest2 = await computeDigest(PEPPER, TOKEN_SLOT_2);
+    const { recordedCalls } = wireSuccess([{ slot: 2, digest: digest2, last_verified_at: STALE_TS }]);
+
+    const GET = await loadRoute();
+    const { req, params } = makeRequest({ authorization: `Bearer ${TOKEN_SLOT_2}` });
+    const res = await GET(req, { params });
+
+    expect(res.status).toBe(200);
+    const updates = updateCallsFor(recordedCalls, EVIDENCE_TABLE);
+    expect(updates).toHaveLength(1);
+    expect(updates[0].eqArgs).toEqual([
+      ['media_node_id', NODE_UUID],
+      ['slot', 2],
+    ]);
+  });
+
+  it('recent (<5 min) evidence timestamp → no evidence UPDATE request at all', async () => {
+    const digest1 = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const { recordedCalls } = wireSuccess([{ slot: 1, digest: digest1, last_verified_at: RECENT_TS }]);
+
+    const GET = await loadRoute();
+    const { req, params } = makeRequest();
+    const res = await GET(req, { params });
+
+    expect(res.status).toBe(200);
+    expect(updateCallsFor(recordedCalls, EVIDENCE_TABLE)).toHaveLength(0);
+    expect(callsFor(recordedCalls, EVIDENCE_TABLE)).toHaveLength(1);
+  });
+
+  it("only the matched slot's timestamp gates the write — a recent timestamp on the other slot does not suppress it", async () => {
+    const digest1 = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const digest2 = await computeDigest(PEPPER, TOKEN_SLOT_2);
+    const { recordedCalls } = wireSuccess([
+      { slot: 1, digest: digest1, last_verified_at: null },
+      { slot: 2, digest: digest2, last_verified_at: RECENT_TS },
+    ]);
+
+    const GET = await loadRoute();
+    const { req, params } = makeRequest();
+    await GET(req, { params });
+
+    const updates = updateCallsFor(recordedCalls, EVIDENCE_TABLE);
+    expect(updates).toHaveLength(1);
+    expect(updates[0].eqArgs).toEqual([
+      ['media_node_id', NODE_UUID],
+      ['slot', 1],
+    ]);
+  });
+
+  it('dual match (both slots hold the same digest) → authenticates normally, records no slot evidence', async () => {
+    const digest1 = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const { recordedCalls } = wireSuccess([
+      { slot: 1, digest: digest1, last_verified_at: null },
+      { slot: 2, digest: digest1, last_verified_at: null },
+    ]);
+
+    const GET = await loadRoute();
+    const { req, params } = makeRequest();
+    const res = await GET(req, { params });
+
+    expect(res.status).toBe(200);
+    expect(updateCallsFor(recordedCalls, EVIDENCE_TABLE)).toHaveLength(0);
+  });
+
+  it('wrong token → 401, no evidence write', async () => {
+    const digest1 = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const { recordedCalls } = wireSuccess([{ slot: 1, digest: digest1, last_verified_at: null }]);
+
+    const GET = await loadRoute();
+    const { req, params } = makeRequest({ authorization: `Bearer ${TOKEN_WRONG}` });
+    const res = await GET(req, { params });
+
+    expect(res.status).toBe(401);
+    expect(updateCallsFor(recordedCalls, EVIDENCE_TABLE)).toHaveLength(0);
+  });
+
+  it('malformed request structure → 401 before any database access, no evidence write', async () => {
+    const GET = await loadRoute();
+    const { req, params } = makeRequest({ requestId: 'too-short', idempotencyKey: 'too-short' });
+    const res = await GET(req, { params });
+
+    expect(res.status).toBe(401);
+    expect(mockDb.from).not.toHaveBeenCalled();
+  });
+
+  it('path / header node-id mismatch → 401 before any database access, no evidence write', async () => {
+    const GET = await loadRoute();
+    const { req, params } = makeRequest({ pathNodeId: 'a-different-node' });
+    const res = await GET(req, { params });
+
+    expect(res.status).toBe(401);
+    expect(mockDb.from).not.toHaveBeenCalled();
+  });
+
+  it('unknown node → 401, no evidence write', async () => {
+    const { from, recordedCalls } = makeFakeDb({
+      media_nodes: { select: [{ data: null, error: null }] },
+      media_node_credentials: { select: [credentialSelectResult([])] },
+    });
+    mockDb.from = from;
+
+    const GET = await loadRoute();
+    const { req, params } = makeRequest();
+    const res = await GET(req, { params });
+
+    expect(res.status).toBe(401);
+    expect(updateCallsFor(recordedCalls, EVIDENCE_TABLE)).toHaveLength(0);
+  });
+
+  it('rate-limited node → 429, no evidence write', async () => {
+    const digest1 = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const { recordedCalls } = wireSuccess([{ slot: 1, digest: digest1, last_verified_at: null }]);
+    mockDb.rpc.mockResolvedValue({ data: false, error: null });
+
+    const GET = await loadRoute();
+    const { req, params } = makeRequest();
+    const res = await GET(req, { params });
+
+    expect(res.status).toBe(429);
+    expect(updateCallsFor(recordedCalls, EVIDENCE_TABLE)).toHaveLength(0);
+  });
+
+  it('replayed request id (nonce conflict) → 401, no evidence write', async () => {
+    const digest1 = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const { from, recordedCalls } = makeFakeDb({
+      media_nodes: { select: [nodeSelectResult('7')] },
+      media_node_credentials: {
+        select: [credentialSelectResult([{ slot: 1, digest: digest1, last_verified_at: null }])],
+      },
+      media_node_request_nonces: { insert: [{ error: { message: 'duplicate', code: '23505' } }] },
+    });
+    mockDb.from = from;
+
+    const GET = await loadRoute();
+    const { req, params } = makeRequest();
+    const res = await GET(req, { params });
+
+    expect(res.status).toBe(401);
+    expect(updateCallsFor(recordedCalls, EVIDENCE_TABLE)).toHaveLength(0);
+  });
+
+  it.each([
+    ['returns an error', { error: { message: 'evidence write failed' } } as FakeUpdateResult],
+    ['throws', 'throw' as FakeUpdateResult],
+  ])('evidence UPDATE that %s → response identical to a successful write', async (_label, updateResult) => {
+    const digest1 = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      wireSuccess([{ slot: 1, digest: digest1, last_verified_at: null }]);
+      const GET = await loadRoute();
+      const ok = makeRequest();
+      const okRes = await GET(ok.req, { params: ok.params });
+      const okBody = await okRes.json();
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      vi.resetModules();
+      const { recordedCalls } = wireSuccess([{ slot: 1, digest: digest1, last_verified_at: null }], {
+        update: [updateResult],
+      });
+      const GET2 = await loadRoute();
+      const failing = makeRequest();
+      const res = await GET2(failing.req, { params: failing.params });
+
+      expect(updateCallsFor(recordedCalls, EVIDENCE_TABLE)).toHaveLength(1);
+      expect(res.status).toBe(200);
+      expect(res.status).toBe(okRes.status);
+      expect(await res.json()).toEqual(okBody);
+
+      // Only a fixed message plus the node UUID is logged — no slot, token,
+      // digest, or timestamp.
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith('media-agent credential evidence write failed', {
+        mediaNodeId: NODE_UUID,
+      });
+      const logged = JSON.stringify(warnSpy.mock.calls);
+      expect(logged).not.toContain(digest1);
+      expect(logged).not.toContain(TOKEN_SLOT_1);
+      expect(logged).not.toMatch(/slot/i);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('downstream business failure after auth + nonce claim (fail-closed 503) → evidence still recorded, 503 unchanged', async () => {
+    const digest1 = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const { recordedCalls } = wireSuccess([{ slot: 1, digest: digest1, last_verified_at: null }], {
+      assignments: [assignmentRow({ youtube_enabled: true })],
+    });
+
+    const GET = await loadRoute();
+    const { req, params } = makeRequest();
+    const res = await GET(req, { params });
+
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: 'service_unavailable' });
+    expect(updateCallsFor(recordedCalls, EVIDENCE_TABLE)).toHaveLength(1);
+  });
+
+  it('downstream assignment-lookup failure after auth + nonce claim → evidence still recorded, generic 401 unchanged', async () => {
+    const digest1 = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    const { from, recordedCalls } = makeFakeDb({
+      media_nodes: { select: [nodeSelectResult('7')] },
+      media_node_credentials: {
+        select: [credentialSelectResult([{ slot: 1, digest: digest1, last_verified_at: null }])],
+      },
+      media_node_request_nonces: { insert: [{ error: null }] },
+      media_event_assignments: { select: [{ data: null, error: { message: 'relation missing' } }] },
+    });
+    mockDb.from = from;
+
+    const GET = await loadRoute();
+    const { req, params } = makeRequest();
+    const res = await GET(req, { params });
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: 'unauthorized' });
+    expect(updateCallsFor(recordedCalls, EVIDENCE_TABLE)).toHaveLength(1);
+  });
+
+  it('never exposes slot metadata or credential timestamps in the response', async () => {
+    const digest1 = await computeDigest(PEPPER, TOKEN_SLOT_1);
+    wireSuccess([{ slot: 1, digest: digest1, last_verified_at: STALE_TS }]);
+
+    const GET = await loadRoute();
+    const { req, params } = makeRequest();
+    const res = await GET(req, { params });
+    const serialized = JSON.stringify(await res.json());
+    const headerDump = JSON.stringify([...res.headers.entries()]);
+
+    expect(res.status).toBe(200);
+    for (const text of [serialized, headerDump]) {
+      expect(text).not.toMatch(/slot/i);
+      expect(text).not.toContain('last_verified_at');
+      expect(text).not.toContain('uniquelyMatchedSlot');
+      expect(text).not.toContain(STALE_TS);
+    }
   });
 });

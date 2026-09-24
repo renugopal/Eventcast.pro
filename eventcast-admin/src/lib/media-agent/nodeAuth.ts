@@ -142,20 +142,36 @@ function resolveSlotDigest(digest: string | null): string {
 }
 
 /**
+ * Server-side-only result of two-slot credential verification.
+ * `authenticated` carries the exact existing semantics (slot 1 OR slot 2
+ * matched). `uniquelyMatchedSlot` is set only when exactly one slot
+ * matched; it is `null` both on failure and on the (constraint-prevented,
+ * but explicitly handled) dual match, so a slot is never arbitrarily
+ * attributed. Used only to record server-side slot-verification evidence
+ * (`media_node_credentials.last_verified_at`) — never returned to a caller
+ * or placed in any response.
+ */
+export interface MediaNodeCredentialMatch {
+  authenticated: boolean;
+  uniquelyMatchedSlot: 1 | 2 | null;
+}
+
+/**
  * Verifies a presented bearer token against up to two active credential
  * digests (the fixed two-slot rotation model — see
  * `media_node_credentials`). Both `crypto.subtle.verify` calls always
  * execute, in full, before either result is inspected — never a
  * short-circuit on the first — so response timing never reveals whether
- * a node has zero, one, or two real active credentials. Returns only a
- * boolean: never which slot matched.
+ * a node has zero, one, or two real active credentials. A missing or
+ * malformed slot is padded with the fixed decoy digest, which never
+ * matches, so a unique match always refers to a real supplied digest.
  */
-export async function verifyMediaNodeCredential(
+export async function resolveMediaNodeCredentialMatch(
   pepper: string,
   presentedToken: string,
   slot1Digest: string | null,
   slot2Digest: string | null
-): Promise<boolean> {
+): Promise<MediaNodeCredentialMatch> {
   const key = await importPepperKey(pepper);
   const tokenBuffer = toArrayBuffer(new TextEncoder().encode(presentedToken));
 
@@ -165,7 +181,26 @@ export async function verifyMediaNodeCredential(
   const result1 = await crypto.subtle.verify('HMAC', key, toArrayBuffer(hexToBytes(digest1)), tokenBuffer);
   const result2 = await crypto.subtle.verify('HMAC', key, toArrayBuffer(hexToBytes(digest2)), tokenBuffer);
 
-  return result1 || result2;
+  let uniquelyMatchedSlot: 1 | 2 | null = null;
+  if (result1 && !result2) uniquelyMatchedSlot = 1;
+  else if (result2 && !result1) uniquelyMatchedSlot = 2;
+
+  return { authenticated: result1 || result2, uniquelyMatchedSlot };
+}
+
+/**
+ * Boolean two-slot verification — unchanged semantics and signature. See
+ * `resolveMediaNodeCredentialMatch` for the constant-work guarantees.
+ * Returns only a boolean: never which slot matched.
+ */
+export async function verifyMediaNodeCredential(
+  pepper: string,
+  presentedToken: string,
+  slot1Digest: string | null,
+  slot2Digest: string | null
+): Promise<boolean> {
+  const match = await resolveMediaNodeCredentialMatch(pepper, presentedToken, slot1Digest, slot2Digest);
+  return match.authenticated;
 }
 
 /**

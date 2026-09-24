@@ -45,8 +45,8 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import {
   parseBearerToken,
+  resolveMediaNodeCredentialMatch,
   validateMediaAgentAuthStructure,
-  verifyMediaNodeCredential,
   type MediaAgentAuthHeaders,
 } from '@/lib/media-agent/nodeAuth';
 import {
@@ -54,7 +54,9 @@ import {
   checkNodeRateLimit,
   claimRequestNonce,
   findMediaNodeByName,
+  isCredentialEvidenceStale,
   loadActiveCredentialDigests,
+  recordCredentialSlotVerified,
 } from '@/lib/media-agent/nodeAssignmentsRepo';
 import { MEDIA_AGENT_TIMESTAMP_TOLERANCE_MS } from '../assignments/route';
 
@@ -212,8 +214,8 @@ export async function POST(
     if (!digests) return unauthorized();
 
     const token = parseBearerToken(headers.authorization) as string;
-    const credentialOk = await verifyMediaNodeCredential(pepper, token, digests.slot1, digests.slot2);
-    if (!credentialOk || !nodeRow) return unauthorized();
+    const credentialMatch = await resolveMediaNodeCredentialMatch(pepper, token, digests.slot1, digests.slot2);
+    if (!credentialMatch.authenticated || !nodeRow) return unauthorized();
 
     const rateLimitResult = await checkNodeRateLimit(
       db,
@@ -230,6 +232,19 @@ export async function POST(
     const expiresAt = new Date(now.getTime() + MEDIA_AGENT_TIMESTAMP_TOLERANCE_MS);
     const nonceResult = await claimRequestNonce(db, nodeRow.id, headers.requestId as string, now, expiresAt);
     if (nonceResult !== 'claimed') return unauthorized();
+
+    // Server-only slot-verification evidence (migration 0041). Unique match
+    // only; no DB request while the loaded timestamp is fresh. Best-effort,
+    // never throws, never affects this response.
+    const matchedSlot = credentialMatch.uniquelyMatchedSlot;
+    if (matchedSlot !== null) {
+      const lastVerifiedAt =
+        matchedSlot === 1 ? digests.slot1LastVerifiedAt : digests.slot2LastVerifiedAt;
+
+      if (isCredentialEvidenceStale(lastVerifiedAt, now)) {
+        await recordCredentialSlotVerified(db, nodeRow.id, matchedSlot, now);
+      }
+    }
 
     const bodyBytes = await readBodyBounded(req, MAX_BODY_BYTES);
     if (bodyBytes === null) return badRequest();
