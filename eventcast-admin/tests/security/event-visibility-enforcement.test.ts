@@ -4,12 +4,14 @@ import { describe, expect, it } from 'vitest';
 
 const appRoot = path.resolve(__dirname, '..', '..');
 const portalSource = readFileSync(path.join(appRoot, 'src', 'app', 'portal', '[slug]', 'page.tsx'), 'utf8');
+const portalEventSource = readFileSync(path.join(appRoot, 'src', 'lib', 'portalEvent.ts'), 'utf8');
 const uploadSource = readFileSync(path.join(appRoot, 'src', 'app', 'api', 'guest-photos', 'upload', 'route.ts'), 'utf8');
 
 describe('event visibility application enforcement contract', () => {
-  it('portal reads only public, unarchived events and uses the framework generic not-found path', () => {
+  it('portal reads only public, unarchived events (via the shared portalEvent helper, S3 containment) and uses the framework generic not-found path', () => {
     expect(portalSource).toMatch(/import \{ notFound, useParams \} from "next\/navigation"/);
-    expect(portalSource).toMatch(/\.eq\('event_visibility', 'public'\)[\s\S]*?\.is\('archived_at', null\)[\s\S]*?\.single\(\)/);
+    expect(portalSource).toContain('fetchPortalEvent(');
+    expect(portalEventSource).toMatch(/\.eq\('event_visibility', 'public'\)[\s\S]*?\.is\('archived_at', null\)[\s\S]*?\.single\(\)/);
     expect(portalSource).toMatch(/if \(!event\) \{\s*notFound\(\);\s*\}/);
   });
 

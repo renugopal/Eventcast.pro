@@ -819,3 +819,21 @@ The main dirty working tree may additionally surface diagnostics from untracked 
 **Current production state:** Worker `fc46f8ec-f41a-4f9e-9e39-4cab77d24d98` at 100% traffic on `eventcast-admin-worker` (`https://studio.eventcast.pro`), carrying Package B plus both `MEDIA_NODE_TOKEN_PEPPER` and `MEDIA_NODE_PROVISIONING_SECRET` (names only; no secret value appears anywhere in this documentation). The Media Agent's control-plane base URL is `https://studio.eventcast.pro`. **`eventcast-admin.pages.dev` remains a separate, deliberately-retained rollback/health fallback — no longer the Media Agent's control-plane target, and not modified by this work.**
 
 **Do not reopen, re-audit, re-run, or repeat Package B or this credential rotation unless a new concrete requirement or production incident requires it.**
+
+## Open security item — S3: legacy `events.youtube_stream_key` exposure. Hotfix written LOCALLY, evidence-time 2026-09-25; NOT applied to production
+
+**Confirmed via read-only aggregate-only query, 2026-09-25 (no row content or key value ever read):** the pre-migration column `public.events.youtube_stream_key` had **44 of 66 events** with a non-empty value, **all 44** published/public/non-archived (readable under the existing `events_public_select_policy`), with `anon`/`authenticated` both holding column SELECT. The public anon key is shipped to every browser by design. The legacy `/portal/[slug]` page additionally shipped the column via a client-side `select('*')`. **This was an active exposure, not theoretical.** Full evidence and remediation narrative: `WORKLOG.md`, "2026-09-25 — YouTube Destinations planning: S3 legacy `youtube_stream_key` exposure found, contained locally".
+
+**Local containment prepared and verified (full suite 1267/1267, focused 22/22 + 2/2, TypeScript clean against the documented baseline), NOT yet production-effective:**
+- `/portal/[slug]` fixed to use an explicit safe-field allowlist (`src/lib/portalEvent.ts`) — this part is a code change only and takes effect on the next deploy.
+- Migration `eventcast-admin/supabase/migrations/0042_retire_legacy_events_youtube_stream_key.sql` written (nulls the 44 values, adds a CHECK forbidding future non-empty values) — **not applied to the linked Supabase project.**
+- Three unsafe legacy platform-channel YouTube routes (`POST /api/youtube`, `sync-status`, `toggle-live`) retired as local files after a dependency check found no caller; the actively-scheduled `sync-live-status` cron was deliberately kept.
+- Migration numbering note: this hotfix used `0042`; the separate, not-yet-started "YouTube OAuth + Streaming Destinations" product package's own future schema migration is renumbered `0043`.
+
+**Still required, both owner actions, unrelated to each other:**
+1. Approve applying migration `0042` to the linked Supabase project (and deploying the `/portal/[slug]` fix and route retirement).
+2. Rotate the 44 potentially-compromised YouTube stream keys at YouTube — their live validity was not checked, and nulling the column does not invalidate them there.
+
+**Separately, still fully unresolved (owner action, unrelated to this item, not attempted this session):** an untracked scratch script, `eventcast-admin/scratch/fix_chinna_youtube_relay.mjs`, contains a literal Google refresh token as a fallback value. It is not gitignored. Revoke and rotate it at Google before any live OAuth run or Google-credentialed production deployment.
+
+**Do not reopen or re-verify the S3 finding or this local containment code without a new concrete requirement.** The separate, larger YouTube OAuth + Streaming Destinations product package (destination modes, OAuth channel connections, encrypted secret store, automatic broadcast creation) has **not started**.

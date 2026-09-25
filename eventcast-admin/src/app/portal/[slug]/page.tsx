@@ -3,25 +3,21 @@
 import { useEffect, useState } from "react";
 import { notFound, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { fetchPortalEvent, type PortalEvent } from "@/lib/portalEvent";
 import { Heart, Eye, Users, Calendar, Activity, Clock, MapPin, Loader2 } from "lucide-react";
 
 export default function ClientPortal() {
   const { slug } = useParams();
-  const [event, setEvent] = useState<any>(null);
+  const [event, setEvent] = useState<PortalEvent | null>(null);
   const [wishes, setWishes] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<{ totalViews: number }>({ totalViews: 0 });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
-      // Fetch Event
-      const { data: eventData } = await supabase
-        .from('events')
-        .select('*')
-        .eq('slug', slug)
-        .eq('event_visibility', 'public')
-        .is('archived_at', null)
-        .single();
+      // Fetch Event — explicit public-safe field allowlist only (S3 containment:
+      // this runs in the browser on the anon key, so never select('*')).
+      const eventData = await fetchPortalEvent(supabase, String(slug));
 
       if (eventData) {
         setEvent(eventData);
