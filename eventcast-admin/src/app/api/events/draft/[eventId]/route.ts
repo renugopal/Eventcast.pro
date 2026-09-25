@@ -14,8 +14,7 @@ import {
  * UUID. Both verbs are scoped to the requesting studio via
  * `getOwnedEventById` before any row is read or mutated — a cross-tenant or
  * nonexistent id gets the same generic 404. Neither verb ever touches
- * billing, YouTube, media upload, SRS, Media Agent activation, or
- * Restreamer.
+ * billing, YouTube, media upload, SRS, or Media Agent activation.
  */
 
 const db = supabaseAdmin || supabase;

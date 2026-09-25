@@ -31,9 +31,9 @@
  *
  * Scope: assignment-contract compatibility ONLY. This module introduces no
  * database types, no Supabase coupling, no routes, no lifecycle/enum values,
- * no limits/defaults, and deliberately no Restreamer or Wasabi concepts.
- * Provisioning, node selection, persistence, secret storage, complete-set
- * revocation, and the HTTP endpoint itself all belong to later slices.
+ * no limits/defaults, and deliberately no Wasabi concepts. Provisioning,
+ * node selection, persistence, secret storage, complete-set revocation, and
+ * the HTTP endpoint itself all belong to later slices.
  *
  * SECURITY: the `*Wire` and `*Source` types below are secret-bearing and
  * server-internal. They MUST NOT be re-exported through any browser-facing

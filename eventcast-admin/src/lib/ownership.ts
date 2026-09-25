@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 /**
  * Server-only helper for verifying that a resource belongs to the
  * requesting studio before it is read, mutated, or used to trigger any
- * external side effect (Restreamer, YouTube, Cloudinary, GitHub, R2, etc).
+ * external side effect (YouTube, Cloudinary, GitHub, R2, etc).
  *
  * Usage — add this immediately after requireAdmin(), before touching any
  * other table or external service:

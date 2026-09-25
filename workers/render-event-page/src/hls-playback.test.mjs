@@ -223,8 +223,8 @@ test('fails closed on any URI line it cannot fully account for', () => {
     `#EXTM3U\n/events/${PLAYBACK_ID}/media/../../secret/1-a.ts\n`,
     // wrong depth under our own prefix
     `#EXTM3U\n/events/${PLAYBACK_ID}/media/s1/nested/1-a.ts\n`,
-    // an unrelated URI line
-    '#EXTM3U\nhttps://media.eventcast.pro/memfs/live.m3u8\n',
+    // an unrelated external URI line
+    '#EXTM3U\nhttps://example.invalid/unrelated/live.m3u8\n',
   ]) {
     assert.equal(rewriteManifest(hostile, PLAYBACK_ID, SLUG), null, `must fail closed: ${hostile}`);
   }

@@ -34,8 +34,8 @@ import { loadOwnedEventCreditsWithPartners } from '@/lib/eventCreditsLoader';
  * Publish is page-only (baseline CRT-012: "the page may be published before
  * the stream; page publishing does not start the livestream"). This route
  * touches exactly one `events` row: no wallet debit, YouTube resource, media
- * upload, SRS activation, Media Agent assignment, Restreamer provisioning, or
- * any other lifecycle side effect.
+ * upload, SRS activation, Media Agent assignment, or any other lifecycle
+ * side effect.
  */
 
 const db = supabaseAdmin || supabase;

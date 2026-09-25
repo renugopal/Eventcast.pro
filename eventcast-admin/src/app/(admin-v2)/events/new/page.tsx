@@ -61,7 +61,7 @@ async function parseRouteResult(res: Response): Promise<{ ok: boolean; error?: s
  * The single comprehensive Create Event form (Create Event redesign). Posts
  * to `/api/events/draft` — never `/api/events/generate` — so creating a
  * Draft can never trigger billing, YouTube, media upload, SRS, Media Agent
- * activation, Restreamer, or public publishing. Every optional module
+ * activation, or public publishing. Every optional module
  * (Media, SEO thumbnail, Livestream YouTube link, Guest Memories manual
  * approval, Partner Credits) is staged locally and attached to the Draft
  * only *after* it exists, through the exact same per-field routes the Event

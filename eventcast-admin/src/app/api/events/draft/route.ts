@@ -13,8 +13,8 @@ import {
  * Draft-safe event creation (V2.1 Route-Based Draft Event Foundation,
  * Milestone D). This is a deliberately separate path from
  * `/api/events/generate`: it never touches billing, YouTube, media upload,
- * SRS, Media Agent activation, or Restreamer, and it always inserts
- * `page_state: 'draft'` — never a publicly visible row.
+ * SRS, or Media Agent activation, and it always inserts `page_state: 'draft'`
+ * — never a publicly visible row.
  */
 
 const db = supabaseAdmin || supabase;
