@@ -18,18 +18,24 @@
 #   ADMIN_BASE_URL     — https://eventcast-admin-worker.<account>.workers.dev (NOT studio.eventcast.pro)
 #
 # Schedule (all times UTC — IST = UTC+05:30):
-#   sync-live-status    → every 15 min (keeps YouTube titles & DB status in sync)
 #   event-lifecycle-sweep → daily at 03:00 UTC / 08:30 IST (Draft 7-day
 #                           auto-archive + Archived-Draft 30-day
 #                           auto-permanent-delete). Reuses the same
 #                           CRON_SECRET — no new secret required.
+#
+# The legacy sync-live-status job (YouTube title/status sync for the retired
+# platform-channel YouTube integration) was retired: all of its legacy
+# broadcasts are historical (event_date already in the past), no current or
+# upcoming EventCast event depends on it, and its underlying route
+# (/api/cron/sync-live-status) and the legacy Google OAuth credential
+# dependency it exercised were removed from application code in the same
+# change. Future YouTube synchronization belongs to the separate,
+# not-yet-started OAuth-connected YouTube Destinations package.
 
 name: Eventcast Cron Jobs
 
 on:
   schedule:
-    # ── sync-live-status: every 15 minutes, always ─────────────────────────
-    - cron: '*/15 * * * *'
     # ── event-lifecycle-sweep: once daily ───────────────────────────────────
     - cron: '0 3 * * *'
 
@@ -47,37 +53,7 @@ on:
           - event-lifecycle-sweep
 
 jobs:
-  # ── Job 1: YouTube status sync ────────────────────────────────────────────
-  sync-live-status:
-    name: Sync Live Status (YouTube ↔ DB)
-    runs-on: ubuntu-latest
-    # Run only on ITS OWN 15-min schedule tick — now that a second `cron:`
-    # entry shares this same `on.schedule` block, the schedule-triggered
-    # branch must check `github.event.schedule` or this job would also fire
-    # (redundantly, alongside its normal 15-minute cadence) on the new daily
-    # tick below. Manual-trigger behavior is unchanged.
-    if: |
-      (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'sync-live-status' || github.event.inputs.job == 'both')) ||
-      (github.event_name == 'schedule' && github.event.schedule == '*/15 * * * *')
-
-    steps:
-      - name: Call sync-live-status endpoint
-        env:
-          ADMIN_BASE_URL: ${{ secrets.ADMIN_BASE_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: |
-          echo "⏰ Calling sync-live-status at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-          HTTP_STATUS=$(curl -s -o /tmp/response.json -w "%{http_code}" \
-            "${ADMIN_BASE_URL}/api/cron/sync-live-status?secret=${CRON_SECRET}")
-          echo "HTTP Status: $HTTP_STATUS"
-          cat /tmp/response.json
-          if [ "$HTTP_STATUS" != "200" ]; then
-            echo "❌ sync-live-status returned HTTP $HTTP_STATUS"
-            exit 1
-          fi
-          echo "✅ sync-live-status completed successfully"
-
-  # ── Job 2: Event Lifecycle sweep ──────────────────────────────────────────
+  # ── Event Lifecycle sweep ──────────────────────────────────────────
   event-lifecycle-sweep:
     name: Event Lifecycle Sweep (Draft auto-archive + Archived-Draft auto-delete)
     runs-on: ubuntu-latest

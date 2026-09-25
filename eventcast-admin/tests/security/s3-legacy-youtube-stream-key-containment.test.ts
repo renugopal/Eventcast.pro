@@ -208,7 +208,17 @@ describe('S3 — retired legacy platform-channel YouTube routes', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('keeps the actively scheduled sync-live-status cron route (D17 exclusion is later work)', () => {
-    expect(existsSync(path.join(apiRoot, 'cron', 'sync-live-status', 'route.ts'))).toBe(true);
+  it('sync-live-status cron route: subsequently retired (2026-09-25) — see legacy-sync-live-status-cron-retirement.test.ts', () => {
+    // At S3 hotfix time this route was deliberately KEPT (it was the only
+    // actively-scheduled consumer of the retired legacy YouTube routes'
+    // shared platform Google OAuth credential, and D17's exclusion of
+    // OAuth-managed events from it was left for the future OAuth package).
+    // A later, separately-approved product/security decision retired this
+    // cron entirely instead of building that exclusion, once a read-only
+    // assessment found every event it served already historical (event_date
+    // in the past) and the shared credential compromised. This assertion is
+    // updated to match; the retirement itself is covered by the dedicated
+    // suite referenced above.
+    expect(existsSync(path.join(apiRoot, 'cron', 'sync-live-status', 'route.ts'))).toBe(false);
   });
 });
