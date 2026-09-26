@@ -52,7 +52,8 @@
   // these three are secret: the bucket name and public replay URL are already
   // embedded in every stored `thumbnail_url`/R2 object URL, and the S3
   // endpoint is just `https://<account-id>.r2.cloudflarestorage.com` (the
-  // same account id already unredacted in scripts/vod-archiver/.env.example).
+  // same account id already unredacted in the now-retired legacy
+  // scripts/vod-archiver/.env.example).
   // `R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY` remain real secrets and are
   // deliberately NOT here — they stay Worker secrets (`wrangler secret put`
   // / dashboard), never checked into this file.

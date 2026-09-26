@@ -12,10 +12,7 @@
     "opennext:size": "wrangler deploy --dry-run --config=wrangler.opennext.jsonc",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run",
-    "archive-vod": "tsx scripts/archive-vod-to-r2.ts",
-    "vod-uploader": "node scripts/vod-uploader/live-uploader.mjs",
-    "finalize-vod": "node scripts/vod-uploader/finalize-vod.mjs"
+    "test": "vitest run"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.738.0",

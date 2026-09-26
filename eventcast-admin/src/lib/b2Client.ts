@@ -5,9 +5,9 @@ import { S3Client } from '@aws-sdk/client-s3';
  * implemented without credentials or remote infrastructure mutation.
  *
  * B2 exposes an S3-compatible API, and `@aws-sdk/client-s3` is already an
- * existing repository dependency (used by `scripts/archive-vod-to-r2.ts`
- * and `scripts/vod-uploader/` against R2, which is also S3-compatible) — so
- * no new package is required for this boundary.
+ * existing repository dependency (previously also used by the now-retired
+ * legacy `archive-vod-to-r2.ts`/`vod-uploader/` scripts against R2, which is
+ * also S3-compatible) — so no new package is required for this boundary.
  *
  * This module never reads a secret VALUE. `B2Config` names the environment
  * variables it expects; `loadB2ConfigFromEnv()` reads those variable NAMES
