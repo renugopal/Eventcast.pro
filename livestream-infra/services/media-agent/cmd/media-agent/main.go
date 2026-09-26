@@ -31,6 +31,7 @@ import (
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/relay"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/srs"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/store"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/telemetry"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/upload"
 )
 
@@ -65,6 +66,16 @@ func main() {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		if err := runB2Connectivity(ctx, os.Getenv, os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	if len(os.Args) > 1 && os.Args[1] == "r2-connectivity" {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		if err := runR2Connectivity(ctx, os.Getenv, os.Stdout); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
@@ -227,11 +238,35 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		var cpWG sync.WaitGroup
 		cpWG.Add(1)
 		go func() { defer cpWG.Done(); cpSyncer.Run(cpCtx) }()
+
+		// Livestream Technical Telemetry + Media Node Health Reporting.
+		// Gated on ControlPlaneEnabled exactly like RecordingReporter:
+		// there is nowhere authenticated to push telemetry to without a
+		// configured control plane. A separate loop from assignment sync
+		// on purpose - an unreachable SRS API or a rejected/failed
+		// telemetry report must never affect assignment sync, ingest,
+		// upload, manifest generation, B2 archival, or YouTube relay.
+		// Sampling and reporting share one cadence (TelemetryReportInterval):
+		// each RunOnce both samples SRS and reports in the same pass, since
+		// nothing in this package's current-state design needs a faster
+		// internal sampling loop.
+		srsClient := telemetry.NewSRSClient(cfg.SRSAPIBaseURL, &http.Client{Timeout: cfg.ControlPlaneRequestTimeout})
+		telemetryReporter := controlplane.NewTelemetryReporter(st, srsClient, cpClient, controlplane.TelemetryReporterConfig{
+			NodeID:    cfg.NodeID,
+			SpoolRoot: cfg.SpoolRoot,
+		}, logger)
+		cpWG.Add(1)
+		go func() { defer cpWG.Done(); telemetryReporter.Run(cpCtx, cfg.TelemetryReportInterval) }()
+
 		defer func() { cancelCP(); cpWG.Wait() }()
 
 		logger.Info("control-plane assignment sync enabled")
+		logger.Info("livestream technical telemetry + media node health reporting enabled",
+			slog.String("srs_api_base_url", cfg.SRSAPIBaseURL),
+			slog.Duration("report_interval", cfg.TelemetryReportInterval))
 	} else {
 		logger.Warn("control-plane assignment sync disabled: EVENTCAST_CONTROLPLANE_BASE_URL is not set; relying solely on the static assignment seed")
+		logger.Warn("livestream technical telemetry + media node health reporting disabled: no control plane configured to report to")
 	}
 
 	if cfg.OperatorAPIToken.Reveal() == "" {
@@ -676,6 +711,78 @@ func runB2Connectivity(ctx context.Context, getenv func(string) string, stdout i
 		// Classified, non-secret: the provider's raw error can echo request
 		// context, so only the stage that failed is reported here.
 		return fmt.Errorf("b2-connectivity: probe failed at %s", b2ProbeFailureStage(result))
+	}
+
+	fmt.Fprintln(stdout, "result=ok")
+	return nil
+}
+
+// runR2Connectivity implements the "media-agent r2-connectivity"
+// subcommand: one isolated, explicitly-operator-invoked write/read probe
+// against the configured R2 bucket, mirroring runB2Connectivity exactly.
+//
+// It deliberately reuses upload.RunB2ConnectivityTest unchanged rather than
+// duplicating its logic or generalizing its name: that function already
+// takes a provider-agnostic ObjectStore, so passing it an R2-backed client
+// exercises the identical, already-reviewed probe - only the config source
+// and the client constructed from it differ. "B2" in that function's name
+// is a naming label only; nothing about its behavior is B2-specific.
+//
+// Deliberate properties (same as runB2Connectivity):
+//
+//   - It requires a COMPLETE R2 configuration and fails closed otherwise.
+//   - It opens no database, starts no worker, serves no HTTP, and touches
+//     no ingest_sessions/media_event_assignments row - nothing about
+//     running it depends on or affects node streaming capacity.
+//   - Output is sanitized: booleans, the bucket, and the probe key only.
+//     Credentials, the endpoint, and raw provider errors are never printed.
+func runR2Connectivity(ctx context.Context, getenv func(string) string, stdout io.Writer) error {
+	cfg, err := config.Load(getenv)
+	if err != nil {
+		return err
+	}
+
+	if !cfg.R2Enabled {
+		return fmt.Errorf("r2-connectivity: incomplete R2 configuration; %s, %s, %s, %s, and %s are all required",
+			config.EnvR2Endpoint, config.EnvR2Region, config.EnvR2Bucket,
+			config.EnvR2AccessKeyID, config.EnvR2SecretAccessKey)
+	}
+
+	r2Client, err := upload.NewS3CompatibleClient(upload.S3Config{
+		Endpoint:           cfg.R2Endpoint,
+		Region:             cfg.R2Region,
+		Bucket:             cfg.R2Bucket,
+		AccessKeyID:        cfg.R2AccessKeyID,
+		SecretAccessKey:    cfg.R2SecretAccessKey,
+		InsecureSkipVerify: cfg.R2InsecureSkipVerify,
+	})
+	if err != nil {
+		return fmt.Errorf("r2-connectivity: construct R2 client: %w", err)
+	}
+
+	result, runErr := upload.RunB2ConnectivityTest(ctx, r2Client, cfg.R2Bucket, cfg.R2ObjectPrefix, cfg.NodeID, cfg.R2RequestTimeout)
+
+	// Print whatever the probe did establish even when it later failed:
+	// a successful PUT followed by a failed HEAD is materially different
+	// evidence from a total failure, and the operator needs to see which.
+	fmt.Fprintf(stdout, "bucket=%s\n", result.Bucket)
+	fmt.Fprintf(stdout, "key=%s\n", result.Key)
+	fmt.Fprintf(stdout, "put_succeeded=%t\n", result.PutSucceeded)
+	fmt.Fprintf(stdout, "head_matched=%t\n", result.HeadMatched)
+	fmt.Fprintf(stdout, "checksum_attempted=%t\n", result.ChecksumAttempted)
+	fmt.Fprintf(stdout, "checksum_accepted=%t\n", result.ChecksumAccepted)
+	fmt.Fprintf(stdout, "corrupt_checksum_rejected=%t\n", result.CorruptChecksumRejected)
+	if result.Detail != "" {
+		fmt.Fprintf(stdout, "detail=%s\n", result.Detail)
+	}
+
+	fmt.Fprintf(stdout, "supports_provider_checksum=%t\n",
+		result.ChecksumAccepted && result.CorruptChecksumRejected)
+
+	if runErr != nil {
+		// Classified, non-secret: the provider's raw error can echo request
+		// context, so only the stage that failed is reported here.
+		return fmt.Errorf("r2-connectivity: probe failed at %s", b2ProbeFailureStage(result))
 	}
 
 	fmt.Fprintln(stdout, "result=ok")
