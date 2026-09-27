@@ -109,6 +109,14 @@ func (r *RecordingReporter) report(ctx context.Context, archive store.B2Archive)
 	if archive.State == store.B2ArchiveFailed {
 		report.FailureReason = archive.LastError
 	}
+	if fin, found, err := r.store.GetVODFinalization(ctx, archive.EventID); err != nil {
+		r.logger.Warn("recording reporter: read vod finalization for r2 playback id failed; omitting",
+			slog.String("event_id", archive.EventID))
+	} else if found {
+		if id, ok := playbackIDFromVODKey(fin.R2Key); ok {
+			report.R2PlaybackID = id
+		}
+	}
 
 	now := r.now().UTC()
 	resp, err := r.client.ReportRecordingState(ctx, r.cfg.NodeID, archive.EventID, report)

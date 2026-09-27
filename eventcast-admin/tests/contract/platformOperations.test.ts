@@ -29,6 +29,7 @@ function makeRecording(overrides: Partial<EventRecordingRow> = {}): EventRecordi
     retention_effective_days: 90,
     retention_frozen_at: '2026-06-01T02:00:00.000Z',
     retention_expires_at: '2026-08-30T02:00:00.000Z',
+    r2_playback_id: null,
     created_at: '2026-06-01T00:00:00.000Z',
     updated_at: '2026-06-01T02:00:00.000Z',
     ...overrides,

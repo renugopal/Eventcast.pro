@@ -227,9 +227,10 @@ func TestRealMigration0002UpgradesAnExistingV1Database(t *testing.T) {
 	// Tracks the highest embedded migration version: 0006 added
 	// ingest_sessions.telemetry_reported_at for Livestream Technical
 	// Telemetry + Media Node Health Reporting's durable ended-session
-	// acknowledgement tracking.
-	if version != 6 {
-		t.Errorf("SchemaVersion() after upgrade = %d, want 6", version)
+	// acknowledgement tracking; 0007 added the AutoFinalizer's durable
+	// event_finalization_intents / event_finalization_claims tables.
+	if version != 7 {
+		t.Errorf("SchemaVersion() after upgrade = %d, want 7", version)
 	}
 
 	// Pre-existing data must survive untouched, and new columns must

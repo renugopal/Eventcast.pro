@@ -735,7 +735,12 @@ function onYouTubeIframeAPIReady() {
             // Update status badge if stream is live
             const updateStatus = (isLive) => {
                 if (statusBadge) {
-                    if (isLive) {
+                    if (CONFIG.playbackMode === 'replay') {
+                        // Ended/recorded media (post-End bridge, finalized
+                        // R2/B2 VOD, legacy archive) is never shown as live.
+                        statusBadge.innerHTML = '● REPLAY';
+                        statusBadge.classList.remove('live-glow');
+                    } else if (isLive) {
                         statusBadge.innerHTML = '● LIVE NOW';
                         statusBadge.classList.add('live-glow');
                     } else {
@@ -1092,7 +1097,11 @@ function onPlayerStateChange(event) {
     if (event.data === YT.PlayerState.PLAYING || event.data === YT.PlayerState.BUFFERING) {
         removePreliveOverlay();
         const statusBadge = document.querySelector('.status-badge');
-        if (statusBadge) statusBadge.innerHTML = '<span class="pulse"></span> LIVE NOW';
+        if (statusBadge) {
+            statusBadge.innerHTML = CONFIG.playbackMode === 'replay'
+                ? '● REPLAY'
+                : '<span class="pulse"></span> LIVE NOW';
+        }
     }
 }
 
@@ -1114,7 +1123,11 @@ function updateCountdown() {
         if (liveBtn) liveBtn.style.display = 'flex';
         
         const statusBadge = document.querySelector('.status-badge');
-        if (statusBadge) statusBadge.innerHTML = `<span class="pulse"></span> LIVE NOW`;
+        if (statusBadge) {
+            statusBadge.innerHTML = CONFIG.playbackMode === 'replay'
+                ? '● REPLAY'
+                : `<span class="pulse"></span> LIVE NOW`;
+        }
         return;
     }
 

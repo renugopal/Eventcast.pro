@@ -58,11 +58,11 @@ test('B2 replay is never offered while the event is currently live', () => {
   );
 });
 
-test('the verified YouTube fallback only ever activates when neither live nor B2 replay can be offered', () => {
+test('the verified YouTube fallback only ever activates when no live, B2, finalized-R2 or bridge playback can be offered', () => {
   const idx = source.indexOf('const verifiedYoutubeFallbackUrl =');
   assert.ok(idx !== -1);
   const snippet = source.slice(idx, idx + 400);
-  assert.match(snippet, /!hasLivePlayback && !hasB2Replay/);
+  assert.match(snippet, /!hasLivePlayback && !hasB2Replay && !hasR2VodReplay && !hasLiveBridge/);
   assert.match(snippet, /youtube_fallback_verified === true/);
 });
 
@@ -77,8 +77,12 @@ test('B2-VOD segments and manifests are only ever streamed through this Worker, 
 test('renderEvent receives the B2 replay and verified-fallback signals, and the legacy vod_link chain is unchanged', () => {
   assert.match(
     source,
-    /renderEvent\(\s*\n\s*templateHtml, event, photographer, slug, env, countryCode, hostname,\s*\n\s*hasLivePlayback, hasB2Replay, verifiedYoutubeFallbackUrl,\s*\n\s*\);/,
+    /renderEvent\(\s*\r?\n\s*templateHtml, event, photographer, slug, env, countryCode, hostname,\s*\r?\n\s*hasLivePlayback, hasB2Replay, verifiedYoutubeFallbackUrl,\s*\r?\n\s*\{ r2VodReplay: hasR2VodReplay, liveBridge: hasLiveBridge \},\s*\r?\n\s*\);/,
   );
   assert.match(rendererSource, /const vodArchiveUrl = event\.vod_link \?\? '';/, 'legacy VOD selection must stay unchanged');
-  assert.match(rendererSource, /const primaryHlsUrl = liveHlsUrl \|\| b2ReplayUrl \|\| archivePlaybackUrl;/);
+  assert.match(
+    rendererSource,
+    /const primaryHlsUrl = liveHlsUrl \|\| b2ReplayUrl \|\| r2VodReplayUrl \|\| liveBridgeUrl \|\| archivePlaybackUrl;/,
+    'state-aware order: live > B2 > finalized R2 > bridge > legacy archive',
+  );
 });
