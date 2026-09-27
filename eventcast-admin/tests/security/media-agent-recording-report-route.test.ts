@@ -929,3 +929,78 @@ describe('credential slot-evidence helpers (migration 0041)', () => {
     });
   });
 });
+
+describe('POST /internal/media/nodes/{node_id}/recordings/{event_id} — finalized R2 playback id (migration 0044)', () => {
+  const R2_PLAYBACK_ID = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+
+  function reportWith(extra: Record<string, unknown>) {
+    return makeRequest({
+      body: {
+        state: 'local_finalized',
+        finalization_generation: GENERATION,
+        gap_count: 0,
+        gap_status: 'none',
+        covered_playback_ids: [R2_PLAYBACK_ID],
+        ...extra,
+      },
+    });
+  }
+
+  it('forwards a valid r2_playback_id to the RPC as p_r2_playback_id', async () => {
+    await wireDb();
+    const POST = await loadRoute();
+    const { req, params } = reportWith({ r2_playback_id: R2_PLAYBACK_ID });
+
+    const res = await POST(req, { params });
+    expect(res.status).toBe(200);
+    const args = transitionCalls()[0][1] as Record<string, unknown>;
+    expect(args.p_r2_playback_id).toBe(R2_PLAYBACK_ID);
+  });
+
+  it('sends p_r2_playback_id null when the node omits it (older Media Agent)', async () => {
+    await wireDb();
+    const POST = await loadRoute();
+    const { req, params } = reportWith({});
+
+    expect((await POST(req, { params })).status).toBe(200);
+    const args = transitionCalls()[0][1] as Record<string, unknown>;
+    expect(args.p_r2_playback_id).toBeNull();
+  });
+
+  it.each([['../evil'], ['a/b'], [''], ['.hidden'], ['x'.repeat(129)], [123], [null], [{ id: 'x' }]])(
+    'drops a malformed r2_playback_id (%j) to null without failing the report',
+    async (value) => {
+      await wireDb();
+      const POST = await loadRoute();
+      const { req, params } = reportWith({ r2_playback_id: value });
+
+      const res = await POST(req, { params });
+      expect(res.status).toBe(200);
+      const args = transitionCalls()[0][1] as Record<string, unknown>;
+      expect(args.p_r2_playback_id).toBeNull();
+    },
+  );
+
+  it('never echoes the playback id in the response, even though the RPC row carries it', async () => {
+    await wireDb();
+    mockDb.rpc = vi.fn(async () => ({
+      data: {
+        recording_state: 'local_finalized',
+        finalization_generation: GENERATION,
+        integrity_verified_at: null,
+        r2_playback_id: R2_PLAYBACK_ID,
+      },
+      error: null,
+    })) as unknown as typeof mockDb.rpc;
+    const POST = await loadRoute();
+    const { req, params } = reportWith({ r2_playback_id: R2_PLAYBACK_ID });
+
+    const res = await POST(req, { params });
+    const text = await res.text();
+    expect(res.status).toBe(200);
+    expect(text).not.toContain(R2_PLAYBACK_ID);
+    expect(Object.keys(JSON.parse(text)).sort()).toEqual(
+      ['event_authoritative', 'finalization_generation', 'recording_state'].sort(),
+    );
+  });
+});

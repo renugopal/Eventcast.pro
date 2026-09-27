@@ -52,27 +52,37 @@ test('playback assets are read only through the private R2 binding', () => {
 test('the asset path is validated before a playback id is resolved or a key is built', () => {
   const fnAt = source.indexOf('async function serveHlsAssetFromR2(');
   assert.ok(fnAt !== -1, 'serveHlsAssetFromR2 must exist');
-  const body = source.slice(fnAt, fnAt + 1600);
+  const body = source.slice(fnAt, source.indexOf('function notFound(): Response {', fnAt));
 
   const parseAt = body.indexOf('parseHlsAssetPath(assetPath)');
-  const resolveAt = body.indexOf('resolveEnabledPlaybackId(env, eventId)');
+  const resolveAt = body.indexOf('resolveAssignmentPlayback(env, eventId)');
   const keyAt = body.indexOf('buildR2Key(');
+  const gateAt = body.indexOf('disabledHlsAssetRequirement(asset)');
   const getAt = body.indexOf('bucket.get(');
 
-  assert.ok(parseAt !== -1 && resolveAt !== -1 && keyAt !== -1 && getAt !== -1);
+  assert.ok(parseAt !== -1 && resolveAt !== -1 && keyAt !== -1 && gateAt !== -1 && getAt !== -1);
   assert.ok(parseAt < resolveAt, 'path validation must precede playback-id resolution');
   assert.ok(resolveAt < keyAt, 'playback id must be resolved before the key is built');
   assert.ok(keyAt < getAt, 'the key must be built before the R2 read');
+  assert.ok(gateAt < getAt, 'a disabled assignment must pass its continuity gate before any R2 read');
 });
 
-test('only enabled assignments resolve a playback id', () => {
-  const fnAt = source.indexOf('async function resolveEnabledPlaybackId(');
+test('one consistent assignment snapshot is read; a disabled row never authorizes by itself', () => {
+  const fnAt = source.indexOf('async function resolveAssignmentPlayback(');
   assert.ok(fnAt !== -1);
-  const body = source.slice(fnAt, fnAt + 900);
+  const body = source.slice(fnAt, fnAt + 1400);
   assert.match(body, /media_event_assignments/);
-  assert.match(body, /enabled=is\.true/, 'disabled assignments must be excluded by the query itself');
+  assert.match(body, /&select=playback_id,enabled/, 'playback id and enabled must come from ONE row read');
+  assert.doesNotMatch(body, /enabled=is\.true/, 'disabled rows are evaluated by the continuity gates, not dropped');
   assert.match(body, /isValidPlaybackId\(playbackId\)/, 'the playback id must be validated before use');
+  assert.match(body, /typeof enabled !== 'boolean'/, 'a non-boolean enabled flag must fail closed');
   assert.match(body, /return null;/, 'failures must collapse to null');
+
+  const serveAt = source.indexOf('async function serveHlsAssetFromR2(');
+  const serveBody = source.slice(serveAt, source.indexOf('function notFound(): Response {', serveAt));
+  assert.match(serveBody, /const requirement = assignment\.enabled \? null : disabledHlsAssetRequirement\(asset\);/);
+  assert.match(serveBody, /requirement === 'r2_final' && !\(await isR2FinalAuthorized\(env, eventId, assignment\)\)/);
+  assert.match(serveBody, /requirement === 'bridge' && !isBridgeManifestFresh\(object\.uploaded, Date\.now\(\), bridgeMaxAgeSeconds\(env\)\)/);
 });
 
 test('every playback failure returns the same non-cacheable 404', () => {
@@ -113,7 +123,7 @@ test('the live player URL points at the public live route only when playback is 
   );
   assert.match(
     source,
-    /const hasLivePlayback = \(await resolveEnabledPlaybackId\(env, event\.id\)\) !== null;/,
+    /const hasLivePlayback = assignmentPlayback\?\.enabled === true;/,
     'live playback must be gated on an enabled assignment',
   );
   assert.match(rendererSource, /const vodArchiveUrl = event\.vod_link \?\? '';/, 'VOD selection must stay unchanged');

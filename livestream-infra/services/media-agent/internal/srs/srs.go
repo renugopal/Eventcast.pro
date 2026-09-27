@@ -119,6 +119,13 @@ type Handlers struct {
 	// destination rather than a panic.
 	YouTubeStreamKeys YouTubeKeyStore
 
+	// Finalization is optional (nil disables the check): the AutoFinalizer's
+	// publish guard. on_publish is rejected while a finalization attempt for
+	// the event is running in this process or holds an unexpired durable
+	// claim, so no new publish can start while old-cycle finalization side
+	// effects are still in flight (internal/autofinalize).
+	Finalization PublishGuard
+
 	// Metrics is optional: a nil value (the zero value of Handlers, used
 	// by every existing test) disables instrumentation entirely rather
 	// than panicking. Only two counters are incremented here
@@ -136,6 +143,12 @@ type Handlers struct {
 // them for a new session.
 type YouTubeKeyStore interface {
 	Get(eventID string) (logging.Secret, bool)
+}
+
+// PublishGuard reports whether a new publish for eventID must be refused
+// because a finalization attempt is still running for it.
+type PublishGuard interface {
+	PublishBlocked(ctx context.Context, eventID string, now time.Time) (bool, error)
 }
 
 // StaticYouTubeKeyStore is a fixed, never-updated YouTubeKeyStore backed
@@ -272,6 +285,21 @@ func (h *Handlers) handlePublish(ctx context.Context, p Payload) (bool, string) 
 		h.Logger.Warn("on_publish rejected: outside publish window",
 			slog.String("stream", ingestID), slog.String("event_id", assignment.EventID))
 		return true, "PUBLISH_WINDOW_CLOSED"
+	}
+	if h.Finalization != nil {
+		blocked, err := h.Finalization.PublishBlocked(ctx, assignment.EventID, now)
+		if err != nil {
+			// fail closed: a guard we cannot evaluate must not let a new
+			// publish race an in-flight finalization
+			h.Logger.Error("on_publish: finalization guard check failed",
+				slog.String("stream", ingestID), slog.String("event_id", assignment.EventID), slog.String("error", err.Error()))
+			return true, "STATE_CONFLICT"
+		}
+		if blocked {
+			h.Logger.Warn("on_publish rejected: a finalization is still running for this event",
+				slog.String("stream", ingestID), slog.String("event_id", assignment.EventID))
+			return true, "STATE_CONFLICT"
+		}
 	}
 
 	session, err := h.Store.CreateSession(ctx, assignment.EventID, ingestID, assignment.PlaybackID, now)

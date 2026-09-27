@@ -1,6 +1,7 @@
 import { supabase, supabaseAdmin } from './supabase';
 import { getOwnedEventById, isOwnershipError } from './ownership';
 import { loadB2ConfigFromEnv } from './b2Client';
+import { isR2FinalReplayEligible, type ReplayAssignmentSnapshot } from './recordingReplay';
 
 const db = supabaseAdmin || supabase;
 
@@ -37,6 +38,13 @@ export interface EventRecordingRow {
   retention_effective_days: number | null;
   retention_frozen_at: string | null;
   retention_expires_at: string | null;
+  /**
+   * Playback id of the finalized R2 VOD for the CURRENT generation
+   * (migration `0044`), set only once proven by the transition RPC. A
+   * private identifier: server-side use only, never mapped into any
+   * provider/client response.
+   */
+  r2_playback_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -115,6 +123,12 @@ export interface ApplyRecordingTransitionInput {
   /** Always the AUTHENTICATED node id, resolved server-side — never a request-body value. */
   reportingMediaNodeId?: string;
   coveredPlaybackIds?: string[];
+  /**
+   * The playback id the node's finalized R2 VOD was published under. Only
+   * stored once the RPC proves it (migration `0044`); an unproven value is
+   * ignored, never rejected.
+   */
+  r2PlaybackId?: string;
 }
 
 export type ApplyRecordingTransitionResult =
@@ -148,6 +162,7 @@ export async function applyEventRecordingTransition(
     p_failure_reason: input.failureReason ?? null,
     p_reporting_media_node_id: input.reportingMediaNodeId ?? null,
     p_covered_playback_ids: input.coveredPlaybackIds ?? null,
+    p_r2_playback_id: input.r2PlaybackId ?? null,
   });
 
   if (error) {
@@ -245,7 +260,13 @@ export interface ProviderSafeRecordingView {
  */
 export function toProviderSafeRecordingView(
   recording: EventRecordingRow | null,
-  b2PlaybackConfigured: boolean = false
+  b2PlaybackConfigured: boolean = false,
+  /**
+   * The event's assignment playback id + enabled state, loaded server-side
+   * only to evaluate finalized-R2 replay (migration `0044`). Never copied
+   * into the returned view.
+   */
+  replayAssignment: ReplayAssignmentSnapshot | null = null
 ): ProviderSafeRecordingView {
   if (!recording) {
     return { replayStatus: 'not_available', retentionExpiresAt: null, youtubeFallbackAvailable: false };
@@ -267,8 +288,14 @@ export function toProviderSafeRecordingView(
   const isWithinRetention =
     recording.retention_expires_at !== null && new Date(recording.retention_expires_at).getTime() > Date.now();
 
+  // Finalized R2 VOD (migration `0044`) is a second, independently gated
+  // replay path - the exact database gates the render Worker applies
+  // (`isR2FinalReplayEligible`, shared module). The Worker additionally
+  // requires the VOD manifest object itself before serving.
+  const isR2FinalReplay = isR2FinalReplayEligible(recording, replayAssignment);
+
   let replayStatus: ProviderSafeRecordingView['replayStatus'] = 'not_available';
-  if (isArchiveVerified && isWithinRetention && b2PlaybackConfigured) {
+  if ((isArchiveVerified && isWithinRetention && b2PlaybackConfigured) || isR2FinalReplay) {
     replayStatus = 'available';
   } else if (
     recording.recording_state === 'recording' ||
@@ -302,5 +329,24 @@ export async function getProviderSafeRecordingViewForOwnedEvent(
 
   const recording = await getEventRecordingState(eventId);
   const b2PlaybackConfigured = loadB2ConfigFromEnv() !== null;
-  return { ok: true, view: toProviderSafeRecordingView(recording, b2PlaybackConfigured) };
+  const replayAssignment = await loadReplayAssignmentSnapshot(eventId);
+  return { ok: true, view: toProviderSafeRecordingView(recording, b2PlaybackConfigured, replayAssignment) };
+}
+
+/**
+ * Loads the event's single assignment row's playback id + enabled state for
+ * the finalized-R2 replay gate. Server-side only; the playback id never
+ * leaves this module. Any failure collapses to null, which the gate treats
+ * as ineligible (fail closed).
+ */
+async function loadReplayAssignmentSnapshot(eventId: string): Promise<ReplayAssignmentSnapshot | null> {
+  const { data, error } = await db
+    .from('media_event_assignments')
+    .select('playback_id, enabled')
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  const row = data as { playback_id: string | null; enabled: boolean | null };
+  return { playback_id: row.playback_id, enabled: row.enabled };
 }

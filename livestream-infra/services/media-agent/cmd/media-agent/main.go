@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/autofinalize"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/config"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/controlplane"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/health"
@@ -31,6 +32,7 @@ import (
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/relay"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/srs"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/store"
+	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/telemetry"
 	"github.com/renugopal/Eventcast.pro/livestream-infra/services/media-agent/internal/upload"
 )
 
@@ -66,6 +68,26 @@ func main() {
 		defer stop()
 		if err := runB2Connectivity(ctx, os.Getenv, os.Stdout); err != nil {
 			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	if len(os.Args) > 1 && os.Args[1] == "r2-connectivity" {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		if err := runR2Connectivity(ctx, os.Getenv, os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	if len(os.Args) > 1 && os.Args[1] == "db-backup" {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		if err := runDBBackup(ctx, os.Args[2:], os.Getenv, os.Stdout, time.Now); err != nil {
+			fmt.Fprintln(os.Stderr, err) // fixed category only (backupError.Error)
 			os.Exit(1)
 		}
 		return
@@ -227,11 +249,35 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 		var cpWG sync.WaitGroup
 		cpWG.Add(1)
 		go func() { defer cpWG.Done(); cpSyncer.Run(cpCtx) }()
+
+		// Livestream Technical Telemetry + Media Node Health Reporting.
+		// Gated on ControlPlaneEnabled exactly like RecordingReporter:
+		// there is nowhere authenticated to push telemetry to without a
+		// configured control plane. A separate loop from assignment sync
+		// on purpose - an unreachable SRS API or a rejected/failed
+		// telemetry report must never affect assignment sync, ingest,
+		// upload, manifest generation, B2 archival, or YouTube relay.
+		// Sampling and reporting share one cadence (TelemetryReportInterval):
+		// each RunOnce both samples SRS and reports in the same pass, since
+		// nothing in this package's current-state design needs a faster
+		// internal sampling loop.
+		srsClient := telemetry.NewSRSClient(cfg.SRSAPIBaseURL, &http.Client{Timeout: cfg.ControlPlaneRequestTimeout})
+		telemetryReporter := controlplane.NewTelemetryReporter(st, srsClient, cpClient, controlplane.TelemetryReporterConfig{
+			NodeID:    cfg.NodeID,
+			SpoolRoot: cfg.SpoolRoot,
+		}, logger)
+		cpWG.Add(1)
+		go func() { defer cpWG.Done(); telemetryReporter.Run(cpCtx, cfg.TelemetryReportInterval) }()
+
 		defer func() { cancelCP(); cpWG.Wait() }()
 
 		logger.Info("control-plane assignment sync enabled")
+		logger.Info("livestream technical telemetry + media node health reporting enabled",
+			slog.String("srs_api_base_url", cfg.SRSAPIBaseURL),
+			slog.Duration("report_interval", cfg.TelemetryReportInterval))
 	} else {
 		logger.Warn("control-plane assignment sync disabled: EVENTCAST_CONTROLPLANE_BASE_URL is not set; relying solely on the static assignment seed")
+		logger.Warn("livestream technical telemetry + media node health reporting disabled: no control plane configured to report to")
 	}
 
 	if cfg.OperatorAPIToken.Reveal() == "" {
@@ -314,6 +360,20 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 	}
 	defer relaySupervisor.Shutdown()
 
+	// In-process running-finalization registry (empty at startup).
+	finalizationRegistry := autofinalize.NewRegistry()
+
+	// AutoFinalizer startup recovery (internal/autofinalize): delete every
+	// durable finalization claim BEFORE the Guard is wired, before the
+	// AutoFinalizer loop starts, and before the HTTP server (and therefore
+	// any SRS callback or operator request) starts. One agent process owns
+	// this database, so a surviving claim belongs to a dead process whose
+	// finalization side effects have already stopped. Failure aborts startup.
+	if err := autofinalize.RecoverStaleClaims(ctx, st, logger, sink); err != nil {
+		logger.Error("autofinalize: startup claim recovery failed", slog.String("error", err.Error()))
+		return fmt.Errorf("autofinalize startup claim recovery: %w", err)
+	}
+
 	srsHandlers := &srs.Handlers{
 		Store:                    st,
 		HLSRoot:                  cfg.SRSHLSRoot,
@@ -360,15 +420,35 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 	}()
 	defer func() { cancelLimiterSweep(); limiterSweepWG.Wait() }()
 
+	// Non-gating SRS reachability signal: a background probe caches the
+	// last observation; /readyz only reads that cache (never contacts SRS).
+	// Started asynchronously - startup never waits for the first probe - and
+	// tied to shutdown via its own cancel + WaitGroup like the limiter sweep.
+	srsProbe := health.NewSRSProbe(cfg.SRSAPIBaseURL, nil, health.DefaultSRSProbeInterval)
+	srsProbeCtx, cancelSRSProbe := context.WithCancel(context.Background())
+	var srsProbeWG sync.WaitGroup
+	srsProbeWG.Add(1)
+	go func() { defer srsProbeWG.Done(); srsProbe.Run(srsProbeCtx) }()
+	defer func() { cancelSRSProbe(); srsProbeWG.Wait() }()
+
 	var shuttingDown atomic.Bool
 
 	mux := http.NewServeMux()
 	mux.Handle("/healthz", health.Handler())
-	mux.Handle("/readyz", health.ReadinessHandlerWithB2(
+	mux.Handle("/readyz", health.ReadinessHandlerWithSignals(
 		readinessChecks(st, cfg.SpoolRoot, cpSyncer),
 		// Booleans only - this is how an operator confirms the B2
 		// configuration landed without any credential value being read back.
 		health.B2Status{Configured: cfg.B2Configured, ArchivalEnabled: cfg.B2ArchivalEnabled},
+		// Informational only: never affects readiness status or HTTP code.
+		func(ctx context.Context) health.Signals {
+			now := time.Now().UTC()
+			s := health.Signals{SRSAPI: srsProbe.Snapshot(now)}
+			if lag, err := st.OldestPendingUploadAgeSeconds(ctx, now); err == nil {
+				s.UploadLagSeconds = &lag
+			}
+			return s
+		},
 	))
 	mux.Handle("/metrics", metrics.Handler(metricsReg, collectMetrics(st, cfg, cpSyncer, sink, startTime, &reconcileLastRunAt, &shuttingDown)))
 	mux.Handle("/internal/srs/on-publish", rateLimited(srsHandlers.OnPublish()))
@@ -486,9 +566,38 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 			logger.Info("expired upload leases reclaimed at startup", slog.Int("count", n))
 		}
 
+		// The single claim guard shared by the background loop, the operator
+		// /finalize endpoint, and on_publish. Only reached after
+		// RecoverStaleClaims succeeded and before server.ListenAndServe.
+		// vodFinalizer is non-nil and fully configured here (NewVODFinalizer
+		// has no error path; WithB2Enqueuer returns the same pointer).
+		finalizationGuard := autofinalize.New(st, vodFinalizer,
+			telemetry.NewSRSClient(cfg.SRSAPIBaseURL, &http.Client{Timeout: 5 * time.Second}),
+			finalizationRegistry, autofinalize.Config{
+				Enabled:        cfg.AutoFinalizeEnabled,
+				Interval:       cfg.AutoFinalizeInterval,
+				QuietPeriod:    cfg.AutoFinalizeQuietPeriod,
+				Grace:          cfg.AutoFinalizeWindowGrace,
+				Lease:          cfg.AutoFinalizeClaimLease,
+				RolloutCutoff:  cfg.AutoFinalizeRolloutCutoff,
+				RetryBaseDelay: cfg.B2RetryBaseDelay,
+				RetryMaxDelay:  cfg.B2RetryMaxDelay,
+			}, logger, sink)
+		srsHandlers.Finalization = finalizationGuard
+
 		uploadCtx, cancelUpload := context.WithCancel(context.Background())
 		var uploadWG sync.WaitGroup
 		uploadWG.Add(3)
+		if cfg.AutoFinalizeEnabled {
+			uploadWG.Add(1)
+			go func() { defer uploadWG.Done(); finalizationGuard.Run(uploadCtx) }()
+			logger.Info("AutoFinalizer enabled",
+				slog.Duration("quiet_period", cfg.AutoFinalizeQuietPeriod),
+				slog.Duration("window_grace", cfg.AutoFinalizeWindowGrace),
+				slog.Time("rollout_cutoff", cfg.AutoFinalizeRolloutCutoff))
+		} else {
+			logger.Info("AutoFinalizer background loop disabled; operator finalize and the on_publish guard remain active")
+		}
 		go func() { defer uploadWG.Done(); uploadWorker.Run(uploadCtx) }()
 		go func() { defer uploadWG.Done(); manifestManager.Run(uploadCtx, cfg.ManifestRebuildInterval) }()
 		go func() { defer uploadWG.Done(); retentionWorker.Run(uploadCtx, cfg.CleanupInterval) }()
@@ -505,7 +614,9 @@ func run(ctx context.Context, getenv func(string) string, stdout io.Writer) erro
 			uploadWG.Wait()
 		}()
 
-		mux.Handle("POST /internal/events/{event_id}/finalize", operatorProtected(&upload.FinalizeHandler{Finalizer: vodFinalizer, Logger: logger}))
+		// Operator finalize goes through the same claim/registry guard as the
+		// AutoFinalizer; authentication (operatorProtected) is unchanged.
+		mux.Handle("POST /internal/events/{event_id}/finalize", operatorProtected(&upload.FinalizeHandler{Finalizer: finalizationGuard, Logger: logger}))
 		mux.Handle("/internal/events/{event_id}/vod-gap", operatorProtected(&upload.VODGapHandler{Store: st, Logger: logger}))
 
 		logger.Info("R2 upload/manifest/VOD/retention subsystem enabled",
@@ -682,6 +793,78 @@ func runB2Connectivity(ctx context.Context, getenv func(string) string, stdout i
 	return nil
 }
 
+// runR2Connectivity implements the "media-agent r2-connectivity"
+// subcommand: one isolated, explicitly-operator-invoked write/read probe
+// against the configured R2 bucket, mirroring runB2Connectivity exactly.
+//
+// It deliberately reuses upload.RunB2ConnectivityTest unchanged rather than
+// duplicating its logic or generalizing its name: that function already
+// takes a provider-agnostic ObjectStore, so passing it an R2-backed client
+// exercises the identical, already-reviewed probe - only the config source
+// and the client constructed from it differ. "B2" in that function's name
+// is a naming label only; nothing about its behavior is B2-specific.
+//
+// Deliberate properties (same as runB2Connectivity):
+//
+//   - It requires a COMPLETE R2 configuration and fails closed otherwise.
+//   - It opens no database, starts no worker, serves no HTTP, and touches
+//     no ingest_sessions/media_event_assignments row - nothing about
+//     running it depends on or affects node streaming capacity.
+//   - Output is sanitized: booleans, the bucket, and the probe key only.
+//     Credentials, the endpoint, and raw provider errors are never printed.
+func runR2Connectivity(ctx context.Context, getenv func(string) string, stdout io.Writer) error {
+	cfg, err := config.Load(getenv)
+	if err != nil {
+		return err
+	}
+
+	if !cfg.R2Enabled {
+		return fmt.Errorf("r2-connectivity: incomplete R2 configuration; %s, %s, %s, %s, and %s are all required",
+			config.EnvR2Endpoint, config.EnvR2Region, config.EnvR2Bucket,
+			config.EnvR2AccessKeyID, config.EnvR2SecretAccessKey)
+	}
+
+	r2Client, err := upload.NewS3CompatibleClient(upload.S3Config{
+		Endpoint:           cfg.R2Endpoint,
+		Region:             cfg.R2Region,
+		Bucket:             cfg.R2Bucket,
+		AccessKeyID:        cfg.R2AccessKeyID,
+		SecretAccessKey:    cfg.R2SecretAccessKey,
+		InsecureSkipVerify: cfg.R2InsecureSkipVerify,
+	})
+	if err != nil {
+		return fmt.Errorf("r2-connectivity: construct R2 client: %w", err)
+	}
+
+	result, runErr := upload.RunB2ConnectivityTest(ctx, r2Client, cfg.R2Bucket, cfg.R2ObjectPrefix, cfg.NodeID, cfg.R2RequestTimeout)
+
+	// Print whatever the probe did establish even when it later failed:
+	// a successful PUT followed by a failed HEAD is materially different
+	// evidence from a total failure, and the operator needs to see which.
+	fmt.Fprintf(stdout, "bucket=%s\n", result.Bucket)
+	fmt.Fprintf(stdout, "key=%s\n", result.Key)
+	fmt.Fprintf(stdout, "put_succeeded=%t\n", result.PutSucceeded)
+	fmt.Fprintf(stdout, "head_matched=%t\n", result.HeadMatched)
+	fmt.Fprintf(stdout, "checksum_attempted=%t\n", result.ChecksumAttempted)
+	fmt.Fprintf(stdout, "checksum_accepted=%t\n", result.ChecksumAccepted)
+	fmt.Fprintf(stdout, "corrupt_checksum_rejected=%t\n", result.CorruptChecksumRejected)
+	if result.Detail != "" {
+		fmt.Fprintf(stdout, "detail=%s\n", result.Detail)
+	}
+
+	fmt.Fprintf(stdout, "supports_provider_checksum=%t\n",
+		result.ChecksumAccepted && result.CorruptChecksumRejected)
+
+	if runErr != nil {
+		// Classified, non-secret: the provider's raw error can echo request
+		// context, so only the stage that failed is reported here.
+		return fmt.Errorf("r2-connectivity: probe failed at %s", b2ProbeFailureStage(result))
+	}
+
+	fmt.Fprintln(stdout, "result=ok")
+	return nil
+}
+
 // b2ProbeFailureStage names the first stage that did not complete, so a
 // failure is actionable without printing a provider error verbatim.
 func b2ProbeFailureStage(result upload.B2ConnectivityResult) string {
@@ -789,5 +972,57 @@ func collectMetrics(
 		sink.SegmentUploadAttempts.Set(float64(snap.SegmentUploadAttemptsSum))
 		sink.RelayRestartsTotal.Set(float64(snap.RelayRestartsSum))
 		sink.QueueOldestAgeSeconds.Set(snap.OldestPendingUploadAgeSeconds)
+
+		// AutoFinalizer intent counts by state. The label is bounded to the five
+		// CHECK-constrained states (pending|finalizing|finalized|failed|cancelled);
+		// SetGroup replaces the whole group, so a state whose count drops to zero
+		// is reset rather than left stale. A failed query (including a partial
+		// read) skips this gauge for this scrape, like the adjacent probes.
+		if counts, err := st.CountFinalizationIntentsByState(ctx); err == nil {
+			sink.AutoFinalizeIntents.SetGroup("state", counts)
+		}
+
+		// Live-manifest freshness: skipped entirely for this scrape if any
+		// required query fails (the gauge keeps its prior value).
+		if age, ok := liveManifestAgeSeconds(ctx, st, time.Now().UTC()); ok {
+			sink.LiveManifestAgeSeconds.Set(age)
+		}
 	}
+}
+
+// manifestAgeStore is the narrow read-only surface liveManifestAgeSeconds
+// needs; *store.Store satisfies it (the indirection lets tests inject query
+// failures).
+type manifestAgeStore interface {
+	ListActiveSessions(ctx context.Context) ([]store.Session, error)
+	GetLatestManifestGeneration(ctx context.Context, eventID, manifestType string) (store.ManifestGeneration, bool, error)
+}
+
+// liveManifestAgeSeconds returns the media_agent_live_manifest_age_seconds
+// value: the maximum, across active sessions, of the seconds since that
+// event's latest live manifest was published - or, if no live manifest has
+// ever been published for an active session, the seconds since that
+// session started (never a false-healthy 0). No active sessions -> 0.
+// Negative (clock-skewed) ages clamp to 0. ok=false if any required query
+// failed, so the caller skips the update for this scrape.
+func liveManifestAgeSeconds(ctx context.Context, st manifestAgeStore, now time.Time) (float64, bool) {
+	sessions, err := st.ListActiveSessions(ctx)
+	if err != nil {
+		return 0, false
+	}
+	maxAge := 0.0
+	for _, sess := range sessions {
+		ref := sess.StartedAt
+		gen, found, err := st.GetLatestManifestGeneration(ctx, sess.EventID, store.ManifestTypeLive)
+		if err != nil {
+			return 0, false
+		}
+		if found {
+			ref = gen.PublishedAt
+		}
+		if age := telemetry.NonNegativeSeconds(now, ref); age > maxAge {
+			maxAge = age
+		}
+	}
+	return maxAge, true
 }

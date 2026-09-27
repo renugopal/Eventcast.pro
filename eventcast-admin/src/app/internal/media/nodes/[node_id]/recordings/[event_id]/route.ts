@@ -53,6 +53,7 @@ import {
   nodeHasEventActivation,
   recordCredentialSlotVerified,
 } from '@/lib/media-agent/nodeAssignmentsRepo';
+import { isValidPlaybackIdentifier } from '@/lib/recordingReplay';
 // Shared with the sibling assignments endpoint so both node-authenticated
 // routes enforce one timestamp-tolerance constant rather than two that
 // could drift apart.
@@ -94,6 +95,7 @@ interface RecordingReportBody {
   strong_integrity_verified?: boolean;
   covered_playback_ids?: string[];
   failure_reason?: string;
+  r2_playback_id?: string;
 }
 
 /**
@@ -132,6 +134,11 @@ function parseBody(raw: unknown): RecordingReportBody | null {
       ? (body.covered_playback_ids as string[])
       : undefined,
     failure_reason: typeof body.failure_reason === 'string' ? body.failure_reason : undefined,
+    // Optional finalized-R2 playback id (migration 0044). A malformed value
+    // is dropped rather than failing the whole report: the pointer is
+    // optional evidence and must never block archival state. The RPC
+    // independently re-validates and proves it before storing anything.
+    r2_playback_id: isValidPlaybackIdentifier(body.r2_playback_id) ? body.r2_playback_id : undefined,
   };
 }
 
@@ -241,6 +248,7 @@ export async function POST(
       // node id in the payload cannot influence the provenance gate.
       p_reporting_media_node_id: nodeRow.id,
       p_covered_playback_ids: body.covered_playback_ids ?? null,
+      p_r2_playback_id: body.r2_playback_id ?? null,
     });
 
     if (error) {

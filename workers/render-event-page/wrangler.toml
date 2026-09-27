@@ -15,6 +15,15 @@ fallthrough = true
 # ---------------------------------------------------------------------------
 [vars]
 SUPABASE_URL = "https://lteogzqeuuoxlekhofow.supabase.co"
+# Post-End playback-continuity bridge bound, in whole seconds (default 10800
+# = 3 hours). After Provider End disables an assignment, the Worker keeps
+# serving that same playback id's intermediate R2 live manifest/segments only
+# while the live manifest was last published within this bound, so already-
+# open players never hit a 404 merely because assignment.enabled became false.
+# Valid range 1..86400; any invalid value falls back to 10800
+# (src/playback-continuity.mjs parseBridgeMaxAgeSeconds). Playback continuity
+# only: it never extends stream publishability or Media Agent authorization.
+PLAYBACK_BRIDGE_MAX_AGE_SECONDS = "10800"
 
 # ---------------------------------------------------------------------------
 # Private R2 bucket holding Media Agent output (HLS manifests + segments).

@@ -24,6 +24,7 @@ function fullyEligibleRow(overrides: Partial<EventRecordingRow> = {}): EventReco
     retention_effective_days: 90,
     retention_frozen_at: '2026-08-02T00:05:00Z',
     retention_expires_at: '2026-10-31T00:05:00Z',
+    r2_playback_id: null,
     created_at: '2026-08-01T00:00:00Z',
     updated_at: '2026-08-02T00:05:00Z',
     ...overrides,

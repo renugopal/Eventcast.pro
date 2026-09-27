@@ -224,10 +224,13 @@ func TestRealMigration0002UpgradesAnExistingV1Database(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SchemaVersion() error: %v", err)
 	}
-	// Tracks the highest embedded migration version: 0005 added
-	// b2_archives for authoritative B2 archival.
-	if version != 5 {
-		t.Errorf("SchemaVersion() after upgrade = %d, want 5", version)
+	// Tracks the highest embedded migration version: 0006 added
+	// ingest_sessions.telemetry_reported_at for Livestream Technical
+	// Telemetry + Media Node Health Reporting's durable ended-session
+	// acknowledgement tracking; 0007 added the AutoFinalizer's durable
+	// event_finalization_intents / event_finalization_claims tables.
+	if version != 7 {
+		t.Errorf("SchemaVersion() after upgrade = %d, want 7", version)
 	}
 
 	// Pre-existing data must survive untouched, and new columns must

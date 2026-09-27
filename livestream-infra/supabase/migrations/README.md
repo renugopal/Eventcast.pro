@@ -96,3 +96,21 @@ select conname, conrelid::regclass, confrelid::regclass from pg_constraint where
 - `retention_policy_id` is a bare identifier column; no `retention_policies` table is defined in the approved data model, so this migration does not invent one.
 - This migration does not create the SQLite local schema (`cached_event_assignments`, `ingest_sessions`, `segment_jobs`, `manifest_generations`, `youtube_relays`, `archive_jobs`, `agent_outbox`) — that is Media Agent scope (`services/media-agent`), not Supabase.
 - Runtime migration execution against a real Postgres instance is deferred; only static SQL review was performed (see the Task 5 commit report for details).
+
+## Livestream Reliability & Operations package — migrations `0043`/`0044` (implemented locally; NOT applied remotely)
+
+Two additional migrations, `eventcast-admin/supabase/migrations/0043_stream_alerts_lockdown.sql` and `eventcast-admin/supabase/migrations/0044_livestream_replay_pointer_and_relay_telemetry.sql`, were implemented as part of the separate Livestream Reliability & Operations package. As of this note, both are implemented locally only and have NOT been applied to the linked/production Supabase project. They are unrelated to the Media Agent control-plane slice documented above and do not modify any of its tables or functions. Unlike that earlier slice's deferred-runtime-execution note above (which remains accurate for that older work), these two migrations were behaviorally executed, not only statically reviewed — see validation below.
+
+- `0043_stream_alerts_lockdown.sql` — legacy `public.stream_alerts` security lockdown. Removes all three legacy policies with no replacement, revokes all `PUBLIC`/`anon`/`authenticated` table privileges, and restores `service_role` to `SELECT` only. The table and its existing rows are preserved; nothing is dropped and RLS stays enabled.
+- `0044_livestream_replay_pointer_and_relay_telemetry.sql` — two additive pieces:
+  - A nullable durable `event_recordings.r2_playback_id` pointer, written only once proven and bound to the current `finalization_generation`. The recording-transition RPC's existing 12-argument signature is replaced (not overloaded) by a new 13-argument signature adding the optional trailing `p_r2_playback_id text DEFAULT NULL`, so no ambiguous overload is left for PostgREST to resolve.
+  - Four new nullable relay/manifest telemetry columns on `media_stream_telemetry`. The telemetry RPC keeps its existing signature unchanged and normalizes any invalid optional telemetry value to `NULL` without discarding the rest of that report's otherwise-valid core telemetry.
+  - Both functions preserve `SECURITY DEFINER`/hardened `search_path` and service-role-only EXECUTE — no privilege reopens to `anon`/`authenticated`.
+
+Validation performed for `0043`/`0044` (local/disposable only; no remote apply):
+
+- Static migration-text contract tests: 20/20 PASS.
+- Disposable, network-isolated PostgreSQL 17.11 behavioral validation — predecessor migrations applied first, then `0043` and `0044`, against a container and data volume both destroyed after the run: 140/140 PASS.
+- No migration apply occurred against the linked or production Supabase project at any point.
+
+Operational rollout note: production must verify the Media Agent AutoFinalizer is explicitly enabled and healthy before relying on the finalized-replay handover these migrations support. `PLAYBACK_BRIDGE_MAX_AGE_SECONDS` (Render Worker config, default `10800`) is only a playback-continuity freshness bound — it does not extend stream publishability or Media Agent assignment authorization, and it does not substitute for AutoFinalizer health.

@@ -166,7 +166,10 @@ describe('platform operations + VOD/retention migration contract (0035, local-on
     // Matches only real function definitions (LANGUAGE plpgsql / SECURITY
     // DEFINER / SET search_path appearing together), not the module doc
     // comment's prose mention of "SECURITY DEFINER".
-    const definerBlocks = sql.match(/LANGUAGE plpgsql\nSECURITY DEFINER\n[\s\S]{0,60}/g) ?? [];
+    // \r?\n tolerates a CRLF-checked-out working tree (core.autocrlf) without
+    // weakening the check: it still requires the three lines adjacent, in
+    // order, with no unexpected content between them.
+    const definerBlocks = sql.match(/LANGUAGE plpgsql\r?\nSECURITY DEFINER\r?\n[\s\S]{0,60}/g) ?? [];
     expect(definerBlocks.length).toBe(4);
     for (const block of definerBlocks) {
       expect(block).toMatch(/SET search_path = public, pg_temp/);

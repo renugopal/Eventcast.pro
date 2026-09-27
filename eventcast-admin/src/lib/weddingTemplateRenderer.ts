@@ -281,6 +281,29 @@ function getHeroTimeSubtext(notes?: string | null): string {
 // ---------------------------------------------------------------------------
 const DEFAULT_TEMPLATE_ID = 'wedding-template-01';
 
+/**
+ * Post-End playback-continuity signals the render Worker resolves.
+ *  - `r2VodReplay`: finalized R2 VOD is eligible (durable proven
+ *    `event_recordings.r2_playback_id` equals the disabled assignment's
+ *    playback id, eligible state/gap/retention) and its manifest exists.
+ *  - `liveBridge`: the assignment was just disabled (Provider End) and the
+ *    same playback id's intermediate R2 live manifest still exists within
+ *    the Worker's bridge freshness bound.
+ */
+export interface PlaybackContinuitySignals {
+  r2VodReplay?: boolean;
+  liveBridge?: boolean;
+}
+
+/**
+ * `live` only for an actually-live stream; `replay` for any ended/recorded
+ * media (post-End bridge, finalized R2/B2 VOD, legacy archive, and YouTube
+ * ids that are replay by definition); '' leaves the template's existing
+ * behavior unchanged (e.g. a legacy YouTube broadcast whose live state the
+ * server cannot know).
+ */
+export type PlaybackMode = 'live' | 'replay' | '';
+
 export function renderEvent(
   templateHtml: string,
   event: EventRow,
@@ -308,6 +331,13 @@ export function renderEvent(
    * so a future verification mechanism has nothing left to build here.
    */
   verifiedYoutubeFallbackUrl: string | null = null,
+  /**
+   * Post-End playback-continuity signals (Livestream Reliability &
+   * Operations package, migration 0044), resolved server-side by the
+   * render Worker after its own gates and R2 object checks. Both are
+   * ignored while `hasLivePlayback` is true.
+   */
+  continuity: PlaybackContinuitySignals = {},
 ): string {
   const groom      = event.groom_name ?? event.celebrant_name ?? 'Event';
   const bride      = event.bride_name ?? 'Family';
@@ -386,15 +416,29 @@ export function renderEvent(
   const timerTime = (event.timer_target_time ?? event.event_time ?? '09:00').slice(0, 5);
   const timerTarget = normalizeTimerIso(event.event_date ?? '', timerTime);
 
+  // Post-End continuity (never while actually live).
+  const hasR2VodReplay = !hasLivePlayback && continuity.r2VodReplay === true;
+  const hasLiveBridge = !hasLivePlayback && continuity.liveBridge === true;
+
   // YouTube — the verified B2-replay-expiry fallback (STO-005) only ever
-  // displaces youtubeId when there is no live/B2 playback to show; the
-  // legacy vod_link/youtube_url chain is otherwise unchanged.
+  // displaces youtubeId when there is no live, B2, finalized-R2 or bridge
+  // playback to show; the legacy vod_link/youtube_url chain is otherwise
+  // unchanged.
+  const vodLinkYoutubeTail = (event.vod_link ?? '').split('/').pop() ?? '';
+  const youtubeUrlTail = (event.youtube_url ?? '').split('/').pop() ?? '';
+  const verifiedFallbackTail =
+    (!hasLivePlayback && !hasB2Replay && !hasR2VodReplay && !hasLiveBridge && verifiedYoutubeFallbackUrl)
+      ? (verifiedYoutubeFallbackUrl.split('/').pop() ?? '')
+      : '';
   const youtubeId = event.youtube_broadcast_id
-    || ((event.vod_link ?? '').split('/').pop() ?? '')
-    || ((event.youtube_url ?? '').split('/').pop() ?? '')
-    || ((!hasLivePlayback && !hasB2Replay && verifiedYoutubeFallbackUrl)
-          ? (verifiedYoutubeFallbackUrl.split('/').pop() ?? '')
-          : '');
+    || vodLinkYoutubeTail
+    || youtubeUrlTail
+    || verifiedFallbackTail;
+  // Which source produced youtubeId: only vod_link and the verified
+  // fallback are replay by definition. A youtube_broadcast_id/youtube_url
+  // may still be a genuinely live YouTube broadcast the server cannot see.
+  const youtubeIdIsReplay = !event.youtube_broadcast_id
+    && (vodLinkYoutubeTail !== '' || (youtubeUrlTail === '' && verifiedFallbackTail !== ''));
 
   // VOD / HLS playback URLs — YouTube links stay on youtubeId only, never HLS player
   const vodArchiveUrl = event.vod_link ?? '';
@@ -411,11 +455,31 @@ export function renderEvent(
   const b2ReplayUrl = hasB2Replay
     ? `https://${hostname}/events/${encodeURIComponent(slug)}/vod/b2/index.m3u8`
     : '';
+  // Finalized R2 VOD (migration 0044): the same private-R2 route family,
+  // VOD variant, served only after the Worker's own gates pass.
+  const r2VodReplayUrl = hasR2VodReplay
+    ? `https://${hostname}/events/${encodeURIComponent(slug)}/hls/vod/index.m3u8`
+    : '';
+  // Post-End bridge: the SAME public live URL an already-open player holds,
+  // so Provider End never forces a URL change; the Worker keeps serving it
+  // from the just-ended stream's intermediate R2 live manifest while fresh.
+  const liveBridgeUrl = hasLiveBridge
+    ? `https://${hostname}/events/${encodeURIComponent(slug)}/hls/live/index.m3u8`
+    : '';
   const archivePlaybackUrl = isNativePlaybackUrl(vodArchiveUrl) ? vodArchiveUrl : '';
-  // Priority: Live > B2-authoritative replay > legacy manual VOD archive.
-  // The verified-YouTube fallback is not an HLS URL — it only ever affects
-  // youtubeId above, never this HLS player source.
-  const primaryHlsUrl = liveHlsUrl || b2ReplayUrl || archivePlaybackUrl;
+  // State-aware priority for new page loads: actual Live > B2-authoritative
+  // replay > finalized R2 VOD > post-End intermediate bridge > legacy manual
+  // VOD archive. The verified-YouTube fallback is not an HLS URL — it only
+  // ever affects youtubeId above, never this HLS player source.
+  const primaryHlsUrl = liveHlsUrl || b2ReplayUrl || r2VodReplayUrl || liveBridgeUrl || archivePlaybackUrl;
+
+  // Presentation mode: only an actually-live stream may be labelled live.
+  let playbackMode: PlaybackMode = '';
+  if (primaryHlsUrl) {
+    playbackMode = hasLivePlayback && primaryHlsUrl === liveHlsUrl ? 'live' : 'replay';
+  } else if (youtubeId && youtubeIdIsReplay) {
+    playbackMode = 'replay';
+  }
 
   // Map URLs
   const embedUrl    = buildEmbedUrl(vMap, venueMain || vName);
@@ -438,6 +502,7 @@ window.WEDDING_CONFIG = {
   venueUrl: ${embedUrl ? JSON.stringify(embedUrl) : 'null'},
   venueNavigateUrl: ${navigateUrl ? JSON.stringify(navigateUrl) : 'null'},
   youtubeId: "${esc(youtubeId)}",
+  playbackMode: "${esc(playbackMode)}",
   vodArchiveUrl: "${esc(vodArchiveUrl)}",
   restreamerUrl: "${esc(primaryHlsUrl)}",
   restreamerPlayer: "${esc(primaryHlsUrl)}",
