@@ -18,10 +18,11 @@ function readSql(): string {
 }
 
 function stripSqlComments(sql: string): string {
-  return sql
-    .split('\n')
-    .map((line) => line.replace(/--.*$/, ''))
-    .join('\n');
+  // Matches "--" through end of line without a `$` anchor, so it is not
+  // defeated by a trailing `\r` on CRLF-checked-out files (JS `.` excludes
+  // line-terminator characters, which made the previous per-line
+  // split('\n') + /--.*$/ implementation silently no-op on CRLF input).
+  return sql.replace(/--[^\r\n]*/g, '');
 }
 
 const LEGACY_POLICIES = ['stream_alerts_service_insert', 'stream_alerts_studio_select', 'stream_alerts_studio_delete'];
