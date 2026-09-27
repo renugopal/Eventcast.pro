@@ -14,7 +14,13 @@ import {
   parseB2VodAssetPath,
   rewriteB2Manifest,
 } from './b2playback.mjs';
+import {
+  disabledHlsAssetRequirement,
+  isBridgeManifestFresh,
+  parseBridgeMaxAgeSeconds,
+} from './playback-continuity.mjs';
 import { renderEvent, type EventRow, type PhotographerRow } from '../../../eventcast-admin/src/lib/weddingTemplateRenderer';
+import { isR2FinalReplayEligible } from '../../../eventcast-admin/src/lib/recordingReplay';
 import {
   primaryPublicEventCreditToPhotographerRow,
   type PublicEventCredit,
@@ -63,6 +69,18 @@ export interface Env {
   B2_SECRET_ACCESS_KEY?: string;
   /** Matches the Media Agent's own EVENTCAST_B2_OBJECT_PREFIX; empty by default. */
   B2_KEY_PREFIX?: string;
+
+  /**
+   * Post-End bridge freshness bound in whole seconds (plain-text var in
+   * wrangler.toml). After Provider End disables an assignment, this Worker
+   * keeps serving the SAME preserved playback id's intermediate R2 live
+   * manifest/segments only while that live manifest was last published
+   * within this bound. Default 10800 (3 hours); invalid values fall back to
+   * the default (`parseBridgeMaxAgeSeconds`). A playback-continuity bound
+   * only: it never extends stream publishability or Media Agent assignment
+   * authorization.
+   */
+  PLAYBACK_BRIDGE_MAX_AGE_SECONDS?: string;
 }
 
 // Map template_id → bundled HTML string. Add new entries here as you add templates.
@@ -369,31 +387,50 @@ self.addEventListener('fetch', (event) => {
       // Falls back to 'Unknown' on local dev or if the header is absent.
       const countryCode = request.headers.get('CF-IPCountry') ?? 'Unknown';
 
-      // Live playback is offered only when this event currently has an
-      // enabled media assignment; the playback_id itself never reaches the
-      // page, only the fact that the public live route is servable.
-      const hasLivePlayback = (await resolveEnabledPlaybackId(env, event.id)) !== null;
+      // One consistent read of the event's single assignment row (playback
+      // id + enabled). Live playback is offered only while it is enabled;
+      // the playback_id itself never reaches the page, only the fact that
+      // a public route is servable.
+      const assignmentPlayback = await resolveAssignmentPlayback(env, event.id);
+      const hasLivePlayback = assignmentPlayback?.enabled === true;
 
       // B2-authoritative replay (Milestone N): resolved independently of
       // live state so a page can offer the finalized recording once the
       // stream has ended, and stops offering it once retention expires.
       const recordingEvidence = await loadEventRecordingEvidence(env, event.id);
       const hasB2Replay = !hasLivePlayback && isB2ReplayEligible(env, recordingEvidence);
+
+      // Finalized R2 VOD (migration 0044): only when B2 cannot be offered,
+      // and only once the database gates pass AND the VOD manifest object
+      // exists under the preserved playback id.
+      const hasR2VodReplay =
+        !hasLivePlayback && !hasB2Replay && assignmentPlayback !== null &&
+        isR2FinalReplayEligible(recordingEvidence, toReplayAssignment(assignmentPlayback)) &&
+        (await r2ObjectExists(env, buildR2Key(assignmentPlayback.playbackId, 'vod/index.m3u8')));
+
+      // Post-End bridge: only when no finalized replay can be offered yet,
+      // advertised on the SAME live URL an already-open player holds.
+      const hasLiveBridge =
+        !hasLivePlayback && !hasB2Replay && !hasR2VodReplay && assignmentPlayback !== null &&
+        (await isLiveBridgeAvailable(env, assignmentPlayback.playbackId));
+
       // Verified YouTube fallback (STO-005) only ever displaces the player
-      // once neither live nor B2 replay can be offered — never before.
+      // once no live, B2, finalized-R2 or bridge playback can be offered.
       // `youtube_fallback_verified` has no producer yet anywhere in this
       // repository (see event_recordings migration 0035's own comment), so
       // this resolves to null for every event today; the wiring exists so a
       // future verification mechanism has nothing left to build in the
       // delivery path itself.
       const verifiedYoutubeFallbackUrl =
-        !hasLivePlayback && !hasB2Replay && recordingEvidence?.youtube_fallback_verified === true
+        !hasLivePlayback && !hasB2Replay && !hasR2VodReplay && !hasLiveBridge &&
+        recordingEvidence?.youtube_fallback_verified === true
           ? (recordingEvidence.youtube_fallback_url ?? null)
           : null;
 
       const rendered = renderEvent(
         templateHtml, event, photographer, slug, env, countryCode, hostname,
         hasLivePlayback, hasB2Replay, verifiedYoutubeFallbackUrl,
+        { r2VodReplay: hasR2VodReplay, liveBridge: hasLiveBridge },
       );
 
       const responseHeaders: Record<string, string> = {
@@ -422,19 +459,32 @@ self.addEventListener('fetch', (event) => {
 };
 
 /**
- * Look up this event's currently-enabled playback_id via the service-role
- * PostgREST endpoint. Returns null for a disabled/absent assignment, a
- * malformed playback_id, or any upstream failure — callers must treat every
- * null identically so a caller can never distinguish "no assignment" from
- * "assignment disabled" from "lookup failed".
+ * The event's single assignment row (`media_event_assignments.event_id` is
+ * UNIQUE), as ONE consistent snapshot: the preserved playback id and
+ * whether the assignment is currently enabled. Re-activation overwrites the
+ * playback id and sets enabled in the same UPDATE, so reading both fields
+ * together can never pair an old playback id with a new enabled state.
  */
-async function resolveEnabledPlaybackId(env: Env, eventId: string): Promise<string | null> {
+interface AssignmentPlayback {
+  playbackId: string;
+  enabled: boolean;
+}
+
+/**
+ * Look up this event's assignment playback snapshot via the service-role
+ * PostgREST endpoint. Returns null for an absent assignment, a
+ * never-activated/malformed playback_id, a non-boolean enabled flag, or any
+ * upstream failure — callers treat every null identically (no playback),
+ * so a caller can never distinguish "no assignment" from "lookup failed".
+ * A disabled row is returned (enabled=false) so the post-End continuity
+ * gates can evaluate it; it never authorizes anything by itself.
+ */
+async function resolveAssignmentPlayback(env: Env, eventId: string): Promise<AssignmentPlayback | null> {
   try {
     const res = await fetch(
       `${env.SUPABASE_URL}/rest/v1/media_event_assignments` +
         `?event_id=eq.${encodeURIComponent(eventId)}` +
-        `&enabled=is.true` +
-        `&select=playback_id` +
+        `&select=playback_id,enabled` +
         `&limit=1`,
       {
         headers: {
@@ -446,14 +496,62 @@ async function resolveEnabledPlaybackId(env: Env, eventId: string): Promise<stri
     );
     if (!res.ok) return null;
 
-    const rows: { playback_id?: string | null }[] = await res.json();
+    const rows: { playback_id?: string | null; enabled?: boolean | null }[] = await res.json();
     const playbackId = rows[0]?.playback_id;
-    return isValidPlaybackId(playbackId) ? (playbackId as string) : null;
+    const enabled = rows[0]?.enabled;
+    if (!isValidPlaybackId(playbackId) || typeof enabled !== 'boolean') return null;
+    return { playbackId: playbackId as string, enabled };
   } catch {
     // Log the failure class only — never the event id or the playback id.
     console.error('[render-event-page] playback assignment lookup failed');
     return null;
   }
+}
+
+/** The shared finalized-R2 gate's assignment shape (`recordingReplay.ts`). */
+function toReplayAssignment(assignment: AssignmentPlayback): { playback_id: string; enabled: boolean } {
+  return { playback_id: assignment.playbackId, enabled: assignment.enabled };
+}
+
+/** Bridge freshness bound from the Worker var, validated (default 10800 s). */
+function bridgeMaxAgeSeconds(env: Env): number {
+  return parseBridgeMaxAgeSeconds(env.PLAYBACK_BRIDGE_MAX_AGE_SECONDS);
+}
+
+/** True when the R2 object exists. Any failure is "absent" (fail closed). */
+async function r2ObjectExists(env: Env, key: string | null): Promise<boolean> {
+  const bucket = env.MEDIA_R2;
+  if (!bucket || !key) return false;
+  try {
+    return (await bucket.head(key)) !== null;
+  } catch {
+    console.error('[render-event-page] R2 head failed');
+    return false;
+  }
+}
+
+/**
+ * Post-End bridge availability: the SAME preserved playback id's
+ * intermediate live manifest exists and was last published within the
+ * bridge freshness bound. Scoped to one playback id by construction.
+ */
+async function isLiveBridgeAvailable(env: Env, playbackId: string): Promise<boolean> {
+  const bucket = env.MEDIA_R2;
+  const key = buildR2Key(playbackId, 'live/index.m3u8');
+  if (!bucket || !key) return false;
+  try {
+    const head = await bucket.head(key);
+    return head !== null && isBridgeManifestFresh(head.uploaded, Date.now(), bridgeMaxAgeSeconds(env));
+  } catch {
+    console.error('[render-event-page] R2 head failed');
+    return false;
+  }
+}
+
+/** Finalized-R2 database gates for a disabled assignment (shared module). */
+async function isR2FinalAuthorized(env: Env, eventId: string, assignment: AssignmentPlayback): Promise<boolean> {
+  const recording = await loadEventRecordingEvidence(env, eventId);
+  return isR2FinalReplayEligible(recording, toReplayAssignment(assignment));
 }
 
 /**
@@ -470,6 +568,10 @@ interface RecordingEvidenceRow {
   retention_expires_at: string | null;
   youtube_fallback_url: string | null;
   youtube_fallback_verified: boolean;
+  /** Durable proven finalized-R2 pointer (migration 0044). Never rendered. */
+  r2_playback_id: string | null;
+  gap_count: number;
+  gap_status: string;
 }
 
 /**
@@ -483,7 +585,7 @@ async function loadEventRecordingEvidence(env: Env, eventId: string): Promise<Re
     const res = await fetch(
       `${env.SUPABASE_URL}/rest/v1/event_recordings` +
         `?event_id=eq.${encodeURIComponent(eventId)}` +
-        `&select=recording_state,finalization_generation,integrity_verified_at,retention_expires_at,youtube_fallback_url,youtube_fallback_verified` +
+        `&select=recording_state,finalization_generation,integrity_verified_at,retention_expires_at,youtube_fallback_url,youtube_fallback_verified,r2_playback_id,gap_count,gap_status` +
         `&limit=1`,
       {
         headers: {
@@ -625,10 +727,24 @@ async function serveB2VodAsset(
  * validated against a strict allowlist *before* a playback_id is resolved
  * and before any key is constructed.
  *
- * Every failure — unparseable path, no enabled assignment, unconfigured
- * binding, missing object, R2 error, unrewritable manifest — returns the
- * exact same 404, so responses reveal nothing about which objects, buckets,
- * or assignments exist.
+ * Post-End continuity (zero-gap invariant): an assignment flipping from
+ * enabled to disabled never by itself turns this route into a 404. For a
+ * DISABLED assignment the preserved playback id may still serve, but only
+ * through an explicit continuity gate (`disabledHlsAssetRequirement`):
+ *  - live manifest: the intermediate live manifest was last published
+ *    within the bridge freshness bound (checked on the fetched object);
+ *  - vod manifest:  the finalized-R2 database gates pass (proven durable
+ *    r2_playback_id equal to this playback id, eligible state/gap/
+ *    retention) and the object exists;
+ *  - segment:       either gate.
+ * Re-activation mints a new playback id in the same UPDATE that enables the
+ * row, so an older playback id can never be resolved again here.
+ *
+ * Every failure — unparseable path, no assignment, a disabled assignment
+ * failing its continuity gate, unconfigured binding, missing object, R2
+ * error, unrewritable (e.g. multi-prefix) manifest — returns the exact same
+ * 404, so responses reveal nothing about which objects, buckets, or
+ * assignments exist.
  */
 async function serveHlsAssetFromR2(
   env: Env,
@@ -642,11 +758,27 @@ async function serveHlsAssetFromR2(
   const bucket = env.MEDIA_R2;
   if (!bucket) return notFound();
 
-  const playbackId = await resolveEnabledPlaybackId(env, eventId);
-  if (!playbackId) return notFound();
+  const assignment = await resolveAssignmentPlayback(env, eventId);
+  if (!assignment) return notFound();
+  const playbackId = assignment.playbackId;
 
   const key = buildR2Key(playbackId, asset.assetPath);
   if (!key) return notFound();
+
+  // Disabled assignment: authorize by continuity gate before any read. The
+  // live-manifest bridge check is applied to the fetched object below, so
+  // it costs no extra R2 request.
+  const requirement = assignment.enabled ? null : disabledHlsAssetRequirement(asset);
+  if (requirement === 'r2_final' && !(await isR2FinalAuthorized(env, eventId, assignment))) {
+    return notFound();
+  }
+  if (
+    requirement === 'bridge_or_r2_final' &&
+    !(await isLiveBridgeAvailable(env, playbackId)) &&
+    !(await isR2FinalAuthorized(env, eventId, assignment))
+  ) {
+    return notFound();
+  }
 
   let object: R2ObjectBody | null;
   try {
@@ -656,6 +788,10 @@ async function serveHlsAssetFromR2(
     return notFound();
   }
   if (!object) return notFound();
+
+  if (requirement === 'bridge' && !isBridgeManifestFresh(object.uploaded, Date.now(), bridgeMaxAgeSeconds(env))) {
+    return notFound();
+  }
 
   const contentType = object.httpMetadata?.contentType ?? fallbackContentType(asset);
   const cacheControl = object.httpMetadata?.cacheControl ?? fallbackCacheControl(asset);

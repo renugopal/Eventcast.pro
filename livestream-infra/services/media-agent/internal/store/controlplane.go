@@ -70,10 +70,38 @@ func (s *Store) ApplyControlPlaneAssignments(ctx context.Context, assignments []
 	defer upsertStmt.Close()
 
 	seenIngestIDs := make(map[string]struct{}, len(assignments))
+	// affectedEvents: every event touched by this sync (upserted, moved
+	// away from, or revoked); each is re-evaluated for AutoFinalizer intent
+	// transitions after all writes.
+	affectedEvents := make(map[string]struct{}, len(assignments))
+	// revokedEvents: events that LOST an enabled control-plane assignment in
+	// this sync - the intent always belongs to the event that actually lost
+	// it, never blindly to the incoming row's event.
+	revokedEvents := make(map[string]struct{})
 	for _, a := range assignments {
 		if err := a.Validate(); err != nil {
 			return 0, 0, fmt.Errorf("store: invalid control-plane assignment: %w", err)
 		}
+
+		// Path A of enabled -> disabled: read the prior row for this
+		// ingest_id before the upsert overwrites it. An enabled
+		// control-plane row that is now disabled, or whose ingest_id moves
+		// to a different event, is a loss for the PRIOR event.
+		var priorEventID, priorSource string
+		var priorEnabled bool
+		switch err := tx.QueryRowContext(ctx,
+			`SELECT event_id, enabled, source FROM cached_event_assignments WHERE ingest_id = ?`, a.IngestID,
+		).Scan(&priorEventID, &priorEnabled, &priorSource); {
+		case errors.Is(err, sql.ErrNoRows):
+		case err != nil:
+			return 0, 0, fmt.Errorf("store: read prior assignment %s: %w", a.IngestID, err)
+		default:
+			affectedEvents[priorEventID] = struct{}{}
+			if priorEnabled && priorSource == AssignmentSourceControlPlane && (!a.Enabled || priorEventID != a.EventID) {
+				revokedEvents[priorEventID] = struct{}{}
+			}
+		}
+
 		updatedAt := a.UpdatedAt
 		if updatedAt.IsZero() {
 			updatedAt = now
@@ -89,24 +117,31 @@ func (s *Store) ApplyControlPlaneAssignments(ctx context.Context, assignments []
 			return 0, 0, fmt.Errorf("store: apply control-plane assignment %s: %w", a.IngestID, err)
 		}
 		seenIngestIDs[a.IngestID] = struct{}{}
+		// incoming event B is always re-evaluated
+		affectedEvents[a.EventID] = struct{}{}
 		applied++
 	}
 
+	// Path B of enabled -> disabled: a previously enabled control-plane row
+	// absent from this response (existing revocation semantics, unchanged),
+	// now also tracked by event_id.
 	rows, err := tx.QueryContext(ctx, `
-		SELECT ingest_id FROM cached_event_assignments
+		SELECT ingest_id, event_id FROM cached_event_assignments
 		WHERE source = ? AND enabled = 1`, AssignmentSourceControlPlane)
 	if err != nil {
 		return 0, 0, fmt.Errorf("store: list existing control-plane assignments: %w", err)
 	}
 	var toRevoke []string
 	for rows.Next() {
-		var ingestID string
-		if err := rows.Scan(&ingestID); err != nil {
+		var ingestID, eventID string
+		if err := rows.Scan(&ingestID, &eventID); err != nil {
 			rows.Close()
 			return 0, 0, fmt.Errorf("store: scan existing control-plane assignment: %w", err)
 		}
 		if _, ok := seenIngestIDs[ingestID]; !ok {
 			toRevoke = append(toRevoke, ingestID)
+			revokedEvents[eventID] = struct{}{}
+			affectedEvents[eventID] = struct{}{}
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -129,6 +164,36 @@ func (s *Store) ApplyControlPlaneAssignments(ctx context.Context, assignments []
 				return 0, 0, fmt.Errorf("store: revoke control-plane assignment %s: %w", ingestID, err)
 			}
 			revoked++
+		}
+	}
+
+	// AutoFinalizer intent transitions (migrations/0007), evaluated only
+	// after every assignment write above, against the post-sync cache, in
+	// the same transaction (any error rolls back assignments AND intents):
+	//   R1: any cached assignment for the event publishable now ->
+	//       reactivateIntentTx (pending/failed/finalizing/finalized become
+	//       cancelled at cycle+1; cancelled is a no-op).
+	//   R2: nothing publishable AND the event lost an enabled control-plane
+	//       assignment in THIS sync -> createIntentTx(revoked).
+	// R1 is checked first against ALL of the event's assignments, so a
+	// multi-assignment event never gets a revoked intent while another
+	// assignment is still publishable. A failed sync never reaches here, so
+	// a control-plane outage creates nothing.
+	for eventID := range affectedEvents {
+		pub, err := eventPublishable(ctx, tx, eventID, now)
+		if err != nil {
+			return 0, 0, err
+		}
+		if pub {
+			if _, err := reactivateIntentTx(ctx, tx, eventID, now); err != nil {
+				return 0, 0, err
+			}
+			continue
+		}
+		if _, wasRevoked := revokedEvents[eventID]; wasRevoked {
+			if _, err := createIntentTx(ctx, tx, eventID, IntentCauseRevoked, now); err != nil {
+				return 0, 0, err
+			}
 		}
 	}
 

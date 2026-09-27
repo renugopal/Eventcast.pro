@@ -52,6 +52,7 @@ function baseRow(overrides: Partial<EventRecordingRow> = {}): EventRecordingRow 
     retention_effective_days: null,
     retention_frozen_at: null,
     retention_expires_at: null,
+    r2_playback_id: null,
     created_at: '2026-08-01T00:00:00Z',
     updated_at: '2026-08-01T00:00:00Z',
     ...overrides,
@@ -144,5 +145,33 @@ describe('toProviderSafeRecordingView', () => {
       baseRow({ youtube_fallback_url: 'https://youtube.com/watch?v=abc', youtube_fallback_verified: true })
     );
     expect(verified.youtubeFallbackAvailable).toBe(true);
+  });
+});
+
+describe('toProviderSafeRecordingView — finalized R2 replay (migration 0044)', () => {
+  const P = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+  const r2Row = (overrides: Partial<EventRecordingRow> = {}) =>
+    baseRow({ recording_state: 'local_finalized', finalization_generation: 'gen-1', r2_playback_id: P, ...overrides });
+
+  it('reports "available" once the proven pointer equals the disabled assignment playback id', () => {
+    const view = toProviderSafeRecordingView(r2Row(), false, { playback_id: P, enabled: false });
+    expect(view.replayStatus).toBe('available');
+  });
+
+  it('stays "processing" while live, after re-activation, without a pointer, or with an unresolved gap', () => {
+    expect(toProviderSafeRecordingView(r2Row(), false, { playback_id: P, enabled: true }).replayStatus).toBe('processing');
+    expect(toProviderSafeRecordingView(r2Row(), false, { playback_id: 'b'.repeat(32), enabled: false }).replayStatus).toBe('processing');
+    expect(toProviderSafeRecordingView(r2Row({ r2_playback_id: null }), false, { playback_id: P, enabled: false }).replayStatus).toBe('processing');
+    expect(
+      toProviderSafeRecordingView(r2Row({ gap_count: 2, gap_status: 'pending_review' }), false, { playback_id: P, enabled: false }).replayStatus
+    ).toBe('processing');
+    expect(toProviderSafeRecordingView(r2Row(), false, null).replayStatus).toBe('processing');
+  });
+
+  it('never exposes the raw playback id in the provider view', () => {
+    const view = toProviderSafeRecordingView(r2Row(), false, { playback_id: P, enabled: false });
+    expect(JSON.stringify(view)).not.toContain(P);
+    expect(view).not.toHaveProperty('r2_playback_id');
+    expect(Object.keys(view).sort()).toEqual(['replayStatus', 'retentionExpiresAt', 'youtubeFallbackAvailable']);
   });
 });
