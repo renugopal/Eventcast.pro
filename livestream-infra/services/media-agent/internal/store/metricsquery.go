@@ -2,8 +2,6 @@ package store
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 )
@@ -62,25 +60,61 @@ func (s *Store) GetMetricsSnapshot(ctx context.Context, now time.Time) (MetricsS
 		return MetricsSnapshot{}, fmt.Errorf("store: metrics snapshot: relay restarts sum: %w", err)
 	}
 
-	var oldestCreatedAt string
-	err = s.db.QueryRowContext(ctx, `
-		SELECT created_at FROM segment_jobs
-		WHERE status = 'queued' AND upload_status IN ('pending', 'leased')
-		ORDER BY created_at ASC LIMIT 1`).Scan(&oldestCreatedAt)
-	switch {
-	case err == nil:
-		t, parseErr := time.Parse(time.RFC3339Nano, oldestCreatedAt)
-		if parseErr != nil {
-			return MetricsSnapshot{}, fmt.Errorf("store: metrics snapshot: parse oldest pending created_at: %w", parseErr)
-		}
-		snap.OldestPendingUploadAgeSeconds = now.Sub(t).Seconds()
-	case errors.Is(err, sql.ErrNoRows):
-		snap.OldestPendingUploadAgeSeconds = 0
-	default:
-		return MetricsSnapshot{}, fmt.Errorf("store: metrics snapshot: oldest pending upload: %w", err)
+	snap.OldestPendingUploadAgeSeconds, err = s.OldestPendingUploadAgeSeconds(ctx, now)
+	if err != nil {
+		return MetricsSnapshot{}, fmt.Errorf("store: metrics snapshot: %w", err)
 	}
 
 	return snap, nil
+}
+
+// OldestPendingUploadAgeSeconds is the single definition of "oldest pending
+// upload age": the age of the oldest segment_jobs row that is durably
+// captured (status 'queued') and not yet R2-confirmed (upload_status
+// 'pending' or 'leased' - leased/in-progress and retrying jobs included;
+// capturing, missing, failed, confirmed, and dead_letter excluded), measured
+// from its created_at. It backs both media_agent_queue_oldest_pending_age_seconds
+// (via GetMetricsSnapshot) and the non-gating /readyz upload_lag_seconds
+// signal.
+//
+// The minimum is chosen by PARSED time in Go, never by SQL ORDER BY on the
+// variable-length RFC3339Nano text (which is not chronological). A
+// successful query with no backlog returns 0. Any query/scan/parse failure
+// returns an error (callers omit/skip; never a fabricated 0). Negative
+// (clock-skewed) ages clamp to 0. Every matching row is scanned; cost grows
+// with the current upload backlog.
+func (s *Store) OldestPendingUploadAgeSeconds(ctx context.Context, now time.Time) (float64, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT created_at FROM segment_jobs
+		WHERE status = ? AND upload_status IN (?, ?)`, SegmentQueued, UploadPending, UploadLeased)
+	if err != nil {
+		return 0, fmt.Errorf("store: oldest pending upload: %w", err)
+	}
+	defer rows.Close()
+	var oldest time.Time
+	for rows.Next() {
+		var raw string
+		if err := rows.Scan(&raw); err != nil {
+			return 0, fmt.Errorf("store: scan pending upload created_at: %w", err)
+		}
+		t, err := time.Parse(time.RFC3339Nano, raw)
+		if err != nil {
+			return 0, fmt.Errorf("store: parse pending upload created_at: %w", err)
+		}
+		if oldest.IsZero() || t.Before(oldest) {
+			oldest = t
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("store: iterate pending uploads: %w", err)
+	}
+	if oldest.IsZero() {
+		return 0, nil
+	}
+	if d := now.Sub(oldest).Seconds(); d > 0 {
+		return d, nil
+	}
+	return 0, nil
 }
 
 // countByColumn returns a count of rows grouped by column, for the fixed,

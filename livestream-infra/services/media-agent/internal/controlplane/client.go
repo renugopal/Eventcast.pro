@@ -179,6 +179,14 @@ type RecordingStateReport struct {
 	// transition.
 	CoveredPlaybackIDs []string `json:"covered_playback_ids,omitempty"`
 	FailureReason      string   `json:"failure_reason,omitempty"`
+	// R2PlaybackID is the playback id the finalized R2 VOD playlist was
+	// published under, parsed strictly from the durable
+	// vod_finalizations.r2_key (see playbackIDFromVODKey), so the replay
+	// Worker can serve VOD after the assignment is disabled without
+	// inferring it. Omitted when unknown - never guessed, never taken from a
+	// cached/current assignment. Older control planes drop it (verified:
+	// the recordings route's parseBody forwards only named fields).
+	R2PlaybackID string `json:"r2_playback_id,omitempty"`
 }
 
 // RecordingReportResponse is the control plane's acknowledgement.

@@ -97,6 +97,10 @@ type FinalizeResult struct {
 	// caller/operator - it never contains a path, key, or secret.
 	Reason string
 	R2Key  string
+	// Generation is the FinalizationGeneration fingerprint of the confirmed
+	// segment set the published VOD playlist covers; set only when
+	// Finalized is true.
+	Generation string
 }
 
 // Finalize finalizes eventID's VOD playlist if it is eligible:
@@ -163,7 +167,7 @@ func (f *VODFinalizer) Finalize(ctx context.Context, eventID string) (FinalizeRe
 		// call the recovery path if an earlier enqueue failed, and it is
 		// safe because enqueueing an unchanged generation is a no-op.
 		f.enqueueB2Archive(ctx, eventID)
-		return FinalizeResult{Finalized: true, R2Key: existing.R2Key}, nil
+		return FinalizeResult{Finalized: true, R2Key: existing.R2Key, Generation: FinalizationGeneration(confirmed)}, nil
 	}
 
 	if len(confirmed) == 0 {
@@ -252,7 +256,7 @@ func (f *VODFinalizer) Finalize(ctx context.Context, eventID string) (FinalizeRe
 	f.enqueueB2Archive(ctx, eventID)
 
 	f.logger.Info("vod finalized", slog.String("event_id", eventID), slog.Int("segment_count", len(confirmed)), slog.Int("session_count", sessionCount))
-	return FinalizeResult{Finalized: true, R2Key: key}, nil
+	return FinalizeResult{Finalized: true, R2Key: key, Generation: FinalizationGeneration(confirmed)}, nil
 }
 
 func countUnresolved(segments []store.SegmentJob) int {

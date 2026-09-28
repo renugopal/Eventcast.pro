@@ -141,9 +141,11 @@ func (r *TelemetryReporter) RunOnce(ctx context.Context) {
 			matched = &s
 		}
 
-		streams = append(streams, telemetry.BuildStreamTelemetry(
+		st := telemetry.BuildStreamTelemetry(
 			sess.EventID, sess.StartedAt, sess.LastActivityAt, sessionCount, capturedBytes, matched, now,
-		))
+		)
+		r.addRelayAndManifest(ctx, &st, sess, now)
+		streams = append(streams, st)
 	}
 
 	diskFreeRaw, _, diskErr := metrics.DiskFreeBytes(r.cfg.SpoolRoot)

@@ -1,6 +1,7 @@
 package telemetry
 
 import (
+	"strings"
 	"time"
 )
 
@@ -77,6 +78,60 @@ type StreamTelemetry struct {
 	// defined against. The control plane derives simple source health
 	// from this, not from any new threshold invented here.
 	SegmentFreshnessSeconds *float64 `json:"segment_freshness_seconds,omitempty"`
+
+	// Relay runtime state for this session (internal/relay via the
+	// youtube_relays row). All three are omitted when relay was never
+	// enabled for the session. Never carries a stream key, destination URL,
+	// or raw error text: RelayErrorCategory is a fixed, bounded enum (see
+	// RelayErrorCategory below).
+	RelayStatus        *string `json:"relay_status,omitempty"`
+	RelayRestartCount  *int    `json:"relay_restart_count,omitempty"`
+	RelayErrorCategory *string `json:"relay_error_category,omitempty"`
+
+	// ManifestAgeSeconds is max(0, now - published_at) of the event's latest
+	// live manifest generation - a delivery-freshness signal (the manifest
+	// manager republishes only when the confirmed segment set changes).
+	// Nil when no live manifest has ever been published for the event.
+	ManifestAgeSeconds *float64 `json:"manifest_age_seconds,omitempty"`
+}
+
+// Fixed relay error categories. relay.last_error is free text (it can
+// contain ffmpeg stderr) and is never reported; only these values are.
+const (
+	RelayErrorRestartBudgetExhausted = "restart_budget_exhausted"
+	RelayErrorFFmpegStartFailed      = "ffmpeg_start_failed"
+	RelayErrorFFmpegExited           = "ffmpeg_exited"
+	RelayErrorAgentRestarted         = "agent_restarted"
+	RelayErrorOther                  = "other"
+)
+
+// RelayErrorCategory maps a relay record's status and free-text last_error
+// onto the fixed category vocabulary. It returns "" when there is no error
+// to report. The prefixes are exactly the error shapes internal/relay and
+// store.ReconcileStaleRelays write.
+func RelayErrorCategory(status, lastError string) string {
+	switch {
+	case status == "failed":
+		return RelayErrorRestartBudgetExhausted
+	case lastError == "":
+		return ""
+	case strings.HasPrefix(lastError, "start ffmpeg:"):
+		return RelayErrorFFmpegStartFailed
+	case strings.HasPrefix(lastError, "ffmpeg exited:"):
+		return RelayErrorFFmpegExited
+	case lastError == "stopped: media agent restarted":
+		return RelayErrorAgentRestarted
+	default:
+		return RelayErrorOther
+	}
+}
+
+// NonNegativeSeconds returns max(0, now-ref) in seconds (clock-skew safe).
+func NonNegativeSeconds(now, ref time.Time) float64 {
+	if d := now.Sub(ref).Seconds(); d > 0 {
+		return d
+	}
+	return 0
 }
 
 // SessionEndedTelemetry is one durable session-summary entry, sent once
