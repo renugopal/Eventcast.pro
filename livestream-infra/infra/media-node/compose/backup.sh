@@ -67,6 +67,29 @@ MEDIA_AGENT_CONTAINER="${MEDIA_AGENT_CONTAINER_NAME:-eventcast-media-agent}"
 log()  { printf '[backup] %s\n' "$*" >&2; }
 fail() { printf '[backup][FAIL] %s\n' "$*" >&2; exit 1; }
 
+# Matches deploy.sh's env_path_or_default: grep exit 1 (DB_HOST_DIR simply
+# absent from ENV_FILE) is normal and falls through to default_path rather
+# than aborting the script under set -e/pipefail; grep exit >=2 (a real
+# read error) still fails closed instead of being silently treated as
+# absent.
+env_path_or_default() {
+  local variable="$1"
+  local default_path="$2"
+  local line=""
+  local grep_rc=0
+
+  line="$(grep -E "^${variable}=" "$ENV_FILE" 2>/dev/null)" || grep_rc=$?
+  case "$grep_rc" in
+    0) ;;
+    1) line="" ;;
+    *) fail "failed to read ${variable} from $ENV_FILE (grep exit ${grep_rc})" ;;
+  esac
+
+  local value
+  value="$(printf '%s\n' "$line" | tail -1 | cut -d= -f2-)"
+  printf '%s\n' "${value:-$default_path}"
+}
+
 SUDO=""
 if ! docker info >/dev/null 2>&1; then
   SUDO="sudo"
@@ -75,8 +98,7 @@ DOCKER="$SUDO docker"
 
 [[ -f "$ENV_FILE" ]] || fail "env file not found: $ENV_FILE"
 
-DB_DIR="$(grep -E '^DB_HOST_DIR=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-)"
-DB_DIR="${DB_DIR:-/opt/eventcast/media-node/data/db}"
+DB_DIR="$(env_path_or_default DB_HOST_DIR /opt/eventcast/media-node/data/db)"
 
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 DEST="${DEST_BASE%/}/eventcast-backup-${TIMESTAMP}"
