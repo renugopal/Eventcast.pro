@@ -234,6 +234,19 @@ const (
 	// RecordingReporter's own control-plane gating.
 	EnvTelemetryReportInterval = "EVENTCAST_TELEMETRY_REPORT_INTERVAL"
 
+	// AutoFinalizer (internal/autofinalize, Livestream Reliability &
+	// Operations Package). EnvAutoFinalizeEnabled gates only the background
+	// loop - the operator /finalize endpoint and the on_publish finalization
+	// guard are always active. Enabling requires EnvAutoFinalizeRolloutCutoff
+	// (RFC3339): sessions that ended before it are never auto-finalized, so
+	// historical events stay a deliberate operator action.
+	EnvAutoFinalizeEnabled       = "EVENTCAST_AUTOFINALIZE_ENABLED"
+	EnvAutoFinalizeInterval      = "EVENTCAST_AUTOFINALIZE_INTERVAL"
+	EnvAutoFinalizeQuietPeriod   = "EVENTCAST_AUTOFINALIZE_QUIET_PERIOD"
+	EnvAutoFinalizeWindowGrace   = "EVENTCAST_AUTOFINALIZE_WINDOW_GRACE"
+	EnvAutoFinalizeClaimLease    = "EVENTCAST_AUTOFINALIZE_CLAIM_LEASE"
+	EnvAutoFinalizeRolloutCutoff = "EVENTCAST_AUTOFINALIZE_ROLLOUT_CUTOFF"
+
 	// EnvOperatorAPIToken authenticates the internal, state-changing
 	// operator endpoints (VOD finalize trigger, VOD-gap resolution - see
 	// internal/operatorauth). Left empty, these endpoints stay reachable
@@ -335,6 +348,15 @@ const (
 	// response shape and field availability, not any particular polling
 	// cadence.
 	DefaultTelemetryReportInterval = 30 * time.Second
+
+	// AutoFinalizer defaults (locked decision D4: 120s quiet period, 3h
+	// publish-window grace). The claim lease must comfortably exceed the
+	// renewal interval (lease/3); MinAutoFinalizeClaimLease is enforced.
+	DefaultAutoFinalizeInterval    = 30 * time.Second
+	DefaultAutoFinalizeQuietPeriod = 120 * time.Second
+	DefaultAutoFinalizeWindowGrace = 3 * time.Hour
+	DefaultAutoFinalizeClaimLease  = 3 * time.Minute
+	MinAutoFinalizeClaimLease      = 30 * time.Second
 
 	DefaultRateLimitRPS   = 20
 	DefaultRateLimitBurst = 40
@@ -448,6 +470,14 @@ type Config struct {
 	// telemetry to - mirroring RecordingReporter's own gating exactly.
 	SRSAPIBaseURL           string
 	TelemetryReportInterval time.Duration
+
+	// AutoFinalizer; see EnvAutoFinalizeEnabled.
+	AutoFinalizeEnabled       bool
+	AutoFinalizeInterval      time.Duration
+	AutoFinalizeQuietPeriod   time.Duration
+	AutoFinalizeWindowGrace   time.Duration
+	AutoFinalizeClaimLease    time.Duration
+	AutoFinalizeRolloutCutoff time.Time
 
 	// OperatorAPIToken is empty by default; see EnvOperatorAPIToken.
 	OperatorAPIToken logging.Secret
@@ -671,6 +701,40 @@ func Load(getenv func(string) string) (Config, error) {
 	cfg.TelemetryReportInterval, err = parseDurationOrDefault(getenv(EnvTelemetryReportInterval), DefaultTelemetryReportInterval)
 	if err != nil {
 		return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", EnvTelemetryReportInterval, err)
+	}
+
+	cfg.AutoFinalizeEnabled, err = parseBoolOrDefault(getenv(EnvAutoFinalizeEnabled), false)
+	if err != nil {
+		return Config{}, fmt.Errorf("config: %s is not a valid boolean: %w", EnvAutoFinalizeEnabled, err)
+	}
+	for _, d := range []struct {
+		dst *time.Duration
+		env string
+		def time.Duration
+	}{
+		{&cfg.AutoFinalizeInterval, EnvAutoFinalizeInterval, DefaultAutoFinalizeInterval},
+		{&cfg.AutoFinalizeQuietPeriod, EnvAutoFinalizeQuietPeriod, DefaultAutoFinalizeQuietPeriod},
+		{&cfg.AutoFinalizeWindowGrace, EnvAutoFinalizeWindowGrace, DefaultAutoFinalizeWindowGrace},
+		{&cfg.AutoFinalizeClaimLease, EnvAutoFinalizeClaimLease, DefaultAutoFinalizeClaimLease},
+	} {
+		if *d.dst, err = parseDurationOrDefault(getenv(d.env), d.def); err != nil {
+			return Config{}, fmt.Errorf("config: %s is not a valid duration: %w", d.env, err)
+		}
+	}
+	if cfg.AutoFinalizeClaimLease < MinAutoFinalizeClaimLease {
+		return Config{}, fmt.Errorf("config: %s must be at least %s", EnvAutoFinalizeClaimLease, MinAutoFinalizeClaimLease)
+	}
+	if cfg.AutoFinalizeInterval <= 0 || cfg.AutoFinalizeQuietPeriod < 0 || cfg.AutoFinalizeWindowGrace < 0 {
+		return Config{}, fmt.Errorf("config: AutoFinalizer interval must be positive and quiet period/grace non-negative")
+	}
+	if raw := strings.TrimSpace(getenv(EnvAutoFinalizeRolloutCutoff)); raw != "" {
+		if cfg.AutoFinalizeRolloutCutoff, err = time.Parse(time.RFC3339, raw); err != nil {
+			return Config{}, fmt.Errorf("config: %s must be an RFC3339 timestamp: %w", EnvAutoFinalizeRolloutCutoff, err)
+		}
+	}
+	if cfg.AutoFinalizeEnabled && cfg.AutoFinalizeRolloutCutoff.IsZero() {
+		// Fail closed: never let an enabled loop consider historical events.
+		return Config{}, fmt.Errorf("config: %s=true requires %s", EnvAutoFinalizeEnabled, EnvAutoFinalizeRolloutCutoff)
 	}
 
 	cfg.OperatorAPIToken = logging.Secret(getenv(EnvOperatorAPIToken))

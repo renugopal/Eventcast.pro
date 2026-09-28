@@ -65,6 +65,18 @@ type ReadinessResponse struct {
 	// Omitted entirely by the plain ReadinessHandler so existing consumers
 	// see an unchanged response shape.
 	B2 *B2Status `json:"b2,omitempty"`
+	// Signals is informational and NON-GATING - see Signals. Present only
+	// from ReadinessHandlerWithSignals.
+	Signals *Signals `json:"signals,omitempty"`
+}
+
+// Signals are informational /readyz facts that never affect readiness
+// status or the HTTP code (the four gating checks alone decide those).
+type Signals struct {
+	SRSAPI SRSSignal `json:"srs_api"`
+	// UploadLagSeconds is omitted when its local query failed - never a
+	// fabricated 0. 0 means the query succeeded with no backlog.
+	UploadLagSeconds *float64 `json:"upload_lag_seconds,omitempty"`
 }
 
 // ReadinessHandler returns an http.Handler serving GET /readyz. It
@@ -72,17 +84,26 @@ type ReadinessResponse struct {
 // passes, otherwise HTTP 503 with status "not_ready" and the per-check
 // boolean breakdown.
 func ReadinessHandler(checks ReadinessChecks) http.Handler {
-	return readinessHandler(checks, B2Status{}, false)
+	return readinessHandler(checks, B2Status{}, false, nil)
 }
 
 // ReadinessHandlerWithB2 is ReadinessHandler plus the informational B2
 // status object. Kept as a separate constructor so every existing caller
 // and test of ReadinessHandler sees an unchanged response shape.
 func ReadinessHandlerWithB2(checks ReadinessChecks, b2 B2Status) http.Handler {
-	return readinessHandler(checks, b2, true)
+	return readinessHandler(checks, b2, true, nil)
 }
 
-func readinessHandler(checks ReadinessChecks, b2 B2Status, includeB2 bool) http.Handler {
+// ReadinessHandlerWithSignals is ReadinessHandlerWithB2 plus the
+// informational, non-gating signals object. signals must return promptly
+// and must not perform network I/O (the SRS state comes from SRSProbe's
+// cached Snapshot); it runs under the same bounded readiness context, and
+// only AFTER status and HTTP code have been decided from the gating checks.
+func ReadinessHandlerWithSignals(checks ReadinessChecks, b2 B2Status, signals func(ctx context.Context) Signals) http.Handler {
+	return readinessHandler(checks, b2, true, signals)
+}
+
+func readinessHandler(checks ReadinessChecks, b2 B2Status, includeB2 bool, signals func(ctx context.Context) Signals) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.Header().Set("Allow", http.MethodGet)
@@ -115,6 +136,12 @@ func readinessHandler(checks ReadinessChecks, b2 B2Status, includeB2 bool) http.
 		if !ready {
 			status = http.StatusServiceUnavailable
 			resp.Status = "not_ready"
+		}
+		// Status and code are final above; signals are attached afterwards
+		// and can never change either.
+		if signals != nil {
+			s := signals(ctx)
+			resp.Signals = &s
 		}
 
 		w.Header().Set("Content-Type", "application/json")

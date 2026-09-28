@@ -1,6 +1,7 @@
 package upload
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -27,8 +28,16 @@ type finalizeResponse struct {
 // not-yet-eligible call returns finalized=false with a human-readable,
 // secret-free reason rather than an error.
 type FinalizeHandler struct {
-	Finalizer *VODFinalizer
+	Finalizer Finalizer
 	Logger    *slog.Logger
+}
+
+// Finalizer is what FinalizeHandler invokes. *VODFinalizer satisfies it; in
+// production it is internal/autofinalize's claim-guarded operator entry
+// point, so an operator request shares the same claim/registry guard as the
+// background AutoFinalizer.
+type Finalizer interface {
+	Finalize(ctx context.Context, eventID string) (FinalizeResult, error)
 }
 
 func (h *FinalizeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

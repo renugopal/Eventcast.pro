@@ -55,6 +55,17 @@ type Sink struct {
 
 	DBHealthy Gauge
 
+	// AutoFinalizer (internal/autofinalize). Labels are fixed enums only.
+	AutoFinalizeIntents              Gauge   // labels: state
+	AutoFinalizeAttemptsTotal        Counter // labels: result=finalized|not_eligible|failed|superseded
+	AutoFinalizeSkipsTotal           Counter // labels: reason (store.Skip* vocabulary)
+	AutoFinalizeRecoveryTotal        Counter // labels: result=unchanged|new_generation|superseded|srs_active|srs_unavailable|srs_attribution_unknown|not_eligible|finalizer_error
+	AutoFinalizeClaimsRecoveredTotal Counter
+	AutoFinalizeRenewalFailuresTotal Counter
+	// LiveManifestAgeSeconds is the age of the oldest still-current live
+	// manifest publication among active sessions (0 when none are active).
+	LiveManifestAgeSeconds Gauge
+
 	ProcessUptimeSeconds Gauge
 	ShuttingDown         Gauge
 }
@@ -99,6 +110,14 @@ func NewSink(reg *Registry) *Sink {
 		ReconcileLastRunAgeSeconds:     reg.NewGauge("media_agent_reconcile_last_run_age_seconds", "Seconds since the most recent completed reconciliation pass."),
 
 		DBHealthy: reg.NewGauge("media_agent_db_healthy", "1 if the durable SQLite database responded to a health ping."),
+
+		AutoFinalizeIntents:              reg.NewGauge("media_agent_autofinalize_intents", "Current AutoFinalizer intent count by state."),
+		AutoFinalizeAttemptsTotal:        reg.NewCounter("media_agent_autofinalize_attempts_total", "AutoFinalizer finalization attempts by result."),
+		AutoFinalizeSkipsTotal:           reg.NewCounter("media_agent_autofinalize_skips_total", "AutoFinalizer skipped attempts by fixed reason."),
+		AutoFinalizeRecoveryTotal:        reg.NewCounter("media_agent_autofinalize_recovery_total", "Operator recovery re-finalize outcomes by result."),
+		AutoFinalizeClaimsRecoveredTotal: reg.NewCounter("media_agent_autofinalize_claims_recovered_total", "Stale finalization claims deleted at startup."),
+		AutoFinalizeRenewalFailuresTotal: reg.NewCounter("media_agent_autofinalize_renewal_failures_total", "Finalization claim lease renewals that failed."),
+		LiveManifestAgeSeconds:           reg.NewGauge("media_agent_live_manifest_age_seconds", "Age of the oldest current live manifest publication among active sessions."),
 
 		ProcessUptimeSeconds: reg.NewGauge("media_agent_process_uptime_seconds", "Seconds since this process started."),
 		ShuttingDown:         reg.NewGauge("media_agent_shutting_down", "1 once graceful shutdown has begun."),
